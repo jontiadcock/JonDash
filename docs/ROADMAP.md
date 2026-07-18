@@ -60,6 +60,19 @@ test → confirm → your approval → tagged push (version chosen then).
    backup behaviours so future changes can't silently break them. Land within the next few changes.
 7. **"No / low recovery codes" reminder** *(E)* — nudge accounts that have no (or few) backup
    codes to generate a set; closes the gap for accounts created before v1.0.1.
+8. **Shrink the install footprint** — an install is ~26k files, but **97.5% is `node_modules`
+   (25.7k); our own source is ~120 files**. Fix by moving to a lean runtime instead of
+   "download source + full `npm install`". Levers, roughly in order of impact:
+   - **Next.js `output: "standalone"`** — traces only the deps actually used at runtime into a
+     minimal bundle; the standard fix, biggest reduction.
+   - **Drop dev-only deps at runtime** (`npm ci --omit=dev` / prune after build) — a large share
+     of the tree is build/lint tooling (`@typescript-eslint`, `fast-check`, `@babel`, …).
+   - **Ship prebuilt releases** (the standalone build) rather than source that each machine
+     builds — also speeds first-run and simplifies updates.
+   - *Interacts with:* the **auto-update** mechanism (would fetch a prebuilt release, not source
+     + build) and the eventual **VHD appliance** (imaging sidesteps raw file counts).
+   - **Standing rule:** future patches/features should avoid adding heavy dependencies casually
+     and keep the runtime footprint in mind.
 
 **Then — security controls:**
 9. **IP allow / deny** — restrict access to chosen IP ranges; blocked before login.
