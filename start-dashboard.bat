@@ -8,38 +8,45 @@ if exist "C:\Program Files\nodejs\node.exe" set "PATH=C:\Program Files\nodejs;%P
 if exist "C:\Program Files\Git\cmd\git.exe" set "PATH=C:\Program Files\Git\cmd;%PATH%"
 
 REM ----------------------------------------------------------------------------
-REM Stage 1 (first pass): check GitHub for updates, then relaunch the fresh copy
-REM of this script so any update to the launcher itself takes effect cleanly.
+REM Stage 1 (first pass): offer an update, then relaunch a fresh copy of this
+REM script so any change to the launcher itself takes effect cleanly.
 REM ----------------------------------------------------------------------------
 if "%~1"=="_run" goto run
 
 call :check_for_updates
-cmd /c ""%~f0" _run"
+cmd /c ""%~f0" _run first"
 exit /b %errorlevel%
 
 :check_for_updates
 where git >nul 2>nul || goto :eof
 if not exist ".git" (
   echo.
-  echo   [Auto-update off: this copy wasn't cloned with Git.]
-  echo   To get automatic updates, install with:  git clone https://github.com/jontiadcock/JonDash.git
+  echo   [Auto-update off: this copy wasn't installed with Git.]
+  echo   For updates, install with:  git clone https://github.com/jontiadcock/JonDash.git
   goto :eof
 )
 echo.
 echo   Checking GitHub for updates...
 git fetch --quiet origin
 for /f %%i in ('git rev-parse HEAD') do set "LOCAL=%%i"
-for /f %%i in ('git rev-parse @{u}') do set "REMOTE=%%i"
+set "REMOTE=%LOCAL%"
+for /f %%i in ('git rev-parse @{u} 2^>nul') do set "REMOTE=%%i"
 if "%LOCAL%"=="%REMOTE%" (
   echo   You're up to date.
-) else (
-  echo   Update found - downloading the latest version...
-  git pull --ff-only
+  goto :eof
 )
+echo.
+choice /C YN /N /T 30 /D N /M "  An update is available. Install it now? [Y/N] (auto-skip in 30s): "
+if errorlevel 2 goto :update_skipped
+echo   Installing update...
+git pull --ff-only
+goto :eof
+:update_skipped
+echo   Skipping update. You can install it later from the Admin page.
 goto :eof
 
 REM ----------------------------------------------------------------------------
-REM Stage 2 (_run): install, configure, migrate, build, start
+REM Stage 2 (_run): install, configure, migrate, build, start (supervised loop)
 REM ----------------------------------------------------------------------------
 :run
 where node >nul 2>nul
@@ -75,15 +82,27 @@ if errorlevel 1 goto :error
 
 echo.
 echo   ============================================================
-echo     Your dashboard is starting at:  http://localhost:3000
+echo     Your dashboard is running at:  http://localhost:3000
 echo     Leave this window open while you use it.
 echo     Close this window to stop the dashboard.
 echo   ============================================================
 echo.
 
-start "" http://localhost:3000
+if "%~2"=="first" start "" http://localhost:3000
 call npm run start
+
+REM The app exits with this sentinel present when an in-app update was requested.
+if exist ".update-and-restart" goto :do_update
 goto :eof
+
+:do_update
+del ".update-and-restart" >nul 2>nul
+echo.
+echo   Applying the update from GitHub...
+where git >nul 2>nul && git pull --ff-only
+REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
 
 :error
 echo.

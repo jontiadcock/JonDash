@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/guards";
 import { logoutAction } from "@/app/(app)/actions";
+import { UpdateBanner } from "./update-banner";
 
 export default async function AdminLayout({
   children,
@@ -37,6 +38,7 @@ export default async function AdminLayout({
           </div>
         </div>
       </header>
+      <UpdateBanner />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
     </div>
   );
