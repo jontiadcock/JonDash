@@ -3,6 +3,11 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.1] — 2026-07-19
+
+### Added
+- The installed version number is shown in the admin header.
+
 ## [1.1.0] — 2026-07-19
 
 ### Added
@@ -57,6 +62,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.1
 [1.1.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.0
 [1.0.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.3
 [1.0.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.2

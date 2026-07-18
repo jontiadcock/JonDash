@@ -38,6 +38,11 @@ function localVersion(): string {
   }
 }
 
+/** The installed app version (from package.json), for display. */
+export function getAppVersion(): string {
+  return localVersion();
+}
+
 async function fetchManifest(): Promise<{ releases: ReleaseInfo[] } | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);

@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { logoutAction } from "@/app/(app)/actions";
 import { UpdateBanner } from "./update-banner";
 import { AdminNav } from "./admin-nav";
+import { getAppVersion } from "@/lib/update";
 
 export default async function AdminLayout({
   children,
@@ -10,6 +11,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const admin = await requireAdmin();
+  const version = getAppVersion();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -25,6 +27,7 @@ export default async function AdminLayout({
               </span>
               JonDash Admin
             </Link>
+            <span className="text-xs" style={{ color: "var(--muted)" }}>v{version}</span>
             <AdminNav />
           </div>
           <div className="flex items-center gap-3">
