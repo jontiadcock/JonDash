@@ -43,9 +43,10 @@ export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
     const local = await git(["rev-parse", "HEAD"], 3000);
     let behind = 0;
     try {
-      behind = parseInt(await git(["rev-list", "--count", "HEAD..@{u}"], 3000), 10) || 0;
+      // Compare explicitly against origin/main (robust even without branch tracking).
+      behind = parseInt(await git(["rev-list", "--count", "HEAD..origin/main"], 3000), 10) || 0;
     } catch {
-      /* no upstream configured */
+      /* origin/main not available */
     }
     status = {
       gitRepo: true,

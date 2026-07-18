@@ -30,7 +30,7 @@ echo   Checking GitHub for updates...
 git fetch --quiet origin
 for /f %%i in ('git rev-parse HEAD') do set "LOCAL=%%i"
 set "REMOTE=%LOCAL%"
-for /f %%i in ('git rev-parse @{u} 2^>nul') do set "REMOTE=%%i"
+for /f %%i in ('git rev-parse origin/main 2^>nul') do set "REMOTE=%%i"
 if "%LOCAL%"=="%REMOTE%" (
   echo   You're up to date.
   goto :eof
@@ -39,7 +39,7 @@ echo.
 choice /C YN /N /T 30 /D N /M "  An update is available. Install it now? [Y/N] (auto-skip in 30s): "
 if errorlevel 2 goto :update_skipped
 echo   Installing update...
-git pull --ff-only
+git pull --ff-only origin main
 goto :eof
 :update_skipped
 echo   Skipping update. You can install it later from the Admin page.
@@ -99,7 +99,7 @@ goto :eof
 del ".update-and-restart" >nul 2>nul
 echo.
 echo   Applying the update from GitHub...
-where git >nul 2>nul && git pull --ff-only
+where git >nul 2>nul && git pull --ff-only origin main
 REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
 cmd /c ""%~f0" _run"
 exit /b %errorlevel%
