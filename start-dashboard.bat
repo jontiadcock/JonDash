@@ -24,6 +24,12 @@ if not exist "node_modules" (
   if errorlevel 1 goto :error
 )
 
+REM Create default configuration on first run (the database location).
+if not exist ".env" (
+  echo   Creating default configuration...
+  > ".env" echo DATABASE_URL="file:./dev.db"
+)
+
 echo.
 echo   Preparing the database...
 call npm run db:migrate
