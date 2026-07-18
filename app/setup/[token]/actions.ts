@@ -7,11 +7,13 @@ import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import { verifyTotpEncrypted } from "@/lib/auth/totp";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { redirect } from "next/navigation";
 import { audit } from "@/lib/audit";
 import { generateBackupCodes } from "@/lib/auth/backup-codes";
+import { setRevealCodes } from "@/lib/auth/recovery-reveal";
 import { totpCodeSchema } from "@/lib/validation/schemas";
 
-export type SetupState = { error?: string; backupCodes?: string[] };
+export type SetupState = { error?: string };
 
 /** Resolve a valid pending user from a raw setup token, or null. */
 export async function findPendingUserByToken(rawToken: string) {
@@ -71,9 +73,10 @@ export async function finalizeSetupAction(
   });
   await audit("account.setup.complete", { userId: user.id });
 
-  // Issue one-time recovery codes so a lost authenticator can't lock them out.
+  // Issue one-time recovery codes so a lost authenticator can't lock them out;
+  // show them once on the reveal page, then send the user to sign in.
   const backupCodes = await generateBackupCodes(user.id);
   await audit("account.backup_codes.generated", { userId: user.id });
-
-  return { backupCodes };
+  await setRevealCodes(backupCodes, "/login");
+  redirect("/recovery-codes");
 }

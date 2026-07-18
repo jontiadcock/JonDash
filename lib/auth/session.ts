@@ -4,8 +4,8 @@ import type { Session, User } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { isSecureRequest } from "@/lib/request";
+import { getSessionLifetimeMs, getIdleTimeoutMs } from "@/lib/settings";
 
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 // Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
 const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
 // Fixed name (works over http and https). The Secure flag is set automatically
@@ -33,7 +33,7 @@ async function requestMeta() {
 export async function createSession(userId: string): Promise<void> {
   const token = generateToken(32);
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  const expiresAt = new Date(Date.now() + (await getSessionLifetimeMs()));
   const { ip, userAgent } = await requestMeta();
 
   // A fresh session is created right after the second factor (TOTP or backup
@@ -65,8 +65,19 @@ export async function getSessionUser(): Promise<User | null> {
   }
   if (session.user.status !== "ACTIVE") return null;
 
-  // Throttled "last seen" bump for the session activity view.
-  if (Date.now() - session.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+  // Idle timeout: sign out sessions inactive longer than the configured window.
+  const idleMs = await getIdleTimeoutMs();
+  const sinceSeen = Date.now() - session.lastSeenAt.getTime();
+  if (idleMs > 0 && sinceSeen > idleMs) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
+
+  // Throttled "last seen" bump. When an idle timeout is set, refresh more eagerly
+  // than half the window so an active user is never mistaken for idle.
+  const bumpThreshold =
+    idleMs > 0 ? Math.min(LAST_SEEN_THROTTLE_MS, Math.floor(idleMs / 2)) : LAST_SEEN_THROTTLE_MS;
+  if (sinceSeen > bumpThreshold) {
     await prisma.session
       .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
       .catch(() => {});

@@ -1,10 +1,66 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { regenerateBackupCodesAction, type RegenState } from "./actions";
+import {
+  regenerateBackupCodesAction,
+  changePasswordAction,
+  type RegenState,
+  type ChangePwState,
+} from "./actions";
 import { BackupCodesPanel } from "@/app/components/backup-codes-panel";
 
 const initial: RegenState = {};
+const pwInitial: ChangePwState = {};
+
+export function ChangePassword() {
+  const [state, action, pending] = useActionState(changePasswordAction, pwInitial);
+  const [open, setOpen] = useState(false);
+
+  if (state.success) {
+    return <p className="text-sm" style={{ color: "var(--primary)" }}>{state.success}</p>;
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="btn btn-ghost !py-1.5 !px-3 text-sm self-start"
+        onClick={() => setOpen(true)}
+      >
+        Change password
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} className="flex max-w-sm flex-col gap-3">
+      <div>
+        <label className="label" htmlFor="current">Current password</label>
+        <input id="current" name="current" type="password" autoComplete="current-password" required className="input" />
+      </div>
+      <div>
+        <label className="label" htmlFor="next">New password</label>
+        <input id="next" name="next" type="password" autoComplete="new-password" required minLength={12} className="input" />
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          At least 12 characters, using three of: lowercase, uppercase, numbers, symbols.
+        </p>
+      </div>
+      <div>
+        <label className="label" htmlFor="confirm">Confirm new password</label>
+        <input id="confirm" name="confirm" type="password" autoComplete="new-password" required minLength={12} className="input" />
+      </div>
+      {state.error && <p className="form-error">{state.error}</p>}
+      <div className="flex gap-2">
+        <button type="submit" className="btn btn-primary" disabled={pending}>
+          {pending ? "Changing…" : "Change password"}
+        </button>
+        <button type="button" className="btn btn-ghost text-sm" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
 
 export function RegenerateBackupCodes({ remaining, total }: { remaining: number; total: number }) {
   const [state, action, pending] = useActionState(regenerateBackupCodesAction, initial);

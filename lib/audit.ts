@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getAuditRetentionDays } from "@/lib/settings";
 
 /** Append a security-relevant event to the audit log (best-effort). */
 export async function audit(
@@ -21,5 +22,21 @@ export async function audit(
     });
   } catch {
     // Never let audit logging break the primary flow.
+  }
+}
+
+/**
+ * Delete audit events older than the configured retention window. Returns the
+ * number removed. A retention of 0 means "keep forever" (no-op). Best-effort.
+ */
+export async function pruneAuditLog(): Promise<number> {
+  try {
+    const days = await getAuditRetentionDays();
+    if (days <= 0) return 0;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const res = await prisma.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    return res.count;
+  } catch {
+    return 0;
   }
 }

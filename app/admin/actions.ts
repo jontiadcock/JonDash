@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getRequestOrigin } from "@/lib/request";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -143,6 +144,8 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   await prisma.user.delete({ where: { id: user.id } }); // cascades sessions + links
   await audit("admin.user.delete", { userId: admin.id, detail: user.email });
   revalidatePath("/admin");
+  // The user's detail page no longer exists — send the admin back to the list.
+  redirect("/admin");
 }
 
 // ---- Links -----------------------------------------------------------------
@@ -157,10 +160,10 @@ async function processOptionalIcon(formData: FormData): Promise<
   return { ok: true, filename: result.filename };
 }
 
-/** Revalidate the page that owns a link (a user's page or a role's page). */
+/** Revalidate the page that owns a link (a user's page or a service group's page). */
 function revalidateLinkOwner(link: { userId: string | null; roleId: string | null }) {
   if (link.userId) revalidatePath(`/admin/users/${link.userId}`);
-  if (link.roleId) revalidatePath(`/admin/roles/${link.roleId}`);
+  if (link.roleId) revalidatePath(`/admin/service-groups/${link.roleId}`);
 }
 
 export async function createLinkAction(
@@ -292,7 +295,8 @@ export async function createRoleAction(
 
   await prisma.serviceRole.create({ data: { name: parsed.data } });
   await audit("admin.role.create", { userId: admin.id, detail: parsed.data });
-  revalidatePath("/admin");
+  // Roles appear as checkboxes on every user page — refresh the whole admin tree.
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 
@@ -313,8 +317,8 @@ export async function renameRoleAction(
   if (clash) return { error: "Another role already has that name." };
 
   await prisma.serviceRole.update({ where: { id }, data: { name: parsed.data } });
-  revalidatePath("/admin");
-  revalidatePath(`/admin/roles/${id}`);
+  // Role name shows on user pages too — refresh the whole admin tree.
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 
@@ -332,7 +336,10 @@ export async function deleteRoleAction(formData: FormData): Promise<void> {
   for (const link of role.links) await deleteIcon(link.iconPath);
   await prisma.serviceRole.delete({ where: { id } }); // cascades its links + assignments
   await audit("admin.role.delete", { userId: admin.id, detail: role.name });
-  revalidatePath("/admin");
+  // The group was a checkbox on every user page — refresh the whole admin tree.
+  revalidatePath("/admin", "layout");
+  // The group's detail page no longer exists — send the admin back to the list.
+  redirect("/admin/service-groups");
 }
 
 export async function createRoleLinkAction(
@@ -370,7 +377,7 @@ export async function createRoleLinkAction(
   });
 
   await audit("admin.role.link.create", { userId: admin.id, detail: `${role.name}: ${parsed.data.title}` });
-  revalidatePath(`/admin/roles/${roleId}`);
+  revalidatePath(`/admin/service-groups/${roleId}`);
   return { ok: true };
 }
 

@@ -78,19 +78,19 @@ export default async function ManageUserPage({
         )}
       </section>
 
-      {/* Roles */}
+      {/* Service groups */}
       <section className="card p-6">
-        <h2 className="mb-1 text-lg font-semibold">Roles</h2>
+        <h2 className="mb-1 text-lg font-semibold">Service Groups</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Tick the roles this user should have. They’ll see every service in each ticked role.
+          Tick the service groups this user should have. They’ll see every service in each ticked group.
         </p>
         {allRoles.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            No roles exist yet. Create one from the{" "}
-            <Link href="/admin" className="underline">
-              admin home page
-            </Link>
-            .
+            No service groups exist yet. Create one from the{" "}
+            <Link href="/admin/service-groups" className="underline">
+              Service Groups
+            </Link>{" "}
+            page.
           </p>
         ) : (
           <form action={setUserRolesAction} className="flex flex-col gap-3">
@@ -115,7 +115,7 @@ export default async function ManageUserPage({
             </div>
             <div>
               <button type="submit" className="btn btn-primary text-sm">
-                Save roles
+                Save groups
               </button>
             </div>
           </form>
@@ -126,7 +126,7 @@ export default async function ManageUserPage({
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Personal services</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Extra tiles just for this user, in addition to any from their roles.
+          Extra tiles just for this user, in addition to any from their service groups.
         </p>
         <CreateLinkForm userId={user.id} />
         <div className="mt-6">

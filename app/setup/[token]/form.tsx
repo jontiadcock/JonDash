@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { finalizeSetupAction, type SetupState } from "./actions";
-import { BackupCodesPanel } from "@/app/components/backup-codes-panel";
 
 const initial: SetupState = {};
 
@@ -17,24 +15,6 @@ export function SetupForm({
   secret: string;
 }) {
   const [state, action, pending] = useActionState(finalizeSetupAction, initial);
-
-  // Setup succeeded — show the one-time recovery codes before sign-in.
-  if (state.backupCodes) {
-    return (
-      <div className="flex flex-col gap-5">
-        <div className="text-center">
-          <p className="font-medium">Account ready 🎉</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Before you sign in, save your recovery codes.
-          </p>
-        </div>
-        <BackupCodesPanel codes={state.backupCodes} />
-        <Link href="/login" className="btn btn-primary text-center">
-          I’ve saved them — continue to sign in
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <form action={action} className="flex flex-col gap-5">

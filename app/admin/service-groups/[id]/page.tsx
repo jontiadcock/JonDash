@@ -6,7 +6,7 @@ import { RenameRoleForm, CreateRoleLinkForm, ConfirmSubmit } from "@/app/admin/u
 import { deleteRoleAction } from "@/app/admin/actions";
 import { LinkList } from "@/app/admin/link-list";
 
-export default async function ManageRolePage({
+export default async function ManageServiceGroupPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -14,60 +14,60 @@ export default async function ManageRolePage({
   await requireAdmin();
   const { id } = await params;
 
-  const role = await prisma.serviceRole.findUnique({
+  const group = await prisma.serviceRole.findUnique({
     where: { id },
     include: {
       links: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       users: { orderBy: { email: "asc" }, select: { id: true, email: true } },
     },
   });
-  if (!role) notFound();
+  if (!group) notFound();
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link href="/admin" className="text-sm" style={{ color: "var(--muted)" }}>
-          ← Back to admin
+        <Link href="/admin/service-groups" className="text-sm" style={{ color: "var(--muted)" }}>
+          ← Back to service groups
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{role.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{group.name}</h1>
           <div className="flex items-center gap-2">
-            <RenameRoleForm role={{ id: role.id, name: role.name }} />
+            <RenameRoleForm role={{ id: group.id, name: group.name }} />
             <form action={deleteRoleAction}>
-              <input type="hidden" name="id" value={role.id} />
+              <input type="hidden" name="id" value={group.id} />
               <ConfirmSubmit
                 className="btn btn-danger"
-                message={`Delete the “${role.name}” role? Its services will be removed from everyone who has this role.`}
+                message={`Delete the “${group.name}” service group? Its services will be removed from everyone who has this group.`}
               >
-                Delete role
+                Delete group
               </ConfirmSubmit>
             </form>
           </div>
         </div>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {role.links.length} service(s) · {role.users.length} member(s)
+          {group.links.length} service(s) · {group.users.length} member(s)
         </p>
       </div>
 
       <section className="card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Add a service to this role</h2>
-        <CreateRoleLinkForm roleId={role.id} />
+        <h2 className="mb-4 text-lg font-semibold">Add a service to this group</h2>
+        <CreateRoleLinkForm roleId={group.id} />
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Services in this role ({role.links.length})</h2>
-        <LinkList links={role.links} />
+        <h2 className="mb-4 text-lg font-semibold">Services in this group ({group.links.length})</h2>
+        <LinkList links={group.links} />
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-2 text-lg font-semibold">Members ({role.users.length})</h2>
-        {role.users.length === 0 ? (
+        <h2 className="mb-2 text-lg font-semibold">Members ({group.users.length})</h2>
+        {group.users.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            No one has this role yet. Assign it from a user’s page.
+            No one has this group yet. Assign it from a user’s page.
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {role.users.map((u) => (
+            {group.users.map((u) => (
               <li key={u.id}>
                 <Link
                   href={`/admin/users/${u.id}`}

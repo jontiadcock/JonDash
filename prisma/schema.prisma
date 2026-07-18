@@ -142,4 +142,21 @@ model AuditLog {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([action])
+}
+
+// Typed key/value configuration store. Scope is "global" (ownerId ""), or later
+// "user"/"module" (ownerId = userId/moduleKey). valueJson is JSON-encoded; when
+// `secret` is set it is encrypted at rest (AES-256-GCM) via lib/crypto.
+model Setting {
+  id        String   @id @default(cuid())
+  scope     String   @default("global")
+  ownerId   String   @default("")
+  key       String
+  valueJson String
+  secret    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, ownerId, key])
 }

@@ -26,34 +26,52 @@ later**; for now we build the basis on **Windows** (the `start-dashboard.bat` la
 Order = quick + security first, biggest/most complex last. Each ships only after
 test → confirm → your approval → tagged push (version chosen then).
 
-**Now / next — small + security (you asked for these soon):**
-1. **2FA backup codes** ✅ *(implemented — pending release)* — one-time recovery codes issued
-   at setup, usable at the login second-factor step, regenerable from the account page.
-2. **Backup & restore** ✅ *(implemented — pending release)* — admin export with category
-   selection (roles, users, icons, audit); accounts only leave encrypted (passphrase). Restore
-   is a step-up-gated, type-"Everything" full replace.
-3. **Session manager** ✅ *(implemented — pending release)* — users see & revoke their own
-   sessions (device, coarse geo-location, last active); admins see & revoke all sessions.
+**Shipped — v1.0.1 (2026-07-18):**
+- **2FA backup codes** ✅ — one-time recovery codes issued at setup, usable at the login
+  second-factor step, regenerable from the account page.
+- **Backup & restore** ✅ — admin export with category selection (roles, users, icons, audit);
+  accounts only leave encrypted (passphrase). Restore is a step-up-gated, type-"Everything"
+  full replace.
+- **Session manager** ✅ — users see & revoke their own sessions (device, coarse geo-location,
+  last active); admins see & revoke all sessions.
+- *Also landed:* step-up auth (fresh-TOTP gate for major destructive actions),
+  `totpVerifiedAt` session tracking, and a best-effort GeoIP service (failover + cache).
 
-*Also landed with the above:* step-up auth (fresh-TOTP gate for major destructive actions),
-`totpVerifiedAt` session tracking, and a best-effort GeoIP service (failover + cache).
+**Shipped — v1.0.2 (2026-07-19):**
+- **Admin audit-log viewer** ✅ *(B)* — `/admin/audit` with user/action filters + retention auto-prune.
+- **Account self-service** ✅ *(D)* — change password (signs out other sessions) and two-step
+  authenticator re-enrolment from `/account`.
+- **Settings store** ✅ — global config (sign-in message, session lifetime, idle timeout, audit
+  retention) at `/admin/settings`, with wired consumers.
+- *Also landed:* recovery-codes one-time reveal page; in-page confirm modals (no OS popups);
+  admin nav dropdown; **Roles → "Service Groups"** rename + restructure; delete-redirect &
+  role-revalidation fixes.
 
-**Then — security controls + account self-service:**
-4. **Settings store** — a small internal place to hold configuration (needed by the items below).
-5. **IP allow / deny** — restrict access to chosen IP ranges; blocked before login.
-6. **Email + self-service password reset** — configure email so passwords can be reset.
-7. **Country allow / deny** — allow/block by country via external lookup (with backup provider).
-8. **Trusted-IP auto-login** — no-login access from a trusted IP, with the disclaimer + warnings.
+**Next main focuses (immediate):**
+6. **Automated test + CI suite** *(A)* — regression tests that lock in auth / RBAC / IDOR /
+   backup behaviours so future changes can't silently break them. Land within the next few changes.
+7. **"No / low recovery codes" reminder** *(E)* — nudge accounts that have no (or few) backup
+   codes to generate a set; closes the gap for accounts created before v1.0.1.
+
+**Then — security controls:**
+9. **IP allow / deny** — restrict access to chosen IP ranges; blocked before login.
+   *(Prereq: strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
+   known reverse proxy or it's spoofable.)*
+10. **Email + self-service password reset** — configure email so passwords can be reset.
+11. **Country allow / deny** — allow/block by country via external lookup (with backup provider).
+12. **Session lifecycle hardening** *(G)* — idle timeout + token rotation on privilege change
+    (review finding #5); the logical follow-up now that sessions are visible.
+13. **Trusted-IP auto-login** — no-login access from a trusted IP, with the disclaimer + warnings.
 
 **Bigger — the customization platform:**
-9. **Addon / module framework** — the plumbing that lets features & widgets plug in.
-10. **Live widgets + layout** — widgets showing live data (crypto, PC temps, service status)
+14. **Addon / module framework** — the plumbing that lets features & widgets plug in.
+15. **Live widgets + layout** — widgets showing live data (crypto, PC temps, service status)
     on a dashboard you arrange yourself.
-11. **Official Addons page** — browse / install / configure addons from your in-repo list.
+16. **Official Addons page** — browse / install / configure addons from your in-repo list.
 
 **Later — big conversions:**
-12. **Third-party addons** (authors build their own) — deferred.
-13. **VHD appliance** — package everything as a bootable VM image for a hypervisor.
+17. **Third-party addons** (authors build their own) — deferred.
+18. **VHD appliance** — package everything as a bootable VM image for a hypervisor.
 
 ---
 

@@ -11,6 +11,7 @@ import {
   createRoleLinkAction,
   type AdminState,
 } from "./actions";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
 
 const initial: AdminState = {};
 
@@ -86,18 +87,16 @@ export function ResetAccessForm({ userId }: { userId: string }) {
   const [state, action, pending] = useActionState(resetAccessAction, initial);
   return (
     <div>
-      <form
-        action={action}
-        onSubmit={(e) => {
-          if (!confirm("Reset this user's access? Their password and 2FA will be cleared and all sessions ended.")) {
-            e.preventDefault();
-          }
-        }}
-      >
+      <form action={action}>
         <input type="hidden" name="userId" value={userId} />
-        <button type="submit" className="btn btn-danger" disabled={pending}>
+        <ConfirmSubmit
+          className="btn btn-danger"
+          pending={pending}
+          confirmLabel="Reset access"
+          message="Reset this user's access? Their password and 2FA will be cleared and all sessions ended."
+        >
           {pending ? "Resetting…" : "Reset access"}
-        </button>
+        </ConfirmSubmit>
       </form>
       {state.error && <p className="form-error mt-2">{state.error}</p>}
       {state.setupUrl && <SetupLinkBox url={state.setupUrl} />}
@@ -195,21 +194,41 @@ export function ConfirmSubmit({
   children,
   message,
   className,
+  confirmLabel = "Confirm",
+  pending,
 }: {
   children: React.ReactNode;
   message: string;
   className?: string;
+  confirmLabel?: string;
+  pending?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <button
-      type="submit"
-      className={className}
-      onClick={(e) => {
-        if (!confirm(message)) e.preventDefault();
-      }}
-    >
-      {children}
-    </button>
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        className={className}
+        disabled={pending}
+        onClick={() => setOpen(true)}
+      >
+        {children}
+      </button>
+      <ConfirmDialog
+        open={open}
+        message={message}
+        confirmLabel={confirmLabel}
+        onCancel={() => setOpen(false)}
+        onConfirm={() => {
+          setOpen(false);
+          // Submit the owning form, which carries the server action.
+          btnRef.current?.form?.requestSubmit();
+        }}
+      />
+    </>
   );
 }
 
@@ -225,12 +244,12 @@ export function CreateRoleForm() {
       <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="label" htmlFor="role-name">
-            Role name
+            Service group name
           </label>
           <input id="role-name" name="name" required maxLength={60} className="input" placeholder="e.g. Sales team" />
         </div>
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Creating…" : "Create role"}
+          {pending ? "Creating…" : "Create service group"}
         </button>
       </form>
       {state.error && <p className="form-error mt-2">{state.error}</p>}
@@ -254,7 +273,7 @@ export function RenameRoleForm({ role }: { role: { id: string; name: string } })
     <form action={action} className="flex items-end gap-2">
       <input type="hidden" name="id" value={role.id} />
       <div>
-        <label className="label">Role name</label>
+        <label className="label">Service group name</label>
         <input name="name" required maxLength={60} defaultValue={role.name} className="input" />
       </div>
       <button type="submit" className="btn btn-primary !py-1.5 text-sm" disabled={pending}>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/guards";
-import { CreateUserForm, CreateRoleForm } from "./ui";
+import { CreateUserForm } from "./ui";
 
 const statusStyles: Record<string, string> = {
   ACTIVE: "var(--primary)",
@@ -14,10 +14,6 @@ export default async function AdminHome() {
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { links: true } }, serviceRoles: { select: { id: true } } },
-  });
-  const roles = await prisma.serviceRole.findMany({
-    orderBy: { name: "asc" },
-    include: { _count: { select: { links: true, users: true } } },
   });
 
   return (
@@ -42,7 +38,7 @@ export default async function AdminHome() {
                 <th className="px-5 py-3 font-medium">Email</th>
                 <th className="px-5 py-3 font-medium">Access</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Roles</th>
+                <th className="px-5 py-3 font-medium">Groups</th>
                 <th className="px-5 py-3 font-medium">Tiles</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -80,54 +76,6 @@ export default async function AdminHome() {
                 <tr>
                   <td colSpan={6} className="px-5 py-8 text-center" style={{ color: "var(--muted)" }}>
                     No users yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-1 text-2xl font-semibold tracking-tight">Roles</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          A role is a bundle of services. Assign a role to users and they all get its tiles.
-        </p>
-      </section>
-
-      <section className="card p-6">
-        <h3 className="mb-4 text-lg font-semibold">Create a new role</h3>
-        <CreateRoleForm />
-      </section>
-
-      <section className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ color: "var(--muted)" }} className="text-left">
-                <th className="px-5 py-3 font-medium">Role</th>
-                <th className="px-5 py-3 font-medium">Services</th>
-                <th className="px-5 py-3 font-medium">Members</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {roles.map((r) => (
-                <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <td className="px-5 py-3 font-medium">{r.name}</td>
-                  <td className="px-5 py-3">{r._count.links}</td>
-                  <td className="px-5 py-3">{r._count.users}</td>
-                  <td className="px-5 py-3 text-right">
-                    <Link href={`/admin/roles/${r.id}`} className="btn btn-ghost !py-1.5 !px-3 text-sm">
-                      Manage
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {roles.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center" style={{ color: "var(--muted)" }}>
-                    No roles yet.
                   </td>
                 </tr>
               )}
