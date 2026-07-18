@@ -1,0 +1,123 @@
+// Prisma schema for the secure per-user services dashboard.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  PENDING_SETUP
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id       String     @id @default(cuid())
+  email    String     @unique
+  role     Role       @default(USER)
+  status   UserStatus @default(PENDING_SETUP)
+
+  // Set during account setup.
+  passwordHash String?
+
+  // TOTP secret, encrypted at rest (AES-256-GCM). Never store in plaintext.
+  totpSecretEnc String?
+  mfaEnabled    Boolean @default(false)
+
+  // One-time setup token (stored hashed) handed to the user by the admin.
+  setupTokenHash      String?   @unique
+  setupTokenExpiresAt DateTime?
+
+  // Brute-force protection.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  links    Link[]
+  auditLogs AuditLog[]
+
+  // Roles (named service bundles) assigned to this user.
+  serviceRoles ServiceRole[] @relation("UserServiceRoles")
+
+  @@index([status])
+}
+
+// A named bundle of service tiles. Any user assigned this role sees its links.
+model ServiceRole {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  users User[] @relation("UserServiceRoles")
+  links Link[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Opaque session token, stored hashed (SHA-256). The raw token lives only in the cookie.
+  tokenHash String   @unique
+
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// A service tile. Belongs to EITHER a user (personal tile) or a role (shared
+// tile) — exactly one of userId / roleId is set (enforced in application code).
+model Link {
+  id        String   @id @default(cuid())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  roleId    String?
+  role      ServiceRole? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  title     String
+  url       String
+  // Filename (random) of the stored icon under uploads/icons; served via /api/icons/[id].
+  iconPath  String?
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, sortOrder])
+  @@index([roleId, sortOrder])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action    String
+  ip        String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}

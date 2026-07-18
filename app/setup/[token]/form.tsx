@@ -1,0 +1,101 @@
+"use client";
+
+import { useActionState } from "react";
+import { finalizeSetupAction, type SetupState } from "./actions";
+
+const initial: SetupState = {};
+
+export function SetupForm({
+  token,
+  qrDataUrl,
+  secret,
+}: {
+  token: string;
+  qrDataUrl: string;
+  secret: string;
+}) {
+  const [state, action, pending] = useActionState(finalizeSetupAction, initial);
+
+  return (
+    <form action={action} className="flex flex-col gap-5">
+      <input type="hidden" name="token" value={token} />
+
+      <div>
+        <label className="label" htmlFor="password">
+          Create a password
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={12}
+          className="input"
+          placeholder="At least 12 characters"
+        />
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          Minimum 12 characters, using at least three of: lowercase, uppercase, numbers, symbols.
+        </p>
+      </div>
+
+      <div>
+        <label className="label" htmlFor="confirm">
+          Confirm password
+        </label>
+        <input
+          id="confirm"
+          name="confirm"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={12}
+          className="input"
+        />
+      </div>
+
+      <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
+        <p className="label mb-3">Set up two-factor authentication</p>
+        <div className="flex items-center gap-4">
+          {/* Data-URL QR; plain img is appropriate here. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qrDataUrl}
+            alt="TOTP QR code"
+            width={132}
+            height={132}
+            className="rounded-lg bg-white p-1"
+          />
+          <div className="text-xs" style={{ color: "var(--muted)" }}>
+            <p>Scan with Google Authenticator, Authy, 1Password, etc.</p>
+            <p className="mt-2">Or enter this key manually:</p>
+            <code className="mt-1 block break-all font-mono text-[11px]">{secret}</code>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="label" htmlFor="code">
+          Enter the 6-digit code to confirm
+        </label>
+        <input
+          id="code"
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="\d{6}"
+          maxLength={6}
+          required
+          className="input tracking-[0.4em] text-center text-lg"
+          placeholder="000000"
+        />
+      </div>
+
+      {state.error && <p className="form-error">{state.error}</p>}
+
+      <button type="submit" className="btn btn-primary" disabled={pending}>
+        {pending ? "Finishing…" : "Complete setup"}
+      </button>
+    </form>
+  );
+}

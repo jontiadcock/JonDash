@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($node = \\(Get-Command node -ErrorAction SilentlyContinue\\); if \\($node\\) { node --version; npm --version; Write-Output $node.Source } else { Write-Output \"NODE_NOT_FOUND\" })",
+      "PowerShell(Write-Output \"=== Common Node paths ===\"; @\\(\"$env:ProgramFiles\\\\nodejs\\\\node.exe\",\"${env:ProgramFiles\\(x86\\)}\\\\nodejs\\\\node.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\",\"$env:APPDATA\\\\npm\\\\node.exe\"\\) | ForEach-Object { if \\(Test-Path $_\\) { Write-Output \"FOUND: $_\" } }; Write-Output \"=== nvm ===\"; if \\(Get-Command nvm -ErrorAction SilentlyContinue\\) { nvm version } else { Write-Output \"no nvm\" }; Write-Output \"=== winget ===\"; if \\(Get-Command winget -ErrorAction SilentlyContinue\\) { Write-Output \"winget available\" } else { Write-Output \"no winget\" }; Write-Output \"=== fnm/volta ===\"; @\\(\"fnm\",\"volta\"\\) | ForEach-Object { if \\(Get-Command $_ -ErrorAction SilentlyContinue\\) { Write-Output \"$_ available\" } })",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)"
+    ]
+  }
+}
