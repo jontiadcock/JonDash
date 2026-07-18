@@ -51,6 +51,10 @@ test → confirm → your approval → tagged push (version chosen then).
 - **LAN access fix** ✅ — only emit CSP `upgrade-insecure-requests` when actually served over
   HTTPS; over plain HTTP (e.g. a LAN IP) it was forcing CSS/JS to https:// and breaking styling.
 
+**Shipped — v1.1.0 (2026-07-19):**
+- **Public, source-available release** ✅ (view-only LICENSE) with **credential-free auto-update**
+  from the public repo — no Git or token; shows each update's type + priority; opt-in.
+
 **Next main focuses (immediate):**
 6. **Automated test + CI suite** *(A)* — regression tests that lock in auth / RBAC / IDOR /
    backup behaviours so future changes can't silently break them. Land within the next few changes.

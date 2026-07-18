@@ -3,6 +3,18 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.0] — 2026-07-19
+
+### Added
+- Public, source-available release under a view-only license.
+- **Credential-free auto-update**: checks the public repo (no Git or token needed,
+  works with ZIP installs) and shows each update's version, **type** (major / minor /
+  security) and **priority** before you choose to install it (opt-in).
+
+### Changed
+- The launcher and the admin "update available" banner now display the update's type
+  and priority, and download/install from the public repo.
+
 ## [1.0.3] — 2026-07-19
 
 ### Fixed
@@ -45,6 +57,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.0
 [1.0.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.3
 [1.0.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.2
 [1.0.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.1

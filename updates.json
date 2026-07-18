@@ -1,0 +1,39 @@
+{
+  "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-07-19",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Credential-free auto-update from the public repo, showing each update's type and priority."
+    },
+    {
+      "version": "1.0.3",
+      "date": "2026-07-19",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Fixes broken styling when the dashboard is opened over a LAN IP address."
+    },
+    {
+      "version": "1.0.2",
+      "date": "2026-07-19",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Adds Settings, Audit log, and account self-service; renames Roles to Service Groups."
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-07-18",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Adds two-factor backup codes, the session manager, and backup & restore."
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-07-18",
+      "type": "major",
+      "criticality": "optional",
+      "summary": "Initial release."
+    }
+  ]
+}

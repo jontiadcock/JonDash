@@ -3,9 +3,8 @@ setlocal
 title JonDash
 cd /d "%~dp0"
 
-REM Make sure Node.js and Git are reachable even if PATH hasn't refreshed.
+REM Make sure Node.js is reachable even if PATH hasn't refreshed.
 if exist "C:\Program Files\nodejs\node.exe" set "PATH=C:\Program Files\nodejs;%PATH%"
-if exist "C:\Program Files\Git\cmd\git.exe" set "PATH=C:\Program Files\Git\cmd;%PATH%"
 
 REM ----------------------------------------------------------------------------
 REM Stage 1 (first pass): offer an update, then relaunch a fresh copy of this
@@ -18,28 +17,18 @@ cmd /c ""%~f0" _run first"
 exit /b %errorlevel%
 
 :check_for_updates
-where git >nul 2>nul || goto :eof
-if not exist ".git" (
-  echo.
-  echo   [Auto-update off: this copy wasn't installed with Git.]
-  echo   For updates, install with:  git clone https://github.com/jontiadcock/JonDash.git
-  goto :eof
-)
+where node >nul 2>nul || goto :eof
+if not exist "scripts\update.mjs" goto :eof
 echo.
 echo   Checking GitHub for updates...
-git fetch --quiet origin
-for /f %%i in ('git rev-parse HEAD') do set "LOCAL=%%i"
-set "REMOTE=%LOCAL%"
-for /f %%i in ('git rev-parse origin/main 2^>nul') do set "REMOTE=%%i"
-if "%LOCAL%"=="%REMOTE%" (
-  echo   You're up to date.
-  goto :eof
-)
+node "scripts\update.mjs" check
+REM Exit code 10 from the checker means an update is available.
+if not errorlevel 10 goto :eof
 echo.
-choice /C YN /N /T 30 /D N /M "  An update is available. Install it now? [Y/N] (auto-skip in 30s): "
+choice /C YN /N /T 30 /D N /M "  Install this update now? [Y/N] (auto-skip in 30s): "
 if errorlevel 2 goto :update_skipped
 echo   Installing update...
-git pull --ff-only origin main
+node "scripts\update.mjs" apply
 goto :eof
 :update_skipped
 echo   Skipping update. You can install it later from the Admin page.
@@ -99,7 +88,7 @@ goto :eof
 del ".update-and-restart" >nul 2>nul
 echo.
 echo   Applying the update from GitHub...
-where git >nul 2>nul && git pull --ff-only origin main
+node "scripts\update.mjs" apply
 REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
 cmd /c ""%~f0" _run"
 exit /b %errorlevel%

@@ -4,9 +4,24 @@ import { useEffect, useState } from "react";
 
 type Phase = "idle" | "available" | "updating" | "error";
 
+type Release = { version: string; type: string; criticality: string; summary: string };
+
+const TYPE_LABEL: Record<string, string> = {
+  major: "Major update",
+  minor: "Minor update",
+  patch: "Security / bug-fix",
+};
+
+const CRIT_COLOR: Record<string, string> = {
+  critical: "#dc2626",
+  recommended: "#d97706",
+  optional: "var(--muted)",
+};
+
 export function UpdateBanner() {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [behind, setBehind] = useState(0);
+  const [current, setCurrent] = useState<string | null>(null);
+  const [release, setRelease] = useState<Release | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Check once on mount.
@@ -15,8 +30,9 @@ export function UpdateBanner() {
     fetch("/api/update/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((s) => {
-        if (active && s?.updateAvailable) {
-          setBehind(s.behind ?? 0);
+        if (active && s?.updateAvailable && s.release) {
+          setCurrent(s.current ?? null);
+          setRelease(s.release);
           setPhase("available");
         }
       })
@@ -74,11 +90,23 @@ export function UpdateBanner() {
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm"
         style={{ borderColor: "var(--primary)", background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}
       >
-        {phase === "available" && (
+        {phase === "available" && release && (
           <>
-            <span>
-              <strong>An update is available</strong>
-              {behind > 0 ? ` — ${behind} new change${behind === 1 ? "" : "s"}.` : "."}
+            <span className="min-w-0">
+              <strong>Update available — v{release.version}</strong>
+              {current ? <span style={{ color: "var(--muted)" }}> (you have v{current})</span> : null}
+              <span className="ml-2 rounded px-1.5 py-0.5 text-xs" style={{ background: "var(--surface-2)" }}>
+                {TYPE_LABEL[release.type] ?? release.type}
+              </span>
+              <span
+                className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium"
+                style={{ color: CRIT_COLOR[release.criticality] ?? "var(--muted)" }}
+              >
+                {release.criticality} priority
+              </span>
+              <span className="mt-1 block text-xs" style={{ color: "var(--muted)" }}>
+                {release.summary}
+              </span>
             </span>
             <button type="button" className="btn btn-primary !py-1.5 text-sm" onClick={applyUpdate}>
               Update now

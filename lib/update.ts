@@ -1,61 +1,86 @@
 import "server-only";
-import { promisify } from "node:util";
-import { execFile as execFileCb } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { isNewer, type ReleaseType } from "@/lib/version";
 
-const execFile = promisify(execFileCb);
 const REPO_DIR = process.cwd();
 export const RESTART_SENTINEL = path.join(REPO_DIR, ".update-and-restart");
 
+// Public repo — the update manifest is read without any credentials.
+const REPO = process.env.UPDATE_REPO ?? "jontiadcock/JonDash";
+const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO}/main/updates.json`;
+
+export type ReleaseInfo = {
+  version: string;
+  type: ReleaseType | string;
+  criticality: string;
+  summary: string;
+};
+
 export type UpdateStatus = {
-  gitRepo: boolean; // is this a git clone (auto-update capable)?
+  supported: boolean; // build supports self-update
   updateAvailable: boolean;
-  behind: number; // how many commits behind origin
-  current: string | null;
+  current: string; // local version (from package.json)
+  latest: string | null;
+  release: ReleaseInfo | null; // details of the newest release
+  reason?: string; // any soft error (e.g. offline)
 };
 
 let cache: { at: number; status: UpdateStatus } | null = null;
 const CACHE_MS = 3 * 60 * 1000;
 
-async function git(args: string[], timeoutMs = 8000): Promise<string> {
-  const { stdout } = await execFile("git", args, {
-    cwd: REPO_DIR,
-    timeout: timeoutMs,
-    windowsHide: true,
-  });
-  return stdout.trim();
+function localVersion(): string {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_DIR, "package.json"), "utf8"));
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+async function fetchManifest(): Promise<{ releases: ReleaseInfo[] } | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(MANIFEST_URL, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": "JonDash-Updater", Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return JSON.parse(await res.text());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 /** Check whether a newer version exists on GitHub. Cached briefly. */
 export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
 
-  let status: UpdateStatus = { gitRepo: false, updateAvailable: false, behind: 0, current: null };
-  try {
-    await git(["rev-parse", "--is-inside-work-tree"], 3000);
-    // Refresh remote state; tolerate offline / auth issues.
-    try {
-      await git(["fetch", "--quiet", "origin"], 8000);
-    } catch {
-      /* offline or no credentials — fall back to last-known remote */
-    }
-    const local = await git(["rev-parse", "HEAD"], 3000);
-    let behind = 0;
-    try {
-      // Compare explicitly against origin/main (robust even without branch tracking).
-      behind = parseInt(await git(["rev-list", "--count", "HEAD..origin/main"], 3000), 10) || 0;
-    } catch {
-      /* origin/main not available */
-    }
+  const current = localVersion();
+  const base: UpdateStatus = {
+    supported: true,
+    updateAvailable: false,
+    current,
+    latest: null,
+    release: null,
+  };
+
+  const manifest = await fetchManifest();
+  const latest = manifest?.releases?.[0] ?? null;
+  let status: UpdateStatus;
+  if (!latest) {
+    status = { ...base, reason: "Couldn't reach GitHub (offline or unavailable)." };
+  } else {
     status = {
-      gitRepo: true,
-      updateAvailable: behind > 0,
-      behind,
-      current: local.slice(0, 7),
+      ...base,
+      latest: latest.version,
+      updateAvailable: isNewer(latest.version, current),
+      release: latest,
     };
-  } catch {
-    status = { gitRepo: false, updateAvailable: false, behind: 0, current: null };
   }
 
   cache = { at: Date.now(), status };
@@ -63,13 +88,13 @@ export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
 }
 
 /**
- * Request the supervised launcher to pull the update and restart. We drop a
- * sentinel file and exit shortly after responding; start-dashboard.bat sees the
- * sentinel, runs `git pull` + rebuild, and relaunches.
+ * Request the supervised launcher to download + apply the update and restart.
+ * Drops a sentinel and exits shortly after responding; start-dashboard.bat sees
+ * the sentinel, runs the updater script (public download + extract), rebuilds and
+ * relaunches.
  */
 export function requestUpdateRestart(): void {
   fs.writeFileSync(RESTART_SENTINEL, new Date().toISOString(), "utf8");
   cache = null;
-  // Let the HTTP response flush before the process exits.
   setTimeout(() => process.exit(0), 800);
 }

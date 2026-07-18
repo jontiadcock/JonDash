@@ -16,9 +16,9 @@ export async function POST() {
   await assertSameOrigin();
 
   const status = await getUpdateStatus(true);
-  if (!status.gitRepo) {
+  if (!status.supported) {
     return NextResponse.json(
-      { ok: false, error: "This copy isn't a Git clone, so it can't self-update." },
+      { ok: false, error: status.reason ?? "Auto-update isn't configured on this machine." },
       { status: 400 },
     );
   }
@@ -26,7 +26,10 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: "Already up to date." }, { status: 400 });
   }
 
-  await audit("admin.update.apply", { userId: user.id, detail: `behind ${status.behind}` });
-  requestUpdateRestart(); // schedules process exit; launcher does the pull + rebuild + restart
+  await audit("admin.update.apply", {
+    userId: user.id,
+    detail: `${status.current} -> ${status.latest}`,
+  });
+  requestUpdateRestart(); // schedules process exit; launcher downloads + rebuilds + restarts
   return NextResponse.json({ ok: true });
 }
