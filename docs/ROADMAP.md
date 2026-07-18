@@ -47,6 +47,10 @@ test → confirm → your approval → tagged push (version chosen then).
   admin nav dropdown; **Roles → "Service Groups"** rename + restructure; delete-redirect &
   role-revalidation fixes.
 
+**Shipped — v1.0.3 (2026-07-19):**
+- **LAN access fix** ✅ — only emit CSP `upgrade-insecure-requests` when actually served over
+  HTTPS; over plain HTTP (e.g. a LAN IP) it was forcing CSS/JS to https:// and breaking styling.
+
 **Next main focuses (immediate):**
 6. **Automated test + CI suite** *(A)* — regression tests that lock in auth / RBAC / IDOR /
    backup behaviours so future changes can't silently break them. Land within the next few changes.

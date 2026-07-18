@@ -19,7 +19,7 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...arr));
 }
 
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, isHttps: boolean): string {
   const isProd = process.env.NODE_ENV === "production";
   // Dev needs 'unsafe-eval'/'unsafe-inline' for React Fast Refresh (HMR).
   const scriptSrc = isProd
@@ -40,7 +40,10 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `frame-src 'none'`,
     `manifest-src 'self'`,
-    isProd ? `upgrade-insecure-requests` : ``,
+    // Only upgrade subresources when actually served over HTTPS. Emitting this
+    // over plain HTTP (e.g. a LAN IP like 192.168.x.x) makes the browser upgrade
+    // CSS/JS to https:// where no server exists, breaking all styling/scripts.
+    isHttps ? `upgrade-insecure-requests` : ``,
   ]
     .filter(Boolean)
     .join("; ");
@@ -67,10 +70,10 @@ function applySecurityHeaders(res: NextResponse, csp: string, isHttps: boolean) 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const nonce = generateNonce();
-  const csp = buildCsp(nonce);
   const isHttps =
     request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() === "https" ||
     request.nextUrl.protocol === "https:";
+  const csp = buildCsp(nonce, isHttps);
 
   // Auth gate for protected areas.
   const isProtected = PROTECTED_PREFIXES.some(
