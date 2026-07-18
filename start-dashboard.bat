@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Services Dashboard
+title JonDash
 cd /d "%~dp0"
 
 REM Make sure Node.js is reachable even if PATH hasn't refreshed.

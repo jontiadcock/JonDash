@@ -19,9 +19,9 @@ export default async function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold">
-            S
+            J
           </div>
-          <h1 className="text-xl font-semibold">Services Dashboard</h1>
+          <h1 className="text-xl font-semibold">JonDash</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
             {pending ? "Two-factor authentication" : "Sign in to continue"}
           </p>

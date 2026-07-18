@@ -18,9 +18,9 @@ export default async function AdminLayout({
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-              S
+              J
             </span>
-            Admin
+            JonDash Admin
           </div>
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="btn btn-ghost !py-1.5 !px-3 text-sm">

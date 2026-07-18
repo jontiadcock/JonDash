@@ -1,4 +1,4 @@
-# Services Dashboard
+# JonDash
 
 A modern, login-protected dashboard where each user sees a personal grid of
 service tiles (icon + name → link). You (the admin) customise what each user

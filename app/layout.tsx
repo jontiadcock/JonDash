@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Services Dashboard",
+  title: "JonDash",
   description: "Your personal dashboard of services.",
   robots: { index: false, follow: false },
 };

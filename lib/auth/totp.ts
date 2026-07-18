@@ -6,7 +6,7 @@ import { encryptString, decryptString } from "@/lib/crypto";
 // Allow a small time drift window (previous/next 30s step).
 authenticator.options = { window: 1 };
 
-const ISSUER = "Services Dashboard";
+const ISSUER = "JonDash";
 
 export function generateTotpSecret(): string {
   return authenticator.generateSecret();
