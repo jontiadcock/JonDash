@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { hashToken } from "@/lib/crypto";
@@ -9,9 +8,10 @@ import { verifyTotpEncrypted } from "@/lib/auth/totp";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { audit } from "@/lib/audit";
+import { generateBackupCodes } from "@/lib/auth/backup-codes";
 import { totpCodeSchema } from "@/lib/validation/schemas";
 
-export type SetupState = { error?: string };
+export type SetupState = { error?: string; backupCodes?: string[] };
 
 /** Resolve a valid pending user from a raw setup token, or null. */
 export async function findPendingUserByToken(rawToken: string) {
@@ -71,5 +71,9 @@ export async function finalizeSetupAction(
   });
   await audit("account.setup.complete", { userId: user.id });
 
-  redirect("/login");
+  // Issue one-time recovery codes so a lost authenticator can't lock them out.
+  const backupCodes = await generateBackupCodes(user.id);
+  await audit("account.backup_codes.generated", { userId: user.id });
+
+  return { backupCodes };
 }

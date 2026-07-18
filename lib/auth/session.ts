@@ -1,11 +1,13 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import type { User } from "@prisma/client";
+import type { Session, User } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { isSecureRequest } from "@/lib/request";
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+// Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
+const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
 // Fixed name (works over http and https). The Secure flag is set automatically
 // when the request is HTTPS, so no configuration is needed.
 export const SESSION_COOKIE = "dashboard_session";
@@ -34,8 +36,10 @@ export async function createSession(userId: string): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const { ip, userAgent } = await requestMeta();
 
+  // A fresh session is created right after the second factor (TOTP or backup
+  // code) succeeds, so mark TOTP as verified now for step-up purposes.
   await prisma.session.create({
-    data: { userId, tokenHash, expiresAt, ip, userAgent },
+    data: { userId, tokenHash, expiresAt, ip, userAgent, totpVerifiedAt: new Date() },
   });
 
   const jar = await cookies();
@@ -60,7 +64,32 @@ export async function getSessionUser(): Promise<User | null> {
     return null;
   }
   if (session.user.status !== "ACTIVE") return null;
+
+  // Throttled "last seen" bump for the session activity view.
+  if (Date.now() - session.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+    await prisma.session
+      .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
+      .catch(() => {});
+  }
   return session.user;
+}
+
+/** The current session row (for step-up checks and "this device" tagging), or null. */
+export async function getCurrentSession(): Promise<Session | null> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  return prisma.session.findUnique({ where: { tokenHash: hashToken(token) } });
+}
+
+/** Mark TOTP as freshly verified on the current session (step-up success). */
+export async function markCurrentSessionTotpVerified(): Promise<void> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return;
+  await prisma.session
+    .updateMany({ where: { tokenHash: hashToken(token) }, data: { totpVerifiedAt: new Date() } })
+    .catch(() => {});
 }
 
 /** Destroy the current session (logout). */

@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
-import { loginPasswordAction, loginTotpAction, type LoginState } from "./actions";
+import { useActionState, useState } from "react";
+import {
+  loginPasswordAction,
+  loginTotpAction,
+  loginBackupCodeAction,
+  type LoginState,
+} from "./actions";
 
 const initial: LoginState = {};
 
@@ -45,7 +50,7 @@ export function PasswordForm() {
   );
 }
 
-export function TotpForm() {
+function TotpForm() {
   const [state, action, pending] = useActionState(loginTotpAction, initial);
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -74,5 +79,52 @@ export function TotpForm() {
         {pending ? "Verifying…" : "Sign in"}
       </button>
     </form>
+  );
+}
+
+function BackupCodeForm() {
+  const [state, action, pending] = useActionState(loginBackupCodeAction, initial);
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Enter one of your one-time recovery codes.
+      </p>
+      <div>
+        <label className="label" htmlFor="code">
+          Recovery code
+        </label>
+        <input
+          id="code"
+          name="code"
+          autoComplete="one-time-code"
+          required
+          autoFocus
+          className="input text-center font-mono tracking-widest"
+          placeholder="XXXXX-XXXXX"
+        />
+      </div>
+      {state.error && <p className="form-error">{state.error}</p>}
+      <button type="submit" className="btn btn-primary mt-1" disabled={pending}>
+        {pending ? "Verifying…" : "Sign in"}
+      </button>
+    </form>
+  );
+}
+
+/** Second-factor step: authenticator code, with a fallback to a recovery code. */
+export function SecondFactorForm() {
+  const [useBackup, setUseBackup] = useState(false);
+  return (
+    <div className="flex flex-col gap-4">
+      {useBackup ? <BackupCodeForm /> : <TotpForm />}
+      <button
+        type="button"
+        onClick={() => setUseBackup((v) => !v)}
+        className="text-center text-xs underline"
+        style={{ color: "var(--muted)" }}
+      >
+        {useBackup ? "Use your authenticator app instead" : "Can’t access your authenticator? Use a recovery code"}
+      </button>
+    </div>
   );
 }

@@ -17,11 +17,24 @@ export default async function AdminLayout({
         style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--background) 85%, transparent)" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-2 font-semibold">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-              J
-            </span>
-            JonDash Admin
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 font-semibold">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+                J
+              </span>
+              JonDash Admin
+            </div>
+            <nav className="hidden items-center gap-1 sm:flex">
+              <Link href="/admin" className="btn btn-ghost !py-1.5 !px-3 text-sm">
+                Users
+              </Link>
+              <Link href="/admin/sessions" className="btn btn-ghost !py-1.5 !px-3 text-sm">
+                Sessions
+              </Link>
+              <Link href="/admin/backup" className="btn btn-ghost !py-1.5 !px-3 text-sm">
+                Backup
+              </Link>
+            </nav>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="btn btn-ghost !py-1.5 !px-3 text-sm">

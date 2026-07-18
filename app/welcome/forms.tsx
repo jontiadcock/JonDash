@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import {
   welcomeCreateAction,
   welcomeConfirmAction,
   type WelcomeState,
 } from "./actions";
+import { BackupCodesPanel } from "@/app/components/backup-codes-panel";
 
 const initial: WelcomeState = {};
 
@@ -59,6 +61,25 @@ export function WelcomeConfirmForm({
   secret: string;
 }) {
   const [state, action, pending] = useActionState(welcomeConfirmAction, initial);
+
+  // Bootstrap succeeded — show the one-time recovery codes before the dashboard.
+  if (state.backupCodes) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="text-center">
+          <p className="font-medium">You’re all set 🎉</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            Save your recovery codes before continuing.
+          </p>
+        </div>
+        <BackupCodesPanel codes={state.backupCodes} />
+        <Link href="/dashboard" className="btn btn-primary text-center">
+          I’ve saved them — go to my dashboard
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <form action={action} className="flex flex-col gap-5">
       <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>

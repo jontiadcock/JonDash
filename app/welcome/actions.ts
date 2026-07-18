@@ -15,8 +15,9 @@ import { rateLimit } from "@/lib/security/rate-limit";
 import { audit } from "@/lib/audit";
 import { emailSchema, totpCodeSchema } from "@/lib/validation/schemas";
 import { hasActiveAdmin, getPendingAdmin } from "@/lib/auth/bootstrap";
+import { generateBackupCodes } from "@/lib/auth/backup-codes";
 
-export type WelcomeState = { error?: string };
+export type WelcomeState = { error?: string; backupCodes?: string[] };
 
 async function clientIp(): Promise<string> {
   const h = await headers();
@@ -89,7 +90,11 @@ export async function welcomeConfirmAction(
   });
   await audit("admin.bootstrap.complete", { userId: admin.id });
   await createSession(admin.id);
-  redirect("/dashboard");
+
+  // Issue one-time recovery codes and show them before entering the dashboard.
+  const backupCodes = await generateBackupCodes(admin.id);
+  await audit("account.backup_codes.generated", { userId: admin.id });
+  return { backupCodes };
 }
 
 /** Discard the in-progress admin so setup can be restarted with a new email. */

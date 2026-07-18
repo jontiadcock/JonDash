@@ -34,3 +34,11 @@ export async function deleteIcon(filename: string | null | undefined): Promise<v
   if (!filename || !isValidIconFilename(filename)) return;
   await unlink(path.join(ICONS_DIR, filename)).catch(() => {});
 }
+
+/** Restore an icon file under its original (validated) name — used by backup import. */
+export async function writeNamedIcon(filename: string, data: Buffer): Promise<boolean> {
+  if (!isValidIconFilename(filename)) return false; // reject anything unexpected
+  await mkdir(ICONS_DIR, { recursive: true });
+  await writeFile(path.join(ICONS_DIR, filename), data);
+  return true;
+}

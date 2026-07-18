@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { verifyTotpEncrypted } from "@/lib/auth/totp";
+import { consumeBackupCode, backupCodeStatus } from "@/lib/auth/backup-codes";
 import { createSession } from "@/lib/auth/session";
 import { setPreAuth, getPreAuthUserId, clearPreAuth } from "@/lib/auth/preauth";
 import { assertSameOrigin } from "@/lib/security/csrf";
@@ -104,5 +105,47 @@ export async function loginTotpAction(
   await clearPreAuth();
   await createSession(user.id);
   await audit("login.success", { userId: user.id });
+  redirect("/dashboard");
+}
+
+/**
+ * Second-factor fallback: sign in with a one-time backup/recovery code instead
+ * of the authenticator. Same pre-auth + rate-limit guards as the TOTP step.
+ */
+export async function loginBackupCodeAction(
+  _prev: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
+  await assertSameOrigin();
+
+  const userId = await getPreAuthUserId();
+  if (!userId) redirect("/login");
+
+  if (!rateLimit(`login-backup:${userId}`, 6, 60_000).allowed) {
+    return { error: "Too many attempts. Please wait a minute and try again." };
+  }
+
+  const raw = String(formData.get("code") ?? "").trim();
+  if (!raw) return { error: "Enter one of your recovery codes." };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.status !== "ACTIVE") {
+    await clearPreAuth();
+    redirect("/login");
+  }
+
+  const consumed = await consumeBackupCode(user.id, raw);
+  if (!consumed) {
+    await audit("login.backup_code.fail", { userId: user.id });
+    return { error: "That recovery code is invalid or already used." };
+  }
+
+  await clearPreAuth();
+  await createSession(user.id);
+  const { remaining } = await backupCodeStatus(user.id);
+  await audit("login.backup_code.ok", {
+    userId: user.id,
+    detail: `${remaining} codes remaining`,
+  });
   redirect("/dashboard");
 }

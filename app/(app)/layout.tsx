@@ -23,6 +23,9 @@ export default async function AppLayout({
             JonDash
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/account" className="btn btn-ghost !py-1.5 !px-3 text-sm">
+              Account
+            </Link>
             {user.role === "ADMIN" && (
               <Link href="/admin" className="btn btn-ghost !py-1.5 !px-3 text-sm">
                 Admin

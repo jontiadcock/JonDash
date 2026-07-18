@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getPreAuthUserId } from "@/lib/auth/preauth";
 import { hasActiveAdmin } from "@/lib/auth/bootstrap";
-import { PasswordForm, TotpForm } from "./forms";
+import { PasswordForm, SecondFactorForm } from "./forms";
 
 // Auth state must be evaluated per request, never statically cached.
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function LoginPage() {
             {pending ? "Two-factor authentication" : "Sign in to continue"}
           </p>
         </div>
-        <div className="card p-6">{pending ? <TotpForm /> : <PasswordForm />}</div>
+        <div className="card p-6">{pending ? <SecondFactorForm /> : <PasswordForm />}</div>
         <p className="mt-6 text-center text-xs" style={{ color: "var(--muted)" }}>
           Access is provided by your administrator.
         </p>

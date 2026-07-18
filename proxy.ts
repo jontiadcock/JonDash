@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
  *     requireAdmin on the server for every protected page and action.
  */
 
-const PROTECTED_PREFIXES = ["/dashboard", "/admin"];
+const PROTECTED_PREFIXES = ["/dashboard", "/admin", "/account"];
 
 // Cookie name mirrors lib/auth/session.ts.
 const SESSION_COOKIE = "dashboard_session";

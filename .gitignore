@@ -39,6 +39,7 @@ yarn-error.log*
 /.data
 prisma/*.db
 prisma/*.db-journal
+prisma/*.db.*
 
 # in-app "update & restart" sentinel handled by the launcher
 /.update-and-restart

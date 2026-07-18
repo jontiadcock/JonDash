@@ -48,11 +48,25 @@ model User {
   sessions Session[]
   links    Link[]
   auditLogs AuditLog[]
+  backupCodes BackupCode[]
 
   // Roles (named service bundles) assigned to this user.
   serviceRoles ServiceRole[] @relation("UserServiceRoles")
 
   @@index([status])
+}
+
+// One-time 2FA recovery codes. The raw code is shown to the user once at
+// generation; only its SHA-256 hash is stored. usedAt marks consumption.
+model BackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // A named bundle of service tiles. Any user assigned this role sees its links.
@@ -78,6 +92,14 @@ model Session {
   expiresAt DateTime
   ip        String?
   userAgent String?
+  // Coarse geo-location ("City, Country" / "Local network"), resolved best-effort
+  // on first view of the sessions list. Null until resolved or if unavailable.
+  location  String?
+  // Last time this session was seen active (updated, throttled, on requests).
+  lastSeenAt DateTime @default(now())
+  // When TOTP was last verified on this session — powers step-up auth for major
+  // destructive actions (fresh proof required within a short window).
+  totpVerifiedAt DateTime?
   createdAt DateTime @default(now())
 
   @@index([userId])
