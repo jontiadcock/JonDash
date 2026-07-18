@@ -1,5 +1,7 @@
 # JonDash
 
+**[Features](#features) · [Quick start](#turn-it-on-windows) · [Using it](#using-it) · [Security](#security-measures) · [Changelog](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)**
+
 A modern, login-protected dashboard where each user sees a personal grid of
 service tiles (icon + name → link). You (the admin) customise what each user
 sees; everything is managed in the web interface — **no coding or file editing
@@ -7,6 +9,21 @@ required.**
 
 - **Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Prisma + SQLite
 - **Sign-in:** password **+ authenticator-app code (two-factor)**
+
+---
+
+## Features
+
+- **Per-user dashboards** — each person sees only the service tiles you give them.
+- **Service Groups** — bundle tiles into a group and assign it to many users at once.
+- **Two-factor sign-in** with **backup recovery codes** if you lose your authenticator.
+- **Account self-service** — users change their own password and re-enrol their authenticator.
+- **Session manager** — view and revoke active sign-ins (device, approximate location).
+- **Audit log** and configurable **Settings** (sign-in message, session/idle timeouts, retention).
+- **Backup & restore** — export/import your data; accounts only leave in an encrypted file.
+- **Secure by default** and **zero-config** — keys, database, and site address set up on first run.
+
+See the [changelog](CHANGELOG.md) for what changed in each version.
 
 ---
 
@@ -27,15 +44,17 @@ stop. To start again later, just double-click `start-dashboard.bat` again.
 
 ## Using it
 
-- **You (admin)** get an **Admin** link in the top bar. There you can:
-  - Create users — you'll get a **one-time setup link** to send to each person.
-  - Add, edit, reorder, and remove each user's service tiles.
-  - Upload an icon for each tile (PNG/JPEG/WebP/GIF).
-  - Reset a user's access, or disable/delete a user.
-- **Users** simply sign in and click their tiles. They can't change anything.
+- **You (admin)** get an **Admin** area with a **Menu** dropdown covering:
+  - **Users** — create accounts (you get a **one-time setup link** to send to each person),
+    manage each user's tiles, assign Service Groups, reset access, disable/delete.
+  - **Service Groups** — create shared tile bundles and manage their services.
+  - **Sessions**, **Audit**, **Backup**, and **Settings**.
+  - Uploading an icon per tile (PNG/JPEG/WebP/GIF).
+- **Users** sign in and click their tiles. From **Account** they can change their password,
+  re-enrol their authenticator, view recovery codes, and manage their own sessions.
 
 When you create a user, share the setup link with them. They open it, choose a
-password, scan the QR code, and they're in.
+password, scan the QR code, save their recovery codes, and they're in.
 
 ---
 
