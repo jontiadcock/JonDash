@@ -3,9 +3,45 @@ setlocal
 title JonDash
 cd /d "%~dp0"
 
-REM Make sure Node.js is reachable even if PATH hasn't refreshed.
+REM Make sure Node.js and Git are reachable even if PATH hasn't refreshed.
 if exist "C:\Program Files\nodejs\node.exe" set "PATH=C:\Program Files\nodejs;%PATH%"
+if exist "C:\Program Files\Git\cmd\git.exe" set "PATH=C:\Program Files\Git\cmd;%PATH%"
 
+REM ----------------------------------------------------------------------------
+REM Stage 1 (first pass): check GitHub for updates, then relaunch the fresh copy
+REM of this script so any update to the launcher itself takes effect cleanly.
+REM ----------------------------------------------------------------------------
+if "%~1"=="_run" goto run
+
+call :check_for_updates
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
+
+:check_for_updates
+where git >nul 2>nul || goto :eof
+if not exist ".git" (
+  echo.
+  echo   [Auto-update off: this copy wasn't cloned with Git.]
+  echo   To get automatic updates, install with:  git clone https://github.com/jontiadcock/JonDash.git
+  goto :eof
+)
+echo.
+echo   Checking GitHub for updates...
+git fetch --quiet origin
+for /f %%i in ('git rev-parse HEAD') do set "LOCAL=%%i"
+for /f %%i in ('git rev-parse @{u}') do set "REMOTE=%%i"
+if "%LOCAL%"=="%REMOTE%" (
+  echo   You're up to date.
+) else (
+  echo   Update found - downloading the latest version...
+  git pull --ff-only
+)
+goto :eof
+
+REM ----------------------------------------------------------------------------
+REM Stage 2 (_run): install, configure, migrate, build, start
+REM ----------------------------------------------------------------------------
+:run
 where node >nul 2>nul
 if errorlevel 1 (
   echo.
@@ -16,13 +52,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "node_modules" (
-  echo.
-  echo   First-time setup: installing components. This can take a few minutes...
-  echo.
-  call npm install
-  if errorlevel 1 goto :error
-)
+echo.
+echo   Installing / updating components ^(this can take a few minutes the first time^)...
+call npm install
+if errorlevel 1 goto :error
 
 REM Create default configuration on first run (the database location).
 if not exist ".env" (
