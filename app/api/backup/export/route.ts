@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/guards";
+import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import {
@@ -18,7 +19,11 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") {
+  if (!user) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  const perms = await getEffectivePermissions(user);
+  if (!perms.has("backups.manage")) {
     return new Response("Forbidden", { status: 403 });
   }
 

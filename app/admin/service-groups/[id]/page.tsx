@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { RenameRoleForm, CreateRoleLinkForm, ConfirmSubmit } from "@/app/admin/ui";
 import { deleteRoleAction } from "@/app/admin/actions";
 import { LinkList } from "@/app/admin/link-list";
@@ -11,7 +11,7 @@ export default async function ManageServiceGroupPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requirePermission("groups.manage");
   const { id } = await params;
 
   const group = await prisma.serviceRole.findUnique({

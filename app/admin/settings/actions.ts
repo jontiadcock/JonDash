@@ -1,33 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
-import { SETTINGS, writeSetting, type SettingKey } from "@/lib/settings";
+import { applySettingsForm, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 
-export type SettingsState = { errors?: Record<string, string>; success?: string };
+export type SettingsState = SettingsFormState;
 
-/** Save the global settings form. Validates every field, writes valid ones. */
+/** Save the general (non-critical) settings on the Settings page. */
 export async function updateSettingsAction(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("settings.manage");
 
-  const errors: Record<string, string> = {};
-  const keys = Object.keys(SETTINGS) as SettingKey[];
-
-  for (const key of keys) {
-    const raw = String(formData.get(key) ?? "");
-    const err = await writeSetting(key, raw);
-    if (err) errors[key] = err;
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { errors };
-  }
+  const errors = await applySettingsForm(formData, settingKeysByGroup("general"));
+  if (Object.keys(errors).length > 0) return { errors };
 
   await audit("settings.updated", { userId: admin.id });
   revalidatePath("/admin/settings");

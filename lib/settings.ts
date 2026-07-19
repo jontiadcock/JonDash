@@ -11,6 +11,10 @@ import { encryptString, decryptString } from "@/lib/crypto";
 
 type FieldKind = "string" | "int";
 
+// Which admin page a setting is surfaced on. "general" = the Settings page
+// (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
+export type SettingGroup = "general" | "sessions" | "audit";
+
 type SettingDef<T> = {
   label: string;
   help: string;
@@ -18,6 +22,7 @@ type SettingDef<T> = {
   default: T;
   schema: z.ZodType<T>;
   secret?: boolean;
+  group: SettingGroup;
 };
 
 // Registry of global settings.
@@ -28,6 +33,7 @@ export const SETTINGS = {
     kind: "string",
     default: "",
     schema: z.string().max(280),
+    group: "general",
   } as SettingDef<string>,
 
   "session.lifetimeDays": {
@@ -36,6 +42,7 @@ export const SETTINGS = {
     kind: "int",
     default: 7,
     schema: z.coerce.number().int().min(1).max(365),
+    group: "sessions",
   } as SettingDef<number>,
 
   "session.idleTimeoutMinutes": {
@@ -49,6 +56,7 @@ export const SETTINGS = {
       .min(0)
       .max(43200)
       .refine((v) => v === 0 || v >= 5, "Use 0 to disable, or 5 minutes or more."),
+    group: "sessions",
   } as SettingDef<number>,
 
   "audit.retentionDays": {
@@ -57,6 +65,7 @@ export const SETTINGS = {
     kind: "int",
     default: 90,
     schema: z.coerce.number().int().min(0).max(3650),
+    group: "audit",
   } as SettingDef<number>,
 } as const;
 
@@ -121,13 +130,20 @@ export type SettingView = {
   kind: FieldKind;
   value: string; // string form for the form input
   secret: boolean;
+  group: SettingGroup;
 };
 
-/** All settings with their current values, for the admin Settings page. */
-export async function listSettings(): Promise<SettingView[]> {
+/** The setting keys belonging to a given group. */
+export function settingKeysByGroup(group: SettingGroup): SettingKey[] {
+  return (Object.keys(SETTINGS) as SettingKey[]).filter((k) => SETTINGS[k].group === group);
+}
+
+/** All settings (optionally just one group) with their current values, for admin forms. */
+export async function listSettings(group?: SettingGroup): Promise<SettingView[]> {
   const out: SettingView[] = [];
   for (const key of Object.keys(SETTINGS) as SettingKey[]) {
     const def = SETTINGS[key];
+    if (group && def.group !== group) continue;
     const value = await readValue(key);
     out.push({
       key,
@@ -136,9 +152,30 @@ export async function listSettings(): Promise<SettingView[]> {
       kind: def.kind,
       value: def.kind === "string" ? String(value) : String(value),
       secret: !!def.secret,
+      group: def.group,
     });
   }
   return out;
+}
+
+export type SettingsFormState = { errors?: Record<string, string>; success?: string };
+
+/**
+ * Validate + persist the submitted settings, restricted to `allowedKeys` (so a
+ * page/action can only ever write its own group — a form can't inject other
+ * keys). Only keys actually present in the form are touched. Returns field errors.
+ */
+export async function applySettingsForm(
+  formData: FormData,
+  allowedKeys: SettingKey[],
+): Promise<Record<string, string>> {
+  const errors: Record<string, string> = {};
+  for (const key of allowedKeys) {
+    if (!formData.has(key)) continue;
+    const err = await writeSetting(key, String(formData.get(key) ?? ""));
+    if (err) errors[key] = err;
+  }
+  return errors;
 }
 
 /** Validate + persist one setting from raw string input. Returns an error message or null. */

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getRequestOrigin } from "@/lib/request";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdmin, requirePermission, requireAnyPermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { revokeAllSessions } from "@/lib/auth/session";
@@ -42,7 +42,7 @@ export async function createUserAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.manage");
 
   const parsed = createUserSchema.safeParse({
     email: formData.get("email"),
@@ -50,6 +50,10 @@ export async function createUserAction(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  // Only a full ADMIN may create another ADMIN (no privilege escalation).
+  if (parsed.data.role === "ADMIN" && admin.role !== "ADMIN") {
+    return { error: "Only a full admin can create admin accounts." };
   }
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
@@ -76,11 +80,15 @@ export async function resetAccessAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.reset");
 
   const userId = String(formData.get("userId") ?? "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found." };
+  // A delegate (non-admin) may not reset an ADMIN account.
+  if (user.role === "ADMIN" && admin.role !== "ADMIN") {
+    return { error: "Only a full admin can reset an admin account." };
+  }
 
   const token = await newSetupToken();
   await prisma.user.update({
@@ -106,7 +114,7 @@ export async function resetAccessAction(
 
 export async function setUserStatusAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.manage");
 
   const userId = String(formData.get("userId") ?? "");
   const disable = formData.get("disable") === "true";
@@ -114,6 +122,8 @@ export async function setUserStatusAction(formData: FormData): Promise<void> {
   if (!user) return;
   // Do not allow an admin to disable their own account.
   if (user.id === admin.id) return;
+  // A delegate (non-admin) may not act on an ADMIN account.
+  if (user.role === "ADMIN" && admin.role !== "ADMIN") return;
 
   if (disable) {
     await prisma.user.update({ where: { id: user.id }, data: { status: "DISABLED" } });
@@ -130,7 +140,7 @@ export async function setUserStatusAction(formData: FormData): Promise<void> {
 
 export async function deleteUserAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.manage");
 
   const userId = String(formData.get("userId") ?? "");
   if (userId === admin.id) return; // never delete yourself
@@ -139,6 +149,8 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
     include: { links: true },
   });
   if (!user) return;
+  // A delegate (non-admin) may not delete an ADMIN account.
+  if (user.role === "ADMIN" && admin.role !== "ADMIN") return;
 
   for (const link of user.links) await deleteIcon(link.iconPath);
   await prisma.user.delete({ where: { id: user.id } }); // cascades sessions + links
@@ -171,7 +183,7 @@ export async function createLinkAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.manage");
 
   const userId = String(formData.get("userId") ?? "");
   const owner = await prisma.user.findUnique({ where: { id: userId } });
@@ -210,7 +222,7 @@ export async function updateLinkAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  await requireAdmin();
+  await requireAnyPermission(["users.manage", "groups.manage"]);
 
   const parsed = updateLinkSchema.safeParse({
     id: formData.get("id"),
@@ -241,7 +253,7 @@ export async function updateLinkAction(
 
 export async function deleteLinkAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  await requireAdmin();
+  await requireAnyPermission(["users.manage", "groups.manage"]);
 
   const id = String(formData.get("id") ?? "");
   const link = await prisma.link.findUnique({ where: { id } });
@@ -253,7 +265,7 @@ export async function deleteLinkAction(formData: FormData): Promise<void> {
 
 export async function moveLinkAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  await requireAdmin();
+  await requireAnyPermission(["users.manage", "groups.manage"]);
 
   const id = String(formData.get("id") ?? "");
   const dir = String(formData.get("dir") ?? "");
@@ -285,7 +297,7 @@ export async function createRoleAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("groups.manage");
 
   const parsed = roleNameSchema.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid name." };
@@ -305,7 +317,7 @@ export async function renameRoleAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  await requireAdmin();
+  await requirePermission("groups.manage");
 
   const id = String(formData.get("id") ?? "");
   const parsed = roleNameSchema.safeParse(formData.get("name"));
@@ -324,7 +336,7 @@ export async function renameRoleAction(
 
 export async function deleteRoleAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("groups.manage");
 
   const id = String(formData.get("id") ?? "");
   const role = await prisma.serviceRole.findUnique({
@@ -347,7 +359,7 @@ export async function createRoleLinkAction(
   formData: FormData,
 ): Promise<AdminState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("groups.manage");
 
   const roleId = String(formData.get("roleId") ?? "");
   const role = await prisma.serviceRole.findUnique({ where: { id: roleId } });
@@ -384,7 +396,7 @@ export async function createRoleLinkAction(
 /** Replace a user's full set of assigned roles from checkbox selections. */
 export async function setUserRolesAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("users.manage");
 
   const userId = String(formData.get("userId") ?? "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -399,6 +411,34 @@ export async function setUserRolesAction(formData: FormData): Promise<void> {
   await audit("admin.user.roles.set", {
     userId: admin.id,
     detail: `${user.email}: ${roleIds.length} role(s)`,
+  });
+  revalidatePath(`/admin/users/${userId}`);
+}
+
+/**
+ * Replace a user's assigned access roles (delegated admin capabilities). ADMIN
+ * only — assigning capabilities is a privilege-granting action, never delegated.
+ */
+export async function setUserAccessRolesAction(formData: FormData): Promise<void> {
+  await assertSameOrigin();
+  const admin = await requireAdmin();
+
+  const userId = String(formData.get("userId") ?? "");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return;
+
+  const accessRoleIds = formData
+    .getAll("accessRoleIds")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { accessRoles: { set: accessRoleIds.map((id) => ({ id })) } },
+  });
+  await audit("admin.user.accessroles.set", {
+    userId: admin.id,
+    detail: `${user.email}: ${accessRoleIds.length} access role(s)`,
   });
   revalidatePath(`/admin/users/${userId}`);
 }

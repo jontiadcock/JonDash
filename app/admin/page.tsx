@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminArea, firstPermittedAdminPath } from "@/lib/auth/guards";
 import { CreateUserForm } from "./ui";
+
+export const dynamic = "force-dynamic";
 
 const statusStyles: Record<string, string> = {
   ACTIVE: "var(--primary)",
@@ -10,7 +13,13 @@ const statusStyles: Record<string, string> = {
 };
 
 export default async function AdminHome() {
-  const admin = await requireAdmin();
+  const { user: admin, perms } = await requireAdminArea();
+  // The users list needs a user capability; a delegate without one is sent to
+  // the first section they can actually see.
+  if (!perms.has("users.manage") && !perms.has("users.reset")) {
+    redirect(firstPermittedAdminPath(perms));
+  }
+  const canCreate = perms.has("users.manage");
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { links: true } }, serviceRoles: { select: { id: true } } },
@@ -25,10 +34,12 @@ export default async function AdminHome() {
         </p>
       </section>
 
-      <section className="card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Create a new user</h2>
-        <CreateUserForm />
-      </section>
+      {canCreate && (
+        <section className="card p-6">
+          <h2 className="mb-4 text-lg font-semibold">Create a new user</h2>
+          <CreateUserForm isAdmin={admin.role === "ADMIN"} />
+        </section>
+      )}
 
       <section className="card overflow-hidden">
         <div className="overflow-x-auto">

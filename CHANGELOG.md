@@ -3,6 +3,24 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.3] — 2026-07-19
+
+### Added
+- **Delegated admin permissions (Access Roles).** Grant specific admin powers — manage users,
+  reset access, service groups, sessions, audit, settings, backup export — to a regular user
+  via named **Access Roles**, without making them a full admin. Managed at
+  `/admin/access-roles` (full admins only). The admin area and menu show each person only the
+  sections their capabilities allow.
+
+### Changed
+- **Settings reorganized.** The Settings page now holds general config only. **Session
+  lifetime + idle timeout** moved to the **Sessions** page; **audit-log retention** moved to
+  the **Audit** page — each next to what it controls.
+
+### Fixed
+- Users with delegated admin capabilities now see the **Admin** link and can reach their
+  permitted sections (previously only full admins saw it).
+
 ## [1.1.2] — 2026-07-19
 
 ### Added
@@ -70,6 +88,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.3
 [1.1.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.2
 [1.1.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.1
 [1.1.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.0

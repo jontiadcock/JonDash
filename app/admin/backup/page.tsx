@@ -1,11 +1,11 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { hasRecentTotp } from "@/lib/auth/stepup";
 import { ExportForm, ImportForm } from "./ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminBackupPage() {
-  await requireAdmin();
+  await requirePermission("backups.manage");
   const recentTotp = await hasRecentTotp();
 
   return (

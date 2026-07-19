@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { pruneAuditLog } from "@/lib/audit";
+import { listSettings } from "@/lib/settings";
 import { formatWhen } from "@/lib/format";
+import { SettingsForm } from "@/app/admin/settings/ui";
+import { saveAuditSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +16,12 @@ export default async function AdminAuditPage({
 }: {
   searchParams: Promise<{ action?: string; userId?: string; page?: string }>;
 }) {
-  await requireAdmin();
+  await requirePermission("audit.view");
 
   // Apply retention on view (best-effort, no-op when retention is "keep forever").
   await pruneAuditLog();
 
+  const auditSettings = await listSettings("audit");
   const sp = await searchParams;
   const actionFilter = sp.action?.trim() || "";
   const userFilter = sp.userId?.trim() || "";
@@ -135,6 +139,14 @@ export default async function AdminAuditPage({
           ) : <span />}
         </div>
       )}
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-lg font-semibold">Audit settings</h2>
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+          How long audit events are kept before they’re automatically deleted.
+        </p>
+        <SettingsForm settings={auditSettings} action={saveAuditSettingsAction} saveLabel="Save audit settings" />
+      </section>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminArea } from "@/lib/auth/guards";
 import { logoutAction } from "@/app/(app)/actions";
 import { UpdateBanner } from "./update-banner";
 import { AdminNav } from "./admin-nav";
@@ -10,8 +10,14 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const admin = await requireAdmin();
+  const { user: admin, sections } = await requireAdminArea();
   const version = getAppVersion();
+
+  // "Access Roles" management is full-admin only.
+  const navItems =
+    admin.role === "ADMIN"
+      ? [...sections, { href: "/admin/access-roles", label: "Access Roles" }]
+      : sections;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -28,7 +34,7 @@ export default async function AdminLayout({
               JonDash Admin
             </Link>
             <span className="text-xs" style={{ color: "var(--muted)" }}>v{version}</span>
-            <AdminNav />
+            <AdminNav items={navItems} />
           </div>
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="btn btn-ghost !py-1.5 !px-3 text-sm">

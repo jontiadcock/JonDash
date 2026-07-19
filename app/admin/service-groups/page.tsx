@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { CreateRoleForm } from "@/app/admin/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ServiceGroupsPage() {
-  await requireAdmin();
+  await requirePermission("groups.manage");
   const groups = await prisma.serviceRole.findMany({
     orderBy: { name: "asc" },
     include: { _count: { select: { links: true, users: true } } },

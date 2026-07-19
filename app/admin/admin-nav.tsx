@@ -3,17 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-const ITEMS = [
-  { href: "/admin", label: "Users" },
-  { href: "/admin/service-groups", label: "Service Groups" },
-  { href: "/admin/sessions", label: "Sessions" },
-  { href: "/admin/audit", label: "Audit" },
-  { href: "/admin/backup", label: "Backup" },
-  { href: "/admin/settings", label: "Settings" },
-];
+type NavItem = { href: string; label: string };
 
-/** Single "Menu ▾" dropdown holding all admin sections. */
-export function AdminNav() {
+/** Single "Menu ▾" dropdown holding the admin sections the user may access. */
+export function AdminNav({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -51,7 +44,7 @@ export function AdminNav() {
           className="absolute left-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border py-1 shadow-lg"
           style={{ background: "var(--background)", borderColor: "var(--border)" }}
         >
-          {ITEMS.map((item) => (
+          {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}

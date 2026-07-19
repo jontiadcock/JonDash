@@ -1,203 +1,205 @@
-# JonDash — Roadmap & Architecture Plan
+# JonDash — Roadmap
 
-> Living planning doc. Nothing here is built until agreed. Not pushed to GitHub
-> until approved (per our workflow rules). Current shipped version: **v1.0.0**.
+> Living planning doc. Nothing here is built until agreed; nothing is pushed until
+> approved (per the workflow rules). Each release is version-tagged at push time.
+
+## How to read this roadmap
+
+- **Stable IDs.** Every item has a permanent ID (`SEC-03`, `MOD-01`, …). An ID never
+  changes even if priority does, so it's always safe to reference. Categories:
+  - **SEC** — security & access control
+  - **MOD** — modules & customization platform
+  - **OPS** — platform, packaging & operations
+  - **CORE** — core app & UX
+- **Status:** ✅ Shipped · 🔨 Built (unpublished) · ▶️ In progress · ⏳ Planned · 🧊 Backlog · 🌅 Someday
+- **Two views:** the **Build queue** is the single source of *priority order*; the
+  **Catalog** holds the full detail for each item, grouped by category.
+- **Standardize on every edit:** a new item gets the next free ID in its category and is
+  slotted into the build queue by priority. Keep one canonical entry per item (don't
+  re-describe it in multiple places). Don't change existing priorities without the user.
 
 ## Vision
 
 JonDash grows from a per-user/role services dashboard into a **modular, security-first
 platform**: a lean core plus installable **modules/addons** (integrations and live-data
 widgets), self-service account management over email, and strong access controls
-(IP/country policies, trusted-IP auto-login). Long term, **third parties can author their
-own addons**.
+(delegated admin, IP/country policies, trusted-IP auto-login). Long term, **third parties
+can author their own addons**.
 
-**Scope right now:** built for the **owner's own use** (single operator). Public / broad
-multi-user readiness (Docker, scale, legal, i18n, etc.) is a **later goal**, not a current
-priority — we don't over-engineer for it yet.
-
-**Deployment end-state:** eventually package everything as a **bootable VHD appliance**
-that drops into a hypervisor and boots — a self-contained VM. That's a **big convert for
-later**; for now we build the basis on **Windows** (the `start-dashboard.bat` launcher).
+- **Scope now:** built for the **owner's own use** (single operator). Broad multi-user /
+  public readiness (Docker, scale, i18n, legal) is a later goal — not over-engineered for yet.
+- **Deployment end-state:** package everything as a **bootable VHD appliance** for a
+  hypervisor. Big convert for later; for now the basis is **Windows** (`start-dashboard.bat`).
 
 ---
 
-## Prioritized plan (simple terms)
+## Build queue (priority order — do not reorder without the user)
 
-Order = quick + security first, biggest/most complex last. Each ships only after
-test → confirm → your approval → tagged push (version chosen then).
+Built one at a time, each via the per-item workflow (plan → preview → review → implement →
+self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Shipped — v1.0.1 (2026-07-18):**
-- **2FA backup codes** ✅ — one-time recovery codes issued at setup, usable at the login
-  second-factor step, regenerable from the account page.
-- **Backup & restore** ✅ — admin export with category selection (roles, users, icons, audit);
-  accounts only leave encrypted (passphrase). Restore is a step-up-gated, type-"Everything"
-  full replace.
-- **Session manager** ✅ — users see & revoke their own sessions (device, coarse geo-location,
-  last active); admins see & revoke all sessions.
-- *Also landed:* step-up auth (fresh-TOTP gate for major destructive actions),
-  `totpVerifiedAt` session tracking, and a best-effort GeoIP service (failover + cache).
+**Now**
+- ▶️ **SEC-02 — IP allow / deny** — next to build
 
-**Shipped — v1.0.2 (2026-07-19):**
-- **Admin audit-log viewer** ✅ *(B)* — `/admin/audit` with user/action filters + retention auto-prune.
-- **Account self-service** ✅ *(D)* — change password (signs out other sessions) and two-step
-  authenticator re-enrolment from `/account`.
-- **Settings store** ✅ — global config (sign-in message, session lifetime, idle timeout, audit
-  retention) at `/admin/settings`, with wired consumers.
-- *Also landed:* recovery-codes one-time reveal page; in-page confirm modals (no OS popups);
-  admin nav dropdown; **Roles → "Service Groups"** rename + restructure; delete-redirect &
-  role-revalidation fixes.
+**Next — security & access control**
+1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
+2. ⏳ **SEC-04 — Session lifecycle hardening**
+3. ⏳ **SEC-05 — Trusted-IP auto-login**
 
-**Shipped — v1.0.3 (2026-07-19):**
-- **LAN access fix** ✅ — only emit CSP `upgrade-insecure-requests` when actually served over
-  HTTPS; over plain HTTP (e.g. a LAN IP) it was forcing CSS/JS to https:// and breaking styling.
+**Then — modules & customization platform**
+5. ⏳ **MOD-01 — Module / feature framework**
+6. ⏳ **MOD-02 — Health monitoring (module, Phase 1: status)**
+7. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
+8. ⏳ **MOD-04 — Live widgets + arrangeable layout**
+9. ⏳ **MOD-05 — Official Addons page**
 
-**Shipped — v1.1.0 (2026-07-19):**
-- **Public, source-available release** ✅ (view-only LICENSE) with **credential-free auto-update**
-  from the public repo — no Git or token; shows each update's type + priority; opt-in.
+**Planned — slot in as decided (not tied to the sequence above)**
+- ⏳ **OPS-01 — Shrink install footprint**
+- ⏳ **OPS-02 — Email + self-service password reset** — unlocks MOD-03 and CORE-01 email
 
-**Next main focuses (immediate):**
-6. **Automated test + CI suite** *(A)* — regression tests that lock in auth / RBAC / IDOR /
-   backup behaviours so future changes can't silently break them. Land within the next few changes.
-7. **"No / low recovery codes" reminder** *(E)* — nudge accounts that have no (or few) backup
-   codes to generate a set; closes the gap for accounts created before v1.0.1.
-8. **Shrink the install footprint** — an install is ~26k files, but **97.5% is `node_modules`
-   (25.7k); our own source is ~120 files**. Fix by moving to a lean runtime instead of
-   "download source + full `npm install`". Levers, roughly in order of impact:
-   - **Next.js `output: "standalone"`** — traces only the deps actually used at runtime into a
-     minimal bundle; the standard fix, biggest reduction.
-   - **Drop dev-only deps at runtime** (`npm ci --omit=dev` / prune after build) — a large share
-     of the tree is build/lint tooling (`@typescript-eslint`, `fast-check`, `@babel`, …).
-   - **Ship prebuilt releases** (the standalone build) rather than source that each machine
-     builds — also speeds first-run and simplifies updates.
-   - *Interacts with:* the **auto-update** mechanism (would fetch a prebuilt release, not source
-     + build) and the eventual **VHD appliance** (imaging sidesteps raw file counts).
-   - **Standing rule:** future patches/features should avoid adding heavy dependencies casually
-     and keep the runtime footprint in mind.
+**Backlog**
+- 🧊 **CORE-01 — "No / low recovery codes" reminder**
 
-**Then — security controls:**
-9. **IP allow / deny** — restrict access to chosen IP ranges; blocked before login.
-   *(Prereq: strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
-   known reverse proxy or it's spoofable.)*
-10. **Email + self-service password reset** — configure email so passwords can be reset.
-11. **Country allow / deny** — allow/block by country via external lookup (with backup provider).
-12. **Session lifecycle hardening** *(G)* — idle timeout + token rotation on privilege change
-    (review finding #5); the logical follow-up now that sessions are visible.
-13. **Trusted-IP auto-login** — no-login access from a trusted IP, with the disclaimer + warnings.
-
-**Bigger — the customization platform:**
-14. **Addon / module framework** — the plumbing that lets features & widgets plug in.
-15. **Live widgets + layout** — widgets showing live data (crypto, PC temps, service status)
-    on a dashboard you arrange yourself.
-16. **Official Addons page** — browse / install / configure addons from your in-repo list.
-
-**Later — big conversions:**
-17. **Third-party addons** (authors build their own) — deferred.
-18. **VHD appliance** — package everything as a bootable VM image for a hypervisor.
+**Someday — big conversions**
+- 🌅 **MOD-06 — Third-party addons**
+- 🌅 **OPS-03 — VHD appliance**
 
 ---
 
-## Foundational enablers (build these first — everything else depends on them)
+## Catalog
 
-These three pieces unlock all the features below. Small, well-scoped, low-risk.
+### SEC — Security & access control
 
-### A. Settings/config store
-A typed, DB-backed key–value store with three scopes: **global**, **per-user**, and
-**per-module**. Underpins email config, security policies, and addon configuration.
-- New `Setting` table: `scope`, `ownerId?`, `key`, `valueJson`, timestamps.
-- Typed accessors with zod validation per key; cached; admin UI panels read/write it.
+#### SEC-01 · Delegated admin permissions (capability RBAC) — ✅ Shipped v1.1.3 (2026-07-19)
+Delegate specific admin powers to a normal USER without granting full ADMIN.
+- `AccessRole` model (name + capabilities), M-N to users — **parallel to Service Groups**
+  (Service Groups = services; Access Roles = admin capabilities). Managed at
+  `/admin/access-roles` (ADMIN-only).
+- Capabilities: `users.manage`, `users.reset`, `groups.manage`, `sessions.manage`,
+  `audit.view`, `settings.manage`, `backups.manage`. Guards `requirePermission(cap)`;
+  admin area opens to anyone with ≥1 capability; nav shows only permitted sections.
+- **Kept ADMIN-only:** managing/assigning access roles, creating/acting-on ADMIN accounts,
+  backup **restore** (export is delegable). Anti-escalation guards throughout. +10 tests.
 
-### B. Module/Addon framework
-A registry so features plug into the core without forking it.
-- **What a module can contribute:** dashboard widgets/tiles, admin settings panels,
-  nav items, API routes, background hooks, service integrations, its own migrations.
-- **Extension points** (Next-friendly): core pages iterate a registry to render
-  registered widgets/panels; module pages served via one catch-all route
-  `/addons/[module]/[...]`. No fighting the file-based router.
-- **DB:** `Module` table — `key`, `name`, `version`, `enabled`, `configJson`, `installedAt`.
-- **Contract:** a `ModuleDefinition` interface (id, version, minAppVersion, register()
-  hooks, settings schema, migrations). **Designed from day one to support external
-  authors** (stable, documented contract) even though we start with bundled modules.
-- **Install model:** modules ship **in-repo** (or arrive via the existing Git
-  auto-update); "install" = **enable + configure + run its migrations**. No arbitrary
-  remote code execution — safest for a security app. Third-party code comes later behind
-  signing/review/sandboxing (see phase v3).
-
----
-
-## The "official addons" page
-
-- A curated **registry manifest** (JSON, **hosted in-repo**) lists available addons:
-  `id`, `name`, `description`, `version`, `minAppVersion`, `category`, `configSchema`,
-  docs URL.
-- Admin **Addons** page renders the list with Install/Enable/Configure/Disable.
-- Addons declare a **min app version** so incompatible ones are greyed out — this is why
-  our version tagging matters.
-- **Future:** a public addon SDK + submission/signing pipeline so **users can build and
-  publish their own addons** (curated/reviewed before appearing in the official list).
-
-## Email + self-service resets
-
-- **Email service abstraction** (swap SMTP / provider later); SMTP config stored in the
-  Settings store (secrets encrypted via existing AES helper).
-- **Self-service password reset:** user requests → emailed one-time token → reset page.
-  Reuses the existing hashed-token + setup-flow machinery.
-- Admin "reset access" and new-user setup links can also be **emailed** instead of copied.
-
-## Security features
-
-### IP allowlist / denylist
-Admin defines allowed/blocked CIDR ranges; enforced in `proxy.ts` (edge-safe). Mode:
+#### SEC-02 · IP allow / deny — ⏳
+Restrict access to chosen IP/CIDR ranges, blocked before login (proxy-enforced). Mode:
 allowlist (default deny) or denylist. Clear "you could lock yourself out" warning.
+- **Prereq:** strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
+  known reverse proxy or it's spoofable.
 
-### Country allow/deny (GeoIP)
-Allow/deny by country of the client IP. **Source: external free geo-IP API with automatic
-failover** — a `GeoIpService` abstraction queries a primary provider and **falls back to
-one or more backups if a provider is down/rate-limited**, with result caching to reduce
-calls. Enforced server-side at the session/login guard. (Note: since lookups are external,
-visitor IPs are sent to the provider; we cache and pick privacy-reasonable providers.)
+#### SEC-03 · Country allow / deny (GeoIP) — ⏳
+Allow/block by country of the client IP. External **free** geo-IP API with **automatic
+failover** to backup provider(s) + caching. Enforced server-side at the session/login guard.
+(Lookups are external, so visitor IPs are sent to the provider; cache + pick privacy-reasonable providers.)
 
-### Trusted-IP auto-login (highest risk — locked policy)
-Map a specific IP/CIDR → an account that is **logged in automatically without credentials**
-(e.g. an internal kiosk/LAN machine).
-- **Off by default for every account** (admins and users alike).
-- **Admin accounts can never be auto-login targets** — hard exclusion.
-- **Regular users may opt in for their own account**, but must **accept a disclaimer**
-  (consent recorded + audited) before it activates.
-- **Two-tier warning:** standard warning for private/LAN ranges; a **stronger warning +
-  explicit typed confirmation** for any **public/external** IP before saving.
-- **Enforcement:** in session resolution — no session + request IP matches an active rule
-  → assume that account. Only the forwarded IP from the **known reverse proxy** is trusted
-  (IPs are spoofable). Every auto-login is audit-logged; rules are per-entry enable/disable.
+#### SEC-04 · Session lifecycle hardening — ⏳
+Token rotation on privilege change (review finding #5). Idle timeout already shipped (v1.0.2).
+
+#### SEC-05 · Trusted-IP auto-login — ⏳ (highest risk — locked policy)
+Map an IP/CIDR → an account logged in automatically without credentials (e.g. a LAN kiosk).
+- **Off by default for everyone.** **Admin accounts can never be targets** (hard exclusion).
+- **Regular users opt in for their own account** with a **recorded, audited disclaimer**.
+- **Two-tier warning:** standard for private/LAN; **stronger warning + typed confirmation**
+  for any public/external IP.
+- **Enforcement:** in session resolution; only the forwarded IP from the known reverse proxy
+  is trusted; every auto-login is audit-logged; rules are per-entry enable/disable.
+
+#### Security hardening backlog (from `docs/SECURITY-REVIEW.md`)
+Dummy-argon2 on unknown-user login (timing), `poweredByHeader:false`, TOTP replay
+prevention, signed-update verification, durable (Redis) rate-limit.
+
+### MOD — Modules & customization platform
+
+#### MOD-01 · Module / feature framework — ⏳
+The plumbing that lets features & widgets plug into the core without forking.
+- DB-backed registry; a **"Features"** admin tab with on/off switches; a first-run "Do you
+  want to enable these features?" prompt; **admin-only** (later gated by a SEC-01 capability).
+- **Extension points:** core pages iterate a registry to render registered widgets/panels;
+  module pages via one catch-all `/addons/[module]/[...]`. `Module` table (`key`, `name`,
+  `version`, `enabled`, `configJson`, `installedAt`).
+- **Contract:** a `ModuleDefinition` interface (id, version, minAppVersion, register()
+  hooks, settings schema, migrations) — designed from day one for external authors.
+- **Install model:** modules ship in-repo (or via auto-update); "install" = enable +
+  configure + run migrations. No arbitrary remote code (safest for a security app).
+
+#### MOD-02 · Health monitoring (first module) — Phase 1: status only — ⏳
+- Per-service checks: **HTTP(S)** (status + latency) and **TCP port** (raw connect).
+  Admin-configured (users don't create tiles).
+- **Everything selectable:** enable per tile, check type, refresh interval, timeout, expected
+  status/port, and which readouts (status dot, latency, uptime%, last-checked) show on the dashboard.
+- **Scheduler:** in-process guarded-singleton poller (`unref`); single-instance.
+- **RBAC visibility:** users only see health for tiles they can already see (reuse
+  `getUserVisibleLinks`/`canViewLink` — IDOR-safe).
+- **SSRF stance:** admin-configured targets; private/LAN IPs *allowed* (self-hosting is the
+  point); http/https only, capped redirects, hard timeout, no cookies/credentials, no `file://`.
+- **Data:** `ServiceCheck` (config + rolling status) 1:1-optional on `Link`; `CheckResult`
+  history + retention prune for uptime%. New tests: check logic + status-visibility IDOR.
+
+#### MOD-03 · Health monitoring alerting — Phase 2 — ⏳ (needs OPS-02)
+Outbound **webhook** and/or **SMTP email** on down/up state-change; secrets stored as
+encrypted `Setting`s.
+
+#### MOD-04 · Live widgets + arrangeable layout — ⏳
+Widgets showing live data (crypto, PC temps, service status) on a dashboard you arrange yourself.
+
+#### MOD-05 · Official Addons page — ⏳
+Curated **registry manifest** (JSON, hosted in-repo): `id`, `name`, `description`, `version`,
+`minAppVersion`, `category`, `configSchema`, docs URL. Admin Addons page with
+Install/Enable/Configure/Disable; incompatible (minAppVersion) addons greyed out.
+
+#### MOD-06 · Third-party addons — 🌅
+External authors build & publish their own, behind signing / review / sandboxing. Deferred (v3).
+
+### OPS — Platform, packaging & operations
+
+#### OPS-01 · Shrink install footprint — ⏳
+An install is ~26k files, **97.5% `node_modules`**; our own source is ~120 files. Levers:
+- **Next.js `output: "standalone"`** — traces only runtime deps (biggest reduction).
+- **Drop dev-only deps at runtime** (`npm ci --omit=dev` / prune after build).
+- **Ship prebuilt releases** (the standalone build) rather than source-that-each-machine-builds.
+- *Interacts with:* auto-update (fetch prebuilt release) and OPS-03 (imaging sidesteps file counts).
+- **Standing rule:** avoid adding heavy dependencies casually; keep the runtime footprint in mind.
+
+#### OPS-02 · Email + self-service password reset — ⏳
+Email service abstraction (SMTP config in the Settings store, secrets encrypted). Self-service
+password reset via emailed one-time token (reuses the hashed-token + setup-flow machinery).
+Admin "reset access" and new-user setup links can also be emailed. **Unlocks MOD-03 alerting.**
+
+#### OPS-03 · VHD appliance — 🌅
+Package everything as a bootable VM image for a hypervisor. Big convert, later.
+
+### CORE — Core app & UX
+
+#### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
+Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
+accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 
 ---
 
-## Proposed build sequence (phases — version numbers decided at each push)
+## Shipped log
 
-Order is a suggestion, not a commitment; we pick what to build next as we go. The version
-tag for each release is decided **at push time** based on the actual scope.
+- **v1.0.0** (2026-07-18) — initial release: per-user dashboard, password + TOTP MFA, Service
+  Groups, hardened-by-default security.
+- **v1.0.1** (2026-07-18) — 2FA backup codes, session manager (coarse geo), backup/restore
+  (step-up-gated), step-up auth (`totpVerifiedAt`).
+- **v1.0.2** (2026-07-19) — audit-log viewer, account self-service, settings store; Roles →
+  **Service Groups**; single Menu dropdown; in-page confirm modals; recovery-codes reveal page.
+- **v1.0.3** (2026-07-19) — LAN access fix (CSP `upgrade-insecure-requests` only over HTTPS).
+- **v1.1.0** (2026-07-19) — public, source-available release + credential-free auto-update.
+- **v1.1.1** (2026-07-19) — installed version shown in the admin header.
+- **v1.1.2** (2026-07-19) — automated test + CI suite (Vitest, 46 tests; dev-only, excluded from download).
+- **v1.1.3** (2026-07-19) — delegated admin permissions (Access Roles); session + audit settings moved to their own pages; delegate admin-link fix.
 
-1. **Foundations** — Settings store + Module framework skeleton + one sample module
-2. **Email** — email service + self-service password reset + emailed setup links
-3. **IP policies** — IP allow/deny (proxy-enforced)
-4. **Country policies** — country allow/deny (external GeoIP + failover)
-5. **Addons page** — official addons page + registry
-6. **Trusted-IP auto-login** — the no-auth whitelist (per locked policy above)
-7. **Third-party addon SDK** — authoring, submission, signing/review, sandboxing
+---
 
-Each ships only after test → confirm → your approval → tagged push (version chosen then).
+## Locked decisions
 
-## Decisions (locked 2026-07-18)
-
-1. **Addons:** curated/bundled to start; **third-party author-created addons** are a goal
-   (v3) — contract designed for that now.
-2. **GeoIP:** external **free** geo-IP API, with **automatic failover** to backup
-   provider(s).
+1. **Addons:** curated/bundled to start; third-party author-created addons are a goal (v3),
+   with the contract designed for that now.
+2. **GeoIP:** external **free** geo-IP API, with **automatic failover** to backup provider(s).
 3. **Trusted-IP auto-login:** off by default for everyone; **admins never** eligible as
-   targets; **users opt in with a recorded disclaimer**; external IPs need the stronger
-   warning + typed confirmation.
-4. **Addon manifest:** **hosted in-repo.**
-5. **First audience:** **owner only** for now; public/multi-user hardening deferred.
-6. **Third-party addon code:** wanted eventually, but **deferred** (a while away) — keep
-   addons curated/declarative for now.
-7. **Deployment:** current basis is **Windows launcher**; eventual target is a **bootable
-   VHD appliance** for hypervisors (big convert, later).
+   targets; users opt in with a recorded disclaimer; external IPs need the stronger warning + typed confirmation.
+4. **Addon manifest:** hosted in-repo.
+5. **First audience:** owner only for now; public/multi-user hardening deferred.
+6. **Third-party addon code:** wanted eventually, but deferred; keep addons curated/declarative for now.
+7. **Deployment:** current basis is the Windows launcher; eventual target is a bootable VHD appliance.

@@ -1,13 +1,22 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateSettingsAction, type SettingsState } from "./actions";
-import type { SettingView } from "@/lib/settings";
+import type { SettingView, SettingsFormState } from "@/lib/settings";
 
-const initial: SettingsState = {};
+const initial: SettingsFormState = {};
 
-export function SettingsForm({ settings }: { settings: SettingView[] }) {
-  const [state, action, pending] = useActionState(updateSettingsAction, initial);
+type SettingsAction = (prev: SettingsFormState, formData: FormData) => Promise<SettingsFormState>;
+
+export function SettingsForm({
+  settings,
+  action: serverAction,
+  saveLabel = "Save settings",
+}: {
+  settings: SettingView[];
+  action: SettingsAction;
+  saveLabel?: string;
+}) {
+  const [state, action, pending] = useActionState(serverAction, initial);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -43,7 +52,7 @@ export function SettingsForm({ settings }: { settings: SettingView[] }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save settings"}
+          {pending ? "Saving…" : saveLabel}
         </button>
         {state.success && (
           <span className="text-sm" style={{ color: "var(--primary)" }}>

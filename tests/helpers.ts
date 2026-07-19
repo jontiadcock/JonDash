@@ -9,4 +9,5 @@ export async function resetDb(): Promise<void> {
   await prisma.setting.deleteMany();
   await prisma.user.deleteMany();
   await prisma.serviceRole.deleteMany();
+  await prisma.accessRole.deleteMany();
 }

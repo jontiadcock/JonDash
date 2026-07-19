@@ -26,6 +26,12 @@ export const linkTitleSchema = z.string().trim().min(1, "Title is required.").ma
 
 export const roleNameSchema = z.string().trim().min(1, "Role name is required.").max(60);
 
+export const accessRoleNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Access role name is required.")
+  .max(60);
+
 export const totpCodeSchema = z
   .string()
   .trim()

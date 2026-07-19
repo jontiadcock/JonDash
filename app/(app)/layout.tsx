@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
+import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { logoutAction } from "./actions";
 
 export default async function AppLayout({
@@ -8,6 +9,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  // Full admins and delegates (users holding at least one admin capability via an
+  // access role) get a link into the admin area.
+  const canAccessAdmin = (await getEffectivePermissions(user)).size > 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -26,7 +30,7 @@ export default async function AppLayout({
             <Link href="/account" className="btn btn-ghost !py-1.5 !px-3 text-sm">
               Account
             </Link>
-            {user.role === "ADMIN" && (
+            {canAccessAdmin && (
               <Link href="/admin" className="btn btn-ghost !py-1.5 !px-3 text-sm">
                 Admin
               </Link>

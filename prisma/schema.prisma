@@ -53,7 +53,26 @@ model User {
   // Roles (named service bundles) assigned to this user.
   serviceRoles ServiceRole[] @relation("UserServiceRoles")
 
+  // Access roles (named bundles of admin capabilities) assigned to this user.
+  // Delegates admin powers without granting the full ADMIN role.
+  accessRoles AccessRole[] @relation("UserAccessRoles")
+
   @@index([status])
+}
+
+// A named bundle of admin capabilities (permissions). Assigning an access role
+// to a USER lets them perform specific admin actions without being a full ADMIN.
+// permissionsJson is a JSON array of capability keys (see lib/auth/permissions.ts).
+// Distinct from ServiceRole ("Service Groups"), which bundles services only.
+model AccessRole {
+  id              String @id @default(cuid())
+  name            String @unique
+  permissionsJson String @default("[]")
+
+  users User[] @relation("UserAccessRoles")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // One-time 2FA recovery codes. The raw code is shown to the user once at

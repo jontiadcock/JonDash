@@ -48,7 +48,7 @@ export function SetupLinkBox({ url }: { url: string }) {
   );
 }
 
-export function CreateUserForm() {
+export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
   const [state, action, pending] = useActionState(createUserAction, initial);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -70,7 +70,7 @@ export function CreateUserForm() {
           </label>
           <select id="new-role" name="role" className="input" defaultValue="USER">
             <option value="USER">User</option>
-            <option value="ADMIN">Admin</option>
+            {isAdmin && <option value="ADMIN">Admin</option>}
           </select>
         </div>
         <button type="submit" className="btn btn-primary" disabled={pending}>
