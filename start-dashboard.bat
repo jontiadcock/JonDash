@@ -94,6 +94,11 @@ if defined NEEDBUILD (
   echo.
   echo   Optimising install size ^(removing build-only components^)...
   call npm prune --omit=dev
+  REM Strip files never used at runtime: TypeScript declarations + sourcemaps, plus the
+  REM build cache. Safe — the running app (next start) doesn't read any of these.
+  if exist "node_modules" del /S /Q "node_modules\*.d.ts" >nul 2>nul
+  if exist "node_modules" del /S /Q "node_modules\*.map" >nul 2>nul
+  if exist ".next\cache" rmdir /S /Q ".next\cache" >nul 2>nul
 
   if not exist ".data" mkdir ".data" >nul 2>nul
   > ".data\built-version" echo %APPVER%

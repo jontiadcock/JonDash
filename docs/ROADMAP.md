@@ -152,10 +152,11 @@ External authors build & publish their own, behind signing / review / sandboxing
 
 ### OPS — Platform, packaging & operations
 
-#### OPS-01 · Shrink install footprint — 🔨 Phase 1 shipped v1.1.4 · Phase 2 attempted + reverted
-**Phase 1 (shipped v1.1.4):** the launcher builds only when the version changes, then
-`npm prune --omit=dev` — node_modules **26,155 → 15,485 files (~41%)**. Config moved to
-`next.config.mjs`; launcher removes a stale `next.config.ts` after an in-place update.
+#### OPS-01 · Shrink install footprint — ✅ Shipped (prune v1.1.4, strip v1.1.7; standalone reverted)
+**Phase 1 (v1.1.4):** the launcher builds only when the version changes, then `npm prune
+--omit=dev` — node_modules **26,155 → 15,485 files (~41%)**. Config moved to `next.config.mjs`.
+**Cruft strip (v1.1.7):** launcher also deletes `*.d.ts` + `*.map` from node_modules and drops
+`.next/cache` — **→ ~9,076 files (~65% total)**. Verified all native routes (Prisma/argon2/sharp).
 **Phase 2 (`output: "standalone"`) — tried in v1.1.5, REVERTED in v1.1.6.** Got to ~1,732 files
 (~93%) but broke at runtime: **Next 16 builds with Turbopack, which references native externals
 (sharp, argon2) by a hashed id that fails in the standalone bundle** (Prisma was worked around by
@@ -201,6 +202,7 @@ accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 - **v1.1.4** (2026-07-19) — OPS-01 Phase 1: prune build-only packages after build (~41% fewer node_modules files); `next.config.ts` → `.mjs`; version-gated rebuild.
 - **v1.1.5** (2026-07-19) — OPS-01 Phase 2 (standalone) — **broken, superseded by v1.1.6.** Native externals failed to load at runtime under Turbopack.
 - **v1.1.6** (2026-07-19) — reverted v1.1.5 back to the working Phase 1 install model; standalone deferred.
+- **v1.1.7** (2026-07-19) — OPS-01 cruft strip: also remove `*.d.ts` + `*.map` + `.next/cache` after build (~26k → ~9k files, ~65% total).
 
 ---
 

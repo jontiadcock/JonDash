@@ -3,6 +3,14 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.7] — 2026-07-19
+
+### Changed
+- **Even smaller install.** After building, the launcher now also removes files that are never
+  used at runtime — TypeScript declarations (`*.d.ts`), sourcemaps (`*.map`), and the build
+  cache — on top of the existing prune. The install is now **~9,000 files (from ~26,000, ~65%
+  smaller)**. No effect on how the app runs.
+
 ## [1.1.6] — 2026-07-19
 
 ### Fixed
@@ -106,6 +114,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.7
 [1.1.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.6
 [1.1.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.4
 [1.1.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.3

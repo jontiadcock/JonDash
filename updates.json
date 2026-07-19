@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.1.7",
+      "date": "2026-07-19",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Even smaller install: after building, files never used at runtime (type definitions, sourcemaps, build cache) are removed too — about 26,000 files down to ~9,000."
+    },
+    {
       "version": "1.1.6",
       "date": "2026-07-19",
       "type": "patch",
