@@ -8,6 +8,11 @@ import { getSessionLifetimeMs, getIdleTimeoutMs } from "@/lib/settings";
 
 // Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
 const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
+
+// When this server process started (evaluated once at module load). Any session
+// created before this is from an earlier run, so restarting the server invalidates
+// every existing session and users must sign in again.
+const SERVER_BOOT_TIME = Date.now();
 // Fixed name (works over http and https). The Secure flag is set automatically
 // when the request is HTTPS, so no configuration is needed.
 export const SESSION_COOKIE = "dashboard_session";
@@ -59,6 +64,13 @@ export async function getSessionUser(): Promise<User | null> {
   });
 
   if (!session) return null;
+
+  // A server restart signs everyone out: reject sessions created before this run.
+  if (session.createdAt.getTime() < SERVER_BOOT_TIME) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
+
   if (session.expiresAt.getTime() < Date.now()) {
     await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
     return null;

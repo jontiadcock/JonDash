@@ -3,6 +3,13 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.0] — 2026-07-20
+
+### Security
+- **Sessions are invalidated when the server restarts.** Every active sign-in ends on a server
+  restart, so everyone must sign in again — a stolen or lingering session can't survive a
+  restart. (Note: closing and reopening the launcher counts as a restart.)
+
 ## [1.1.7] — 2026-07-19
 
 ### Changed
@@ -114,6 +121,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.0
 [1.1.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.7
 [1.1.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.6
 [1.1.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.4

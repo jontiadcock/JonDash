@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.2.0",
+      "date": "2026-07-20",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Restarting the server now signs everyone out: active sessions are invalidated on restart, so a taken or lingering session can't outlive a restart."
+    },
+    {
       "version": "1.1.7",
       "date": "2026-07-19",
       "type": "patch",
