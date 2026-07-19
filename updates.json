@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.1.4",
+      "date": "2026-07-19",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Much smaller install: build-only packages are pruned after each build (~40% fewer files). The app now rebuilds only when the version changes."
+    },
+    {
       "version": "1.1.3",
       "date": "2026-07-19",
       "type": "minor",

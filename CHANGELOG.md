@@ -3,6 +3,15 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.4] — 2026-07-19
+
+### Changed
+- **Much smaller install footprint.** After building, the launcher now removes build-only
+  packages (`npm prune --omit=dev`), cutting `node_modules` by ~40% (~26,000 → ~15,500 files).
+  The app rebuilds only when the version actually changes, so the runtime no longer keeps the
+  TypeScript / ESLint / Tailwind / test toolchain on disk.
+- Config moved from `next.config.ts` to `next.config.mjs` (no TypeScript needed at runtime).
+
 ## [1.1.3] — 2026-07-19
 
 ### Added
@@ -88,6 +97,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.4
 [1.1.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.3
 [1.1.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.2
 [1.1.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.1

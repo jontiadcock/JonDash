@@ -152,7 +152,11 @@ External authors build & publish their own, behind signing / review / sandboxing
 
 ### OPS — Platform, packaging & operations
 
-#### OPS-01 · Shrink install footprint — ⏳
+#### OPS-01 · Shrink install footprint — 🔨 Phase 1 shipped v1.1.4 · Phase 2 planned
+**Phase 1 (shipped v1.1.4):** the launcher builds only when the version changes, then
+`npm prune --omit=dev` — node_modules **26,155 → 15,485 files (~41%)**. Config moved to
+`next.config.mjs`; launcher removes a stale `next.config.ts` after an in-place update.
+**Phase 2 (planned):** `output: "standalone"` to trim `next`'s ~8,228 files (needs Prisma-trace verification).
 An install is ~26k files, **97.5% `node_modules`**; our own source is ~120 files. Levers:
 - **Next.js `output: "standalone"`** — traces only runtime deps (biggest reduction).
 - **Drop dev-only deps at runtime** (`npm ci --omit=dev` / prune after build).
@@ -189,6 +193,7 @@ accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 - **v1.1.1** (2026-07-19) — installed version shown in the admin header.
 - **v1.1.2** (2026-07-19) — automated test + CI suite (Vitest, 46 tests; dev-only, excluded from download).
 - **v1.1.3** (2026-07-19) — delegated admin permissions (Access Roles); session + audit settings moved to their own pages; delegate admin-link fix.
+- **v1.1.4** (2026-07-19) — OPS-01 Phase 1: prune build-only packages after build (~41% fewer node_modules files); `next.config.ts` → `.mjs`; version-gated rebuild.
 
 ---
 

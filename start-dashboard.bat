@@ -48,10 +48,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo.
-echo   Installing / updating components ^(this can take a few minutes the first time^)...
-call npm install
-if errorlevel 1 goto :error
+REM An in-place update can leave the previous TypeScript config behind; the config
+REM is now next.config.mjs, and Next.js errors if both exist. Remove the stale one.
+if exist "next.config.mjs" if exist "next.config.ts" del "next.config.ts" >nul 2>nul
 
 REM Create default configuration on first run (the database location).
 if not exist ".env" (
@@ -59,15 +58,49 @@ if not exist ".env" (
   > ".env" echo DATABASE_URL="file:./dev.db"
 )
 
-echo.
-echo   Preparing the database...
-call npm run db:migrate
-if errorlevel 1 goto :error
+REM ----------------------------------------------------------------------------
+REM Only install + build when it's actually needed: first run, a missing build,
+REM or a new version (auto-update bumps package.json). After building we prune the
+REM build-only packages so the on-disk footprint stays small. The "built-version"
+REM marker lives in .data (which the updater preserves) so we don't rebuild on
+REM every launch.
+REM ----------------------------------------------------------------------------
+set "APPVER=0.0.0"
+for /f "usebackq tokens=* delims=" %%v in (`node -e "process.stdout.write(require('./package.json').version)"`) do set "APPVER=%%v"
+set "BUILTVER="
+if exist ".data\built-version" set /p BUILTVER=<".data\built-version"
 
-echo.
-echo   Building the app ^(please wait^)...
-call npm run build
-if errorlevel 1 goto :error
+set "NEEDBUILD="
+if not exist "node_modules" set "NEEDBUILD=1"
+if not exist ".next" set "NEEDBUILD=1"
+if not "%APPVER%"=="%BUILTVER%" set "NEEDBUILD=1"
+
+if defined NEEDBUILD (
+  echo.
+  echo   Installing / updating components ^(this can take a few minutes the first time^)...
+  call npm install
+  if errorlevel 1 goto :error
+
+  echo.
+  echo   Preparing the database...
+  call npm run db:migrate
+  if errorlevel 1 goto :error
+
+  echo.
+  echo   Building the app ^(please wait^)...
+  call npm run build
+  if errorlevel 1 goto :error
+
+  echo.
+  echo   Optimising install size ^(removing build-only components^)...
+  call npm prune --omit=dev
+
+  if not exist ".data" mkdir ".data" >nul 2>nul
+  > ".data\built-version" echo %APPVER%
+) else (
+  echo.
+  echo   Already up to date and built ^(v%APPVER%^) — starting up.
+)
 
 echo.
 echo   ============================================================
