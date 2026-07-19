@@ -3,6 +3,12 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.2] — 2026-07-20
+
+### Fixed
+- Removed an unsupported `eslint` option from the Next config that printed a harmless warning on
+  startup (Next 16 no longer configures ESLint there). No functional change.
+
 ## [1.2.1] — 2026-07-20
 
 ### Fixed
@@ -129,6 +135,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.2
 [1.2.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.0
 [1.1.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.7

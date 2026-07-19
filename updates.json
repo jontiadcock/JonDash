@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.2.2",
+      "date": "2026-07-20",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Removes a harmless startup warning about an unsupported config option. No functional change."
+    },
+    {
       "version": "1.2.1",
       "date": "2026-07-20",
       "type": "patch",

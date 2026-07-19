@@ -39,7 +39,7 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- ▶️ **SEC-02 — IP allow / deny** — next to build
+- ▶️ **OPS-04 — Self-healing launcher + verbose logs** — on a failed startup, clear `node_modules` and retry the launch once; alert the user + log it; add a redacted `logs/` folder.
 
 **Next — security & access control**
 1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
@@ -58,6 +58,7 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 - ⏳ **OPS-02 — Email + self-service password reset** — unlocks MOD-03 and CORE-01 email
 
 **Backlog**
+- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
 - 🧊 **CORE-01 — "No / low recovery codes" reminder**
 
 **Someday — big conversions**
@@ -81,7 +82,7 @@ Delegate specific admin powers to a normal USER without granting full ADMIN.
 - **Kept ADMIN-only:** managing/assigning access roles, creating/acting-on ADMIN accounts,
   backup **restore** (export is delegable). Anti-escalation guards throughout. +10 tests.
 
-#### SEC-02 · IP allow / deny — ⏳
+#### SEC-02 · IP allow / deny — 🧊 Backlog (deprioritised 2026-07-20)
 Restrict access to chosen IP/CIDR ranges, blocked before login (proxy-enforced). Mode:
 allowlist (default deny) or denylist. Clear "you could lock yourself out" warning.
 - **Prereq:** strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
@@ -178,6 +179,20 @@ Admin "reset access" and new-user setup links can also be emailed. **Unlocks MOD
 #### OPS-03 · VHD appliance — 🌅
 Package everything as a bootable VM image for a hypervisor. Big convert, later.
 
+#### OPS-04 · Self-healing launcher + verbose logs — ⏳ (up next, 2026-07-20)
+Make the launcher recover from a broken/partial install instead of bricking, and give us real
+diagnostics.
+- **Auto-recovery:** if a startup step (`npm install` / build / start) fails, **clear
+  `node_modules` (and `.next`) and retry the launch once** from clean — a corrupt or half-updated
+  install self-heals. (The stripped-`.d.ts` build failure would have auto-fixed under this.)
+- **Retry guard:** attempt the clean rebuild once, then stop with a clear message — never loop
+  forever. Use a marker (e.g. `.data/recovery-attempted`) cleared on a successful start.
+- **Alert the user** when a recovery happens: say plainly what failed and that it rebuilt.
+- **Verbose action log:** a `logs/` folder recording the launcher/app steps (update checks,
+  install/build/start, errors, recoveries) with timestamps, so issues are diagnosable after the fact.
+- **No sensitive data:** logs must never contain the encryption key, `.env`/secrets, passwords,
+  tokens, session tokens, or DB contents — redact anything sensitive. **Gitignore `logs/`** (never pushed).
+
 ### CORE — Core app & UX
 
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
@@ -205,6 +220,7 @@ accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 - **v1.1.7** (2026-07-19) — OPS-01 cruft strip: also remove `*.d.ts` + `*.map` + `.next/cache` after build (~26k → ~9k files, ~65% total).
 - **v1.2.0** (2026-07-20) — sessions invalidated on server restart (`SERVER_BOOT_TIME` check in `getSessionUser`); everyone re-logs-in after a restart.
 - **v1.2.1** (2026-07-20) — fix: per-machine build skips type-check/lint (which the v1.1.7 `.d.ts` strip broke); `next.config` `ignoreBuildErrors` + `ignoreDuringBuilds`.
+- **v1.2.2** (2026-07-20) — removed the unsupported `eslint` key from `next.config` (Next 16 dropped it) that printed a harmless startup warning; no functional change.
 
 ---
 
