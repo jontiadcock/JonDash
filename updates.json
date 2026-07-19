@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.2.1",
+      "date": "2026-07-20",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Fixes a build failure when updating an already-shrunk install — the per-machine build no longer re-runs type-checking that needs files the size-optimisation removes."
+    },
+    {
       "version": "1.2.0",
       "date": "2026-07-20",
       "type": "minor",

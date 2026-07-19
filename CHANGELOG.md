@@ -3,6 +3,14 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.1] — 2026-07-20
+
+### Fixed
+- **Build failure when updating an already-shrunk install.** The footprint optimisation
+  (v1.1.7) removes TypeScript declaration files, but the per-machine build was still re-running
+  a type-check that needs them, so a later update could fail to build. The build now skips the
+  redundant type-check and lint (both still run in CI before every release).
+
 ## [1.2.0] — 2026-07-20
 
 ### Security
@@ -121,6 +129,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.0
 [1.1.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.7
 [1.1.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.6
