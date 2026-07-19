@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.1.5",
+      "date": "2026-07-19",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Much smaller, self-contained install: the app now runs a standalone bundle and no longer keeps the full node_modules — roughly 26,000 files down to ~1,700."
+    },
+    {
       "version": "1.1.4",
       "date": "2026-07-19",
       "type": "patch",

@@ -3,6 +3,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Generate into the project (not node_modules/.prisma) so Next's standalone
+  // output traces the client as normal project code — fixes the "@prisma/client
+  // hashed external can't be found" failure in the self-contained bundle.
+  output   = "../lib/generated/prisma"
 }
 
 datasource db {

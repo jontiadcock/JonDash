@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import type { User } from "@prisma/client";
+import type { User } from "@/lib/generated/prisma";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getEffectivePermissions,

@@ -70,9 +70,10 @@ for /f "usebackq tokens=* delims=" %%v in (`node -e "process.stdout.write(requir
 set "BUILTVER="
 if exist ".data\built-version" set /p BUILTVER=<".data\built-version"
 
+REM Rebuild when the self-contained server is missing or the version changed. We do
+REM NOT key off node_modules — it's intentionally removed after a successful build.
 set "NEEDBUILD="
-if not exist "node_modules" set "NEEDBUILD=1"
-if not exist ".next" set "NEEDBUILD=1"
+if not exist ".next\standalone\server.js" set "NEEDBUILD=1"
 if not "%APPVER%"=="%BUILTVER%" set "NEEDBUILD=1"
 
 if defined NEEDBUILD (
@@ -92,8 +93,13 @@ if defined NEEDBUILD (
   if errorlevel 1 goto :error
 
   echo.
-  echo   Optimising install size ^(removing build-only components^)...
-  call npm prune --omit=dev
+  echo   Finalising a lean, self-contained build...
+  REM Next's standalone server needs the static assets copied in beside it.
+  xcopy ".next\static" ".next\standalone\.next\static\" /E /I /Y >nul
+  if exist "public" xcopy "public" ".next\standalone\public\" /E /I /Y >nul
+  REM The standalone bundle carries its own minimal node_modules, so the large
+  REM top-level one is no longer needed at runtime — remove it to save space.
+  if exist "node_modules" rmdir /S /Q "node_modules"
 
   if not exist ".data" mkdir ".data" >nul 2>nul
   > ".data\built-version" echo %APPVER%
@@ -111,7 +117,10 @@ echo   ============================================================
 echo.
 
 if "%~2"=="first" start "" http://localhost:3000
-call npm run start
+REM Run the lean self-contained server (no top-level node_modules needed).
+set "PORT=3000"
+set "HOSTNAME=0.0.0.0"
+node ".next\standalone\server.js"
 
 REM The app exits with this sentinel present when an in-app update was requested.
 if exist ".update-and-restart" goto :do_update

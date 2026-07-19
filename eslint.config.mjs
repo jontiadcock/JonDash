@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Prisma client (custom output location) — not our code to lint.
+    "lib/generated/**",
   ]),
   {
     // Allow intentionally-unused args/vars prefixed with _ (e.g. useActionState's

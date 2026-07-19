@@ -1,5 +1,5 @@
 import "server-only";
-import type { User } from "@prisma/client";
+import type { User } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 
 export type VisibleLink = {

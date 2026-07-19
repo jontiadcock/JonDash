@@ -52,3 +52,6 @@ prisma/*.db.*
 next-env.d.ts
 
 /app/generated/prisma
+
+# generated prisma client (custom output; regenerated on install)
+/lib/generated/prisma

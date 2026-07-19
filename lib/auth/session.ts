@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import type { Session, User } from "@prisma/client";
+import type { Session, User } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { isSecureRequest } from "@/lib/request";

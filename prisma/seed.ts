@@ -6,7 +6,7 @@
  * Run with:  npm run db:seed
  * Optionally set SEED_ADMIN_EMAIL to control the address.
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../lib/generated/prisma/index.js";
 import { createHash, randomBytes } from "node:crypto";
 
 const prisma = new PrismaClient();

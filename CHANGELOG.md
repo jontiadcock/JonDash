@@ -3,6 +3,16 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.5] — 2026-07-19
+
+### Changed
+- **Dramatically smaller, self-contained install.** The app now runs as a Next.js
+  **standalone** bundle and removes the full `node_modules` after building — the install
+  drops from ~26,000 files to ~1,700 (~93% fewer). The runtime carries only the traced files
+  it actually needs (including the Prisma engine and native image/2FA libraries).
+- The Prisma client is now generated inside the project (`lib/generated/prisma`) so the
+  standalone build can bundle it correctly.
+
 ## [1.1.4] — 2026-07-19
 
 ### Changed
@@ -97,6 +107,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.5
 [1.1.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.4
 [1.1.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.3
 [1.1.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.2
