@@ -11,9 +11,11 @@
   - **MOD** — modules & customization platform
   - **OPS** — platform, packaging & operations
   - **CORE** — core app & UX
+  - **BUG** — known bugs (tracked in the **Bugs / known issues** section, by severity)
 - **Status:** ✅ Shipped · 🔨 Built (unpublished) · ▶️ In progress · ⏳ Planned · 🧊 Backlog · 🌅 Someday
-- **Two views:** the **Build queue** is the single source of *priority order*; the
-  **Catalog** holds the full detail for each item, grouped by category.
+- **Bug severity:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
+- **Views:** the **Build queue** is the single source of feature *priority order*; the
+  **Catalog** holds per-feature detail by category; **Bugs / known issues** tracks defects by severity.
 - **Standardize on every edit:** a new item gets the next free ID in its category and is
   slotted into the build queue by priority. Keep one canonical entry per item (don't
   re-describe it in multiple places). Don't change existing priorities without the user.
@@ -60,6 +62,8 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 **Backlog**
 - 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
 - 🧊 **CORE-01 — "No / low recovery codes" reminder**
+
+_(Known bugs are tracked in the **Bugs / known issues** section, by severity.)_
 
 **Someday — big conversions**
 - 🌅 **MOD-06 — Third-party addons**
@@ -198,6 +202,37 @@ diagnostics.
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
 Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
 accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
+
+---
+
+## Bugs / known issues
+
+Tracked separately from features. Ordered by severity (🔴 Critical → 🟢 Low); fix priority
+follows severity unless one is actively blocking. Reproduce → fix → add a regression test where
+practical. Stable `BUG-##` IDs.
+
+### 🔴 Critical
+_None currently._
+
+### 🟠 High
+- **BUG-01 · Backup can silently omit icons.** An "icons-only" export contains **no images** —
+  `buildBackupData` (`lib/backup.ts`) only gathers icons inside the `users`/`roles` blocks, so an
+  icons-only export is empty; images that DO get included ride as base64 in the JSON. A backup
+  that silently drops data is a data-integrity risk. **Fix:** produce a single **compressed
+  archive** (JSON + real image files), restore takes the archive, icons back up regardless of
+  other categories, keep the passphrase-encryption option. Logged 2026-07-20.
+
+### 🟡 Medium
+- **BUG-02 · Icon upload over ~1 MB crashes.** Next **Server Actions default to a 1 MB body
+  limit**, but the app allows **2 MB** (`lib/security/upload.ts`), so a 1–2 MB image is rejected
+  (HTTP 413) as an **unhandled page crash** (a refresh recovers). **Fix:** raise the Server Actions
+  `bodySizeLimit` in `next.config` (≥ `3mb`) AND show a friendly "image too large" message instead
+  of crashing. Logged 2026-07-20.
+
+### 🟢 Low
+- **BUG-03 · `Buffer()` deprecation warning (DEP0005).** Harmless warning printed at startup;
+  swap `Buffer()` / `new Buffer()` for `Buffer.from` / `Buffer.alloc` (likely a dependency — use
+  `node --trace-deprecation` to locate). Logged 2026-07-20.
 
 ---
 
