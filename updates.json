@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.1.2",
+      "date": "2026-07-19",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Adds an internal automated test and CI suite. Developer-only — no changes to the app you run."
+    },
+    {
       "version": "1.1.1",
       "date": "2026-07-19",
       "type": "patch",

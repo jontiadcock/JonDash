@@ -1,0 +1,8 @@
+# Keep the downloadable package lean: exclude the developer/test tooling from
+# source archives (GitHub "Download ZIP" and the auto-update download). These
+# files stay in the repository, so `git clone` still includes them for anyone
+# who wants to run the test suite or CI locally.
+/tests            export-ignore
+/vitest.config.ts export-ignore
+/.github          export-ignore
+/.gitattributes   export-ignore

@@ -3,6 +3,14 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.1.2] — 2026-07-19
+
+### Added
+- Internal **automated test suite** (Vitest) and **CI** covering the security-critical
+  behaviour — password/2FA, CSRF, RBAC/IDOR authorization, backup export/restore, backup
+  codes, and settings. Developer tooling only: it is excluded from the download and does
+  not change the app you run.
+
 ## [1.1.1] — 2026-07-19
 
 ### Added
@@ -62,6 +70,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.1.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.2
 [1.1.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.1
 [1.1.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.1.0
 [1.0.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.0.3

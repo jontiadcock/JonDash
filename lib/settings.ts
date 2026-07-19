@@ -65,6 +65,11 @@ export type SettingKey = keyof typeof SETTINGS;
 const CACHE_TTL_MS = 30_000;
 const cache = new Map<string, { value: unknown; exp: number }>();
 
+/** Drop the in-memory settings cache (used by tests for isolation). */
+export function clearSettingsCache(): void {
+  cache.clear();
+}
+
 async function readValue<K extends SettingKey>(
   key: K,
 ): Promise<(typeof SETTINGS)[K]["default"]> {
