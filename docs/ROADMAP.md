@@ -54,7 +54,7 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 9. ⏳ **MOD-05 — Official Addons page**
 
 **Planned — slot in as decided (not tied to the sequence above)**
-- ✅ **OPS-01 — Shrink install footprint** — done (Phase 1 v1.1.4, Phase 2 v1.1.5)
+- ⏳ **OPS-01 — Shrink install footprint**
 - ⏳ **OPS-02 — Email + self-service password reset** — unlocks MOD-03 and CORE-01 email
 
 **Backlog**
@@ -152,12 +152,16 @@ External authors build & publish their own, behind signing / review / sandboxing
 
 ### OPS — Platform, packaging & operations
 
-#### OPS-01 · Shrink install footprint — ✅ Shipped (Phase 1 v1.1.4 · Phase 2 v1.1.5)
-**Phase 1 (v1.1.4):** launcher builds only on version change, then `npm prune --omit=dev` —
-node_modules 26,155 → 15,485. Config moved to `next.config.mjs`.
-**Phase 2 (v1.1.5):** `output: "standalone"` + run `node .next/standalone/server.js` and remove
-the top-level node_modules — self-contained install **~1,732 files (~93% cut)**. Prisma client
-moved to `lib/generated/prisma` so the standalone build traces it; native binaries force-included.
+#### OPS-01 · Shrink install footprint — 🔨 Phase 1 shipped v1.1.4 · Phase 2 attempted + reverted
+**Phase 1 (shipped v1.1.4):** the launcher builds only when the version changes, then
+`npm prune --omit=dev` — node_modules **26,155 → 15,485 files (~41%)**. Config moved to
+`next.config.mjs`; launcher removes a stale `next.config.ts` after an in-place update.
+**Phase 2 (`output: "standalone"`) — tried in v1.1.5, REVERTED in v1.1.6.** Got to ~1,732 files
+(~93%) but broke at runtime: **Next 16 builds with Turbopack, which references native externals
+(sharp, argon2) by a hashed id that fails in the standalone bundle** (Prisma was worked around by
+moving its client in-project, but sharp/argon2 can't move). The fix — build with `--webpack` —
+fails on Windows with an EPERM on the `Application Data` junction. **Deferred** until a reliable
+path exists (Turbopack external fix, the Windows webpack issue, or a Node SEA single binary).
 An install is ~26k files, **97.5% `node_modules`**; our own source is ~120 files. Levers:
 - **Next.js `output: "standalone"`** — traces only runtime deps (biggest reduction).
 - **Drop dev-only deps at runtime** (`npm ci --omit=dev` / prune after build).
@@ -195,7 +199,8 @@ accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 - **v1.1.2** (2026-07-19) — automated test + CI suite (Vitest, 46 tests; dev-only, excluded from download).
 - **v1.1.3** (2026-07-19) — delegated admin permissions (Access Roles); session + audit settings moved to their own pages; delegate admin-link fix.
 - **v1.1.4** (2026-07-19) — OPS-01 Phase 1: prune build-only packages after build (~41% fewer node_modules files); `next.config.ts` → `.mjs`; version-gated rebuild.
-- **v1.1.5** (2026-07-19) — OPS-01 Phase 2: standalone self-contained build, remove node_modules at runtime (~26k → ~1.7k files); Prisma client generated to `lib/generated/prisma`.
+- **v1.1.5** (2026-07-19) — OPS-01 Phase 2 (standalone) — **broken, superseded by v1.1.6.** Native externals failed to load at runtime under Turbopack.
+- **v1.1.6** (2026-07-19) — reverted v1.1.5 back to the working Phase 1 install model; standalone deferred.
 
 ---
 

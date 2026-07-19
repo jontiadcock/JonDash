@@ -1,5 +1,5 @@
 import "server-only";
-import { PrismaClient } from "@/lib/generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
 /**
  * Prisma client singleton. In dev, Next.js hot-reload would otherwise create

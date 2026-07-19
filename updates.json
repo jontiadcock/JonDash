@@ -1,11 +1,11 @@
 {
   "releases": [
     {
-      "version": "1.1.5",
+      "version": "1.1.6",
       "date": "2026-07-19",
       "type": "patch",
       "criticality": "recommended",
-      "summary": "Much smaller, self-contained install: the app now runs a standalone bundle and no longer keeps the full node_modules — roughly 26,000 files down to ~1,700."
+      "summary": "Fixes sign-in and two-factor errors introduced by the 1.1.5 self-contained build. Restores the proven, smaller-install approach from 1.1.4."
     },
     {
       "version": "1.1.4",

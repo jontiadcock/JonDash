@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import type { User } from "@/lib/generated/prisma";
+import type { User } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 /**
