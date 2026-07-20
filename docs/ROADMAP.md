@@ -56,12 +56,12 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 9. ⏳ **MOD-05 — Official Addons page**
 
 **Planned — slot in as decided (not tied to the sequence above)**
-- ⏳ **OPS-01 — Shrink install footprint**
-- ⏳ **OPS-02 — Email + self-service password reset** — unlocks MOD-03 and CORE-01 email
+- ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
 
 **Backlog**
 - 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
 - 🧊 **CORE-01 — "No / low recovery codes" reminder**
+- 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity.)_
 
@@ -230,11 +230,33 @@ diagnostics.
 - **No sensitive data:** logs must never contain the encryption key, `.env`/secrets, passwords,
   tokens, session tokens, or DB contents — redact anything sensitive. **Gitignore `logs/`** (never pushed).
 
+#### OPS-06 · Optional skip of browser auto-open on launch — 🧊 Backlog (reclassified from BUG-06, 2026-07-20)
+An improvement, not a defect: `start-dashboard.bat` opens the browser on first launch
+(`start "" "%DISPLAYURL%"`) with no way to disable it for a headless / remote-server setup. Add an
+opt-out the launcher checks before opening — a `.data` flag, a launcher argument, or an env var
+(e.g. `JONDASH_NO_BROWSER`).
+
 ### CORE — Core app & UX
 
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
 Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
 accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
+
+---
+
+## Testing required
+
+Features that have shipped but are **not yet confirmed by manual testing**. An item is added here
+after each push (unless self-testing 100%-guaranteed it) and removed once the user confirms it works.
+Detailed step-by-step test notes for each item are kept privately in `PROJECT_MEMORY.md` — ask to see them.
+
+- **Admin-issued setup links** — create a user, open the `/setup/<token>` link, set password + TOTP; confirm one-time use + 7-day expiry.
+- **Settings take effect** — session lifetime, idle timeout, and audit-log retention: set each and confirm the behaviour (re-login after lifetime, auto-logout after idle, old audit rows pruned).
+- **Check-for-updates button** (v1.3.0) — Settings → Updates: force a check; confirm "up to date" vs an available release + Update-now.
+- **Email send** (OPS-02, v1.2.5) — send a test email via app-password SMTP **and** via Google/Microsoft OAuth2 (the OAuth2 option is under the Authentication dropdown).
+- **HTTPS / networking** (OPS-05, v1.2.3) — Let's Encrypt live cert (`ACME_STAGING=1` first), bring-your-own-cert, configurable ports, the Network page; sign in / authenticator / icon-upload over HTTPS.
+- **Self-healing launcher + logs** (OPS-04, v1.2.3) — force a failed build; confirm it wipes + retries once (no loop), alerts, and writes a redacted `logs/` trail.
+- **Hardened security spot-check** — nonce CSP, CSRF same-origin rejection, brute-force/rate-limit lockout, and security headers behave as expected.
 
 ---
 
@@ -248,13 +270,36 @@ practical. Stable `BUG-##` IDs.
 _None currently._
 
 ### 🟠 High
-_None currently._
+- **BUG-04 · Restoring a backup breaks the authenticator (TOTP) — backup codes still work.** After a
+  restore, users can't sign in with their authenticator app, but their one-time backup codes do.
+  **Cause:** TOTP secrets are stored **encrypted** (`totpSecretEnc`) with the per-install AES key in
+  `.data/secrets.json`, which is **not** in the backup — so a different install decrypts them with a
+  different key and verification fails. Backup codes are SHA-256 hashes (no decryption), so they
+  survive. This directly undermines the v1.3.0 migration / first-run restore. **Workaround:** sign in
+  with a backup code, then re-enrol the authenticator (Account page). **Fix:** carry TOTP secrets
+  across installs — e.g. on an encrypted backup, wrap the TOTP secrets with the passphrase (not the
+  install key) and re-encrypt to the destination key on restore. Logged 2026-07-20.
 
 ### 🟡 Medium
-_None currently._
+- **BUG-05 · Network & HTTPS page rejects a valid port ("Port must be 1–65535").** Saving the Network
+  page in the default **Off** mode fails with the range error even when the port entered is valid.
+  **Cause:** in Off mode the `httpsPort` field isn't rendered, so it posts empty → `z.coerce.number("")`
+  → 0 → fails `min(1)`, which rejects the whole save (`lib/tls/network.ts` + `app/admin/network/ui.tsx`).
+  So *any* Off-mode save is blocked, not just a port change. **Fix:** validate/patch only the port
+  fields relevant to the current mode (or default a missing port instead of coercing "" to 0). Logged 2026-07-20.
+- **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
+  a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
+  self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already
+  running. **Fix:** a single-instance guard at launch — e.g. a `.data/launcher.lock` (PID + staleness
+  check) or a "is the configured port already listening?" probe — and exit with a clear "JonDash is
+  already running" message instead of proceeding. Logged 2026-07-20.
 
 ### 🟢 Low
 _None currently._
+
+_(BUG-08 "Email OAuth2 option isn't discoverable" was removed 2026-07-20 — the option does exist
+behind the Authentication dropdown, judged not a defect. BUG-06 "skip browser auto-open" was
+reclassified as an improvement → **OPS-06** in the catalog.)_
 
 ### ✅ Fixed
 - **BUG-01 (High) · Backup silently omitted icons — fixed v1.2.4.** Backups are now a **compressed

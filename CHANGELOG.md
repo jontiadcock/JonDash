@@ -1,7 +1,19 @@
 # Changelog
 
-All notable changes to JonDash are documented here. Versions follow
-`MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
+JonDash ships on **two channels** — pick yours under Admin → Settings → Updates:
+
+- **Stable** (`main` branch) — tested releases, versioning `MAJOR.MINOR.PATCH`; the default, and the
+  public auto-update channel.
+- **Beta** (`beta` branch) — pre-release builds, versioning `X.Y.Z-beta.N`; early access, may be less stable.
+
+Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
+`X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
+
+## Beta channel (pre-release)
+
+_No beta releases yet — the first `X.Y.Z-beta.N` build will be listed here._
+
+## Stable releases
 
 ## [1.3.0] — 2026-07-20
 
