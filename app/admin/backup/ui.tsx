@@ -65,8 +65,8 @@ export function ExportForm() {
         />
         <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
           {hasPass
-            ? "The backup file will be encrypted (AES-256). Keep this passphrase safe — it can’t be recovered."
-            : "No passphrase: the file will be plain JSON and cannot include user accounts."}
+            ? "The backup archive will be encrypted (AES-256). Keep this passphrase safe — it can’t be recovered."
+            : "No passphrase: the archive is unencrypted and cannot include user accounts."}
         </p>
       </div>
 
@@ -86,6 +86,7 @@ const initialImport: ImportState = {};
 export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
   const [state, action, pending] = useActionState(importBackupAction, initialImport);
   const [confirmText, setConfirmText] = useState("");
+  const [fileError, setFileError] = useState<string | null>(null);
 
   if (state.success) {
     return <p className="text-sm" style={{ color: "var(--primary)" }}>{state.success}</p>;
@@ -103,9 +104,26 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
 
       <div>
         <label className="label" htmlFor="import-file">
-          Backup file
+          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive, or a legacy .json)</span>
         </label>
-        <input id="import-file" name="file" type="file" accept="application/json,.json" required className="input" />
+        <input
+          id="import-file"
+          name="file"
+          type="file"
+          accept=".zip,application/zip,.json,application/json"
+          required
+          className="input"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f && f.size > 10 * 1024 * 1024) {
+              setFileError("That backup file is too large (10 MB max).");
+              e.target.value = "";
+            } else {
+              setFileError(null);
+            }
+          }}
+        />
+        {fileError && <p className="form-error mt-1">{fileError}</p>}
       </div>
 
       <div>
@@ -161,7 +179,7 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
         type="submit"
         className="btn self-start"
         style={{ background: "#dc2626", color: "white" }}
-        disabled={pending || confirmText !== "Everything"}
+        disabled={pending || confirmText !== "Everything" || !!fileError}
       >
         {pending ? "Restoring…" : "Erase & restore"}
       </button>

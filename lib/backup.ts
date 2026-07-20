@@ -1,14 +1,25 @@
 import "server-only";
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
+import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { prisma } from "@/lib/db";
 import { readIcon, writeNamedIcon, isValidIconFilename } from "@/lib/icons";
 
 /**
  * Backup / restore of the JonDash dataset.
  *
+ * Format v2 is a ZIP archive:
+ *   - backup.json         the envelope (plain, or scrypt+AES-GCM encrypted for credentials)
+ *   - icons/<filename>    the real icon image files
+ * Icons live as real files in the archive (not base64 inside the JSON), and are
+ * included whenever the "icons" category is selected — regardless of whether
+ * users/roles are also exported.
+ *
+ * Format v1 (a single JSON file, icons as base64 inside it) is still accepted on
+ * restore for backwards compatibility.
+ *
  * Two modes, driven by whether a passphrase is supplied:
- *  - No passphrase  -> plain JSON. Cannot include user accounts/credentials.
- *  - Passphrase set -> AES-256-GCM (scrypt-derived key). May include everything.
+ *  - No passphrase  -> plain backup.json. Cannot include user accounts/credentials.
+ *  - Passphrase set -> backup.json is AES-256-GCM (scrypt-derived key). May include everything.
  *
  * Restore is a full REPLACE of each included category and is a major destructive
  * action (gated by step-up auth + typed confirmation in the calling action).
@@ -24,8 +35,10 @@ export const CATEGORY_LABELS: Record<BackupCategory, string> = {
   audit: "Audit log",
 };
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2; // v2 = ZIP archive; v1 (JSON) still restorable
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 32 } as const;
+const BACKUP_JSON = "backup.json";
+const ICON_PREFIX = "icons/";
 
 type LinkExport = {
   id: string;
@@ -53,9 +66,13 @@ type BackupData = {
     };
   }[];
   roles?: { id: string; name: string; createdAt: string; links: LinkExport[] }[];
+  // v1 (legacy) backups carry icons here as base64; v2 stores them as archive files.
   icons?: { filename: string; dataBase64: string }[];
   audit?: { action: string; userId: string | null; ip: string | null; detail: string | null; createdAt: string }[];
 };
+
+/** An icon image pulled from / written to the archive. */
+export type IconFile = { filename: string; data: Buffer };
 
 export type BackupEnvelope = {
   app: "JonDash";
@@ -88,13 +105,12 @@ function toLinkExport(l: {
   };
 }
 
-/** Build the in-memory backup payload for the chosen categories. */
+/** Build the in-memory backup payload (users/roles/audit) for the chosen categories. */
 export async function buildBackupData(
   categories: BackupCategory[],
   includeCredentials: boolean,
 ): Promise<BackupData> {
   const data: BackupData = {};
-  const iconNames = new Set<string>();
 
   if (categories.includes("users")) {
     const users = await prisma.user.findMany({
@@ -104,53 +120,38 @@ export async function buildBackupData(
         backupCodes: includeCredentials ? { select: { codeHash: true, usedAt: true } } : false,
       },
     });
-    data.users = users.map((u) => {
-      u.links.forEach((l) => l.iconPath && iconNames.add(l.iconPath));
-      return {
-        id: u.id,
-        email: u.email,
-        role: u.role,
-        status: u.status,
-        createdAt: u.createdAt.toISOString(),
-        roleIds: u.serviceRoles.map((r) => r.id),
-        personalLinks: u.links.map(toLinkExport),
-        credentials: includeCredentials
-          ? {
-              passwordHash: u.passwordHash,
-              totpSecretEnc: u.totpSecretEnc,
-              mfaEnabled: u.mfaEnabled,
-              backupCodes: (u.backupCodes ?? []).map((c) => ({
-                codeHash: c.codeHash,
-                usedAt: c.usedAt ? c.usedAt.toISOString() : null,
-              })),
-            }
-          : undefined,
-      };
-    });
+    data.users = users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      createdAt: u.createdAt.toISOString(),
+      roleIds: u.serviceRoles.map((r) => r.id),
+      personalLinks: u.links.map(toLinkExport),
+      credentials: includeCredentials
+        ? {
+            passwordHash: u.passwordHash,
+            totpSecretEnc: u.totpSecretEnc,
+            mfaEnabled: u.mfaEnabled,
+            backupCodes: (u.backupCodes ?? []).map((c) => ({
+              codeHash: c.codeHash,
+              usedAt: c.usedAt ? c.usedAt.toISOString() : null,
+            })),
+          }
+        : undefined,
+    }));
   }
 
   if (categories.includes("roles")) {
     const roles = await prisma.serviceRole.findMany({
       include: { links: { orderBy: { sortOrder: "asc" } } },
     });
-    data.roles = roles.map((r) => {
-      r.links.forEach((l) => l.iconPath && iconNames.add(l.iconPath));
-      return {
-        id: r.id,
-        name: r.name,
-        createdAt: r.createdAt.toISOString(),
-        links: r.links.map(toLinkExport),
-      };
-    });
-  }
-
-  if (categories.includes("icons")) {
-    const icons: NonNullable<BackupData["icons"]> = [];
-    for (const filename of iconNames) {
-      const buf = await readIcon(filename);
-      if (buf) icons.push({ filename, dataBase64: buf.toString("base64") });
-    }
-    data.icons = icons;
+    data.roles = roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      createdAt: r.createdAt.toISOString(),
+      links: r.links.map(toLinkExport),
+    }));
   }
 
   if (categories.includes("audit")) {
@@ -167,18 +168,38 @@ export async function buildBackupData(
   return data;
 }
 
+/**
+ * Collect the icon image files to archive. Gathers EVERY icon referenced by any
+ * link (personal or role), independent of whether users/roles are also exported —
+ * so an "icons-only" backup actually contains images (BUG-01 fix).
+ */
+export async function collectBackupIcons(categories: BackupCategory[]): Promise<IconFile[]> {
+  if (!categories.includes("icons")) return [];
+  const links = await prisma.link.findMany({
+    where: { iconPath: { not: null } },
+    select: { iconPath: true },
+  });
+  const names = new Set<string>();
+  for (const l of links) if (l.iconPath) names.add(l.iconPath);
+
+  const out: IconFile[] = [];
+  for (const filename of names) {
+    const buf = await readIcon(filename);
+    if (buf) out.push({ filename, data: buf });
+  }
+  return out;
+}
+
 function deriveKey(passphrase: string, salt: Buffer): Buffer {
   return scryptSync(passphrase, salt, SCRYPT.keylen, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p });
 }
 
-/** Serialize a backup to the envelope JSON string (encrypted if passphrase given). */
-export async function serializeBackup(
+/** Build the backup.json envelope string (encrypted if a passphrase is given). */
+function buildEnvelopeJson(
+  data: BackupData,
   categories: BackupCategory[],
   passphrase: string | null,
-): Promise<string> {
-  const includeCredentials = !!passphrase; // credentials only travel encrypted
-  const data = await buildBackupData(categories, includeCredentials);
-
+): string {
   const base = {
     app: "JonDash" as const,
     formatVersion: FORMAT_VERSION,
@@ -210,16 +231,40 @@ export async function serializeBackup(
   return JSON.stringify(env);
 }
 
+/** Serialize a backup to a ZIP archive (backup.json + icons/). */
+export async function serializeBackup(
+  categories: BackupCategory[],
+  passphrase: string | null,
+): Promise<Uint8Array> {
+  const includeCredentials = !!passphrase; // credentials only travel encrypted
+  const data = await buildBackupData(categories, includeCredentials);
+  const icons = await collectBackupIcons(categories);
+
+  const files: Record<string, Uint8Array> = {
+    [BACKUP_JSON]: strToU8(buildEnvelopeJson(data, categories, passphrase)),
+  };
+  for (const icon of icons) {
+    if (isValidIconFilename(icon.filename)) {
+      files[ICON_PREFIX + icon.filename] = new Uint8Array(icon.data);
+    }
+  }
+  return zipSync(files, { level: 6 });
+}
+
 export class BackupError extends Error {}
 
-/** Parse (and decrypt if needed) a backup file into its data + includes. */
-export function parseBackup(
-  fileText: string,
+function isZip(bytes: Uint8Array): boolean {
+  return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+}
+
+/** Parse the backup.json envelope (decrypting if needed) into data + includes. */
+function parseEnvelope(
+  jsonText: string,
   passphrase: string | null,
 ): { data: BackupData; includes: BackupCategory[] } {
   let env: BackupEnvelope;
   try {
-    env = JSON.parse(fileText);
+    env = JSON.parse(jsonText);
   } catch {
     throw new BackupError("That file isn’t a valid backup (not JSON).");
   }
@@ -257,6 +302,42 @@ export function parseBackup(
 }
 
 /**
+ * Parse a backup file. Accepts a v2 ZIP archive (backup.json + icons/) or a v1
+ * JSON file (legacy). Returns the data, the included categories, and any icon
+ * files (from the archive; empty for legacy, where icons ride inside `data`).
+ */
+export function parseBackup(
+  input: Uint8Array | string,
+  passphrase: string | null,
+): { data: BackupData; includes: BackupCategory[]; iconFiles: IconFile[] } {
+  const bytes = typeof input === "string" ? strToU8(input) : input;
+
+  if (isZip(bytes)) {
+    let entries: Record<string, Uint8Array>;
+    try {
+      entries = unzipSync(bytes);
+    } catch {
+      throw new BackupError("That backup archive is corrupted or unreadable.");
+    }
+    const jsonBytes = entries[BACKUP_JSON];
+    if (!jsonBytes) throw new BackupError("That archive isn’t a JonDash backup (no backup.json).");
+    const { data, includes } = parseEnvelope(strFromU8(jsonBytes), passphrase);
+
+    const iconFiles: IconFile[] = [];
+    for (const [name, content] of Object.entries(entries)) {
+      if (!name.startsWith(ICON_PREFIX)) continue;
+      const filename = name.slice(ICON_PREFIX.length);
+      if (isValidIconFilename(filename)) iconFiles.push({ filename, data: Buffer.from(content) });
+    }
+    return { data, includes, iconFiles };
+  }
+
+  // Legacy v1: a plain JSON file (icons, if any, are base64 inside `data`).
+  const { data, includes } = parseEnvelope(strFromU8(bytes), passphrase);
+  return { data, includes, iconFiles: [] };
+}
+
+/**
  * Full REPLACE restore of the included categories. Roles are restored before
  * users so role memberships can be reconnected. Icon files are written after the
  * DB transaction commits (the filesystem isn't transactional).
@@ -264,6 +345,7 @@ export function parseBackup(
 export async function applyRestore(
   data: BackupData,
   includes: BackupCategory[],
+  iconFiles: IconFile[] = [],
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     // Roles first (users' memberships connect to them).
@@ -355,11 +437,18 @@ export async function applyRestore(
     }
   });
 
-  // Restore icon files (best-effort) after the DB commit.
-  if (includes.includes("icons") && data.icons) {
-    for (const icon of data.icons) {
-      if (!isValidIconFilename(icon.filename)) continue;
-      await writeNamedIcon(icon.filename, Buffer.from(icon.dataBase64, "base64")).catch(() => {});
+  // Restore icon files (best-effort) after the DB commit: v2 archive files first,
+  // falling back to legacy base64 icons carried inside `data`.
+  if (includes.includes("icons")) {
+    if (iconFiles.length) {
+      for (const icon of iconFiles) {
+        await writeNamedIcon(icon.filename, icon.data).catch(() => {});
+      }
+    } else if (data.icons) {
+      for (const icon of data.icons) {
+        if (!isValidIconFilename(icon.filename)) continue;
+        await writeNamedIcon(icon.filename, Buffer.from(icon.dataBase64, "base64")).catch(() => {});
+      }
     }
   }
 }

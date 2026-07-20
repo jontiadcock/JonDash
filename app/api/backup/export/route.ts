@@ -42,18 +42,20 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("A passphrase is required to export user accounts.", { status: 400 });
   }
 
-  const json = await serializeBackup(categories, passphrase);
+  const archive = await serializeBackup(categories, passphrase);
   await audit("backup.exported", {
     userId: user.id,
     detail: `${categories.join(",")}${passphrase ? " (encrypted)" : ""}`,
   });
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  const filename = `jondash-backup-${stamp}.json`;
-  return new Response(json, {
+  const filename = `jondash-backup-${stamp}.zip`;
+  // Copy into a fresh Uint8Array (backed by a plain ArrayBuffer) so it satisfies
+  // the Web `BodyInit` type; fflate returns Uint8Array<ArrayBufferLike>.
+  return new Response(new Uint8Array(archive), {
     status: 200,
     headers: {
-      "content-type": "application/json; charset=utf-8",
+      "content-type": "application/zip",
       "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "no-store",
     },

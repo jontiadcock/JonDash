@@ -3,6 +3,24 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.4] — 2026-07-20
+
+### Fixed
+- **Backups now include your icon images (BUG-01).** A backup is now a single **compressed `.zip`
+  archive** containing the data plus the **actual icon image files** — previously an "icons-only"
+  export produced an empty file, and icons otherwise rode as text inside the JSON. Icons are
+  included whenever the Icons category is selected, regardless of the other categories. Restore
+  accepts the new archive, and **older `.json` backups still restore** unchanged. Passphrase
+  encryption is unchanged.
+- **Uploading or restoring files over ~1 MB no longer crashes (BUG-02).** Server Actions were
+  capped at 1 MB by the framework, so a 1–2 MB icon (or a larger backup) hit an unhandled error
+  page. The limit is raised to 10 MB and oversized files now show a friendly "too large" message
+  instead of crashing.
+
+### Notes
+- The `Buffer()` deprecation warning (BUG-03) comes from third-party build tooling, not JonDash,
+  and no longer appears at runtime. Closed as upstream — no change needed.
+
 ## [1.2.3] — 2026-07-20
 
 ### Added
@@ -152,6 +170,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.4
 [1.2.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.3
 [1.2.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.2
 [1.2.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.1

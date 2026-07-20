@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.2.4",
+      "date": "2026-07-20",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Bug fixes: backups are now a compressed archive that actually includes your icon images (and older .json backups still restore), and uploading or restoring files over 1 MB no longer causes an error page."
+    },
+    {
       "version": "1.2.3",
       "date": "2026-07-20",
       "type": "minor",

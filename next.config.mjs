@@ -7,6 +7,12 @@ const nextConfig = {
   // would otherwise fail for lack of declaration files. (Next 16 no longer runs
   // ESLint during the build, so nothing to disable there.)
   typescript: { ignoreBuildErrors: true },
+  experimental: {
+    // Server Actions bodies default to 1 MB — too small for a 2 MB icon upload or
+    // a backup restore, which caused an unhandled 413 crash. Raise the ceiling so
+    // those requests reach our own size checks (which return a friendly message).
+    serverActions: { bodySizeLimit: "10mb" },
+  },
 };
 
 export default nextConfig;

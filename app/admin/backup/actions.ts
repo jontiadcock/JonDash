@@ -28,8 +28,10 @@ export async function importBackupAction(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a backup file to restore." };
   }
-  if (file.size > 25 * 1024 * 1024) {
-    return { error: "That file is too large to be a JonDash backup." };
+  // Keep this at/under the Server Actions body limit (next.config bodySizeLimit)
+  // so an oversized file gets this friendly message instead of a framework crash.
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: "That backup file is too large (10 MB max)." };
   }
 
   const passphrase = String(formData.get("passphrase") ?? "").trim() || null;
@@ -42,7 +44,7 @@ export async function importBackupAction(
 
   let parsed;
   try {
-    parsed = parseBackup(await file.text(), passphrase);
+    parsed = parseBackup(new Uint8Array(await file.arrayBuffer()), passphrase);
   } catch (e) {
     return { error: e instanceof BackupError ? e.message : "Could not read that backup file." };
   }
@@ -52,7 +54,7 @@ export async function importBackupAction(
   }
 
   try {
-    await applyRestore(parsed.data, parsed.includes);
+    await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
   } catch {
     return { error: "Restore failed and was rolled back. Your current data is unchanged." };
   }

@@ -244,24 +244,27 @@ practical. Stable `BUG-##` IDs.
 _None currently._
 
 ### 🟠 High
-- **BUG-01 · Backup can silently omit icons.** An "icons-only" export contains **no images** —
-  `buildBackupData` (`lib/backup.ts`) only gathers icons inside the `users`/`roles` blocks, so an
-  icons-only export is empty; images that DO get included ride as base64 in the JSON. A backup
-  that silently drops data is a data-integrity risk. **Fix:** produce a single **compressed
-  archive** (JSON + real image files), restore takes the archive, icons back up regardless of
-  other categories, keep the passphrase-encryption option. Logged 2026-07-20.
+_None currently._
 
 ### 🟡 Medium
-- **BUG-02 · Icon upload over ~1 MB crashes.** Next **Server Actions default to a 1 MB body
-  limit**, but the app allows **2 MB** (`lib/security/upload.ts`), so a 1–2 MB image is rejected
-  (HTTP 413) as an **unhandled page crash** (a refresh recovers). **Fix:** raise the Server Actions
-  `bodySizeLimit` in `next.config` (≥ `3mb`) AND show a friendly "image too large" message instead
-  of crashing. Logged 2026-07-20.
+_None currently._
 
 ### 🟢 Low
-- **BUG-03 · `Buffer()` deprecation warning (DEP0005).** Harmless warning printed at startup;
-  swap `Buffer()` / `new Buffer()` for `Buffer.from` / `Buffer.alloc` (likely a dependency — use
-  `node --trace-deprecation` to locate). Logged 2026-07-20.
+_None currently._
+
+### ✅ Fixed
+- **BUG-01 (High) · Backup silently omitted icons — fixed v1.2.4.** Backups are now a **compressed
+  ZIP archive** (`backup.json` + real `icons/` image files); an icons-only export includes every
+  referenced icon regardless of which other categories are selected; restore takes the archive, and
+  legacy `.json` backups still restore. `lib/backup.ts` + `fflate`; passphrase encryption retained.
+- **BUG-02 (Medium) · Icon upload / restore over ~1 MB crashed — fixed v1.2.4.** Raised the Server
+  Actions `bodySizeLimit` to `10mb` and added client-side size pre-checks with a friendly message
+  (icon uploads and backup restore), so an oversized file no longer triggers an unhandled 413 crash.
+
+### ⛔ Won't fix (upstream)
+- **BUG-03 (Low) · `Buffer()` deprecation warning (DEP0005).** Confirmed **not JonDash code** — it's
+  emitted by third-party/build tooling (eslint/vite/next/prisma/convert-source-map) and no longer
+  appears at runtime under `server.mjs`. Harmless; nothing for us to change. Closed 2026-07-20.
 
 ---
 
@@ -286,6 +289,7 @@ _None currently._
 - **v1.2.1** (2026-07-20) — fix: per-machine build skips type-check/lint (which the v1.1.7 `.d.ts` strip broke); `next.config` `ignoreBuildErrors` + `ignoreDuringBuilds`.
 - **v1.2.2** (2026-07-20) — removed the unsupported `eslint` key from `next.config` (Next 16 dropped it) that printed a harmless startup warning; no functional change.
 - **v1.2.3** (2026-07-20) — **OPS-04** self-healing launcher (recover-once from a failed build + redacted `logs/`) **and OPS-05** optional in-process HTTPS (Let's Encrypt HTTP-01 or bring-your-own cert, configurable ports, `/admin/network`, `node server.mjs` custom server); HTTPS off by default.
+- **v1.2.4** (2026-07-20) — bug fixes: **BUG-01** backups are now a compressed ZIP archive with real icon files (icons-only export no longer empty; legacy `.json` still restores); **BUG-02** >1 MB icon uploads / restores no longer crash (Server Actions `bodySizeLimit` 10 MB + friendly client size checks). BUG-03 closed as upstream/harmless.
 
 ---
 

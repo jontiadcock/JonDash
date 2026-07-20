@@ -15,6 +15,38 @@ import { ConfirmDialog } from "@/app/components/confirm-dialog";
 
 const initial: AdminState = {};
 
+const MAX_ICON_BYTES = 2 * 1024 * 1024; // keep in sync with lib/security/upload.ts
+
+/**
+ * Icon file input with a client-side size pre-check: an oversized image shows a
+ * friendly message and is cleared before submit, so it never hits the server and
+ * can't trigger a body-size (413) crash. The server-side cap stays authoritative.
+ */
+function IconFileInput({ id, name = "icon" }: { id?: string; name?: string }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <input
+        id={id}
+        name={name}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="input"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f && f.size > MAX_ICON_BYTES) {
+            setError("Image must be 2 MB or smaller.");
+            e.target.value = "";
+          } else {
+            setError(null);
+          }
+        }}
+      />
+      {error && <p className="form-error mt-1">{error}</p>}
+    </>
+  );
+}
+
 export function SetupLinkBox({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -132,7 +164,7 @@ export function CreateLinkForm({ userId }: { userId: string }) {
         <label className="label" htmlFor="link-icon">
           Icon (PNG, JPEG, WebP or GIF — optional, max 2 MB)
         </label>
-        <input id="link-icon" name="icon" type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="input" />
+        <IconFileInput id="link-icon" />
       </div>
       {state.error && <p className="form-error">{state.error}</p>}
       <div>
@@ -175,7 +207,7 @@ export function EditLinkForm({
       </div>
       <div>
         <label className="label">Replace icon (optional)</label>
-        <input name="icon" type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="input" />
+        <IconFileInput />
       </div>
       {state.error && <p className="form-error">{state.error}</p>}
       <div className="flex gap-2">
@@ -315,7 +347,7 @@ export function CreateRoleLinkForm({ roleId }: { roleId: string }) {
         <label className="label" htmlFor="rl-icon">
           Icon (PNG, JPEG, WebP or GIF — optional, max 2 MB)
         </label>
-        <input id="rl-icon" name="icon" type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="input" />
+        <IconFileInput id="rl-icon" />
       </div>
       {state.error && <p className="form-error">{state.error}</p>}
       <div>
