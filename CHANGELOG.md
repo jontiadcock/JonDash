@@ -3,6 +3,23 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.3] — 2026-07-20
+
+### Added
+- **Automatic HTTPS** (Admin → **Network & HTTPS**, full admins only). Obtain and auto-renew a
+  free **Let's Encrypt** certificate (HTTP-01 challenge), or **bring your own** certificate by
+  pointing to PEM files. Choose the HTTP and HTTPS **ports**. **Off by default** — plain HTTP is
+  unchanged, so existing installs are unaffected until you opt in. Certificates renew in the
+  background with no downtime, and a cert-status panel shows the issuer, expiry, and any errors.
+- **Self-healing launcher.** If a startup step fails (install / database / build), the launcher
+  now rebuilds once from a clean state automatically and tells you what happened, instead of
+  leaving a broken install. It also writes a local, **redacted** diagnostics log to a `logs/`
+  folder (never contains secrets, never uploaded).
+
+### Changed
+- The app is now started through a small custom server (`node server.mjs`) so it can terminate
+  TLS itself. No behavioural change when HTTPS is off.
+
 ## [1.2.2] — 2026-07-20
 
 ### Fixed
@@ -135,6 +152,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.3
 [1.2.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.2
 [1.2.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.0

@@ -27,10 +27,12 @@ if not errorlevel 10 goto :eof
 echo.
 choice /C YN /N /T 30 /D N /M "  Install this update now? [Y/N] (auto-skip in 30s): "
 if errorlevel 2 goto :update_skipped
+call :log update apply "installing available update from launcher prompt"
 echo   Installing update...
 node "scripts\update.mjs" apply
 goto :eof
 :update_skipped
+call :log update skipped "user declined the available update at launch"
 echo   Skipping update. You can install it later from the Admin page.
 goto :eof
 
@@ -76,20 +78,22 @@ if not exist ".next" set "NEEDBUILD=1"
 if not "%APPVER%"=="%BUILTVER%" set "NEEDBUILD=1"
 
 if defined NEEDBUILD (
+  call :log build start "building v%APPVER% (need-build: fresh/missing/version-change)"
+
   echo.
   echo   Installing / updating components ^(this can take a few minutes the first time^)...
   call npm install
-  if errorlevel 1 goto :error
+  if errorlevel 1 ( set "FAILSTEP=npm install" & goto :build_failed )
 
   echo.
   echo   Preparing the database...
   call npm run db:migrate
-  if errorlevel 1 goto :error
+  if errorlevel 1 ( set "FAILSTEP=db:migrate" & goto :build_failed )
 
   echo.
   echo   Building the app ^(please wait^)...
   call npm run build
-  if errorlevel 1 goto :error
+  if errorlevel 1 ( set "FAILSTEP=npm run build" & goto :build_failed )
 
   echo.
   echo   Optimising install size ^(removing build-only components^)...
@@ -102,21 +106,32 @@ if defined NEEDBUILD (
 
   if not exist ".data" mkdir ".data" >nul 2>nul
   > ".data\built-version" echo %APPVER%
+  REM A good build was reached: clear any prior auto-recovery marker.
+  if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
+  call :log build ok "built v%APPVER%; pruned + stripped runtime footprint"
 ) else (
   echo.
   echo   Already up to date and built ^(v%APPVER%^) — starting up.
+  REM Healthy fast-path start: clear any stale auto-recovery marker.
+  if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
 )
+
+REM Work out the real address (scheme/host/port) from the network config.
+set "DISPLAYURL=http://localhost:3000"
+for /f "usebackq tokens=* delims=" %%u in (`node "scripts\print-url.mjs" 2^>nul`) do set "DISPLAYURL=%%u"
 
 echo.
 echo   ============================================================
-echo     Your dashboard is running at:  http://localhost:3000
+echo     Your dashboard is running at:  %DISPLAYURL%
 echo     Leave this window open while you use it.
 echo     Close this window to stop the dashboard.
 echo   ============================================================
 echo.
 
-if "%~2"=="first" start "" http://localhost:3000
+if "%~2"=="first" start "" "%DISPLAYURL%"
+call :log start starting "launching the server for v%APPVER%"
 call npm run start
+call :log start stopped "server process exited"
 
 REM The app exits with this sentinel present when an in-app update was requested.
 if exist ".update-and-restart" goto :do_update
@@ -124,6 +139,7 @@ goto :eof
 
 :do_update
 del ".update-and-restart" >nul 2>nul
+call :log update apply "in-app update requested; applying from GitHub"
 echo.
 echo   Applying the update from GitHub...
 node "scripts\update.mjs" apply
@@ -131,10 +147,40 @@ REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
 cmd /c ""%~f0" _run"
 exit /b %errorlevel%
 
-:error
+REM ----------------------------------------------------------------------------
+REM Auto-recovery: if a setup step failed, wipe the regenerable folders and retry
+REM the launch ONCE from clean. A marker in .data guards against an endless loop.
+REM ----------------------------------------------------------------------------
+:build_failed
+call :log recovery failed "step failed: %FAILSTEP%"
+if exist ".data\recovery-attempted" goto :recovery_exhausted
+if not exist ".data" mkdir ".data" >nul 2>nul
+> ".data\recovery-attempted" echo 1
+call :log recovery retry "wiping node_modules + .next and retrying launch once"
 echo.
-echo   Something went wrong during setup. Please take a screenshot of the
-echo   messages above so it can be diagnosed.
+echo   Setup failed at: %FAILSTEP%
+echo   Attempting a one-time automatic recovery ^(rebuilding from a clean state^)...
+echo.
+if exist "node_modules" rmdir /S /Q "node_modules" >nul 2>nul
+if exist ".next" rmdir /S /Q ".next" >nul 2>nul
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
+
+:recovery_exhausted
+call :log recovery exhausted "clean rebuild also failed at: %FAILSTEP%"
+echo.
+echo   Automatic recovery was already attempted once and setup still failed
+echo   ^(last failing step: %FAILSTEP%^).
+echo   Please look in the  logs\  folder and take a screenshot of the messages
+echo   above so it can be diagnosed.
 echo.
 pause
 exit /b 1
+
+REM ----------------------------------------------------------------------------
+REM :log  <phase> <status> [detail...]  — append a redacted line to logs\.
+REM Reached only via CALL; the EXIT /B above stops fall-through.
+REM ----------------------------------------------------------------------------
+:log
+node "scripts\log.mjs" %* >nul 2>nul
+goto :eof

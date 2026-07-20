@@ -41,7 +41,7 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- ▶️ **OPS-04 — Self-healing launcher + verbose logs** — on a failed startup, clear `node_modules` and retry the launch once; alert the user + log it; add a redacted `logs/` folder.
+- _Nothing actively in progress. Next queued item: **SEC-03**._
 
 **Next — security & access control**
 1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
@@ -183,7 +183,36 @@ Admin "reset access" and new-user setup links can also be emailed. **Unlocks MOD
 #### OPS-03 · VHD appliance — 🌅
 Package everything as a bootable VM image for a hypervisor. Big convert, later.
 
-#### OPS-04 · Self-healing launcher + verbose logs — ⏳ (up next, 2026-07-20)
+#### OPS-05 · Automatic HTTPS (ACME / Let's Encrypt) — ✅ Shipped v1.2.3 (2026-07-20)
+_Shipped as **in-process ACME** (a custom `server.mjs` replaces `next start`), with configurable
+ports and a bring-your-own-cert option; **off by default**. Managed at `/admin/network`
+(ADMIN-only). The live Let's Encrypt issuance path awaits confirmation on a real domain (test with
+`ACME_STAGING=1` first)._
+
+Serve JonDash over real, browser-trusted TLS instead of plain HTTP, with certificates
+**auto-issued and auto-renewed** via the ACME protocol (Let's Encrypt as the default CA).
+- **Why:** today the app runs behind `next start` on HTTP; the CSP already gates
+  `upgrade-insecure-requests` on HTTPS (v1.0.3), so proper TLS lets that (and secure cookies /
+  HSTS) fully engage. Removes the self-signed-cert friction for self-hosters.
+- **Approach — decide at design time (two viable paths):**
+  1. **Bundled reverse proxy** (e.g. **Caddy**, which does ACME automatically) in front of
+     `next start` — least custom code, robust renewal, but adds a component to the Windows launcher.
+  2. **In-process ACME** (a Node ACME client, e.g. `acme-client`/Greenlock-style) terminating
+     TLS in the app — no extra binary, but we own renewal, key storage, and the HTTPS listener.
+- **Challenge type:** **HTTP-01** (needs port 80 reachable) is simplest; **DNS-01** supports
+  wildcard + hosts not publicly reachable on 80 but needs DNS-provider API creds. Support HTTP-01
+  first; DNS-01 later.
+- **Prereqs / constraints:** a **real domain name** pointing at the host and **public
+  reachability** (port 80/443) for HTTP-01 — so this is opt-in and won't work for pure-LAN/IP-only
+  installs (offer a self-signed / bring-your-own-cert fallback for those). Cert + account keys are
+  **sensitive**: store under `.data/` with the same 0600 posture as `secrets.json`, never in logs
+  (ties into OPS-04 redaction), never committed.
+- **Config:** admin-entered domain + contact email + enable toggle in Settings; show cert status
+  (issuer, expiry, last renewal) and surface renewal failures (ties into OPS-04 logging).
+- **Interacts with:** OPS-03 (a VHD appliance would ship this pre-wired) and the trusted-proxy
+  `X-Forwarded-For` work SEC-02/03/05 need (a reverse proxy makes XFF handling first-class).
+
+#### OPS-04 · Self-healing launcher + verbose logs — ✅ Shipped v1.2.3 (2026-07-20)
 Make the launcher recover from a broken/partial install instead of bricking, and give us real
 diagnostics.
 - **Auto-recovery:** if a startup step (`npm install` / build / start) fails, **clear
@@ -256,6 +285,7 @@ _None currently._
 - **v1.2.0** (2026-07-20) — sessions invalidated on server restart (`SERVER_BOOT_TIME` check in `getSessionUser`); everyone re-logs-in after a restart.
 - **v1.2.1** (2026-07-20) — fix: per-machine build skips type-check/lint (which the v1.1.7 `.d.ts` strip broke); `next.config` `ignoreBuildErrors` + `ignoreDuringBuilds`.
 - **v1.2.2** (2026-07-20) — removed the unsupported `eslint` key from `next.config` (Next 16 dropped it) that printed a harmless startup warning; no functional change.
+- **v1.2.3** (2026-07-20) — **OPS-04** self-healing launcher (recover-once from a failed build + redacted `logs/`) **and OPS-05** optional in-process HTTPS (Let's Encrypt HTTP-01 or bring-your-own cert, configurable ports, `/admin/network`, `node server.mjs` custom server); HTTPS off by default.
 
 ---
 
