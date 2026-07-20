@@ -175,10 +175,14 @@ An install is ~26k files, **97.5% `node_modules`**; our own source is ~120 files
 - *Interacts with:* auto-update (fetch prebuilt release) and OPS-03 (imaging sidesteps file counts).
 - **Standing rule:** avoid adding heavy dependencies casually; keep the runtime footprint in mind.
 
-#### OPS-02 · Email + self-service password reset — ⏳
-Email service abstraction (SMTP config in the Settings store, secrets encrypted). Self-service
-password reset via emailed one-time token (reuses the hashed-token + setup-flow machinery).
-Admin "reset access" and new-user setup links can also be emailed. **Unlocks MOD-03 alerting.**
+#### OPS-02 · Email + self-service password reset — ▶️ Part 1 shipped v1.2.5
+**Part 1 — SHIPPED v1.2.5 (2026-07-20):** outgoing email service (`nodemailer`)
+with authenticated SMTP (app password; Gmail/Outlook/Hotmail/M365 presets) **and OAuth2** for
+Google + Microsoft (XOAUTH2, admin-registered OAuth app + consent flow). Encrypted config in the
+Settings store; ADMIN-only **Admin → Email** page with a **test-send**. `lib/email/*`.
+**Part 2 — planned:** self-service password reset via an emailed one-time token (reuses the
+hashed-token + setup-flow machinery); emailed new-user setup links + admin "reset access".
+**Unlocks MOD-03 alerting.**
 
 #### OPS-03 · VHD appliance — 🌅
 Package everything as a bootable VM image for a hypervisor. Big convert, later.
@@ -290,6 +294,7 @@ _None currently._
 - **v1.2.2** (2026-07-20) — removed the unsupported `eslint` key from `next.config` (Next 16 dropped it) that printed a harmless startup warning; no functional change.
 - **v1.2.3** (2026-07-20) — **OPS-04** self-healing launcher (recover-once from a failed build + redacted `logs/`) **and OPS-05** optional in-process HTTPS (Let's Encrypt HTTP-01 or bring-your-own cert, configurable ports, `/admin/network`, `node server.mjs` custom server); HTTPS off by default.
 - **v1.2.4** (2026-07-20) — bug fixes: **BUG-01** backups are now a compressed ZIP archive with real icon files (icons-only export no longer empty; legacy `.json` still restores); **BUG-02** >1 MB icon uploads / restores no longer crash (Server Actions `bodySizeLimit` 10 MB + friendly client size checks). BUG-03 closed as upstream/harmless.
+- **v1.2.5** (2026-07-20) — OPS-02 part 1: outgoing email (authenticated SMTP app-password + Google/Microsoft OAuth2), encrypted config, ADMIN-only Email page + test-send.
 
 ---
 

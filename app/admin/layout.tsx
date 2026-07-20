@@ -13,13 +13,14 @@ export default async function AdminLayout({
   const { user: admin, sections } = await requireAdminArea();
   const version = getAppVersion();
 
-  // "Access Roles" and "Network & HTTPS" management are full-admin only.
+  // "Access Roles", "Network & HTTPS" and "Email" management are full-admin only.
   const navItems =
     admin.role === "ADMIN"
       ? [
           ...sections,
           { href: "/admin/access-roles", label: "Access Roles" },
           { href: "/admin/network", label: "Network & HTTPS" },
+          { href: "/admin/email", label: "Email" },
         ]
       : sections;
 

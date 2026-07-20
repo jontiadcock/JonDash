@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.2.5",
+      "date": "2026-07-20",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Outgoing email support: connect an SMTP account (Gmail, Outlook/Hotmail, Microsoft 365, or custom) with an app password, or via OAuth2 for Google and Microsoft, and send a test email — set up under Admin -> Email. Nothing sends automatically yet; it's the groundwork for emailed setup links and password reset."
+    },
+    {
       "version": "1.2.4",
       "date": "2026-07-20",
       "type": "patch",

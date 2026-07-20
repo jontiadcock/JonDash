@@ -3,6 +3,17 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.2.5] — 2026-07-20
+
+### Added
+- **Outgoing email support (OPS-02, part 1).** Configure an SMTP account so JonDash can send email
+  — via a standard **username + app password** (presets for Gmail, Outlook/Hotmail, Microsoft 365,
+  or custom) or **OAuth2** for Google and Microsoft (register your own OAuth app, connect via a
+  consent flow). Managed at **Admin → Email** (full admins only), with a **Send test email** button
+  to verify it works. All credentials — SMTP password, OAuth client secret, refresh token — are
+  encrypted at rest. Nothing sends automatically yet; this is the foundation for emailed setup
+  links and self-service password reset.
+
 ## [1.2.4] — 2026-07-20
 
 ### Fixed
@@ -170,6 +181,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.2.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.5
 [1.2.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.4
 [1.2.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.3
 [1.2.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.2
