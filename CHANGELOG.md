@@ -11,6 +11,23 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.3-beta.1] — 2026-07-21
+
+### Changed
+- **Reorganised admin menu into a "Settings" sidebar.** On desktop the admin area now has a left
+  sidebar grouped into **General**, **Server settings** (Updates, Backup, Network & HTTPS, Email) and
+  **Security** (Users, Service Groups, Sessions, Audit, Access Roles). Update-channel controls moved to
+  their own **Updates** page. You only see the sections your access allows; mobile keeps the dropdown menu.
+
+### Fixed
+- **Saving the Network page in "Off" mode no longer fails** with a spurious "Port must be 1–65535" error.
+- **The update-channel toggle now updates on screen immediately** when you save, instead of showing the
+  old channel until a refresh.
+- **"Update now" returns you to the sign-in screen** once the server has restarted, instead of appearing
+  to hang on "reconnecting…" (the restart signs you out, so it now reconnects to the login page).
+- **Editing a service on a phone no longer runs off the screen** — the edit form stacks below the row.
+- Renamed the app's internal package from `website-custom` to `jondash`.
+
 ## [1.3.2-beta.1] — 2026-07-21
 
 ### Changed
@@ -222,6 +239,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.3-beta.1
 [1.3.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.2-beta.1
 [1.3.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.1-beta.1
 [1.3.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.0

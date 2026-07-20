@@ -23,6 +23,8 @@ const initial: ChannelState = {};
 
 export function UpdatesPanel({ version, channel }: { version: string; channel: string }) {
   const [chanState, chanAction, chanPending] = useActionState(saveUpdateChannelAction, initial);
+  // After a save the server prop is stale until reload, so prefer the just-saved value.
+  const currentChannel = chanState.channel ?? channel;
 
   const [phase, setPhase] = useState<"idle" | "checking" | "result" | "updating" | "error">("idle");
   const [status, setStatus] = useState<Status | null>(null);
@@ -62,18 +64,24 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
   function waitForRestart() {
     setPhase("updating");
     let tries = 0;
+    let sawDown = false;
     const timer = setInterval(async () => {
       tries += 1;
       try {
-        const r = await fetch("/api/update/status", { cache: "no-store" });
-        if (r.ok) {
+        // Any response means the server is answering again. The restart signs
+        // everyone out, so /api/update/status returns 403 (not 2xx) — we can't
+        // wait for r.ok. Only treat a response as "back" once we've first seen
+        // the server go down, so we don't reload against the old process before
+        // it exits. Then go to /login (the restart ended the session).
+        await fetch("/api/update/status", { cache: "no-store" });
+        if (sawDown) {
           clearInterval(timer);
-          window.location.reload();
+          window.location.href = "/login";
         }
       } catch {
-        /* still down, keep waiting */
+        sawDown = true; // server is down (restarting)
       }
-      if (tries > 120) clearInterval(timer);
+      if (tries > 150) clearInterval(timer); // give up after ~5 min
     }, 2000);
   }
 
@@ -87,7 +95,13 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
       <form action={chanAction} className="flex flex-col gap-2">
         <label className="label" htmlFor="channel">Update channel</label>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select id="channel" name="channel" defaultValue={channel} className="input sm:max-w-xs">
+          <select
+            id="channel"
+            name="channel"
+            key={currentChannel}
+            defaultValue={currentChannel}
+            className="input sm:max-w-xs"
+          >
             <option value="stable">Stable — tested releases (recommended)</option>
             <option value="beta">Beta — pre-release builds, early access</option>
           </select>
@@ -99,7 +113,7 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
         </div>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
           Beta receives pre-release builds early and may be less stable. Takes effect on the next
-          update check. Currently on the <strong>{channel}</strong> channel.
+          update check. Currently on the <strong>{currentChannel}</strong> channel.
         </p>
       </form>
 

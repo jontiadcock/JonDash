@@ -176,21 +176,19 @@ export function CreateLinkForm({ userId }: { userId: string }) {
   );
 }
 
-export function EditLinkForm({
+/**
+ * The expanded "edit service" form. Rendered full-width *below* its list row (the
+ * open state is owned by the row in link-list.tsx) so it stacks vertically instead
+ * of being crammed into the horizontal controls, which overflowed on mobile (BUG-13).
+ */
+export function EditLinkFields({
   link,
+  onDone,
 }: {
   link: { id: string; title: string; url: string };
+  onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(updateLinkAction, initial);
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <button type="button" className="btn btn-ghost !py-1 !px-2 text-xs" onClick={() => setOpen(true)}>
-        Edit
-      </button>
-    );
-  }
 
   return (
     <form action={action} className="mt-3 flex w-full flex-col gap-3" encType="multipart/form-data">
@@ -214,7 +212,7 @@ export function EditLinkForm({
         <button type="submit" className="btn btn-primary !py-1.5 text-sm" disabled={pending}>
           {pending ? "Saving…" : "Save"}
         </button>
-        <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setOpen(false)}>
+        <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={onDone}>
           Cancel
         </button>
       </div>

@@ -98,7 +98,16 @@ export function validateByoCert(
  * persist it. Returns a friendly error string on failure.
  */
 export function parseAndSaveNetworkConfig(input: unknown): { ok: true } | { ok: false; error: string } {
-  const parsed = baseSchema.safeParse(input);
+  // A mode can hide a port field (e.g. "Off" doesn't render an HTTPS port), so it
+  // posts empty/absent. Coalesce any missing/blank port from the existing config
+  // rather than coercing "" → 0 (which failed min(1) and blocked every Off save,
+  // BUG-05), and so a hidden field never wipes a previously-saved port.
+  const existing = readNetworkConfig();
+  const merged: Record<string, unknown> = { ...(input as Record<string, unknown>) };
+  if (merged.httpPort === "" || merged.httpPort == null) merged.httpPort = existing.httpPort;
+  if (merged.httpsPort === "" || merged.httpsPort == null) merged.httpsPort = existing.httpsPort;
+
+  const parsed = baseSchema.safeParse(merged);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const cfg = parsed.data;
 

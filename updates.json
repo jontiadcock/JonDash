@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.3-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the admin menu is reorganised into a left 'Settings' sidebar (General, Server settings, Security), with Updates on its own page. Plus fixes: Off-mode network save works, the update-channel toggle updates immediately, 'Update now' returns to the sign-in screen after restarting, and the mobile service-edit form no longer runs off-screen."
+    },
+    {
       "version": "1.3.2-beta.1",
       "date": "2026-07-21",
       "type": "minor",

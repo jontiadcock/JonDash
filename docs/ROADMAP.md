@@ -304,8 +304,13 @@ The "next 2 things for a beta," built on a proper launcher **supervisor** (which
 Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
 accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
 
-#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ⏳
+#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ▶️ Shipped v1.3.3-beta.1 (beta)
 Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
+**Shipped v1.3.3-beta.1:** desktop left sidebar (`app/admin/admin-sidebar.tsx`) titled "Settings" with
+**General** on top, **Server settings** (Updates, Backup, Network & HTTPS, Email) and **Security**
+(Users, Service Groups, Sessions, Audit, Access Roles); Updates moved to its own `/admin/updates` page
+(off the General/Settings page); capability-gating preserved (empty groups dropped); the mobile view
+keeps the "Menu ▾" dropdown (sidebar is `md`+ only). Verified at desktop + 375px. Original spec below:
 - **Move the nav to a left sidebar** (from today's top "Menu ▾" dropdown, `app/admin/admin-nav.tsx`)
   and **rename the "Admin" area to "Settings."**
 - **"General" as the top item** (standalone, first) — the current Settings page (sign-in message etc.).
@@ -316,8 +321,9 @@ Restructure the admin navigation and information architecture (a UI/IA change �
   (`ADMIN_SECTIONS` / `allowedSections`), now rendered grouped in the sidebar; full-admin-only
   sections (Network, Email, Access Roles) stay ADMIN-only. Landing page = `firstPermittedAdminPath`.
 
-#### CORE-03 · Better mobile / responsive support — ▶️ In progress (responsive polish in v1.3.2-beta.1)
-The app is usable on mobile but **not great** (user-tested 2026-07-21 — "looks good, not great").
+#### CORE-03 · Better mobile / responsive support — ▶️ In progress (v1.3.2-beta.1 polish user-confirmed 2026-07-21)
+The app was usable on mobile but not great; the **v1.3.2-beta.1** responsive polish was **tested and
+confirmed by the user 2026-07-21 ("significantly better")**.
 **v1.3.2-beta.1 (beta):** the header decrowds on small screens — the version tag and long labels
 ("Admin", "My") collapse and the brand truncates (`min-w-0` + `flex-none`) so it can't scroll
 sideways — plus tighter mobile spacing; wide admin tables already scroll within their wrapper.
@@ -340,7 +346,9 @@ Detailed step-by-step test notes for each item are kept privately in `PROJECT_ME
 - **Self-healing launcher + logs** (OPS-04, v1.2.3) — force a failed build; confirm it wipes + retries once (no loop), alerts, and writes a redacted `logs/` trail.
 - **Hardened security spot-check** — nonce CSP, CSRF same-origin rejection, brute-force/rate-limit lockout, and security headers behave as expected.
 - **Smoother page transitions** (v1.3.1-beta.1) — content fades in on navigation across the app and admin areas; confirm it's subtle, the header/nav don't flicker, there's no layout shift, and it's disabled under reduced-motion.
-- **Mobile responsive polish** (v1.3.2-beta.1) — on a phone / narrow window the header fits without sideways scrolling (version tag + long labels hidden), every authenticated page (user + admin) looks right, wide admin tables scroll within their own area, and desktop is unchanged.
+- **Settings sidebar redesign** (CORE-02, v1.3.3-beta.1) — the new desktop left "Settings" nav (General / Server settings / Security) + the moved `/admin/updates` page; eyeball the look, confirm every link works, a delegate sees only their permitted sections, and the mobile "Menu ▾" dropdown still works.
+- **Update auto-reload** (BUG-12, v1.3.3-beta.1) — on a **real** update, confirm the page now returns to the login screen after the restart instead of hanging on "reconnecting…" (code path verified; needs a live update+restart to fully confirm).
+- **Batch fixes — verified live, worth a glance** (v1.3.3-beta.1) — network Off-mode save (BUG-05), channel display updates immediately on save (BUG-09), and the mobile service-edit form no longer overflows (BUG-13).
 
 ---
 
@@ -374,12 +382,6 @@ _None currently._
   CTRL_CLOSE). Must be fixed before OPS-10's auto-revert can rely on crash detection. Logged 2026-07-21.
 
 ### 🟡 Medium
-- **BUG-05 · Network & HTTPS page rejects a valid port ("Port must be 1–65535").** Saving the Network
-  page in the default **Off** mode fails with the range error even when the port entered is valid.
-  **Cause:** in Off mode the `httpsPort` field isn't rendered, so it posts empty → `z.coerce.number("")`
-  → 0 → fails `min(1)`, which rejects the whole save (`lib/tls/network.ts` + `app/admin/network/ui.tsx`).
-  So *any* Off-mode save is blocked, not just a port change. **Fix:** validate/patch only the port
-  fields relevant to the current mode (or default a missing port instead of coercing "" to 0). Logged 2026-07-20.
 - **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
   a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
   self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already
@@ -388,11 +390,7 @@ _None currently._
   already running" message instead of proceeding. Logged 2026-07-20.
 
 ### 🟢 Low
-- **BUG-09 · Update-channel toggle shows the old channel until refresh.** On Admin → Settings →
-  Updates, switching the channel (e.g. Stable → Beta) and saving still displays the previous channel
-  until the page is reloaded. The save itself works — only the on-screen value is stale until a
-  refresh. No functional impact, minor concern. **Fix:** refresh the displayed channel after the save
-  (revalidate the page / return the new value from the action / update local state). Logged 2026-07-20.
+_None currently._
 
 _(BUG-08 "Email OAuth2 option isn't discoverable" was removed 2026-07-20 — the option does exist
 behind the Authentication dropdown, judged not a defect. BUG-06 "skip browser auto-open" was
@@ -406,6 +404,23 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 - **BUG-02 (Medium) · Icon upload / restore over ~1 MB crashed — fixed v1.2.4.** Raised the Server
   Actions `bodySizeLimit` to `10mb` and added client-side size pre-checks with a friendly message
   (icon uploads and backup restore), so an oversized file no longer triggers an unhandled 413 crash.
+- **BUG-05 (Medium) · Network page rejected a valid port in Off mode — fixed v1.3.3-beta.1.**
+  `parseAndSaveNetworkConfig` (`lib/tls/network.ts`) now coalesces a missing/blank port from the
+  existing config before validating, so an Off-mode save (which hides the HTTPS-port field) succeeds
+  instead of coercing `""` → 0. Verified live: Off-mode save returns "Saved — restart to apply."
+- **BUG-09 (Low) · Update-channel toggle showed the old channel until refresh — fixed v1.3.3-beta.1.**
+  `saveUpdateChannelAction` returns the saved channel and the panel shows it immediately. Verified live.
+- **BUG-11 (Low) · Old "website-custom" name in package metadata — fixed v1.3.3-beta.1.** Renamed to
+  `jondash` in `package.json` + `package-lock.json` (npm banners now read `jondash@…`).
+- **BUG-12 (Medium) · "Update now" never auto-reloaded — fixed v1.3.3-beta.1.** The reload poll
+  (`update-banner.tsx` + `settings/updates-panel.tsx`) now treats *any* response as "server's back"
+  once it has first seen it go down, then navigates to `/login` (the restart ends the session), instead
+  of waiting for a 2xx that never comes (the endpoint 403s post sign-out). Code path verified; the full
+  update+restart cycle still wants a live confirmation.
+- **BUG-13 (Medium) · Editing a personal service overflowed on mobile — fixed v1.3.3-beta.1.** The edit
+  form was wedged into the horizontal controls row; `link-list.tsx` now renders it full-width **below**
+  the row (per-row client state; `EditLinkForm` → `EditLinkFields`). Verified: no page overflow at 375px
+  with the form open. Logged + fixed 2026-07-21.
 
 ### ⛔ Won't fix (upstream)
 - **BUG-03 (Low) · `Buffer()` deprecation warning (DEP0005).** Confirmed **not JonDash code** — it's

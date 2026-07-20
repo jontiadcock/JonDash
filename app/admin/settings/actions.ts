@@ -9,7 +9,7 @@ import { writeChannel, isChannel } from "@/lib/update-channel";
 
 export type SettingsState = SettingsFormState;
 
-export type ChannelState = { error?: string; ok?: boolean };
+export type ChannelState = { error?: string; ok?: boolean; channel?: string };
 
 /** Choose the update channel (stable = main branch, beta = beta branch). */
 export async function saveUpdateChannelAction(
@@ -24,8 +24,10 @@ export async function saveUpdateChannelAction(
 
   writeChannel(raw);
   await audit("settings.update-channel", { userId: admin.id, detail: raw });
-  revalidatePath("/admin/settings");
-  return { ok: true };
+  revalidatePath("/admin/updates");
+  // Return the saved channel so the client can reflect it immediately — the
+  // client component's `channel` prop wouldn't otherwise update until a reload.
+  return { ok: true, channel: raw };
 }
 
 /** Save the general (non-critical) settings on the Settings page. */
