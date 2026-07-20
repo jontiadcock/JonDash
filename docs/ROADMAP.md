@@ -92,6 +92,10 @@ Delegate specific admin powers to a normal USER without granting full ADMIN.
   admin area opens to anyone with ≥1 capability; nav shows only permitted sections.
 - **Kept ADMIN-only:** managing/assigning access roles, creating/acting-on ADMIN accounts,
   backup **restore** (export is delegable). Anti-escalation guards throughout. +10 tests.
+- **v1.3.4-beta.1:** capability set grown to **9** — added `network.manage` + `email.manage` so the
+  new Network & HTTPS and Email admin areas are delegable (they were incidentally ADMIN-only), and
+  `settings.manage` now also covers the Updates page. Standing rule: keep `PERMISSIONS`/`ADMIN_SECTIONS`
+  in sync with the admin surface as sections are added.
 
 #### SEC-02 · IP allow / deny — 🧊 Backlog (deprioritised 2026-07-20)
 Restrict access to chosen IP/CIDR ranges, blocked before login (proxy-enforced). Mode:
@@ -349,6 +353,7 @@ Detailed step-by-step test notes for each item are kept privately in `PROJECT_ME
 - **Settings sidebar redesign** (CORE-02, v1.3.3-beta.1) — the new desktop left "Settings" nav (General / Server settings / Security) + the moved `/admin/updates` page; eyeball the look, confirm every link works, a delegate sees only their permitted sections, and the mobile "Menu ▾" dropdown still works.
 - **Update auto-reload** (BUG-12, v1.3.3-beta.1) — on a **real** update, confirm the page now returns to the login screen after the restart instead of hanging on "reconnecting…" (code path verified; needs a live update+restart to fully confirm).
 - **Batch fixes — verified live, worth a glance** (v1.3.3-beta.1) — network Off-mode save (BUG-05), channel display updates immediately on save (BUG-09), and the mobile service-edit form no longer overflows (BUG-13).
+- **Delegated Network/Email capabilities** (v1.3.4-beta.1) — create an access role with **only** "Manage network & HTTPS" (or "Manage email"), assign it to a non-admin user, and confirm that user can reach `/admin/network` (or `/admin/email`) **and nothing else they weren't granted**; a full admin still sees everything. (Admin access + the 9-capability list were verified; the live *delegate* path wasn't browser-tested.)
 
 ---
 

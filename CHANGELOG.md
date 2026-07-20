@@ -11,6 +11,16 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.4-beta.1] — 2026-07-21
+
+### Changed
+- **Access roles now cover the whole admin area.** Two new delegable capabilities — **Manage network
+  & HTTPS** and **Manage email** — mean an administrator can grant those areas to a user via an access
+  role instead of them being full-admin-only. The **Manage settings** capability now also covers the
+  Updates page (relabelled "Manage settings and updates"). Full admins are unaffected, and existing
+  access roles keep exactly the powers they already had (the new capabilities do nothing until ticked).
+  Backup restore, access-role management, and admin-account management remain full-admin-only.
+
 ## [1.3.3-beta.1] — 2026-07-21
 
 ### Changed
@@ -239,6 +249,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.4-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.4-beta.1
 [1.3.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.3-beta.1
 [1.3.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.2-beta.1
 [1.3.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.1-beta.1

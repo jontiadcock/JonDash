@@ -25,8 +25,8 @@ export default async function AdminLayout({
       items: [
         { href: "/admin/updates", label: "Updates", show: perms.has("settings.manage") },
         { href: "/admin/backup", label: "Backup", show: perms.has("backups.manage") },
-        { href: "/admin/network", label: "Network & HTTPS", show: isAdmin },
-        { href: "/admin/email", label: "Email", show: isAdmin },
+        { href: "/admin/network", label: "Network & HTTPS", show: perms.has("network.manage") },
+        { href: "/admin/email", label: "Email", show: perms.has("email.manage") },
       ],
     },
     {

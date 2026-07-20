@@ -15,13 +15,19 @@ import { prisma } from "@/lib/db";
  * restoring a backup. See the individual server actions.
  */
 
+// The delegable admin capabilities. Keep this in sync with the admin feature
+// surface: when a new admin section/page is added, add a matching capability here
+// (or make a deliberate decision to keep it ADMIN-only — see the not-delegable list
+// above). Full ADMIN implies every capability.
 export const PERMISSIONS = {
   "users.manage": "Manage users (create, disable, delete, services)",
   "users.reset": "Reset access (password + 2FA)",
   "groups.manage": "Manage service groups",
   "sessions.manage": "Manage sessions",
   "audit.view": "View the audit log",
-  "settings.manage": "Manage settings",
+  "settings.manage": "Manage settings and updates",
+  "network.manage": "Manage network & HTTPS",
+  "email.manage": "Manage email",
   "backups.manage": "Manage backups (export)",
 } as const;
 
@@ -78,7 +84,10 @@ export async function userHasPermission(
 
 /**
  * Admin nav sections and the capability that unlocks each. "Access Roles" is
- * intentionally absent — it is ADMIN-only and added separately in the layout.
+ * intentionally absent — it stays ADMIN-only (delegating who can grant powers is
+ * itself a privilege boundary) and is added separately in the layout. Every other
+ * admin section has a delegable capability so the access-role model matches the
+ * admin surface — keep this list and PERMISSIONS in sync when adding sections.
  */
 export const ADMIN_SECTIONS: {
   href: string;
@@ -91,6 +100,8 @@ export const ADMIN_SECTIONS: {
   { href: "/admin/audit", label: "Audit", anyOf: ["audit.view"] },
   { href: "/admin/backup", label: "Backup", anyOf: ["backups.manage"] },
   { href: "/admin/settings", label: "Settings", anyOf: ["settings.manage"] },
+  { href: "/admin/network", label: "Network & HTTPS", anyOf: ["network.manage"] },
+  { href: "/admin/email", label: "Email", anyOf: ["email.manage"] },
 ];
 
 /** The nav sections a permission set may see (href + label). */
