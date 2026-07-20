@@ -5,7 +5,7 @@ import { hasActiveAdmin, getPendingAdmin } from "@/lib/auth/bootstrap";
 export const dynamic = "force-dynamic";
 import { decryptString } from "@/lib/crypto";
 import { buildTotpEnrolment } from "@/lib/auth/totp";
-import { WelcomeCreateForm, WelcomeConfirmForm } from "./forms";
+import { WelcomeCreateForm, WelcomeConfirmForm, WelcomeRestoreForm } from "./forms";
 import { welcomeRestartAction } from "./actions";
 
 export default async function WelcomePage() {
@@ -39,6 +39,11 @@ export default async function WelcomePage() {
         <div className="card p-6">
           {step2 ? <WelcomeConfirmForm qrDataUrl={qrDataUrl} secret={secret} /> : <WelcomeCreateForm />}
         </div>
+        {!step2 && (
+          <div className="mt-4 text-center">
+            <WelcomeRestoreForm />
+          </div>
+        )}
         {step2 && (
           <form action={welcomeRestartAction} className="mt-4 text-center">
             <button type="submit" className="text-xs underline" style={{ color: "var(--muted)" }}>

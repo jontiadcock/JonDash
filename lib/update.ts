@@ -2,13 +2,10 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { isNewer, type ReleaseType } from "@/lib/version";
+import { readChannel, manifestUrl, type UpdateChannel } from "@/lib/update-channel";
 
 const REPO_DIR = process.cwd();
 export const RESTART_SENTINEL = path.join(REPO_DIR, ".update-and-restart");
-
-// Public repo — the update manifest is read without any credentials.
-const REPO = process.env.UPDATE_REPO ?? "jontiadcock/JonDash";
-const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO}/main/updates.json`;
 
 export type ReleaseInfo = {
   version: string;
@@ -23,6 +20,7 @@ export type UpdateStatus = {
   current: string; // local version (from package.json)
   latest: string | null;
   release: ReleaseInfo | null; // details of the newest release
+  channel: UpdateChannel; // which channel this check used
   reason?: string; // any soft error (e.g. offline)
 };
 
@@ -43,11 +41,11 @@ export function getAppVersion(): string {
   return localVersion();
 }
 
-async function fetchManifest(): Promise<{ releases: ReleaseInfo[] } | null> {
+async function fetchManifest(url: string): Promise<{ releases: ReleaseInfo[] } | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(MANIFEST_URL, {
+    const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { "User-Agent": "JonDash-Updater", Accept: "application/json" },
       cache: "no-store",
@@ -66,15 +64,17 @@ export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
 
   const current = localVersion();
+  const channel = readChannel();
   const base: UpdateStatus = {
     supported: true,
     updateAvailable: false,
     current,
     latest: null,
     release: null,
+    channel,
   };
 
-  const manifest = await fetchManifest();
+  const manifest = await fetchManifest(manifestUrl(channel));
   const latest = manifest?.releases?.[0] ?? null;
   let status: UpdateStatus;
   if (!latest) {

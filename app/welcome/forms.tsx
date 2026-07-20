@@ -1,13 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   welcomeCreateAction,
   welcomeConfirmAction,
+  welcomeRestoreAction,
   type WelcomeState,
+  type WelcomeRestoreState,
 } from "./actions";
 
 const initial: WelcomeState = {};
+const restoreInitial: WelcomeRestoreState = {};
 
 export function WelcomeCreateForm() {
   const [state, action, pending] = useActionState(welcomeCreateAction, initial);
@@ -47,6 +50,77 @@ export function WelcomeCreateForm() {
       <button type="submit" className="btn btn-primary mt-1" disabled={pending}>
         {pending ? "Creating…" : "Continue"}
       </button>
+    </form>
+  );
+}
+
+/**
+ * First-run restore: reveal-on-demand form to initialise a fresh install from a
+ * backup. Only rendered before any admin exists (the page enforces that).
+ */
+export function WelcomeRestoreForm() {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(welcomeRestoreAction, restoreInitial);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="text-sm underline"
+        style={{ color: "var(--muted)" }}
+        onClick={() => setOpen(true)}
+      >
+        Migrating from another machine? Restore from a backup instead
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <div>
+        <label className="label" htmlFor="restore-file">
+          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive, or a legacy .json)</span>
+        </label>
+        <input
+          id="restore-file"
+          name="file"
+          type="file"
+          accept=".zip,application/zip,.json,application/json"
+          required
+          className="input"
+        />
+      </div>
+      <div>
+        <label className="label" htmlFor="restore-pass">
+          Passphrase <span style={{ color: "var(--muted)" }}>(if the backup is encrypted)</span>
+        </label>
+        <input
+          id="restore-pass"
+          name="passphrase"
+          type="password"
+          autoComplete="off"
+          className="input"
+          placeholder="Leave blank for a plain backup"
+        />
+      </div>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        To sign in afterwards, use an encrypted backup that includes user accounts — a plain backup
+        can’t restore passwords or 2FA.
+      </p>
+      {state.error && <p className="form-error">{state.error}</p>}
+      {state.notice && (
+        <p className="text-sm" style={{ color: "var(--primary)" }}>
+          {state.notice}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button type="submit" className="btn btn-primary" disabled={pending}>
+          {pending ? "Restoring…" : "Restore backup"}
+        </button>
+        <button type="button" className="btn btn-ghost text-sm" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

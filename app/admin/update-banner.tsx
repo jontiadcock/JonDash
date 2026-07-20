@@ -22,6 +22,7 @@ export function UpdateBanner() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [current, setCurrent] = useState<string | null>(null);
   const [release, setRelease] = useState<Release | null>(null);
+  const [channel, setChannel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Check once on mount.
@@ -33,6 +34,7 @@ export function UpdateBanner() {
         if (active && s?.updateAvailable && s.release) {
           setCurrent(s.current ?? null);
           setRelease(s.release);
+          setChannel(s.channel ?? null);
           setPhase("available");
         }
       })
@@ -95,6 +97,11 @@ export function UpdateBanner() {
             <span className="min-w-0">
               <strong>Update available — v{release.version}</strong>
               {current ? <span style={{ color: "var(--muted)" }}> (you have v{current})</span> : null}
+              {channel === "beta" && (
+                <span className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--muted)" }}>
+                  beta channel
+                </span>
+              )}
               <span className="ml-2 rounded px-1.5 py-0.5 text-xs" style={{ background: "var(--surface-2)" }}>
                 {TYPE_LABEL[release.type] ?? release.type}
               </span>

@@ -17,8 +17,10 @@ import { emailSchema, totpCodeSchema } from "@/lib/validation/schemas";
 import { hasActiveAdmin, getPendingAdmin } from "@/lib/auth/bootstrap";
 import { generateBackupCodes } from "@/lib/auth/backup-codes";
 import { setRevealCodes } from "@/lib/auth/recovery-reveal";
+import { parseBackup, applyRestore, BackupError } from "@/lib/backup";
 
 export type WelcomeState = { error?: string };
+export type WelcomeRestoreState = { error?: string; notice?: string };
 
 async function clientIp(): Promise<string> {
   const h = await headers();
@@ -97,6 +99,57 @@ export async function welcomeConfirmAction(
   await audit("account.backup_codes.generated", { userId: admin.id });
   await setRevealCodes(backupCodes, "/dashboard");
   redirect("/recovery-codes");
+}
+
+/**
+ * First-run alternative: initialise a brand-new install by restoring a backup
+ * (e.g. migrating from another machine). Only available before the first admin
+ * exists — the same boundary that closes the setup wizard — so it is never an
+ * unauthenticated restore of a live install.
+ */
+export async function welcomeRestoreAction(
+  _prev: WelcomeRestoreState,
+  formData: FormData,
+): Promise<WelcomeRestoreState> {
+  await assertSameOrigin();
+  if (await hasActiveAdmin()) redirect("/login"); // closed once set up
+
+  if (!rateLimit(`welcome-restore:${await clientIp()}`, 5, 60_000).allowed) {
+    return { error: "Too many attempts. Please wait a minute and try again." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a backup file to restore." };
+  if (file.size > 10 * 1024 * 1024) return { error: "That backup file is too large (10 MB max)." };
+
+  const passphrase = String(formData.get("passphrase") ?? "").trim() || null;
+
+  let parsed;
+  try {
+    parsed = parseBackup(new Uint8Array(await file.arrayBuffer()), passphrase);
+  } catch (e) {
+    return { error: e instanceof BackupError ? e.message : "Could not read that backup file." };
+  }
+  if (parsed.includes.length === 0) {
+    return { error: "That backup doesn’t contain anything to restore." };
+  }
+
+  try {
+    await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
+  } catch {
+    return { error: "Restore failed. Your install is still empty — try again, or set up manually." };
+  }
+  await audit("bootstrap.restored", { detail: parsed.includes.join(",") });
+
+  // If the backup brought in an active admin, first-run is complete → sign in.
+  if (await hasActiveAdmin()) redirect("/login");
+
+  // Restored, but no sign-in-able admin (e.g. a plain backup without accounts).
+  return {
+    notice:
+      "Backup restored, but it didn’t include an administrator account you can sign in with. " +
+      "Create your admin account above to finish setting up.",
+  };
 }
 
 /** Discard the in-progress admin so setup can be restarted with a new email. */

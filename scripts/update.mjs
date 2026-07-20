@@ -40,23 +40,41 @@ function localVersion() {
   }
 }
 
+// Parse X.Y.Z or X.Y.Z-beta.N (pre-release). pre = the beta number, or null for a release.
 function parseVer(v) {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(v).trim());
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/i.exec(String(v).trim());
+  return m
+    ? { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]), pre: m[4] !== undefined ? Number(m[4]) : null }
+    : null;
 }
 function isNewer(a, b) {
   const pa = parseVer(a), pb = parseVer(b);
   if (!pa || !pb) return false;
-  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] > pb[i];
-  return false;
+  for (const k of ["major", "minor", "patch"]) if (pa[k] !== pb[k]) return pa[k] > pb[k];
+  // Same X.Y.Z: a release outranks any pre-release; else compare beta numbers.
+  if (pa.pre === pb.pre) return false;
+  if (pa.pre === null) return true;
+  if (pb.pre === null) return false;
+  return pa.pre > pb.pre;
 }
 const TYPE_LABEL = { major: "Major update", minor: "Minor update", patch: "Security / bug-fix" };
 
 const REPO = envValue("UPDATE_REPO") || "jontiadcock/JonDash";
 const UA = { "User-Agent": "JonDash-Updater" };
 
+// Update channel (stable -> main branch, beta -> beta branch). Read from the same
+// file the app writes; defaults to stable. The launcher runs before the app.
+function channel() {
+  try {
+    const c = fs.readFileSync(path.join(REPO_DIR, ".data", "update-channel"), "utf8").trim().toLowerCase();
+    if (c === "stable" || c === "beta") return c;
+  } catch {}
+  return "stable";
+}
+
 async function getLatest() {
-  const res = await fetch(`https://raw.githubusercontent.com/${REPO}/main/updates.json`, {
+  const branch = channel() === "beta" ? "beta" : "main";
+  const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${branch}/updates.json`, {
     headers: { ...UA, Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`manifest fetch failed: ${res.status}`);
@@ -75,12 +93,13 @@ async function cmdCheck() {
     console.log("  Couldn't reach GitHub (offline or unavailable). Skipping update check.");
     return 0;
   }
+  const ch = channel();
   if (!latest || !isNewer(latest.version, current)) {
-    console.log(`  You're up to date (v${current}).`);
+    console.log(`  You're up to date (v${current}, ${ch} channel).`);
     return 0;
   }
   console.log("");
-  console.log(`  An update is available:  v${latest.version}   (you have v${current})`);
+  console.log(`  An update is available:  v${latest.version}   (you have v${current}, ${ch} channel)`);
   console.log(`     Type: ${TYPE_LABEL[latest.type] ?? latest.type}      Priority: ${latest.criticality}`);
   console.log(`     ${latest.summary}`);
   return 10;

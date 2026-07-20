@@ -5,8 +5,28 @@ import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import { applySettingsForm, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
+import { writeChannel, isChannel } from "@/lib/update-channel";
 
 export type SettingsState = SettingsFormState;
+
+export type ChannelState = { error?: string; ok?: boolean };
+
+/** Choose the update channel (stable = main branch, beta = beta branch). */
+export async function saveUpdateChannelAction(
+  _prev: ChannelState,
+  formData: FormData,
+): Promise<ChannelState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("settings.manage");
+
+  const raw = String(formData.get("channel") ?? "");
+  if (!isChannel(raw)) return { error: "Choose a valid channel." };
+
+  writeChannel(raw);
+  await audit("settings.update-channel", { userId: admin.id, detail: raw });
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}
 
 /** Save the general (non-critical) settings on the Settings page. */
 export async function updateSettingsAction(

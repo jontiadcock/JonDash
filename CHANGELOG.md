@@ -3,6 +3,20 @@
 All notable changes to JonDash are documented here. Versions follow
 `MAJOR.MINOR.PATCH` — patch = fix/security, minor = features, major = big changes.
 
+## [1.3.0] — 2026-07-20
+
+### Added
+- **Update channels (Stable / Beta).** Under **Admin → Settings → Updates** you can now choose which
+  release channel this install follows: **Stable** tracks tested releases (the default, unchanged for
+  everyone), **Beta** receives pre-release builds early. Beta versions use `X.Y.Z-beta.N` and the
+  updater understands them. Also adds a **"Check for updates"** button to check on demand and install
+  a found update without waiting for the next launch.
+- **Restore a backup during first-run setup.** A brand-new install can be initialised by restoring a
+  backup — handy for migrating from another machine — instead of creating an administrator from
+  scratch. The option appears on the welcome screen and is only available until the first
+  administrator exists, then it's closed for good. Use an encrypted backup that includes accounts so
+  you can sign in afterwards.
+
 ## [1.2.5] — 2026-07-20
 
 ### Added
@@ -181,6 +195,7 @@ All notable changes to JonDash are documented here. Versions follow
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.0
 [1.2.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.5
 [1.2.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.4
 [1.2.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.3
