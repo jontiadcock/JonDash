@@ -257,6 +257,7 @@ Detailed step-by-step test notes for each item are kept privately in `PROJECT_ME
 - **HTTPS / networking** (OPS-05, v1.2.3) — Let's Encrypt live cert (`ACME_STAGING=1` first), bring-your-own-cert, configurable ports, the Network page; sign in / authenticator / icon-upload over HTTPS.
 - **Self-healing launcher + logs** (OPS-04, v1.2.3) — force a failed build; confirm it wipes + retries once (no loop), alerts, and writes a redacted `logs/` trail.
 - **Hardened security spot-check** — nonce CSP, CSRF same-origin rejection, brute-force/rate-limit lockout, and security headers behave as expected.
+- **Smoother page transitions** (v1.3.1-beta.1) — content fades in on navigation across the app and admin areas; confirm it's subtle, the header/nav don't flicker, there's no layout shift, and it's disabled under reduced-motion.
 
 ---
 

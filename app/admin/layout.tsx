@@ -3,6 +3,7 @@ import { requireAdminArea } from "@/lib/auth/guards";
 import { logoutAction } from "@/app/(app)/actions";
 import { UpdateBanner } from "./update-banner";
 import { AdminNav } from "./admin-nav";
+import { PageTransition } from "@/app/components/page-transition";
 import { getAppVersion } from "@/lib/update";
 
 export default async function AdminLayout({
@@ -57,7 +58,9 @@ export default async function AdminLayout({
         </div>
       </header>
       <UpdateBanner />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <PageTransition>{children}</PageTransition>
+      </main>
     </div>
   );
 }

@@ -11,7 +11,13 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
-_No beta releases yet — the first `X.Y.Z-beta.N` build will be listed here._
+## [1.3.1-beta.1] — 2026-07-20
+
+### Changed
+- **Smoother page transitions.** The page content now fades in gently as you move between pages,
+  instead of switching instantly. Only the body animates — the header and navigation stay put — and
+  the effect is disabled automatically if your system is set to reduce motion. First build on the
+  Beta channel.
 
 ## Stable releases
 
@@ -207,6 +213,7 @@ _No beta releases yet — the first `X.Y.Z-beta.N` build will be listed here._
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.1-beta.1
 [1.3.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.0
 [1.2.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.5
 [1.2.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.4

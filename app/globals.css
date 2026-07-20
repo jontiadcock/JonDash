@@ -128,3 +128,26 @@ body {
   color: var(--danger);
   font-size: 0.875rem;
 }
+
+/* Subtle page-content transition. Fades in on first load and replays on each
+   client-side navigation (the content wrapper is keyed by pathname). Only the
+   page body animates — the sticky header/nav stays put. Enter-only, transform +
+   opacity so there's no layout shift. Disabled under reduced-motion. */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-fade {
+  animation: page-fade-in 0.22s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-fade {
+    animation: none;
+  }
+}

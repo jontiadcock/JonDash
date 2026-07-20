@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { getEffectivePermissions } from "@/lib/auth/permissions";
+import { PageTransition } from "@/app/components/page-transition";
 import { logoutAction } from "./actions";
 
 export default async function AppLayout({
@@ -46,7 +47,9 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <PageTransition>{children}</PageTransition>
+      </main>
     </div>
   );
 }
