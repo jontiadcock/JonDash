@@ -41,7 +41,8 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- _Nothing actively in progress. Next queued item: **SEC-03**._
+- _Nothing actively in progress. **Next targeted for a beta: OPS-10** (launcher supervisor +
+  auto-backup/revert — must fix **BUG-10** crash-detection first). Next security feature: **SEC-03**._
 
 **Next — security & access control**
 1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
@@ -57,6 +58,12 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 
 **Planned — slot in as decided (not tied to the sequence above)**
 - ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
+- ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security sections, General on top
+- ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+- ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+- ⏳ **OPS-09 — SMTP provider presets + auth-type clarity**
+- ⏳ **OPS-10 — Launcher supervisor: crash capture + auto-backup & revert** — next-beta target; fixes BUG-10 first
+- ⏳ **CORE-03 — Better mobile / responsive support**
 
 **Backlog**
 - 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
@@ -236,11 +243,84 @@ An improvement, not a defect: `start-dashboard.bat` opens the browser on first l
 opt-out the launcher checks before opening — a `.data` flag, a launcher argument, or an env var
 (e.g. `JONDASH_NO_BROWSER`).
 
+#### OPS-07 · Bring-your-own certificate: guidance + validate/upload, or OS cert store — ⏳
+Make the BYO-cert path (Admin → Network & HTTPS) friendlier and safer to configure. Extends OPS-05.
+- **Brief how-to inline on the page** — what the certificate + private key (PEM) are, where to get
+  them, and exactly which field is which (leaf + chain, and the key), with a link to fuller docs.
+- **Upload + validate before applying** — let the admin **upload** the cert/key files (not only
+  point at a path), then **confirm the pair is usable**: parse the PEM, check the private key matches
+  the certificate, and surface issuer, subject/SANs and validity dates (warn on expired /
+  not-yet-valid / self-signed). `lib/tls/network.ts` already `createSecureContext`-validates a BYO
+  cert (pass/fail); extend it to report these details back to the UI.
+- **Optional — pick from the OS personal certificate store** (Windows "Personal"/`My`) if feasible:
+  enumerate installed certs that have a private key and let the admin select one instead of PEM
+  files. Node has no first-class cert-store access, so **spike feasibility first** (a PowerShell /
+  `certutil` bridge, or a native module) before committing.
+- Keep the 0600 posture for any uploaded key material and never log it (OPS-04 redaction).
+
+#### OPS-08 · Let's Encrypt: process-oriented progress feedback — ⏳
+Today enabling Let's Encrypt saves the config and issuance happens on the next restart, with only a
+status panel to poll. Make it feel like a **guided process**: a step-by-step progress UI during
+issuance — e.g. "Saving configuration → Requesting certificate → Answering the HTTP-01 challenge →
+Certificate issued → Switching to HTTPS" — with a "this can take a minute" note, working/among-steps
+indicators, and a clear success/failure end state that surfaces the ACME error text on failure.
+Drive it off the ACME lifecycle already in `lib/tls/acme.mjs` + the cert-status state; likely needs a
+small progress/status endpoint the Network page polls. Pairs with OPS-07 (both polish the Network &
+HTTPS page).
+
+#### OPS-09 · SMTP provider presets + auth-type clarity — ⏳
+Broaden and clarify the email setup page (Admin → Email). Extends OPS-02.
+- **More provider presets** — add **SMTP2GO** and a few **free / open-friendly** email/SMTP services,
+  each with a short label and a **link** to where the user signs up or gets credentials, plus a clear
+  "bring your own SMTP" custom option.
+- **Clarify the auth type** — it is **not always an "app password."** Some providers use the normal
+  account password, some issue a dedicated SMTP username + API key/token, and Gmail/Outlook require an
+  app password (needs 2FA). Relabel/hint the credential field per preset so it's obvious which one to
+  enter, and drop the blanket "app password" wording where it's inaccurate.
+- Credentials stay encrypted at rest (unchanged).
+
+#### OPS-10 · Launcher supervisor: crash capture + auto-backup & revert — ⏳ (targeted: next beta)
+The "next 2 things for a beta," built on a proper launcher **supervisor** (which also fixes BUG-10):
+1. **Auto-backup before an update** — snapshot the current, known-good install (the code the updater
+   is about to overwrite — not user data, which is already preserved) so there's always a last-good
+   package to fall back to.
+2. **Auto-revert on a failed update / crash** — if the newly-installed version **fails to start or
+   crashes on boot**, the supervisor restores the backed-up last-good package and relaunches instead
+   of leaving the server down. **Marker-guarded** (revert once, then stop with a clear message — no
+   loop), mirroring OPS-04's recovery guard.
+- **Foundation — fix first (BUG-10):** make a **supervisor** the launcher's first action. It spawns
+  `server.mjs`, **tees the server's stdout/stderr + exit code into `logs/`** (so a *runtime* crash is
+  actually captured — today it isn't), detects an unexpected exit to trigger revert/restart, and
+  **exits cleanly when the server is stopped or the console window is closed** (Windows CTRL_CLOSE).
+  Real crash detection is the prerequisite for "revert on crash" to work at all.
+- **Design notes:** the current updater (`scripts/update.mjs`) copies over in place with **no rollback
+  point** — OPS-10 adds the pre-update snapshot + restore. Keep the snapshot lightweight (exclude
+  `node_modules`/`.next`/user data, which regenerate or are preserved). Ties into OPS-04 (self-heal)
+  and the auto-update flow. **A launcher change carries brick-risk — plan + review before building.**
+
 ### CORE — Core app & UX
 
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
 Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
 accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
+
+#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ⏳
+Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
+- **Move the nav to a left sidebar** (from today's top "Menu ▾" dropdown, `app/admin/admin-nav.tsx`)
+  and **rename the "Admin" area to "Settings."**
+- **"General" as the top item** (standalone, first) — the current Settings page (sign-in message etc.).
+- **Group the rest into sub-categories:**
+  - **Server settings** — Updates (moved here from its current spot), Backup, Network & HTTPS, Email.
+  - **Security** — Audit log, Sessions, Users, Service Groups (and Access Roles).
+- **Preserve capability-gating:** a delegate still sees only the sections their Access Role permits
+  (`ADMIN_SECTIONS` / `allowedSections`), now rendered grouped in the sidebar; full-admin-only
+  sections (Network, Email, Access Roles) stay ADMIN-only. Landing page = `firstPermittedAdminPath`.
+
+#### CORE-03 · Better mobile / responsive support — ⏳
+The app is usable on mobile but **not great** (user-tested 2026-07-21 — "looks good, not great").
+Improve the responsive layout: wide admin tables/views, the header/nav, forms, and tap-target sizes
+on small screens. **Likely helped by CORE-02** (condensing the admin area into a "Settings" sidebar),
+but tracked separately. Audit each page at mobile widths; presentation only, no functionality change.
 
 ---
 
@@ -280,6 +360,15 @@ _None currently._
   with a backup code, then re-enrol the authenticator (Account page). **Fix:** carry TOTP secrets
   across installs — e.g. on an encrypted backup, wrap the TOTP secrets with the passphrase (not the
   install key) and re-encrypt to the destination key on restore. Logged 2026-07-20.
+- **BUG-10 · Launcher self-heal doesn't recover a *running* server crash — only a failed build.** The
+  OPS-04 self-healing (v1.2.3) recovers when the install/**build** step fails, but once `server.mjs`
+  has started the launcher has handed off and nothing supervises it: if the running server crashes,
+  the cause isn't captured in `logs/` (so the logs are "useless" for diagnosis) and the server just
+  **stays down**. **Design direction (per the user):** the launcher's first action should be to start
+  a **supervisor/monitor** that owns the server lifecycle — spawns the server, captures its
+  stdout/stderr + exit code to the log, restarts or **reverts** on an unexpected crash (see OPS-10),
+  and **exits cleanly when the server is stopped or the terminal window (X) is closed** (Windows
+  CTRL_CLOSE). Must be fixed before OPS-10's auto-revert can rely on crash detection. Logged 2026-07-21.
 
 ### 🟡 Medium
 - **BUG-05 · Network & HTTPS page rejects a valid port ("Port must be 1–65535").** Saving the Network
@@ -296,7 +385,11 @@ _None currently._
   already running" message instead of proceeding. Logged 2026-07-20.
 
 ### 🟢 Low
-_None currently._
+- **BUG-09 · Update-channel toggle shows the old channel until refresh.** On Admin → Settings →
+  Updates, switching the channel (e.g. Stable → Beta) and saving still displays the previous channel
+  until the page is reloaded. The save itself works — only the on-screen value is stale until a
+  refresh. No functional impact, minor concern. **Fix:** refresh the displayed channel after the save
+  (revalidate the page / return the new value from the action / update local state). Logged 2026-07-20.
 
 _(BUG-08 "Email OAuth2 option isn't discoverable" was removed 2026-07-20 — the option does exist
 behind the Authentication dropdown, judged not a defect. BUG-06 "skip browser auto-open" was
