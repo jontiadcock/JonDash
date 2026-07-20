@@ -11,6 +11,15 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.2-beta.1] — 2026-07-21
+
+### Changed
+- **Better mobile support.** On small screens the top bar no longer crowds or scrolls sideways —
+  the version tag and longer labels ("Admin", "My") collapse, spacing tightens, and the brand
+  truncates gracefully rather than pushing the page wide. Wide admin tables scroll within their own
+  area instead of stretching the page. Desktop is unchanged. This is groundwork; the larger mobile
+  improvement arrives with the admin "Settings" redesign.
+
 ## [1.3.1-beta.1] — 2026-07-20
 
 ### Changed
@@ -213,6 +222,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.2-beta.1
 [1.3.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.1-beta.1
 [1.3.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.0
 [1.2.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.2.5

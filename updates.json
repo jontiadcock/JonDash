@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.2-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: better mobile support — on small screens the header no longer crowds or scrolls sideways (the version tag and long labels collapse) and spacing is tighter. Desktop is unchanged. Groundwork; the bigger mobile improvement comes with the admin 'Settings' redesign."
+    },
+    {
       "version": "1.3.1-beta.1",
       "date": "2026-07-20",
       "type": "minor",

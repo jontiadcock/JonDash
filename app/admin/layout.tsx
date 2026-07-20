@@ -31,26 +31,29 @@ export default async function AdminLayout({
         className="sticky top-0 z-10 border-b backdrop-blur"
         style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--background) 85%, transparent)" }}
       >
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <Link href="/admin" className="flex items-center gap-2 font-semibold">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <Link href="/admin" className="flex min-w-0 items-center gap-2 font-semibold">
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
                 J
               </span>
-              JonDash Admin
+              <span className="truncate">
+                JonDash<span className="hidden sm:inline"> Admin</span>
+              </span>
             </Link>
-            <span className="text-xs" style={{ color: "var(--muted)" }}>v{version}</span>
+            <span className="hidden text-xs sm:inline" style={{ color: "var(--muted)" }}>v{version}</span>
             <AdminNav items={navItems} />
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="btn btn-ghost !py-1.5 !px-3 text-sm">
-              My dashboard
+          <div className="flex flex-none items-center gap-2 sm:gap-3">
+            <Link href="/dashboard" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
+              <span className="sm:hidden">Dashboard</span>
+              <span className="hidden sm:inline">My dashboard</span>
             </Link>
             <span className="hidden text-sm sm:inline" style={{ color: "var(--muted)" }}>
               {admin.email}
             </span>
             <form action={logoutAction}>
-              <button type="submit" className="btn btn-ghost !py-1.5 !px-3 text-sm">
+              <button type="submit" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
                 Sign out
               </button>
             </form>
@@ -58,7 +61,7 @@ export default async function AdminLayout({
         </div>
       </header>
       <UpdateBanner />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-8">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

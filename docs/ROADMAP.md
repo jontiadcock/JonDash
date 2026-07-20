@@ -316,11 +316,13 @@ Restructure the admin navigation and information architecture (a UI/IA change �
   (`ADMIN_SECTIONS` / `allowedSections`), now rendered grouped in the sidebar; full-admin-only
   sections (Network, Email, Access Roles) stay ADMIN-only. Landing page = `firstPermittedAdminPath`.
 
-#### CORE-03 · Better mobile / responsive support — ⏳
+#### CORE-03 · Better mobile / responsive support — ▶️ In progress (responsive polish in v1.3.2-beta.1)
 The app is usable on mobile but **not great** (user-tested 2026-07-21 — "looks good, not great").
-Improve the responsive layout: wide admin tables/views, the header/nav, forms, and tap-target sizes
-on small screens. **Likely helped by CORE-02** (condensing the admin area into a "Settings" sidebar),
-but tracked separately. Audit each page at mobile widths; presentation only, no functionality change.
+**v1.3.2-beta.1 (beta):** the header decrowds on small screens — the version tag and long labels
+("Admin", "My") collapse and the brand truncates (`min-w-0` + `flex-none`) so it can't scroll
+sideways — plus tighter mobile spacing; wide admin tables already scroll within their wrapper.
+The larger structural win still comes with **CORE-02** (admin → "Settings" sidebar). Remaining:
+forms, tap-target sizes, and a per-page audit at mobile widths. Presentation only, no functionality change.
 
 ---
 
@@ -338,6 +340,7 @@ Detailed step-by-step test notes for each item are kept privately in `PROJECT_ME
 - **Self-healing launcher + logs** (OPS-04, v1.2.3) — force a failed build; confirm it wipes + retries once (no loop), alerts, and writes a redacted `logs/` trail.
 - **Hardened security spot-check** — nonce CSP, CSRF same-origin rejection, brute-force/rate-limit lockout, and security headers behave as expected.
 - **Smoother page transitions** (v1.3.1-beta.1) — content fades in on navigation across the app and admin areas; confirm it's subtle, the header/nav don't flicker, there's no layout shift, and it's disabled under reduced-motion.
+- **Mobile responsive polish** (v1.3.2-beta.1) — on a phone / narrow window the header fits without sideways scrolling (version tag + long labels hidden), every authenticated page (user + admin) looks right, wide admin tables scroll within their own area, and desktop is unchanged.
 
 ---
 
