@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.3",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: modules can now be installed for real. Admin -> Settings -> Modules -> Browse modules installs a module from a source, or import your own as a .zip; JonDash checks the module first (refusing anything that uses a capability it didn't declare, touches the filesystem, runs constructed code or reaches into app internals), then rebuilds and restarts so it's live - so you'll need to sign in again. If a module ever stops the app building, JonDash removes it, starts up without it and tells you. Modules can now also have working buttons, send email and ping hosts. Uninstalling now removes a module completely, and each module shows whether it's Enabled, Disabled or Not set up. The bundled Sample module has been removed."
+    },
+    {
       "version": "1.4.0-beta.2",
       "date": "2026-07-21",
       "type": "minor",

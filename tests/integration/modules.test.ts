@@ -1,19 +1,28 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { prisma } from "@/lib/db";
 import type { ModuleDefinition } from "@/lib/modules/types";
 import { moduleSettingsApi, moduleStoreApi } from "@/lib/modules/store";
 import { runModuleMigrations, dropModuleTables, moduleTableName } from "@/lib/modules/migrate";
 import { buildModuleContext } from "@/lib/modules/context";
-import { enableModule, disableModule, uninstallModule } from "@/lib/modules/manage";
+import {
+  enableModule,
+  disableModule,
+  uninstallModule,
+  pruneRemovedBundledModules,
+} from "@/lib/modules/manage";
 import { decryptString } from "@/lib/crypto";
 
-// A plain module definition pointing at the REAL bundled sample module's migrations dir
-// (so the raw-SQL runner is genuinely exercised) but WITHOUT importing its React
-// components — keeps this a pure node integration test.
+// JonDash ships no modules of its own, but the migration runner reads REAL files from
+// modules/<id>/migrations — so lay a throwaway module on disk to exercise it genuinely.
+const ID = "testmod";
+const MODULE_DIR = path.join(process.cwd(), "modules", ID);
+
 function sampleDef(overrides: Partial<ModuleDefinition> = {}): ModuleDefinition {
   return {
-    id: "sample",
-    name: "Sample",
+    id: ID,
+    name: "Test module",
     description: "test",
     version: "1.0.0",
     minAppVersion: "1.4.0",
@@ -27,6 +36,19 @@ function sampleDef(overrides: Partial<ModuleDefinition> = {}): ModuleDefinition 
   };
 }
 
+beforeAll(() => {
+  fs.mkdirSync(path.join(MODULE_DIR, "migrations"), { recursive: true });
+  fs.writeFileSync(
+    path.join(MODULE_DIR, "migrations", "001_init.sql"),
+    `-- throwaway fixture
+CREATE TABLE IF NOT EXISTS mod_testmod_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  text TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);`,
+  );
+});
+
 async function tableExists(name: string): Promise<boolean> {
   const rows = await prisma.$queryRawUnsafe<{ name: string }[]>(
     `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
@@ -36,7 +58,7 @@ async function tableExists(name: string): Promise<boolean> {
 }
 
 async function cleanup() {
-  await dropModuleTables("sample").catch(() => {});
+  await dropModuleTables(ID).catch(() => {});
   await prisma.moduleMigration.deleteMany();
   await prisma.moduleRecord.deleteMany();
   await prisma.module.deleteMany();
@@ -46,6 +68,7 @@ async function cleanup() {
 beforeEach(cleanup);
 afterAll(async () => {
   await cleanup();
+  fs.rmSync(MODULE_DIR, { recursive: true, force: true });
   await prisma.$disconnect();
 });
 
@@ -59,7 +82,7 @@ describe("module framework", () => {
     expect(await s.get("token")).toBe("sekret");
 
     const row = await prisma.setting.findUnique({
-      where: { scope_ownerId_key: { scope: "module", ownerId: "sample", key: "token" } },
+      where: { scope_ownerId_key: { scope: "module", ownerId: ID, key: "token" } },
     });
     expect(row?.secret).toBe(true);
     expect(row?.valueJson).not.toContain("sekret"); // stored encrypted, not plaintext
@@ -67,7 +90,7 @@ describe("module framework", () => {
   });
 
   it("generic store: set / get / list / delete", async () => {
-    const store = moduleStoreApi("sample");
+    const store = moduleStoreApi(ID);
     await store.set("a", { n: 1 });
     await store.set("b", 2);
     expect(await store.get("a")).toEqual({ n: 1 });
@@ -78,17 +101,17 @@ describe("module framework", () => {
 
   it("runs raw-SQL migrations into a namespaced table (idempotent), drops on uninstall", async () => {
     const def = sampleDef();
-    expect(moduleTableName("sample", "notes")).toBe("mod_sample_notes");
+    expect(moduleTableName(ID, "notes")).toBe("mod_testmod_notes");
 
     await runModuleMigrations(def);
-    expect(await tableExists("mod_sample_notes")).toBe(true);
+    expect(await tableExists("mod_testmod_notes")).toBe(true);
 
     await runModuleMigrations(def); // re-run = no-op
-    expect(await prisma.moduleMigration.count({ where: { moduleId: "sample" } })).toBe(1);
+    expect(await prisma.moduleMigration.count({ where: { moduleId: ID } })).toBe(1);
 
-    await dropModuleTables("sample");
-    expect(await tableExists("mod_sample_notes")).toBe(false);
-    expect(await prisma.moduleMigration.count({ where: { moduleId: "sample" } })).toBe(0);
+    await dropModuleTables(ID);
+    expect(await tableExists("mod_testmod_notes")).toBe(false);
+    expect(await prisma.moduleMigration.count({ where: { moduleId: ID } })).toBe(0);
   });
 
   it("context exposes ONLY granted capabilities", async () => {
@@ -96,17 +119,27 @@ describe("module framework", () => {
     const none = buildModuleContext(def, [], null);
     expect(none.crypto).toBeUndefined();
     expect(none.fetch).toBeUndefined();
+    expect(none.net).toBeUndefined();
+    expect(none.email).toBeUndefined();
     expect(none.audit).toBeUndefined();
     expect(none.db).toBeDefined(); // ships migrations => owns tables (baseline)
 
-    const granted = buildModuleContext(
-      { ...def, permissions: ["crypto:use", "network:outbound", "audit:write"] },
-      ["crypto:use", "network:outbound", "audit:write"],
-      null,
-    );
+    const perms = ["crypto:use", "network:outbound", "audit:write", "email:send"] as const;
+    const granted = buildModuleContext({ ...def, permissions: [...perms] }, [...perms], null);
     expect(granted.crypto).toBeDefined();
     expect(granted.fetch).toBeDefined();
+    expect(granted.net).toBeDefined(); // ICMP rides on network:outbound
+    expect(granted.email).toBeDefined();
     expect(granted.audit).toBeDefined();
+
+    // network:outbound alone must NOT hand out the mailer, and vice versa.
+    const netOnly = buildModuleContext(def, ["network:outbound"], null);
+    expect(netOnly.net).toBeDefined();
+    expect(netOnly.email).toBeUndefined();
+    const mailOnly = buildModuleContext(def, ["email:send"], null);
+    expect(mailOnly.email).toBeDefined();
+    expect(mailOnly.fetch).toBeUndefined();
+    expect(mailOnly.net).toBeUndefined();
 
     const noTables = buildModuleContext({ ...def, migrations: undefined }, [], null);
     expect(noTables.db).toBeUndefined();
@@ -128,22 +161,41 @@ describe("module framework", () => {
     });
 
     await enableModule(def);
-    expect((await prisma.module.findUnique({ where: { id: "sample" } }))?.enabled).toBe(true);
+    expect((await prisma.module.findUnique({ where: { id: ID } }))?.enabled).toBe(true);
     expect(onEnableRan).toBe(true);
-    const cnt = await prisma.$queryRawUnsafe<{ n: number }[]>(`SELECT COUNT(*) AS n FROM mod_sample_notes`);
+    const cnt = await prisma.$queryRawUnsafe<{ n: number }[]>(`SELECT COUNT(*) AS n FROM mod_testmod_notes`);
     expect(Number(cnt[0].n)).toBe(1);
 
     await moduleSettingsApi(def).set("heading", "X");
-    await moduleStoreApi("sample").set("k", 1);
+    await moduleStoreApi(ID).set("k", 1);
 
     await disableModule(def);
-    expect((await prisma.module.findUnique({ where: { id: "sample" } }))?.enabled).toBe(false);
+    expect((await prisma.module.findUnique({ where: { id: ID } }))?.enabled).toBe(false);
 
     await uninstallModule(def);
-    expect(await prisma.module.findUnique({ where: { id: "sample" } })).toBeNull();
-    expect(await tableExists("mod_sample_notes")).toBe(false);
-    expect(await prisma.setting.count({ where: { scope: "module", ownerId: "sample" } })).toBe(0);
-    expect(await prisma.moduleRecord.count({ where: { moduleId: "sample" } })).toBe(0);
-    expect(await prisma.moduleMigration.count({ where: { moduleId: "sample" } })).toBe(0);
+    expect(await prisma.module.findUnique({ where: { id: ID } })).toBeNull();
+    expect(await tableExists("mod_testmod_notes")).toBe(false);
+    expect(await prisma.setting.count({ where: { scope: "module", ownerId: ID } })).toBe(0);
+    expect(await prisma.moduleRecord.count({ where: { moduleId: ID } })).toBe(0);
+    expect(await prisma.moduleMigration.count({ where: { moduleId: ID } })).toBe(0);
+  });
+
+  it("prunes a bundled module a past build shipped, but never a source-installed one", async () => {
+    await enableModule(sampleDef()); // lands as source "bundled"
+    await moduleStoreApi(ID).set("k", 1);
+    await prisma.module.create({
+      data: { id: "from-repo", name: "From a source", version: "1.0.0", source: "repo" },
+    });
+    await moduleStoreApi("from-repo").set("k", 1);
+
+    // The registry ships nothing, so the bundled row is an orphan; the repo one is not.
+    await pruneRemovedBundledModules();
+
+    expect(await prisma.module.findUnique({ where: { id: ID } })).toBeNull();
+    expect(await tableExists("mod_testmod_notes")).toBe(false);
+    expect(await prisma.moduleRecord.count({ where: { moduleId: ID } })).toBe(0);
+
+    expect(await prisma.module.findUnique({ where: { id: "from-repo" } })).not.toBeNull();
+    expect(await prisma.moduleRecord.count({ where: { moduleId: "from-repo" } })).toBe(1);
   });
 });

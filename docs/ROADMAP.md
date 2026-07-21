@@ -170,8 +170,9 @@ memory; authored per the approved plan. Key points:
 - **Deliverable — 3rd-party author guide:** a public `docs/MODULES-AUTHORING.md` covering the contract,
   **permission list + etiquette**, versioning **cadence**, and **how to structure a module repo** to the
   framework's requirements. Plus each module carries a self-cleaning `modules/<id>/MODULE.md`.
-- **Phasing:** **P1 ✅ shipped v1.4.0-beta.1** — framework core + bundled `sample`
-  module: `lib/modules/*` (types, registry, store, migrate, context, permissions, manage),
+- **Phasing:** **P1 ✅ shipped v1.4.0-beta.1** — framework core + a bundled `sample`
+  module (**since removed** — a real module now exists; upgrading installs auto-prune its leftovers):
+  `lib/modules/*` (types, registry, store, migrate, context, permissions, manage),
   `Module`/`ModuleRecord`/`ModuleMigration` tables, enable/disable/uninstall, settings + generic store +
   raw-SQL `mod_<id>_*` migrations, permission consent + capability-scoped context, `modules.manage`
   capability, admin **Modules** page (`/admin/modules` + `[id]` settings), dashboard widget area + `/m/<id>`
@@ -179,7 +180,15 @@ memory; authored per the approved plan. Key points:
 - **P2 — sources, lifecycle UI, RBAC & live widgets** — ▶️ **in progress. Chunk A ✅ shipped v1.4.0-beta.2:**
   `ModuleSource` table + `Module.channel`, GitHub manifest fetch with strict validation
   (`lib/modules/sources.ts`), admin **Sources** + **Browse** pages, and the **per-module opt-into-beta**
-  toggle — verified against the live addons repo on both channel branches. Full P2 scope: git **sources** (default `JonDash-addons` repo +
+  toggle — verified against the live addons repo on both channel branches.
+  **Chunk B ▶️ in progress:** **codegen registry ✅** (`scripts/gen-module-registry.mjs` → `lib/modules/generated.ts`,
+  run by `prebuild`/`pretest`/`pretypecheck`) so **installing a module no longer needs a core edit** — verified
+  end-to-end by building the real health-monitor module; `modules` added to `update.mjs`/`rollback.mjs`
+  **PRESERVE** (an app update would otherwise have **deleted every installed module**) and `/modules/*`
+  gitignored as user content. **Remaining in chunk B:** install/update from a tag archive, the **install-time
+  verifier** (permission-vs-code check + banned constructs + archive hygiene — defence-in-depth, *not* a
+  sandbox), uninstall removing files, import-your-own ZIP, and launcher rebuild-on-module-change with
+  auto-recovery. Full P2 scope: git **sources** (default `JonDash-addons` repo +
   add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
   rebuild-on-module-change (brick-risk, plan+review); **per-module release channels** — every module has its
   own **stable/beta** channel with an *"opt into beta releases for this module"* toggle in that module's
@@ -192,9 +201,21 @@ memory; authored per the approved plan. Key points:
   exactly like services); **resizable + movable live widgets** on the dashboard with **size + position saved per user**; a
   module may ship a **custom, designable icon**; and the **widget-size-affects-appearance** guidance is
   documented (authors design responsively — a small widget = compact view, larger = more detail).
-- **P3 — MOD-02 Health monitoring** as the first real module: a live, resizable status widget with per-service
+- **P3 — Module runtime APIs ("make add-ons actually work")** — ✅ **built 2026-07-22, awaiting release.**
+  Without these a module can render but do nothing: no working buttons, no email, and background work
+  misattributed to a random admin. Added: **`moduleAction(id, handler)`** — the sanctioned mutation entry
+  point (module must be installed + enabled, caller authenticated, full admin when `adminOnly`, ctx scoped to
+  granted permissions, throws rather than silently no-op'ing); **`ctx.email.send()`** under `email:send`
+  (throws on failure so a module can't silently not send); **`systemModuleContext(id)`** for pollers/schedulers
+  so background audit entries aren't attributed to whoever loaded a page first; **`ctx.net.ping()`** under
+  `network:outbound` — ICMP belongs in core because it needs the OS `ping` binary, which the verifier bans in
+  modules, so the hardening (strict host validation, `execFile`, no shell, clamped timeout) lives once in
+  trusted code. Consent wording for `network:outbound` widened to disclose raw TCP/DNS/TLS/ping. **Modules may
+  import exactly two core paths — `@/lib/modules/types` (types, client-safe) and `@/lib/modules/api` (runtime);
+  everything else arrives on `ctx`** and the verifier refuses it. 118 tests.
+- **P4 — MOD-02 Health monitoring** as the first real module: a live, resizable status widget with per-service
   graphs/red-drops, a full self-contained module page (the "open the app" view), and a custom live icon.
-- **P4 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
+- **P5 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
 
 #### MOD-07 · Modifications (core-modifying add-ons) — 🌅 Reserved (future; keep the door open)
 A **later** category distinct from modules: **"modifications"** that *can modify the base app itself* (not

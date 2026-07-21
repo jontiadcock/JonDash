@@ -5,6 +5,7 @@ import { runModuleMigrations, dropModuleTables } from "./migrate";
 import { purgeModuleData } from "./store";
 import { buildModuleContext } from "./context";
 import { grantsForModule, parseGrants } from "./permissions";
+import { getAllModules } from "./registry";
 
 /**
  * Module lifecycle (MOD-01). Enable = run its migrations + record it enabled with the
@@ -52,4 +53,22 @@ export async function uninstallModule(def: ModuleDefinition): Promise<void> {
   await dropModuleTables(def.id); // drop mod_<id>_* + migration records
   await purgeModuleData(def.id); // settings + generic store
   await prisma.module.deleteMany({ where: { id: def.id } });
+}
+
+/**
+ * Clear the DB traces of a module that shipped WITH a previous build and no longer
+ * exists (e.g. the old `sample`), so an upgraded install isn't left with an orphan row
+ * and stray `mod_<id>_*` tables. Deliberately limited to `source: "bundled"` rows: a
+ * module installed from a source lives on disk and owns real user data, so it must
+ * never be purged merely because its definition failed to load.
+ */
+export async function pruneRemovedBundledModules(): Promise<void> {
+  const known = new Set(getAllModules().map((m) => m.id));
+  const rows = await prisma.module.findMany({ where: { source: "bundled" }, select: { id: true } });
+  for (const { id } of rows) {
+    if (known.has(id)) continue;
+    await dropModuleTables(id);
+    await purgeModuleData(id);
+    await prisma.module.deleteMany({ where: { id } });
+  }
 }

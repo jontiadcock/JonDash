@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { PERMISSION_WARNINGS, type ModulePermission } from "./types";
+import { getAllModules } from "./registry";
 
 /**
  * Module SOURCES (MOD-01 Phase 2). A source is a public git repo that publishes an
@@ -230,6 +231,9 @@ export async function browseAvailableModules(
 ): Promise<{ modules: AvailableModule[]; errors: { source: string; message: string }[] }> {
   const sources = (await listSources()).filter((s) => s.enabled);
   const installed = new Map((await prisma.module.findMany()).map((m) => [m.id, m]));
+  // A module counts as installed as soon as its code is compiled in, even before the
+  // admin has enabled it (enabling is what creates the DB row).
+  const compiledIn = new Set(getAllModules().map((m) => m.id));
 
   const modules: AvailableModule[] = [];
   const errors: { source: string; message: string }[] = [];
@@ -245,7 +249,7 @@ export async function browseAvailableModules(
           sourceName: s.name,
           sourceUrl: s.url,
           channel,
-          installed: !!row,
+          installed: !!row || compiledIn.has(entry.id),
           installedVersion: row?.version ?? null,
         });
       }

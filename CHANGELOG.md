@@ -11,6 +11,38 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.3] — 2026-07-22
+
+### Added
+- **Modules can now actually be installed.** **Admin → Settings → Modules → Browse modules** installs a module
+  straight from a source: JonDash downloads that exact published version, checks it, then rebuilds and
+  restarts so the module is live. Everyone signed in will need to sign in again (the app restarts).
+- **Import your own module** — a `.zip` of your module folder, from the Modules page. It goes through exactly
+  the same checks as one from a source; importing skips the source, not the safety rules.
+- **Modules are verified before they're installed.** A module is refused, with the reason shown, if it uses a
+  capability it didn't declare (so the permission list you approve is honest), touches the filesystem, runs
+  constructed code, reads the server's environment, reaches into JonDash's internals, asks for different
+  permissions than its listing advertises, or fails an archive-safety check. This is a strong safety net, not
+  a sandbox — a module still runs with the app's privileges, so only install modules you trust.
+- **Automatic recovery.** If a module stops JonDash from building, the launcher removes that module, rebuilds
+  without it and starts up normally — then tells you which module was removed. Your data isn't touched.
+- **Modules can do things, not just display them.** Modules can now have working buttons, send email through
+  your configured mail account, run background checks properly, and ping a host — so a module like health
+  monitoring can be fully interactive.
+
+### Changed
+- **Uninstalling a module now removes it completely** — its data *and* its code — and rebuilds. Previously it
+  cleared the data but left the module listed, which made the button look like it had done nothing.
+- Each module now clearly shows whether it is **Enabled**, **Disabled**, or **Not set up**, and uninstall is
+  available whenever a module is installed (you no longer have to enable one just to remove it).
+- The permission wording for outbound access now says what it really covers: web requests *and* raw TCP, DNS,
+  TLS and ping checks.
+- Installed modules are preserved across JonDash updates.
+
+### Removed
+- The bundled **Sample** module. It was a demonstration for the framework's first release; real modules are
+  now installed from a source. Any leftover data from it is cleaned up automatically on update.
+
 ## [1.4.0-beta.2] — 2026-07-21
 
 ### Added

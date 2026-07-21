@@ -26,7 +26,7 @@ const SNAP_VERSION = path.join(SNAP_ROOT, "version");
 
 // Never snapshot/overwrite: user data + regenerables (mirrors update.mjs PRESERVE),
 // and the SQLite database files (which live under prisma/).
-const PRESERVE = new Set([".env", ".data", "uploads", "node_modules", ".next", ".git", "logs"]);
+const PRESERVE = new Set([".env", ".data", "uploads", "modules", "node_modules", ".next", ".git", "logs"]);
 const isDbFile = (rel) => /(^|[\\/])prisma[\\/][^\\/]*\.db($|[-.])/i.test(rel);
 
 function appVersion() {

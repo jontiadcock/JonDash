@@ -12,6 +12,7 @@
 //   10  in-app update requested (.update-and-restart sentinel present)
 //   11  boot-crash loop right after an update  -> launcher should REVERT
 //   12  boot-crash loop (not after an update)  -> persistent failure; show help
+//   13  module installed/removed (.rebuild-and-restart) -> launcher should REBUILD
 //
 // Two in-app controls are handled here without a launcher round-trip: a `.restart-and-run`
 // signal relaunches the server in place (stay supervising); a `.shutdown` signal stops for
@@ -30,6 +31,7 @@ const ROOT = process.env.JONDASH_ROOT
   ? path.resolve(process.env.JONDASH_ROOT)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SENTINEL = path.join(ROOT, ".update-and-restart");
+const REBUILD_SIGNAL = path.join(ROOT, ".rebuild-and-restart"); // module install/uninstall
 const RESTART_SIGNAL = path.join(ROOT, ".restart-and-run"); // in-app "restart server"
 const SHUTDOWN_SIGNAL = path.join(ROOT, ".shutdown"); // in-app "shut down server"
 const POST_UPDATE = path.join(ROOT, ".data", "post-update");
@@ -153,6 +155,12 @@ function runOnce() {
       if (exists(SENTINEL)) {
         appendLog("server", "update-requested", `code=${code} — handing to launcher`);
         return finish(10);
+      }
+      // A module was installed/removed: its code has to be compiled in, so hand back to
+      // the launcher for a rebuild rather than just respawning the same build.
+      if (exists(REBUILD_SIGNAL)) {
+        appendLog("server", "rebuild-requested", `code=${code} — module change, handing to launcher`);
+        return finish(13);
       }
       // In-app restart requested: relaunch the server in place (no rebuild) and keep
       // supervising — a fast restart with no launcher round-trip.

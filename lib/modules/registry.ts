@@ -2,18 +2,19 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { ModuleDefinition, ModulePermission } from "./types";
 import { parseGrants } from "./permissions";
-import sample from "@/modules/sample/module";
+import { INSTALLED } from "./generated";
 
 /**
  * Module registry (MOD-01). The single bridge between the core and modules — the core
  * only ever reads from here, never imports a module directly, so with zero modules the
  * app is unchanged.
  *
- * Phase 1 uses a static list of bundled modules. Phase 2 replaces it with a build-time
- * codegen that scans the `modules/` folder so fetched/imported modules are discovered
- * without editing core code.
+ * The list comes from `generated.ts`, which `scripts/gen-module-registry.mjs` rebuilds
+ * from the `modules/` folder before every build and after any install/uninstall — so
+ * installing a module never needs a core edit. JonDash ships none of its own, so a stock
+ * install starts empty.
  */
-const BUNDLED: ModuleDefinition[] = [sample];
+const BUNDLED: ModuleDefinition[] = INSTALLED;
 
 export function getAllModules(): ModuleDefinition[] {
   return BUNDLED;

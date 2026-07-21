@@ -34,6 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# installed add-on modules (user content — fetched from a source or imported, never
+# shipped). lib/modules/generated.ts IS committed: it's regenerated from this folder at
+# build time, and a stock checkout must typecheck with an empty registry.
+/modules/*
+!/modules/.gitkeep
+
 # uploaded icons (user content), auto-generated secrets, and local sqlite database
 /uploads
 /.data

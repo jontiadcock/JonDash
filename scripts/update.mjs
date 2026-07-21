@@ -165,7 +165,9 @@ async function cmdAutoCheck() {
 async function copyOver(srcRoot) {
   // Directories/files whose local contents must be preserved (never overwritten
   // by the archive — they hold user data / build artifacts and aren't in it).
-  const PRESERVE = new Set([".env", ".data", "uploads", "node_modules", ".next", ".git", "logs"]);
+  // "modules" holds installed add-ons (user content, fetched from a source) — an update
+  // must never delete them; the registry is regenerated from the folder at build time.
+  const PRESERVE = new Set([".env", ".data", "uploads", "modules", "node_modules", ".next", ".git", "logs"]);
   async function walk(relDir) {
     const entries = await fsp.readdir(path.join(srcRoot, relDir), { withFileTypes: true });
     for (const e of entries) {

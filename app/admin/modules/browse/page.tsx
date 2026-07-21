@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { browseAvailableModules, type ModuleChannel } from "@/lib/modules/sources";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
+import { InstallButton } from "./install-button";
 
 export const dynamic = "force-dynamic";
 
@@ -83,9 +84,14 @@ export default async function BrowseModulesPage({
                     from {m.sourceName} · needs JonDash {m.minAppVersion}+
                   </p>
                 </div>
-                <button type="button" className="btn btn-ghost flex-none !py-1.5 text-sm" disabled>
-                  Install
-                </button>
+                <div className="flex-none">
+                  <InstallButton
+                    sourceId={m.sourceId}
+                    moduleId={m.id}
+                    channel={channel}
+                    installed={m.installed}
+                  />
+                </div>
               </div>
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
@@ -109,8 +115,9 @@ export default async function BrowseModulesPage({
       )}
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Installing from a source arrives in the next update — this page confirms your sources and shows what
-        they publish.
+        Installing checks the module against JonDash&apos;s safety rules, then rebuilds and restarts the app so
+        its code is compiled in — everyone signed in will need to sign in again. If a module can&apos;t build,
+        JonDash removes it and starts up without it.
       </p>
     </div>
   );

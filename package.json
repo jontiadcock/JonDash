@@ -1,6 +1,6 @@
 {
   "name": "jondash",
-  "version": "1.4.0-beta.2",
+  "version": "1.4.0-beta.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,10 @@
     "test:watch": "vitest",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prebuild": "node scripts/gen-module-registry.mjs",
+    "pretest": "node scripts/gen-module-registry.mjs",
+    "pretypecheck": "node scripts/gen-module-registry.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

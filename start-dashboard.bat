@@ -139,11 +139,28 @@ set "SUPCODE=%errorlevel%"
 call :log start stopped "supervisor exited (code=%SUPCODE%)"
 
 REM 10 = in-app update requested; 11 = boot-crash after an update (revert);
-REM 12 = persistent boot-crash (not an update); anything else = clean stop.
+REM 12 = persistent boot-crash (not an update); 13 = module change needs a rebuild;
+REM anything else = clean stop.
 if "%SUPCODE%"=="10" goto :do_update
 if "%SUPCODE%"=="11" goto :revert
 if "%SUPCODE%"=="12" goto :crash_help
+if "%SUPCODE%"=="13" goto :do_rebuild
 goto :eof
+
+REM ----------------------------------------------------------------------------
+REM A module was installed or removed. Its code is compiled into the app, so clear
+REM the built-version marker to force the normal build path and relaunch. If that
+REM build fails, :build_failed removes the offending module first (see :module_recover).
+REM Nothing is downloaded here — the module's files are already on disk.
+REM ----------------------------------------------------------------------------
+:do_rebuild
+del ".rebuild-and-restart" >nul 2>nul
+call :log build rebuild "module change — rebuilding before restart"
+echo.
+echo   Applying the module change ^(rebuilding, please wait^)...
+if exist ".data\built-version" del ".data\built-version" >nul 2>nul
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
 
 :do_update
 del ".update-and-restart" >nul 2>nul
@@ -164,12 +181,26 @@ REM the launch ONCE from clean. A marker in .data guards against an endless loop
 REM ----------------------------------------------------------------------------
 :build_failed
 call :log recovery failed "step failed: %FAILSTEP%"
+REM A module install/update was in flight: remove that module and retry before anything
+REM heavier. module-recover.mjs clears its own marker, so this can only run once.
+if exist ".data\module-installing" goto :module_recover
 REM First failure: try a one-time clean rebuild (fixes a corrupt/partial install).
 if not exist ".data\recovery-attempted" goto :clean_retry
 REM Clean rebuild already tried. If this was a failed UPDATE and we still have a
 REM snapshot and haven't reverted yet, roll back to the previous working version.
 if exist ".data\post-update" if exist ".data\rollback\snapshot" if not exist ".data\revert-attempted" goto :revert
 goto :recovery_exhausted
+
+REM A module broke the build: remove it, regenerate the registry, and build again
+REM without it. The app tells the admin which module was removed on next sign-in.
+:module_recover
+call :log recovery module "build failed after a module change; removing the module"
+echo.
+echo   A module prevented the app from building. Removing it and rebuilding...
+echo.
+node "scripts\module-recover.mjs"
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
 
 :clean_retry
 if not exist ".data" mkdir ".data" >nul 2>nul

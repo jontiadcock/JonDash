@@ -80,6 +80,8 @@ type ModuleContext = {
               // present only if you shipped migrations; you may ONLY touch your mod_<id>_* tables
   crypto?:  { encrypt(s: string): string; decrypt(s: string): string };  // only with crypto:use
   fetch?:   typeof fetch;                                                 // only with network:outbound
+  net?:     { ping(host: string, opts?: { timeoutMs?: number }): Promise<number | null> };  // network:outbound
+  email?:   { send(msg: { to; subject; text?; html? }): Promise<void> };  // only with email:send
   usersDb?: { /* scoped user access */ };                                // only with db:users:*
   audit?:   (action: string, detail?: string) => Promise<void>;          // only with audit:write
 };
@@ -87,13 +89,56 @@ type ModuleContext = {
 
 Baseline (no permission needed): your own `settings`, your own `store`, and your own `mod_<id>_*` tables.
 
+`ctx.net.ping` returns the round-trip in ms, or `null` when the host doesn't answer (unreachable is a normal
+result, not an error). ICMP is provided by the framework because it needs the OS `ping` binary, which modules
+are **not** allowed to invoke — the host validation and argument handling live once in core.
+`ctx.email.send` **throws** if email isn't configured or the send fails, so a module can't silently not send.
+
+### Doing something: `moduleAction`
+
+A widget or page can render, but a **button needs a server action**. Wrap it — this is the only sanctioned
+way for a module to mutate anything:
+
+```ts
+"use server";
+import { moduleAction } from "@/lib/modules/api";
+
+export const addCheck = moduleAction("my-module", async (ctx, formData: FormData) => {
+  await ctx.db!.run(`INSERT INTO ${ctx.db!.table("checks")} (url) VALUES (?)`, String(formData.get("url")));
+});
+```
+
+It verifies the module is installed and enabled, that the caller is signed in (a **full admin** if your module
+is `adminOnly`), and hands you a ctx scoped to your granted permissions. It **throws** on any failure rather
+than returning something falsy — never catch and ignore it.
+
+### Background work: `systemModuleContext`
+
+For pollers and schedulers there's no signed-in user. Don't hold on to a ctx captured from a request — every
+later audit entry would be attributed to whoever happened to trigger the first one:
+
+```ts
+import { systemModuleContext } from "@/lib/modules/api";
+const ctx = await systemModuleContext("my-module");
+```
+
+### The only two core imports you may use
+
+| Import | Use |
+| --- | --- |
+| `@/lib/modules/types` | Types. No `server-only`, so it's safe from a client component. |
+| `@/lib/modules/api` | Runtime: `moduleAction`, `systemModuleContext`. |
+
+**Anything else under `@/lib/…` is refused at install** — including the framework's own `store`, `migrate`,
+`manage`, `registry` and `context`. Everything else you need arrives on `ctx`.
+
 ---
 
 ## Permissions (declare the least you need)
 
 | Permission        | Grants                                                        |
 | ----------------- | ------------------------------------------------------------ |
-| `network:outbound`| Make outbound HTTP requests (`ctx.fetch`).                    |
+| `network:outbound`| Connect out: `ctx.fetch`, `ctx.net.ping`, and raw TCP/DNS/TLS (`node:net`/`dns`/`tls`/`http(s)`). |
 | `db:users:read`   | Read user accounts.                                          |
 | `db:users:write`  | Modify user accounts. *(Sensitive.)*                         |
 | `db:core:read`    | Read other core tables.                                      |
@@ -111,9 +156,30 @@ unless you genuinely must; be truthful in `name`/`description`; if you call an e
 `network:outbound` and say which service in `MODULE.md`. Each permission is shown to the admin as a
 plain-language warning at install — over-asking gets your module declined.
 
-**Honest security note:** modules run in the same process as JonDash and are **not hard-sandboxed** yet. The
+**Honest security note:** modules run in the same process as JonDash and are **not hard-sandboxed**. The
 permission consent + scoped context are the model for **curated / self-built** modules. Don't install a
 module you don't trust; hardened sandboxing for untrusted third parties is a later feature.
+
+### What the installer checks (and will refuse)
+
+Every module is statically verified **before** it's written to disk and compiled in. Your module is rejected
+outright — with the reason shown to the admin — if it:
+
+- uses a capability it didn't declare (`node:net`/`dns`/`tls`/`http(s)` or a bare `fetch()` ⇒ you must declare
+  `network:outbound`; `node:crypto` ⇒ `crypto:use`);
+- touches the **filesystem** (`node:fs`) — your data belongs in `ctx.db` / `ctx.store`;
+- uses `child_process`, `eval`, `new Function`, or a **computed** `import()`;
+- reads `process.env` — configuration belongs in your settings;
+- imports core internals instead of the two allowed paths above;
+- declares different permissions in `module.ts` than its `addons.json` entry advertises;
+- fails archive hygiene: a path escaping the module folder, a disallowed file type, or a package over the
+  size/file-count caps.
+
+This is **defence in depth, not a sandbox** — it catches accidents and undeclared capabilities and keeps the
+consent screen honest, but a determined author could obfuscate past it. Trust the source you install from.
+
+If a rule blocks something genuinely legitimate, ask for a framework capability (that's exactly how
+`ctx.net.ping` came to exist) rather than working around it.
 
 ---
 

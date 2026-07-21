@@ -20,7 +20,7 @@ import type { ComponentType, ReactNode } from "react";
  * settings, its own generic store, and its own `mod_<id>_*` tables.
  */
 export type ModulePermission =
-  | "network:outbound" // make outbound HTTP requests (ctx.fetch)
+  | "network:outbound" // outbound connections: ctx.fetch, raw TCP/DNS/TLS, ctx.net.ping
   | "db:users:read" // read user accounts (ctx.usersDb)
   | "db:users:write" // modify user accounts (sensitive)
   | "db:core:read" // read other core tables
@@ -70,6 +70,22 @@ export type ModuleDbApi = {
   run(sql: string, ...params: unknown[]): Promise<void>;
 };
 
+/** Send mail through the admin's configured mailer ("email:send"). */
+export type ModuleEmailApi = {
+  /** Throws if email isn't configured yet or the send fails — never fails silently. */
+  send(msg: { to: string; subject: string; text?: string; html?: string }): Promise<void>;
+};
+
+/**
+ * Network probes `fetch` can't express ("network:outbound"). ICMP lives here because it
+ * needs the OS `ping` binary: doing that safely (strict host validation, fixed argument
+ * list, no shell) belongs in trusted core code once, not copied into every module.
+ */
+export type ModuleNetApi = {
+  /** ICMP echo. Resolves round-trip milliseconds, or null if the host didn't answer. */
+  ping(host: string, opts?: { timeoutMs?: number }): Promise<number | null>;
+};
+
 /**
  * The capability-scoped context handed to a module's hooks + data functions. Optional
  * members are present ONLY when the corresponding permission was granted.
@@ -85,6 +101,8 @@ export type ModuleContext = {
   db?: ModuleDbApi; // only when the module ships migrations
   crypto?: { encrypt(s: string): string; decrypt(s: string): string }; // "crypto:use"
   fetch?: typeof fetch; // "network:outbound"
+  net?: ModuleNetApi; // "network:outbound"
+  email?: ModuleEmailApi; // "email:send"
   usersDb?: unknown; // "db:users:*" — shape defined as the runtime lands
   audit?: (action: string, detail?: string) => Promise<void>; // "audit:write"
 };
@@ -145,7 +163,7 @@ export type InstalledModule = {
 
 /** Human-readable, one-line warning shown at install for each permission. */
 export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
-  "network:outbound": "Make outbound network requests to other servers",
+  "network:outbound": "Connect out to other servers (web requests, and raw TCP, DNS, TLS and ping checks)",
   "db:users:read": "Read your user accounts",
   "db:users:write": "Create, modify or delete your user accounts",
   "db:core:read": "Read other app data",

@@ -2,9 +2,12 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { encryptString, decryptString } from "@/lib/crypto";
 import { audit as coreAudit } from "@/lib/audit";
+import { sendMail } from "@/lib/email/send";
 import type { ModuleContext, ModuleDefinition, ModulePermission } from "./types";
 import { moduleSettingsApi, moduleStoreApi } from "./store";
 import { moduleTableName } from "./migrate";
+import { pingHost } from "./net";
+import { getModuleState } from "./registry";
 
 /**
  * Build the capability-scoped ModuleContext handed to a module's hooks / components
@@ -41,7 +44,19 @@ export function buildModuleContext(
   }
 
   if (has("crypto:use")) ctx.crypto = { encrypt: encryptString, decrypt: decryptString };
-  if (has("network:outbound")) ctx.fetch = fetch;
+  if (has("network:outbound")) {
+    ctx.fetch = fetch;
+    ctx.net = { ping: (host, opts) => pingHost(host, opts ?? {}) };
+  }
+  if (has("email:send")) {
+    ctx.email = {
+      send: async (msg) => {
+        // sendMail never throws; surface a failure so a module can't silently not send.
+        const res = await sendMail(msg);
+        if (!res.ok) throw new Error(`Email not sent: ${res.error}`);
+      },
+    };
+  }
   if (has("audit:write")) {
     ctx.audit = async (action, detail) => {
       await coreAudit(`module.${def.id}.${action}`, { userId: user?.id, detail });
@@ -50,4 +65,17 @@ export function buildModuleContext(
   // usersDb (db:users:*) and other elevated caps are wired in a later phase.
 
   return ctx;
+}
+
+/**
+ * A ctx for a module's BACKGROUND work (pollers, schedulers, cron-ish loops), where
+ * there is no signed-in user. Use this instead of holding on to a context captured from
+ * a request: that misattributes every later audit entry to whichever user happened to
+ * trigger the first one. Permissions still come from what the admin granted.
+ */
+export async function systemModuleContext(moduleId: string): Promise<ModuleContext> {
+  const state = await getModuleState(moduleId);
+  if (!state) throw new Error(`Unknown module "${moduleId}".`);
+  if (!state.enabled) throw new Error(`Module "${moduleId}" is not enabled.`);
+  return buildModuleContext(state.def, state.granted, null);
 }
