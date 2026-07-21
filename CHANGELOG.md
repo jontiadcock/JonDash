@@ -11,6 +11,28 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.6-beta.1] — 2026-07-21
+
+### Added
+- **"Updating…" screen after an update or restart.** Applying an update (or restarting the server)
+  now shows a full-screen "please wait" cover that waits for the server to come *reliably* back before
+  returning you to sign-in — so refreshing a half-started server no longer briefly breaks remote
+  access. It watches a new lightweight health probe and reconnects on its own; don't refresh or close
+  the tab while it works.
+- **Restart & Shut down controls** (Admin → Settings → **Server power**, full-admin only). Restart
+  relaunches the server in place (a few seconds, no rebuild); Shut down stops it completely. Both ask
+  for a quick confirmation first. Note: after a shutdown the dashboard can only be started again from
+  the server PC.
+
+### Changed
+- **An update or restart now fully signs you out** — the login starts again from the password step,
+  not a leftover 2-factor prompt, so you can sign in as a different account. (Previously an in-progress
+  login could survive a restart and jump straight to the 2FA step.)
+
+### Fixed
+- After an update/restart, remote devices that reconnected too quickly could briefly fail to load the
+  page; the new "Updating…" screen waits for the server to be steadily reachable first.
+
 ## [1.3.5-beta.3] — 2026-07-21
 
 ### Fixed

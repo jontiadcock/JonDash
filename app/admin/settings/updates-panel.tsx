@@ -8,6 +8,7 @@ import {
   type ChannelState,
   type AutoInstallState,
 } from "./actions";
+import { ServerWaitOverlay } from "@/app/components/server-wait-overlay";
 
 type UpdateFailure = { failedVersion: string; revertedTo: string; at: string };
 
@@ -49,6 +50,7 @@ export function UpdatesPanel({
   const [phase, setPhase] = useState<"idle" | "checking" | "result" | "updating" | "error">("idle");
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [overlayBoot, setOverlayBoot] = useState<number | null | undefined>(undefined);
 
   async function check() {
     setPhase("checking");
@@ -67,6 +69,7 @@ export function UpdatesPanel({
   async function applyUpdate() {
     setPhase("updating");
     setError(null);
+    let oldBoot: number | null = null;
     try {
       const res = await fetch("/api/update/apply", { method: "POST" });
       if (!res.ok) {
@@ -75,34 +78,18 @@ export function UpdatesPanel({
         setPhase("error");
         return;
       }
+      const body = (await res.json().catch(() => null)) as { boot?: number } | null;
+      if (typeof body?.boot === "number") oldBoot = body.boot;
     } catch {
-      /* connection may drop as the server exits — treat as restart in progress */
+      /* connection may drop as the server exits — the overlay falls back to down-detection */
     }
-    waitForRestart();
+    // Full-screen "updating…" cover; it polls /api/health and returns to /login
+    // once the new server is reliably back.
+    setOverlayBoot(oldBoot);
   }
 
-  function waitForRestart() {
-    setPhase("updating");
-    let tries = 0;
-    let sawDown = false;
-    const timer = setInterval(async () => {
-      tries += 1;
-      try {
-        // Any response means the server is answering again. The restart signs
-        // everyone out, so /api/update/status returns 403 (not 2xx) — we can't
-        // wait for r.ok. Only treat a response as "back" once we've first seen
-        // the server go down, so we don't reload against the old process before
-        // it exits. Then go to /login (the restart ended the session).
-        await fetch("/api/update/status", { cache: "no-store" });
-        if (sawDown) {
-          clearInterval(timer);
-          window.location.href = "/login";
-        }
-      } catch {
-        sawDown = true; // server is down (restarting)
-      }
-      if (tries > 150) clearInterval(timer); // give up after ~5 min
-    }, 2000);
+  if (overlayBoot !== undefined) {
+    return <ServerWaitOverlay mode="updating" oldBoot={overlayBoot} />;
   }
 
   return (

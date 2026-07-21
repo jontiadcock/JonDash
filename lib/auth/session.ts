@@ -5,14 +5,14 @@ import { prisma } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { isSecureRequest } from "@/lib/request";
 import { getSessionLifetimeMs, getIdleTimeoutMs } from "@/lib/settings";
+import { SERVER_BOOT_TIME } from "@/lib/boot";
 
 // Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
 const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
 
-// When this server process started (evaluated once at module load). Any session
-// created before this is from an earlier run, so restarting the server invalidates
-// every existing session and users must sign in again.
-const SERVER_BOOT_TIME = Date.now();
+// SERVER_BOOT_TIME (lib/boot) is when this process started. Any session created
+// before it is from an earlier run, so restarting the server invalidates every
+// existing session and users must sign in again.
 // Fixed name (works over http and https). The Secure flag is set automatically
 // when the request is HTTPS, so no configuration is needed.
 export const SESSION_COOKIE = "dashboard_session";

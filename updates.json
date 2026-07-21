@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.6-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: applying an update or restarting now shows a full-screen 'Updating…' screen that waits for the server to be reliably back before returning you to sign-in, so a too-quick refresh no longer briefly breaks remote access. New Restart & Shut down controls under Admin -> Settings -> Server power (full-admin only). And an update/restart now signs you out fully — login starts at the password step, not a leftover 2-factor prompt — so you can sign in as a different account."
+    },
+    {
       "version": "1.3.5-beta.3",
       "date": "2026-07-21",
       "type": "patch",

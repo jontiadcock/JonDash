@@ -43,6 +43,9 @@ prisma/*.db.*
 
 # in-app "update & restart" sentinel handled by the launcher
 /.update-and-restart
+# in-app restart / shutdown signals handled by the supervisor
+/.restart-and-run
+/.shutdown
 
 # verbose launcher/app action logs (local diagnostics only, never pushed)
 /logs

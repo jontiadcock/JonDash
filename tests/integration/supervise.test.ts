@@ -23,6 +23,20 @@ function makeFakeServer(dir: string): string {
       "}",
       'if (process.env.JONDASH_FAKE_MODE === "clean") process.exit(0);',
       'if (process.env.JONDASH_FAKE_MODE === "control") process.exit(3221225786); // 0xC000013A',
+      // "shutdown": drop the shutdown signal and exit — supervisor stops for good.
+      'if (process.env.JONDASH_FAKE_MODE === "shutdown") {',
+      '  fs.writeFileSync(path.join(root, ".shutdown"), "x");',
+      "  process.exit(0);",
+      "}",
+      // "restart": first run drops the restart signal (supervisor respawns us); the
+      // second run finds no signal and just exits cleanly. A counter proves we ran twice.
+      'if (process.env.JONDASH_FAKE_MODE === "restart") {',
+      '  const marker = path.join(root, ".data", "restart-count");',
+      "  let n = 0; try { n = Number(fs.readFileSync(marker, \"utf8\")) || 0; } catch {}",
+      "  n += 1; fs.writeFileSync(marker, String(n));",
+      '  if (n === 1) fs.writeFileSync(path.join(root, ".restart-and-run"), "x");',
+      "  process.exit(0);",
+      "}",
       // "run": stay alive past the healthy threshold, then exit cleanly.
       'if (process.env.JONDASH_FAKE_MODE === "run") { setTimeout(() => process.exit(0), 2000); }',
       "else process.exit(1); // crash immediately",
@@ -83,6 +97,20 @@ describe("server supervisor", () => {
     // The bug: the server was being ended by a console-control event and the
     // supervisor treated it as a crash and restarted, looping. It must stop.
     expect(await runSupervisor(dir, fake, "control")).toBe(0);
+  }, 15000);
+
+  it("restarts in place on a .restart-and-run signal, then exits 0 when the server stops", async () => {
+    // The supervisor should relaunch the server (not exit), then stop cleanly when
+    // the relaunched server exits. The counter proves it ran twice and the signal
+    // file was consumed.
+    expect(await runSupervisor(dir, fake, "restart")).toBe(0);
+    expect(fs.readFileSync(path.join(dir, ".data", "restart-count"), "utf8")).toBe("2");
+    expect(fs.existsSync(path.join(dir, ".restart-and-run"))).toBe(false);
+  }, 15000);
+
+  it("shuts down (exit 0) on a .shutdown signal and consumes the signal file", async () => {
+    expect(await runSupervisor(dir, fake, "shutdown")).toBe(0);
+    expect(fs.existsSync(path.join(dir, ".shutdown"))).toBe(false);
   }, 15000);
 
   it("clears the post-update marker once the server has booted healthily", async () => {

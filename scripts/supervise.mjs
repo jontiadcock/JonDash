@@ -8,10 +8,14 @@
 // close). The launcher (start-dashboard.bat) runs this instead of `npm run start`.
 //
 // Exit codes tell the launcher what to do next:
-//   0   clean stop (user Ctrl+C / window close) or the server exited on request
+//   0   clean stop (user Ctrl+C / window close, in-app shutdown, or exit-on-request)
 //   10  in-app update requested (.update-and-restart sentinel present)
 //   11  boot-crash loop right after an update  -> launcher should REVERT
 //   12  boot-crash loop (not after an update)  -> persistent failure; show help
+//
+// Two in-app controls are handled here without a launcher round-trip: a `.restart-and-run`
+// signal relaunches the server in place (stay supervising); a `.shutdown` signal stops for
+// good (exit 0 -> the launcher window closes). Both are written by lib/server-control.ts.
 //
 // Plain JS, run directly by Node (never imported). Tunables can be overridden with
 // env vars for testing (JONDASH_MIN_UPTIME_MS / _MAX_CRASHES / _RESTART_DELAY_MS).
@@ -26,6 +30,8 @@ const ROOT = process.env.JONDASH_ROOT
   ? path.resolve(process.env.JONDASH_ROOT)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SENTINEL = path.join(ROOT, ".update-and-restart");
+const RESTART_SIGNAL = path.join(ROOT, ".restart-and-run"); // in-app "restart server"
+const SHUTDOWN_SIGNAL = path.join(ROOT, ".shutdown"); // in-app "shut down server"
 const POST_UPDATE = path.join(ROOT, ".data", "post-update");
 const LOG_DIR = path.join(ROOT, "logs");
 const SERVER_CMD = process.env.JONDASH_SERVER_CMD || "server.mjs"; // overridable for tests
@@ -140,10 +146,41 @@ function runOnce() {
     childAlive = false;
     const uptimeMs = Date.now() - startedAt;
 
-    // In-app update requested (server dropped the sentinel and exited).
-    if (exists(SENTINEL)) {
-      appendLog("server", "update-requested", `code=${code} — handing to launcher`);
-      return finish(10);
+    // In-app control signals — but only when we didn't ourselves ask the child to
+    // stop (an OS signal / window close sets shuttingDown; honour that instead).
+    if (!shuttingDown) {
+      // In-app update requested (server dropped the sentinel and exited).
+      if (exists(SENTINEL)) {
+        appendLog("server", "update-requested", `code=${code} — handing to launcher`);
+        return finish(10);
+      }
+      // In-app restart requested: relaunch the server in place (no rebuild) and keep
+      // supervising — a fast restart with no launcher round-trip.
+      if (exists(RESTART_SIGNAL)) {
+        try {
+          fs.rmSync(RESTART_SIGNAL, { force: true });
+        } catch {
+          /* ignore */
+        }
+        rapidCrashes = 0; // an intentional restart is not a crash
+        appendLog("server", "restart", "restart requested via app — relaunching server");
+        process.stderr.write("\n  Restart requested — relaunching the server…\n");
+        restartTimer = setTimeout(() => {
+          restartTimer = null;
+          runOnce();
+        }, RESTART_DELAY_MS);
+        return;
+      }
+      // In-app shutdown requested: stop for good; the launcher window then closes.
+      if (exists(SHUTDOWN_SIGNAL)) {
+        try {
+          fs.rmSync(SHUTDOWN_SIGNAL, { force: true });
+        } catch {
+          /* ignore */
+        }
+        appendLog("server", "shutdown", "shutdown requested via app — stopping");
+        return finish(0);
+      }
     }
     // A clean / external stop — a shutdown we initiated, a signal kill, a Windows
     // console-control termination, or a plain 0 exit. Do NOT restart.
@@ -192,6 +229,16 @@ function runOnce() {
       runOnce();
     }, RESTART_DELAY_MS);
   });
+}
+
+// Clear any stale in-app control signals from a previous run so a leftover file
+// can't trigger an unexpected restart/shutdown on this boot.
+for (const f of [RESTART_SIGNAL, SHUTDOWN_SIGNAL]) {
+  try {
+    fs.rmSync(f, { force: true });
+  } catch {
+    /* ignore */
+  }
 }
 
 appendLog("server", "supervise", "starting server.mjs (supervised)");

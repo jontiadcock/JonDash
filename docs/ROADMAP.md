@@ -41,8 +41,9 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- _Nothing actively in progress. OPS-10 (launcher supervisor + auto-backup/revert) shipped
-  v1.3.5-beta.1. Next security feature: **SEC-03**._
+- _Nothing actively in progress. OPS-11 (update grace screen + restart/shutdown controls + full
+  sign-out on restart) shipped v1.3.6-beta.1, following the OPS-10 launcher work. Next security
+  feature: **SEC-03**._
 
 **Next — security & access control**
 1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
@@ -63,6 +64,7 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 - ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
 - ⏳ **OPS-09 — SMTP provider presets + auth-type clarity**
 - ✅ **OPS-10 — Launcher supervisor: crash capture + auto-backup & revert** — shipped v1.3.5-beta.1 (fixed BUG-10; added the auto-install-updates checkbox)
+- ✅ **OPS-11 — Update grace screen + Server power (restart/shutdown) + full sign-out on restart** — shipped v1.3.6-beta.1 (follow-on to OPS-10; `/api/health` probe, `ServerWaitOverlay`, `/admin/server`, pre-auth cookie tied to `SERVER_BOOT_TIME`)
 - ⏳ **CORE-03 — Better mobile / responsive support**
 
 **Backlog**
@@ -360,6 +362,7 @@ Detailed step-by-step test notes for each item are kept privately in `PROJECT_ME
 - **Update auto-reload** (BUG-12, v1.3.3-beta.1) — on a **real** update, confirm the page now returns to the login screen after the restart instead of hanging on "reconnecting…" (code path verified; needs a live update+restart to fully confirm).
 - **Batch fixes — verified live, worth a glance** (v1.3.3-beta.1) — network Off-mode save (BUG-05), channel display updates immediately on save (BUG-09), and the mobile service-edit form no longer overflows (BUG-13).
 - **Delegated Network/Email capabilities** (v1.3.4-beta.1) — create an access role with **only** "Manage network & HTTPS" (or "Manage email"), assign it to a non-admin user, and confirm that user can reach `/admin/network` (or `/admin/email`) **and nothing else they weren't granted**; a full admin still sees everything. (Admin access + the 9-capability list were verified; the live *delegate* path wasn't browser-tested.)
+- **Update grace screen + Server power + full sign-out on restart** (OPS-11, v1.3.6-beta.1) — (1) apply a **real** update → confirm the full-screen "Updating…" screen holds until the server is reliably back, then returns to `/login` (and a too-quick remote reconnect no longer breaks); (2) Admin → Settings → **Server power** → **Restart** → confirm the screen shows "Restarting…" then lands back on the password step; (3) **Shut down** (confirm) → the server stops and the launcher window closes (only restartable from the PC); (4) after any update/restart, `/login` shows the **password** step, not a leftover 2FA prompt — try signing in as a different account. (Health probe + supervisor restart/shutdown logic unit-tested; the live overlay + real restart round-trip need confirming.)
 - **Launcher supervisor + safe updates** (OPS-10, v1.3.5-beta.1) — **run on a scratch copy** (the `.bat` prunes/strips): (1) kill `server.mjs` mid-run → it restarts and the crash is in `logs/server-*.log`; (2) force a repeated boot-crash → it gives up cleanly (no loop) with a message; (3) close the window / Ctrl+C → clean stop, no orphaned node; (4) auto-install checkbox ON → the launcher installs at startup, OFF → it only notifies; (5) apply a deliberately-broken update → it auto-reverts to the previous version, shows the "last update failed" notice, and doesn't auto-retry. Confirm data/settings/uploads survive throughout. (Node parts unit-tested — supervisor exit codes + rollback round-trip; the full launcher flow needs a live run.)
 
 ---
