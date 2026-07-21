@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.5-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the launcher now supervises the server — it captures crashes to a log and auto-restarts, and gives up cleanly instead of leaving it down. Updates are safer too: JonDash snapshots itself before updating and automatically rolls back to the previous version if an update fails to start, with an on-screen notice. New 'automatically install updates' checkbox (off by default) under Admin -> Updates. Your data, settings and uploads are never touched by an update or rollback."
+    },
+    {
       "version": "1.3.4-beta.1",
       "date": "2026-07-21",
       "type": "minor",

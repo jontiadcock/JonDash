@@ -21,19 +21,17 @@ where node >nul 2>nul || goto :eof
 if not exist "scripts\update.mjs" goto :eof
 echo.
 echo   Checking GitHub for updates...
-node "scripts\update.mjs" check
-REM Exit code 10 from the checker means an update is available.
+node "scripts\update.mjs" autocheck
+REM Exit code 10 means: auto-install is ON and an update should be installed now.
+REM Otherwise autocheck just prints the status; the user installs from Admin -> Updates.
 if not errorlevel 10 goto :eof
-echo.
-choice /C YN /N /T 30 /D N /M "  Install this update now? [Y/N] (auto-skip in 30s): "
-if errorlevel 2 goto :update_skipped
-call :log update apply "installing available update from launcher prompt"
+call :log update backup "auto-install: snapshotting current version before update"
+node "scripts\rollback.mjs" backup
+call :log update apply "auto-installing available update at launch"
 echo   Installing update...
 node "scripts\update.mjs" apply
-goto :eof
-:update_skipped
-call :log update skipped "user declined the available update at launch"
-echo   Skipping update. You can install it later from the Admin page.
+if not exist ".data" mkdir ".data" >nul 2>nul
+> ".data\post-update" echo 1
 goto :eof
 
 REM ----------------------------------------------------------------------------
@@ -106,14 +104,16 @@ if defined NEEDBUILD (
 
   if not exist ".data" mkdir ".data" >nul 2>nul
   > ".data\built-version" echo %APPVER%
-  REM A good build was reached: clear any prior auto-recovery marker.
+  REM A good build was reached: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
+  if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul
   call :log build ok "built v%APPVER%; pruned + stripped runtime footprint"
 ) else (
   echo.
   echo   Already up to date and built ^(v%APPVER%^) — starting up.
-  REM Healthy fast-path start: clear any stale auto-recovery marker.
+  REM Healthy fast-path start: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
+  if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul
 )
 
 REM Work out the real address (scheme/host/port) from the network config.
@@ -129,20 +129,31 @@ echo   ============================================================
 echo.
 
 if "%~2"=="first" start "" "%DISPLAYURL%"
-call :log start starting "launching the server for v%APPVER%"
-call npm run start
-call :log start stopped "server process exited"
+call :log start starting "launching the supervised server for v%APPVER%"
+REM The supervisor owns the running server: it captures crashes to logs\, restarts
+REM on an unexpected crash (with a crash-loop guard), and reports the outcome via its
+REM exit code. Capture the code before any other command overwrites errorlevel.
+node "scripts\supervise.mjs"
+set "SUPCODE=%errorlevel%"
+call :log start stopped "supervisor exited (code=%SUPCODE%)"
 
-REM The app exits with this sentinel present when an in-app update was requested.
-if exist ".update-and-restart" goto :do_update
+REM 10 = in-app update requested; 11 = boot-crash after an update (revert);
+REM 12 = persistent boot-crash (not an update); anything else = clean stop.
+if "%SUPCODE%"=="10" goto :do_update
+if "%SUPCODE%"=="11" goto :revert
+if "%SUPCODE%"=="12" goto :crash_help
 goto :eof
 
 :do_update
 del ".update-and-restart" >nul 2>nul
+call :log update backup "in-app update: snapshotting current version before update"
+node "scripts\rollback.mjs" backup
 call :log update apply "in-app update requested; applying from GitHub"
 echo.
 echo   Applying the update from GitHub...
 node "scripts\update.mjs" apply
+if not exist ".data" mkdir ".data" >nul 2>nul
+> ".data\post-update" echo 1
 REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
 cmd /c ""%~f0" _run"
 exit /b %errorlevel%
@@ -153,7 +164,14 @@ REM the launch ONCE from clean. A marker in .data guards against an endless loop
 REM ----------------------------------------------------------------------------
 :build_failed
 call :log recovery failed "step failed: %FAILSTEP%"
-if exist ".data\recovery-attempted" goto :recovery_exhausted
+REM First failure: try a one-time clean rebuild (fixes a corrupt/partial install).
+if not exist ".data\recovery-attempted" goto :clean_retry
+REM Clean rebuild already tried. If this was a failed UPDATE and we still have a
+REM snapshot and haven't reverted yet, roll back to the previous working version.
+if exist ".data\post-update" if exist ".data\rollback\snapshot" if not exist ".data\revert-attempted" goto :revert
+goto :recovery_exhausted
+
+:clean_retry
 if not exist ".data" mkdir ".data" >nul 2>nul
 > ".data\recovery-attempted" echo 1
 call :log recovery retry "wiping node_modules + .next and retrying launch once"
@@ -165,6 +183,32 @@ if exist "node_modules" rmdir /S /Q "node_modules" >nul 2>nul
 if exist ".next" rmdir /S /Q ".next" >nul 2>nul
 cmd /c ""%~f0" _run"
 exit /b %errorlevel%
+
+REM Roll a failed update back to the previously-running version, note it (so the app
+REM warns the user + it isn't auto-retried), and relaunch to rebuild the good version.
+:revert
+call :log recovery revert "update failed; rolling back to the previous version"
+echo.
+echo   The last update did not start correctly. Rolling back to the previous version...
+echo.
+node "scripts\rollback.mjs" mark-failed %APPVER%
+node "scripts\rollback.mjs" restore
+del ".data\post-update" >nul 2>nul
+del ".data\recovery-attempted" >nul 2>nul
+if not exist ".data" mkdir ".data" >nul 2>nul
+> ".data\revert-attempted" echo 1
+cmd /c ""%~f0" _run"
+exit /b %errorlevel%
+
+:crash_help
+call :log recovery crash "server keeps crashing on startup (not an update)"
+echo.
+echo   The dashboard server keeps crashing shortly after starting.
+echo   This does not appear to be from an update. Please look in the  logs\  folder
+echo   ^(server-*.log has the crash output^) and take a screenshot so it can be diagnosed.
+echo.
+pause
+exit /b 1
 
 :recovery_exhausted
 call :log recovery exhausted "clean rebuild also failed at: %FAILSTEP%"

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { isNewer, type ReleaseType } from "@/lib/version";
 import { readChannel, manifestUrl, type UpdateChannel } from "@/lib/update-channel";
+import { readUpdateFailure, type UpdateFailure } from "@/lib/update-prefs";
 
 const REPO_DIR = process.cwd();
 export const RESTART_SENTINEL = path.join(REPO_DIR, ".update-and-restart");
@@ -21,6 +22,7 @@ export type UpdateStatus = {
   latest: string | null;
   release: ReleaseInfo | null; // details of the newest release
   channel: UpdateChannel; // which channel this check used
+  failure: UpdateFailure | null; // the last update that failed + was rolled back, if any
   reason?: string; // any soft error (e.g. offline)
 };
 
@@ -61,7 +63,10 @@ async function fetchManifest(url: string): Promise<{ releases: ReleaseInfo[] } |
 
 /** Check whether a newer version exists on GitHub. Cached briefly. */
 export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
-  if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
+  // The rollback/failure marker is read fresh every call (not cached) so a dismiss
+  // or a fresh failure reflects immediately.
+  const failure = readUpdateFailure();
+  if (!force && cache && Date.now() - cache.at < CACHE_MS) return { ...cache.status, failure };
 
   const current = localVersion();
   const channel = readChannel();
@@ -72,6 +77,7 @@ export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
     latest: null,
     release: null,
     channel,
+    failure,
   };
 
   const manifest = await fetchManifest(manifestUrl(channel));

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import { getUpdateStatus, requestUpdateRestart } from "@/lib/update";
+import { clearUpdateFailure } from "@/lib/update-prefs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,9 @@ export async function POST() {
     userId: user.id,
     detail: `${status.current} -> ${status.latest}`,
   });
+  // A manual update clears any prior "update failed" marker so this version can be
+  // retried (and so the notice goes away once the retry succeeds).
+  clearUpdateFailure();
   requestUpdateRestart(); // schedules process exit; launcher downloads + rebuilds + restarts
   return NextResponse.json({ ok: true });
 }

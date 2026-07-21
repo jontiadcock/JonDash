@@ -1,6 +1,7 @@
 import { requirePermission } from "@/lib/auth/guards";
 import { getAppVersion } from "@/lib/update";
 import { readChannel } from "@/lib/update-channel";
+import { readAutoInstall, readUpdateFailure } from "@/lib/update-prefs";
 import { UpdatesPanel } from "../settings/updates-panel";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export default async function AdminUpdatesPage() {
   await requirePermission("settings.manage");
   const version = getAppVersion();
   const channel = readChannel();
+  const autoInstall = readAutoInstall();
+  const failure = readUpdateFailure();
 
   return (
     <div className="flex flex-col gap-6">
@@ -20,7 +23,7 @@ export default async function AdminUpdatesPage() {
       </section>
 
       <section className="card p-6">
-        <UpdatesPanel version={version} channel={channel} />
+        <UpdatesPanel version={version} channel={channel} autoInstall={autoInstall} failure={failure} />
       </section>
     </div>
   );

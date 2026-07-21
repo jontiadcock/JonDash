@@ -11,6 +11,21 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.5-beta.1] — 2026-07-21
+
+### Added
+- **Self-supervising server.** The launcher now runs the server under a supervisor that captures its
+  output to a log (`logs/server-*.log`), **restarts it automatically if it crashes**, and gives up
+  cleanly (with a clear message) if it keeps crashing on startup — instead of the window just closing
+  and leaving the dashboard down.
+- **Safe updates with automatic rollback.** Every update now snapshots the current version first and,
+  if the new version **fails to build or start**, **automatically rolls back to the previous version**
+  and shows a notice so you can retry manually (the failed version isn't auto-retried). Your data,
+  settings and uploads are never touched by an update or a rollback.
+- **"Automatically install updates" checkbox** (Admin → Updates, **off by default**). With it off,
+  JonDash only tells you an update is available and you install it with "Update now"; with it on, the
+  launcher installs available updates at startup.
+
 ## [1.3.4-beta.1] — 2026-07-21
 
 ### Changed
@@ -249,6 +264,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.5-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.1
 [1.3.4-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.4-beta.1
 [1.3.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.3-beta.1
 [1.3.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.2-beta.1
