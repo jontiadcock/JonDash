@@ -11,6 +11,20 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.5-beta.2] — 2026-07-21
+
+### Fixed
+- **The server no longer restart-loops on an external stop.** A console-control event (Ctrl+C, the
+  window closing, or an external process killing it) is now treated as a **clean stop** by the
+  supervisor instead of a crash to restart — which had caused repeated restarts and sign-outs on some
+  machines. Genuine app crashes still restart as before.
+- **Self-updating no longer corrupts the launcher.** When an update rewrote `start-dashboard.bat`
+  while it was running, the script was re-read from the changed file and errored partway through; the
+  apply / rollback + relaunch now run as a single buffered step so the launcher is never re-read while
+  it's being replaced.
+- Removed a harmless `session.delete()` error that Prisma logged to the console when a session had
+  already been cleaned up.
+
 ## [1.3.5-beta.1] — 2026-07-21
 
 ### Added
@@ -264,6 +278,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.5-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.2
 [1.3.5-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.1
 [1.3.4-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.4-beta.1
 [1.3.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.3-beta.1

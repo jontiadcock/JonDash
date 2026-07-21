@@ -27,12 +27,13 @@ REM Otherwise autocheck just prints the status; the user installs from Admin -> 
 if not errorlevel 10 goto :eof
 call :log update backup "auto-install: snapshotting current version before update"
 node "scripts\rollback.mjs" backup
-call :log update apply "auto-installing available update at launch"
-echo   Installing update...
-node "scripts\update.mjs" apply
 if not exist ".data" mkdir ".data" >nul 2>nul
 > ".data\post-update" echo 1
-goto :eof
+call :log update apply "auto-installing available update; applying + relaunching (self-overwrite-safe)"
+echo   Installing update...
+REM update.mjs overwrites this .bat, so chain apply + relaunch + exit on ONE line
+REM (cmd buffers the whole line before running it) and never read this file again.
+node "scripts\update.mjs" apply & cmd /c ""%~f0" _run first" & exit
 
 REM ----------------------------------------------------------------------------
 REM Stage 2 (_run): install, configure, migrate, build, start (supervised loop)
@@ -148,15 +149,14 @@ goto :eof
 del ".update-and-restart" >nul 2>nul
 call :log update backup "in-app update: snapshotting current version before update"
 node "scripts\rollback.mjs" backup
-call :log update apply "in-app update requested; applying from GitHub"
-echo.
-echo   Applying the update from GitHub...
-node "scripts\update.mjs" apply
 if not exist ".data" mkdir ".data" >nul 2>nul
 > ".data\post-update" echo 1
-REM Relaunch a fresh copy (picks up launcher changes; no second browser tab).
-cmd /c ""%~f0" _run"
-exit /b %errorlevel%
+call :log update apply "in-app update; applying + relaunching (self-overwrite-safe)"
+echo.
+echo   Applying the update from GitHub...
+REM update.mjs overwrites this .bat, so chain apply + relaunch + exit on ONE line
+REM (cmd buffers the whole line first) so we never re-read this file mid-rewrite.
+node "scripts\update.mjs" apply & cmd /c ""%~f0" _run" & exit /b
 
 REM ----------------------------------------------------------------------------
 REM Auto-recovery: if a setup step failed, wipe the regenerable folders and retry
@@ -192,13 +192,13 @@ echo.
 echo   The last update did not start correctly. Rolling back to the previous version...
 echo.
 node "scripts\rollback.mjs" mark-failed %APPVER%
-node "scripts\rollback.mjs" restore
 del ".data\post-update" >nul 2>nul
 del ".data\recovery-attempted" >nul 2>nul
 if not exist ".data" mkdir ".data" >nul 2>nul
 > ".data\revert-attempted" echo 1
-cmd /c ""%~f0" _run"
-exit /b %errorlevel%
+REM restore overwrites this .bat (the snapshot includes it), so chain restore +
+REM relaunch + exit on ONE buffered line and never re-read this file mid-rewrite.
+node "scripts\rollback.mjs" restore & cmd /c ""%~f0" _run" & exit /b
 
 :crash_help
 call :log recovery crash "server keeps crashing on startup (not an update)"

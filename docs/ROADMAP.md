@@ -428,6 +428,19 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
   launcher now runs the server under a supervisor (`scripts/supervise.mjs`) that captures crash output
   to `logs/server-*.log`, restarts on an unexpected crash, and gives up cleanly on a boot-crash loop
   (instead of leaving the server down with no diagnostics). Part of OPS-10.
+- **BUG-14 (High) · Self-update corrupted the launcher mid-write — fixed v1.3.5-beta.2.** `update.mjs`
+  overwrote `start-dashboard.bat` while it was running, so cmd re-read the changed file at a stale byte
+  offset and errored (the `'rites'` error). The apply/rollback + relaunch now run on a single buffered
+  line ending in `exit`, so the script is never re-read while it's being replaced. Reproduced + fixed
+  against cmd.exe. Found from OPS-10 live testing 2026-07-21.
+- **BUG-15 (High) · Supervisor restart-looped on an external stop — fixed v1.3.5-beta.2.** A
+  console-control termination (exit `0xC000013A` — Ctrl+C / window close / an external kill such as
+  antivirus) was treated as a crash and restarted, looping and signing everyone out every 1–3 min. The
+  supervisor now treats control-event / signal / clean exits as a clean stop (exit 0, no restart);
+  only genuine app crashes restart. +2 tests. Found from OPS-10 live testing 2026-07-21.
+- **BUG-16 (Low) · Harmless `session.delete()` error logged by Prisma — fixed v1.3.5-beta.2.** Session
+  cleanup used `delete` on an already-gone row (a restart race); switched to `deleteMany` so Prisma no
+  longer logs an error. Was already caught (benign) — this just removes the console noise.
 
 ### ⛔ Won't fix (upstream)
 - **BUG-03 (Low) · `Buffer()` deprecation warning (DEP0005).** Confirmed **not JonDash code** — it's

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.5-beta.2",
+      "date": "2026-07-21",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fixes for 1.3.5-beta.1: the server no longer restart-loops (and signs you out repeatedly) when the OS/console stops it — it now stops cleanly; self-updating no longer corrupts the launcher script mid-write; and a harmless session-cleanup error no longer shows in the console."
+    },
+    {
       "version": "1.3.5-beta.1",
       "date": "2026-07-21",
       "type": "minor",

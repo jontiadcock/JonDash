@@ -67,12 +67,12 @@ export async function getSessionUser(): Promise<User | null> {
 
   // A server restart signs everyone out: reject sessions created before this run.
   if (session.createdAt.getTime() < SERVER_BOOT_TIME) {
-    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    await prisma.session.deleteMany({ where: { id: session.id } }).catch(() => {});
     return null;
   }
 
   if (session.expiresAt.getTime() < Date.now()) {
-    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    await prisma.session.deleteMany({ where: { id: session.id } }).catch(() => {});
     return null;
   }
   if (session.user.status !== "ACTIVE") return null;
@@ -81,7 +81,7 @@ export async function getSessionUser(): Promise<User | null> {
   const idleMs = await getIdleTimeoutMs();
   const sinceSeen = Date.now() - session.lastSeenAt.getTime();
   if (idleMs > 0 && sinceSeen > idleMs) {
-    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    await prisma.session.deleteMany({ where: { id: session.id } }).catch(() => {});
     return null;
   }
 

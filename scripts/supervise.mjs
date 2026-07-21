@@ -37,6 +37,14 @@ const RESTART_DELAY_MS = Number(process.env.JONDASH_RESTART_DELAY_MS ?? 2000);
 let rapidCrashes = 0;
 let shuttingDown = false;
 let child = null;
+let childAlive = false;
+let restartTimer = null;
+
+// STATUS_CONTROL_C_EXIT (0xC000013A): Windows sets this exit code when a process
+// is ended by a console control event — Ctrl+C, Ctrl+Break, the window closing,
+// logoff/shutdown, or an external kill (e.g. a security tool). It is NOT an
+// application crash, so it must be treated as a clean stop, not a restart.
+const CONTROL_EXIT = 3221225786;
 
 /** Append server output to a daily server log, redacted, best-effort + durable. */
 function writeServerLog(text) {
@@ -87,21 +95,32 @@ function stopChild(signal) {
   }
 }
 
-// User-initiated stop: don't restart. (Closing the console kills the tree anyway;
-// Ctrl+C / Ctrl+Break arrive as these signals.)
+// A stop requested by the user or the OS: shut the child down and exit — never
+// restart (restarting would turn a Ctrl+C / window-close / external kill into a
+// loop, signing everyone out each time).
+function shutdown(reason) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  appendLog("server", "shutdown", reason);
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
+  stopChild("SIGTERM");
+  if (!childAlive) finish(0);
+}
+
 for (const sig of ["SIGINT", "SIGBREAK", "SIGTERM", "SIGHUP"]) {
-  process.on(sig, () => {
-    shuttingDown = true;
-    appendLog("server", "shutdown", `received ${sig}`);
-    stopChild(sig === "SIGINT" ? "SIGINT" : "SIGTERM");
-  });
+  process.on(sig, () => shutdown(`received ${sig}`));
 }
 
 function runOnce() {
   const startedAt = Date.now();
+  childAlive = true;
   child = startServer();
 
   child.on("exit", (code, signal) => {
+    childAlive = false;
     const uptimeMs = Date.now() - startedAt;
 
     // In-app update requested (server dropped the sentinel and exited).
@@ -109,13 +128,14 @@ function runOnce() {
       appendLog("server", "update-requested", `code=${code} — handing to launcher`);
       return finish(10);
     }
-    // A stop we asked for.
-    if (shuttingDown) {
-      appendLog("server", "stopped", `clean shutdown (code=${code} signal=${signal})`);
+    // A clean / external stop — a shutdown we initiated, a signal kill, a Windows
+    // console-control termination, or a plain 0 exit. Do NOT restart.
+    if (shuttingDown || signal !== null || code === CONTROL_EXIT || code === 0) {
+      appendLog("server", "stopped", `clean stop (code=${code} signal=${signal})`);
       return finish(0);
     }
 
-    // Unexpected exit.
+    // A genuine application crash (non-zero, non-control exit).
     if (uptimeMs >= MIN_UPTIME_MS) {
       rapidCrashes = 0; // it ran fine — treat this as a transient crash
       if (exists(POST_UPDATE)) {
@@ -149,8 +169,11 @@ function runOnce() {
       return finish(afterUpdate ? 11 : 12);
     }
 
-    process.stderr.write(`\n  Server exited unexpectedly — restarting in ${RESTART_DELAY_MS / 1000}s…\n`);
-    setTimeout(runOnce, RESTART_DELAY_MS);
+    process.stderr.write(`\n  Server exited unexpectedly (code ${code}) — restarting in ${RESTART_DELAY_MS / 1000}s…\n`);
+    restartTimer = setTimeout(() => {
+      restartTimer = null;
+      runOnce();
+    }, RESTART_DELAY_MS);
   });
 }
 
