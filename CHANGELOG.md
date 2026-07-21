@@ -11,6 +11,27 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.7-beta.1] — 2026-07-21
+
+### Added
+- **Full server backup.** A backup now saves your *entire* server in one file — all accounts, service
+  groups, access roles, every setting, your network/HTTPS configuration, icons, and (when encrypted)
+  the encryption key. Set a passphrase to include sign-in credentials, 2FA secrets and email settings
+  and make it a complete, migratable backup; without one, those sensitive parts are left out.
+- **Choose what to restore.** Restoring now lets you pick which parts of a backup to bring back
+  (users, service groups, settings, server configuration, icons, …) rather than all-or-nothing.
+
+### Fixed
+- **Your authenticator (2FA) now survives a restore or migration.** Restoring an encrypted backup
+  carries the server's encryption key across, so authenticator apps keep working on the restored/migrated
+  install — no more "sign in with a backup code and re-enrol". (Restoring accounts from an *unencrypted*
+  backup still, by design, requires each user to set up their sign-in again.)
+
+### Changed
+- Backups are now always full — the per-category export checkboxes were replaced by a single
+  **Full server backup**. An encryption passphrase must be reasonably strong (12+ characters, with an
+  uppercase letter, a number and a symbol). Legacy v1 backup files are no longer read (v2 still restores).
+
 ## [1.3.6-beta.1] — 2026-07-21
 
 ### Added

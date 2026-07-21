@@ -3,55 +3,43 @@
 import { useActionState, useState } from "react";
 import { importBackupAction, type ImportState } from "./actions";
 
-const CATEGORIES: { value: string; label: string; hint: string; needsPassphrase?: boolean }[] = [
-  { value: "roles", label: "Roles & shared services", hint: "Service bundles and their tiles" },
-  { value: "users", label: "Users & accounts", hint: "Accounts + credentials — requires a passphrase", needsPassphrase: true },
-  { value: "icons", label: "Icons", hint: "Uploaded tile images" },
-  { value: "audit", label: "Audit log", hint: "Security event history" },
+// Mirrors lib/backup BACKUP_CATEGORIES + CATEGORY_LABELS (can't import a server-only
+// module into a client component). The server restores only what's actually present.
+const RESTORE_CATEGORIES: { value: string; label: string }[] = [
+  { value: "users", label: "Users & accounts" },
+  { value: "roles", label: "Service groups & shared services" },
+  { value: "access-roles", label: "Access roles (delegated admin)" },
+  { value: "settings", label: "Settings" },
+  { value: "config", label: "Server configuration (network, HTTPS, updates)" },
+  { value: "icons", label: "Icons" },
+  { value: "audit", label: "Audit log" },
 ];
+
+/** Client mirror of validateBackupPassphrase (server enforces the real check). */
+function passphraseIssue(p: string): string | null {
+  if (!p) return null; // empty = unencrypted, allowed
+  if (p.length < 12) return "At least 12 characters.";
+  if (!/[A-Z]/.test(p)) return "Add an uppercase letter.";
+  if (!/[0-9]/.test(p)) return "Add a number.";
+  if (!/[^A-Za-z0-9]/.test(p)) return "Add a symbol.";
+  return null;
+}
 
 export function ExportForm() {
   const [passphrase, setPassphrase] = useState("");
-  const [checked, setChecked] = useState<Record<string, boolean>>({ roles: true, icons: true });
   const hasPass = passphrase.trim().length > 0;
-  const anySelected = Object.values(checked).some(Boolean);
-  // Users can't be exported without a passphrase.
-  const usersSelectedWithoutPass = checked.users && !hasPass;
+  const issue = passphraseIssue(passphrase.trim());
 
   return (
     <form method="post" action="/api/backup/export" className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {CATEGORIES.map((c) => {
-          const disabled = c.needsPassphrase && !hasPass;
-          return (
-            <label
-              key={c.value}
-              className="flex items-start gap-3 rounded-lg p-3"
-              style={{ background: "var(--surface-2)", opacity: disabled ? 0.55 : 1 }}
-            >
-              <input
-                type="checkbox"
-                name="categories"
-                value={c.value}
-                className="mt-1"
-                checked={!!checked[c.value] && !disabled}
-                disabled={disabled}
-                onChange={(e) => setChecked((s) => ({ ...s, [c.value]: e.target.checked }))}
-              />
-              <span>
-                <span className="font-medium">{c.label}</span>
-                <span className="block text-xs" style={{ color: "var(--muted)" }}>
-                  {c.hint}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Downloads a <strong>full</strong> backup of this server — all accounts, service groups, access
+        roles, settings, network/HTTPS configuration, icons and the audit log.
+      </p>
 
       <div>
         <label className="label" htmlFor="export-pass">
-          Passphrase <span style={{ color: "var(--muted)" }}>(required to include accounts)</span>
+          Passphrase <span style={{ color: "var(--muted)" }}>(optional, but recommended)</span>
         </label>
         <input
           id="export-pass"
@@ -59,23 +47,23 @@ export function ExportForm() {
           type="password"
           autoComplete="new-password"
           className="input"
-          placeholder="Encrypts the whole file if set"
+          placeholder="Encrypts the file and includes credentials + keys"
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
         />
-        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-          {hasPass
-            ? "The backup archive will be encrypted (AES-256). Keep this passphrase safe — it can’t be recovered."
-            : "No passphrase: the archive is unencrypted and cannot include user accounts."}
-        </p>
+        {hasPass && issue ? (
+          <p className="form-error mt-1">{issue} (12+ chars, with an uppercase letter, a number and a symbol.)</p>
+        ) : (
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            {hasPass
+              ? "Encrypted (AES-256): includes sign-in credentials, 2FA secrets, email settings and the encryption key — a full, migratable backup. Keep the passphrase safe; it can’t be recovered."
+              : "No passphrase → an unencrypted backup that omits the encryption key, credentials and secret settings. Restoring users from it means they must set up their sign-in again."}
+          </p>
+        )}
       </div>
 
-      <button
-        type="submit"
-        className="btn btn-primary self-start"
-        disabled={!anySelected || usersSelectedWithoutPass}
-      >
-        Download backup
+      <button type="submit" className="btn btn-primary self-start" disabled={hasPass && !!issue}>
+        Download full backup
       </button>
     </form>
   );
@@ -87,9 +75,20 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
   const [state, action, pending] = useActionState(importBackupAction, initialImport);
   const [confirmText, setConfirmText] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>(
+    Object.fromEntries(RESTORE_CATEGORIES.map((c) => [c.value, true])),
+  );
+  const anySelected = Object.values(selected).some(Boolean);
 
   if (state.success) {
-    return <p className="text-sm" style={{ color: "var(--primary)" }}>{state.success}</p>;
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm" style={{ color: "var(--primary)" }}>{state.success}</p>
+        {state.notices?.map((n, i) => (
+          <p key={i} className="text-sm" style={{ color: "var(--muted)" }}>{n}</p>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -98,19 +97,20 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
         className="rounded-lg p-3 text-sm"
         style={{ background: "color-mix(in srgb, #dc2626 12%, transparent)", color: "#b91c1c" }}
       >
-        <strong>This replaces your current data.</strong> Everything in the categories inside the
-        backup file (users, roles, services, etc.) will be erased and replaced. This cannot be undone.
+        <strong>This replaces the data you select.</strong> Each chosen category is erased and replaced
+        from the backup — this cannot be undone. Restoring <strong>Users</strong> from an encrypted
+        backup also adopts that backup’s encryption key (so 2FA works) and signs everyone out.
       </div>
 
       <div>
         <label className="label" htmlFor="import-file">
-          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive, or a legacy .json)</span>
+          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive)</span>
         </label>
         <input
           id="import-file"
           name="file"
           type="file"
-          accept=".zip,application/zip,.json,application/json"
+          accept=".zip,application/zip"
           required
           className="input"
           onChange={(e) => {
@@ -126,6 +126,25 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
         {fileError && <p className="form-error mt-1">{fileError}</p>}
       </div>
 
+      <fieldset className="flex flex-col gap-2">
+        <legend className="label mb-1">What to restore</legend>
+        <p className="mb-1 text-xs" style={{ color: "var(--muted)" }}>
+          Only items actually present in the backup are restored; the rest are ignored.
+        </p>
+        {RESTORE_CATEGORIES.map((c) => (
+          <label key={c.value} className="flex items-center gap-3 rounded-lg p-2" style={{ background: "var(--surface-2)" }}>
+            <input
+              type="checkbox"
+              name="categories"
+              value={c.value}
+              checked={!!selected[c.value]}
+              onChange={(e) => setSelected((s) => ({ ...s, [c.value]: e.target.checked }))}
+            />
+            <span className="text-sm">{c.label}</span>
+          </label>
+        ))}
+      </fieldset>
+
       <div>
         <label className="label" htmlFor="import-pass">
           Passphrase <span style={{ color: "var(--muted)" }}>(only if the file is encrypted)</span>
@@ -136,7 +155,7 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
           type="password"
           autoComplete="off"
           className="input"
-          placeholder="Leave blank for plain backups"
+          placeholder="Leave blank for unencrypted backups"
         />
       </div>
 
@@ -179,7 +198,7 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
         type="submit"
         className="btn self-start"
         style={{ background: "#dc2626", color: "white" }}
-        disabled={pending || confirmText !== "Everything" || !!fileError}
+        disabled={pending || confirmText !== "Everything" || !!fileError || !anySelected}
       >
         {pending ? "Restoring…" : "Erase & restore"}
       </button>

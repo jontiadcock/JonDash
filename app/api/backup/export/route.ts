@@ -1,16 +1,17 @@
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { assertSameOrigin } from "@/lib/security/csrf";
+import { validateBackupPassphrase } from "@/lib/auth/password";
 import { audit } from "@/lib/audit";
-import {
-  serializeBackup,
-  BACKUP_CATEGORIES,
-  type BackupCategory,
-} from "@/lib/backup";
+import { serializeBackup } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
 
-/** Admin-only backup download. Posted from the admin Backup page. */
+/**
+ * Admin-only full server backup download. Posted from the admin Backup page. Always
+ * exports everything; an optional passphrase encrypts the archive and is the only way
+ * the master key + credentials + secret settings are included (enforced strong).
+ */
 export async function POST(req: Request): Promise<Response> {
   try {
     await assertSameOrigin();
@@ -28,24 +29,17 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const form = await req.formData();
-  const categories = form
-    .getAll("categories")
-    .map(String)
-    .filter((c): c is BackupCategory => (BACKUP_CATEGORIES as readonly string[]).includes(c));
   const passphrase = (String(form.get("passphrase") ?? "").trim() || null) as string | null;
 
-  if (categories.length === 0) {
-    return new Response("Choose at least one thing to export.", { status: 400 });
-  }
-  // Accounts/credentials may only leave the server encrypted.
-  if (categories.includes("users") && !passphrase) {
-    return new Response("A passphrase is required to export user accounts.", { status: 400 });
+  if (passphrase) {
+    const weak = validateBackupPassphrase(passphrase);
+    if (weak) return new Response(weak, { status: 400 });
   }
 
-  const archive = await serializeBackup(categories, passphrase);
+  const archive = await serializeBackup(passphrase);
   await audit("backup.exported", {
     userId: user.id,
-    detail: `${categories.join(",")}${passphrase ? " (encrypted)" : ""}`,
+    detail: `full${passphrase ? " (encrypted)" : " (unencrypted — no key/credentials)"}`,
   });
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");

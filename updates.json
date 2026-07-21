@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.3.7-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: full server backup — one file now captures your entire server (accounts, service groups, access roles, all settings, network/HTTPS config, icons, and the encryption key when you set a passphrase), and restore lets you choose what to bring back. Fixes the bug where your authenticator (2FA) stopped working after a restore: an encrypted backup now carries the key across, so 2FA survives a restore or migration. Encrypted backups now require a strong passphrase."
+    },
+    {
       "version": "1.3.6-beta.1",
       "date": "2026-07-21",
       "type": "minor",
