@@ -5,7 +5,7 @@
 
 ## How to read this roadmap
 
-- **Stable IDs.** Every item has a permanent ID (`SEC-03`, `MOD-01`, …). An ID never
+- **Stable IDs.** Every item has a permanent ID (`SEC-04`, `MOD-01`, …). An ID never
   changes even if priority does, so it's always safe to reference. Categories:
   - **SEC** — security & access control
   - **MOD** — modules & customization platform
@@ -41,17 +41,17 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- _Nothing actively in progress. OPS-12 (full server backup + selective restore + BUG-04 TOTP fix)
-  shipped v1.3.7-beta.1; OPS-11 (update grace screen + Server power) shipped v1.3.6-beta.1. Next
-  security feature: **SEC-03**._
+- ▶️ **MOD-01 — Module framework** — **Phase 1 (framework core) shipped v1.4.0-beta.1.**
+  Plug-and-play modules, git-installed + updated **independently of the base app**, **permission-gated**
+  (app-store-style consent). Full design + phase status in the MOD-01 catalog entry. Next: **P2** (git sources +
+  install/update + sideload import). _(Also shipped: OPS-12 v1.3.7-beta.1, OPS-11 v1.3.6-beta.1. Security next: SEC-04.)_
 
 **Next — security & access control**
-1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
-2. ⏳ **SEC-04 — Session lifecycle hardening**
-3. ⏳ **SEC-05 — Trusted-IP auto-login**
+1. ⏳ **SEC-04 — Session lifecycle hardening**
+2. ⏳ **SEC-05 — Trusted-IP auto-login**
 
 **Then — modules & customization platform**
-5. ⏳ **MOD-01 — Module / feature framework**
+5. ▶️ **MOD-01 — Module / feature framework** — in progress (Phase 1); approved design in the catalog
 6. ⏳ **MOD-02 — Health monitoring (module, Phase 1: status)**
 7. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
 8. ⏳ **MOD-04 — Live widgets + arrangeable layout**
@@ -62,14 +62,12 @@ self-test → hand off → cleanup). Each ships only after test → confirm → 
 - ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security sections, General on top
 - ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
 - ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-- ⏳ **OPS-09 — SMTP provider presets + auth-type clarity**
 - ✅ **OPS-10 — Launcher supervisor: crash capture + auto-backup & revert** — shipped v1.3.5-beta.1 (fixed BUG-10; added the auto-install-updates checkbox)
 - ✅ **OPS-11 — Update grace screen + Server power (restart/shutdown) + full sign-out on restart** — shipped v1.3.6-beta.1 (follow-on to OPS-10; `/api/health` probe, `ServerWaitOverlay`, `/admin/server`, pre-auth cookie tied to `SERVER_BOOT_TIME`)
 - ✅ **OPS-12 — Full server backup + selective restore (+ BUG-04 TOTP fix)** — shipped v1.3.7-beta.1. Export is always full (all tables + whole settings table + `.data` config + master key + icons; sensitive only in an encrypted, strong-passphrase backup); restore is selective and adopts the backup's key so TOTP/email survive migration. `lib/backup.ts` v3, `lib/config-backup.ts`, `validateBackupPassphrase`. Fixes BUG-04.
-- ⏳ **CORE-03 — Better mobile / responsive support**
 
 **Backlog**
-- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
+- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-05, which shares the trusted-proxy XFF prereq)
 - 🧊 **CORE-01 — "No / low recovery codes" reminder**
 - 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 
@@ -77,7 +75,25 @@ _(Known bugs are tracked in the **Bugs / known issues** section, by severity.)_
 
 **Someday — big conversions**
 - 🌅 **MOD-06 — Third-party addons**
+- 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; module framework must allow adding it later
 - 🌅 **OPS-03 — VHD appliance**
+
+_Retired (owner decision 2026-07-21): **SEC-03** (Country allow / deny, GeoIP) and **OPS-09** (SMTP
+provider presets + auth-type clarity) were dropped — their IDs are retired, not reused. **CORE-03**
+(mobile / responsive support) moved to **Ongoing maintenance** below._
+
+---
+
+## Ongoing maintenance
+
+Continuous quality work — handled as part of normal development, not scheduled as build-queue
+milestones (no feature ID).
+
+- **Mobile / responsive support** (moved from CORE-03, 2026-07-21) — keep the app usable and tidy at
+  phone/tablet widths as features ship: sanity-check new pages/forms at ~375px, sensible tap targets,
+  wide tables scroll within their wrapper, the header doesn't crowd or scroll sideways. Baseline is the
+  v1.3.2-beta.1 header/spacing polish (user-confirmed "significantly better" 2026-07-21); treat
+  regressions as bugs.
 
 ---
 
@@ -106,11 +122,6 @@ allowlist (default deny) or denylist. Clear "you could lock yourself out" warnin
 - **Prereq:** strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
   known reverse proxy or it's spoofable.
 
-#### SEC-03 · Country allow / deny (GeoIP) — ⏳
-Allow/block by country of the client IP. External **free** geo-IP API with **automatic
-failover** to backup provider(s) + caching. Enforced server-side at the session/login guard.
-(Lookups are external, so visitor IPs are sent to the provider; cache + pick privacy-reasonable providers.)
-
 #### SEC-04 · Session lifecycle hardening — ⏳
 Token rotation on privilege change (review finding #5). Idle timeout already shipped (v1.0.2).
 
@@ -129,17 +140,50 @@ prevention, signed-update verification, durable (Redis) rate-limit.
 
 ### MOD — Modules & customization platform
 
-#### MOD-01 · Module / feature framework — ⏳
-The plumbing that lets features & widgets plug into the core without forking.
-- DB-backed registry; a **"Features"** admin tab with on/off switches; a first-run "Do you
-  want to enable these features?" prompt; **admin-only** (later gated by a SEC-01 capability).
-- **Extension points:** core pages iterate a registry to render registered widgets/panels;
-  module pages via one catch-all `/addons/[module]/[...]`. `Module` table (`key`, `name`,
-  `version`, `enabled`, `configJson`, `installedAt`).
-- **Contract:** a `ModuleDefinition` interface (id, version, minAppVersion, register()
-  hooks, settings schema, migrations) — designed from day one for external authors.
-- **Install model:** modules ship in-repo (or via auto-update); "install" = enable +
-  configure + run migrations. No arbitrary remote code (safest for a security app).
+#### MOD-01 · Module framework — ▶️ In progress (Phase 1 shipped v1.4.0-beta.1; P2 next)
+Plug-and-play **modules** that plug into the core with a hard **isolation guarantee** (the baseline app is
+never affected — "remove the app, the phone is fine"), **installed & updated over public git independently
+of the base app**, and **permission-gated** at install. Full design in the **[[jondash-module-framework]]**
+memory; authored per the approved plan. Key points:
+- **Isolation:** the core **never imports a module** — only a build-time **generated registry**
+  (`scripts/gen-modules.mjs` scans a gitignored, update-preserved `modules/` dir). Zero modules ⇒ the app is
+  its current self. Enable/disable = instant DB flag; install/update/uninstall = fetch/delete + rebuild +
+  restart (reuse OPS-11 grace screen; launcher rebuilds on module-set/version change).
+- **Contract:** `modules/<id>/module.ts` exports a `ModuleDefinition` (id, name, version, minAppVersion,
+  **permissions[]**, settings schema, `DashboardWidget?`/`Page?`/`SettingsPanel?`, SQL `migrations?`, lifecycle
+  hooks). `Module` + `ModuleRecord` + `ModuleMigration` core tables.
+- **Data (hybrid):** settings via the existing Setting store (`scope=module`, encrypted secrets, auto-form);
+  a generic per-module KV/JSON store; **bespoke tables via module-carried raw-SQL migrations** namespaced
+  `mod_<id>_*` (a scoped raw-SQL helper, not the core Prisma client — enables independent updates).
+- **Permissions & consent:** manifest declares needs (`db:users:write`, `crypto:use`/`crypto:key:read`,
+  `network:outbound`, `sessions:read`, `email:send`, …); install/enable shows a plain-language **permission
+  warning screen**; grants stored on the `Module` row; the framework hands each module a **capability-scoped
+  `ModuleContext`** exposing only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
+  (consent + scoped context for **curated** modules; real sandboxing for untrusted third-party = MOD-06).
+- **Sources + sideload:** a module **source** = a public git repo with a manifest. Default = an official
+  **`JonDash-modules`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
+  then pick a module to install. Each module has its **own version/manifest** — updates without a base update.
+  The admin can **also import their own module package** (sideload a ZIP — **no repo/app-store required**;
+  permission-consented like any install). Build-your-own is documented with a paste-in **AI-agent prompt**.
+- **Extension points (v1):** settings panel (in a new **Modules** settings group), dashboard widget, and
+  own pages via one catch-all `/m/<id>/…`. Auth reused via guards + a new **`modules.manage`** capability.
+- **Deliverable — 3rd-party author guide:** a public `docs/MODULES-AUTHORING.md` covering the contract,
+  **permission list + etiquette**, versioning **cadence**, and **how to structure a module repo** to the
+  framework's requirements. Plus each module carries a self-cleaning `modules/<id>/MODULE.md`.
+- **Phasing:** **P1 ✅ shipped v1.4.0-beta.1** — framework core + bundled `sample`
+  module: `lib/modules/*` (types, registry, store, migrate, context, permissions, manage),
+  `Module`/`ModuleRecord`/`ModuleMigration` tables, enable/disable/uninstall, settings + generic store +
+  raw-SQL `mod_<id>_*` migrations, permission consent + capability-scoped context, `modules.manage`
+  capability, admin **Modules** page (`/admin/modules` + `[id]` settings), dashboard widget area + `/m/<id>`
+  catch-all page. typecheck/lint/build clean, 5 module tests (102 total), live boot OK. **P2** git sources +
+  independent install/update + **sideload import** (launcher rebuild-on-module-change — brick-risk, plan+review);
+  **P3** MOD-02 health monitoring; **P4 (later)** hardened sandboxing/signing (MOD-06).
+
+#### MOD-07 · Modifications (core-modifying add-ons) — 🌅 Reserved (future; keep the door open)
+A **later** category distinct from modules: **"modifications"** that *can modify the base app itself* (not
+just add alongside it) — higher trust, more invasive. **Not built now** (base app is the focus), but the
+module framework must be designed so this can be added later (e.g. a separate `ModificationDefinition` with
+elevated, explicitly-consented `core:*` permissions + core extension/override hooks). Reserved 2026-07-21.
 
 #### MOD-02 · Health monitoring (first module) — Phase 1: status only — ⏳
 - Per-service checks: **HTTP(S)** (status + latency) and **TCP port** (raw connect).
@@ -275,17 +319,6 @@ Drive it off the ACME lifecycle already in `lib/tls/acme.mjs` + the cert-status 
 small progress/status endpoint the Network page polls. Pairs with OPS-07 (both polish the Network &
 HTTPS page).
 
-#### OPS-09 · SMTP provider presets + auth-type clarity — ⏳
-Broaden and clarify the email setup page (Admin → Email). Extends OPS-02.
-- **More provider presets** — add **SMTP2GO** and a few **free / open-friendly** email/SMTP services,
-  each with a short label and a **link** to where the user signs up or gets credentials, plus a clear
-  "bring your own SMTP" custom option.
-- **Clarify the auth type** — it is **not always an "app password."** Some providers use the normal
-  account password, some issue a dedicated SMTP username + API key/token, and Gmail/Outlook require an
-  app password (needs 2FA). Relabel/hint the credential field per preset so it's obvious which one to
-  enter, and drop the blanket "app password" wording where it's inaccurate.
-- Credentials stay encrypted at rest (unchanged).
-
 #### OPS-10 · Launcher supervisor: crash capture + auto-backup & revert — ✅ Shipped v1.3.5-beta.1 (beta)
 **Shipped v1.3.5-beta.1:** `scripts/supervise.mjs` (tees server output to `logs/server-*.log`, restarts
 on an unexpected crash, crash-loop guard → exit codes the `.bat` branches on), `scripts/rollback.mjs`
@@ -334,39 +367,6 @@ keeps the "Menu ▾" dropdown (sidebar is `md`+ only). Verified at desktop + 375
   (`ADMIN_SECTIONS` / `allowedSections`), now rendered grouped in the sidebar; full-admin-only
   sections (Network, Email, Access Roles) stay ADMIN-only. Landing page = `firstPermittedAdminPath`.
 
-#### CORE-03 · Better mobile / responsive support — ▶️ In progress (v1.3.2-beta.1 polish user-confirmed 2026-07-21)
-The app was usable on mobile but not great; the **v1.3.2-beta.1** responsive polish was **tested and
-confirmed by the user 2026-07-21 ("significantly better")**.
-**v1.3.2-beta.1 (beta):** the header decrowds on small screens — the version tag and long labels
-("Admin", "My") collapse and the brand truncates (`min-w-0` + `flex-none`) so it can't scroll
-sideways — plus tighter mobile spacing; wide admin tables already scroll within their wrapper.
-The larger structural win still comes with **CORE-02** (admin → "Settings" sidebar). Remaining:
-forms, tap-target sizes, and a per-page audit at mobile widths. Presentation only, no functionality change.
-
----
-
-## Testing required
-
-Features that have shipped but are **not yet confirmed by manual testing**. An item is added here
-after each push (unless self-testing 100%-guaranteed it) and removed once the user confirms it works.
-Detailed step-by-step test notes for each item are kept privately in `PROJECT_MEMORY.md` — ask to see them.
-
-- **Admin-issued setup links** — create a user, open the `/setup/<token>` link, set password + TOTP; confirm one-time use + 7-day expiry.
-- **Settings take effect** — session lifetime, idle timeout, and audit-log retention: set each and confirm the behaviour (re-login after lifetime, auto-logout after idle, old audit rows pruned).
-- **Check-for-updates button** (v1.3.0) — Settings → Updates: force a check; confirm "up to date" vs an available release + Update-now.
-- **Email send** (OPS-02, v1.2.5) — send a test email via app-password SMTP **and** via Google/Microsoft OAuth2 (the OAuth2 option is under the Authentication dropdown).
-- **HTTPS / networking** (OPS-05, v1.2.3) — Let's Encrypt live cert (`ACME_STAGING=1` first), bring-your-own-cert, configurable ports, the Network page; sign in / authenticator / icon-upload over HTTPS.
-- **Self-healing launcher + logs** (OPS-04, v1.2.3) — force a failed build; confirm it wipes + retries once (no loop), alerts, and writes a redacted `logs/` trail.
-- **Hardened security spot-check** — nonce CSP, CSRF same-origin rejection, brute-force/rate-limit lockout, and security headers behave as expected.
-- **Smoother page transitions** (v1.3.1-beta.1) — content fades in on navigation across the app and admin areas; confirm it's subtle, the header/nav don't flicker, there's no layout shift, and it's disabled under reduced-motion.
-- **Settings sidebar redesign** (CORE-02, v1.3.3-beta.1) — the new desktop left "Settings" nav (General / Server settings / Security) + the moved `/admin/updates` page; eyeball the look, confirm every link works, a delegate sees only their permitted sections, and the mobile "Menu ▾" dropdown still works.
-- **Update auto-reload** (BUG-12, v1.3.3-beta.1) — on a **real** update, confirm the page now returns to the login screen after the restart instead of hanging on "reconnecting…" (code path verified; needs a live update+restart to fully confirm).
-- **Batch fixes — verified live, worth a glance** (v1.3.3-beta.1) — network Off-mode save (BUG-05), channel display updates immediately on save (BUG-09), and the mobile service-edit form no longer overflows (BUG-13).
-- **Delegated Network/Email capabilities** (v1.3.4-beta.1) — create an access role with **only** "Manage network & HTTPS" (or "Manage email"), assign it to a non-admin user, and confirm that user can reach `/admin/network` (or `/admin/email`) **and nothing else they weren't granted**; a full admin still sees everything. (Admin access + the 9-capability list were verified; the live *delegate* path wasn't browser-tested.)
-- **Full server backup + selective restore** (OPS-12, v1.3.7-beta.1) — **run on a scratch/second install** (it wipes+replaces): (1) export an **encrypted** full backup (strong passphrase) with several services + users → on a fresh install, restore **Users** (+ roles/settings) → sign in with the migrated account and confirm the **authenticator (TOTP)** works (BUG-04); (2) export **unencrypted** → restore Users → they come back needing setup (no 2FA/password) → a setup link re-activates them; (3) **selective** restore (e.g. only Service groups) leaves users untouched; (4) restore **Server configuration** → confirm the notice about restarting for network/port changes; (5) a **weak** export passphrase is rejected. (Deep logic — key adoption, multi-service/user/access-role/settings/config round-trips, v2 compat — is unit-tested; this is the live UI + migration confirmation.)
-- **Update grace screen + Server power + full sign-out on restart** (OPS-11, v1.3.6-beta.1) — (1) apply a **real** update → confirm the full-screen "Updating…" screen holds until the server is reliably back, then returns to `/login` (and a too-quick remote reconnect no longer breaks); (2) Admin → Settings → **Server power** → **Restart** → confirm the screen shows "Restarting…" then lands back on the password step; (3) **Shut down** (confirm) → the server stops and the launcher window closes (only restartable from the PC); (4) after any update/restart, `/login` shows the **password** step, not a leftover 2FA prompt — try signing in as a different account. (Health probe + supervisor restart/shutdown logic unit-tested; the live overlay + real restart round-trip need confirming.)
-- **Launcher supervisor + safe updates** (OPS-10, v1.3.5-beta.1) — **run on a scratch copy** (the `.bat` prunes/strips): (1) kill `server.mjs` mid-run → it restarts and the crash is in `logs/server-*.log`; (2) force a repeated boot-crash → it gives up cleanly (no loop) with a message; (3) close the window / Ctrl+C → clean stop, no orphaned node; (4) auto-install checkbox ON → the launcher installs at startup, OFF → it only notifies; (5) apply a deliberately-broken update → it auto-reverts to the previous version, shows the "last update failed" notice, and doesn't auto-retry. Confirm data/settings/uploads survive throughout. (Node parts unit-tested — supervisor exit codes + rollback round-trip; the full launcher flow needs a live run.)
-
 ---
 
 ## Bugs / known issues
@@ -386,7 +386,7 @@ _None currently._
   key and verification failed. **Fix (OPS-12):** an **encrypted** backup now carries the master key;
   restoring **Users** adopts it (`writeSecretsFileText` + in-process `reloadEncryptionKey`) so TOTP + email
   decrypt again with no restart. Covered by a real-authenticator round-trip test (K1→K2→adopt-K1). Logged
-  2026-07-20; fixed 2026-07-21 (built + tested, not yet pushed).
+  2026-07-20; fixed + shipped 2026-07-21 (v1.3.7-beta.1).
 
 ### 🟡 Medium
 - **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run

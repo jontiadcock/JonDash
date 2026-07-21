@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: new Modules system (early foundation). Admin -> Settings -> Modules lets you enable, configure and remove optional add-ons that plug in without changing the base app; each module shows the permissions it needs before you enable it, and a bundled Sample module (a dashboard widget + its own page) demonstrates it. Installing modules from a repository or importing your own comes in a later update. Build your own with the guide + paste-in AI prompt in docs/MODULES-AUTHORING.md."
+    },
+    {
       "version": "1.3.7-beta.1",
       "date": "2026-07-21",
       "type": "minor",

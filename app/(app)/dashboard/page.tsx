@@ -2,11 +2,18 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { getUserVisibleLinks } from "@/lib/services";
 import { ServiceTile } from "@/app/components/service-tile";
+import { getEnabledModules } from "@/lib/modules/registry";
+import { buildModuleContext } from "@/lib/modules/context";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
   const links = await getUserVisibleLinks(user.id);
+
+  // Enabled modules that contribute a dashboard widget (adminOnly ones only for admins).
+  const widgets = (await getEnabledModules()).filter(
+    (s) => s.def.DashboardWidget && (!s.def.adminOnly || isAdmin),
+  );
 
   return (
     <div>
@@ -58,6 +65,23 @@ export default async function DashboardPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {widgets.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Modules</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {widgets.map((s) => {
+              const Widget = s.def.DashboardWidget!;
+              const ctx = buildModuleContext(s.def, s.granted, {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+              });
+              return <Widget key={s.def.id} ctx={ctx} />;
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

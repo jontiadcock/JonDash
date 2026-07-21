@@ -29,6 +29,7 @@ export const PERMISSIONS = {
   "network.manage": "Manage network & HTTPS",
   "email.manage": "Manage email",
   "backups.manage": "Manage backups (export)",
+  "modules.manage": "Manage modules (install, enable, configure)",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -102,6 +103,7 @@ export const ADMIN_SECTIONS: {
   { href: "/admin/settings", label: "Settings", anyOf: ["settings.manage"] },
   { href: "/admin/network", label: "Network & HTTPS", anyOf: ["network.manage"] },
   { href: "/admin/email", label: "Email", anyOf: ["email.manage"] },
+  { href: "/admin/modules", label: "Modules", anyOf: ["modules.manage"] },
 ];
 
 /** The nav sections a permission set may see (href + label). */

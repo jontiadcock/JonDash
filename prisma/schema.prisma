@@ -179,3 +179,47 @@ model Setting {
 
   @@unique([scope, ownerId, key])
 }
+
+// ---- Module framework (MOD-01) ----
+
+// A module's installed state. The module's code lives in modules/<id>/; this row
+// tracks whether it's enabled, the permissions the admin granted at install (JSON
+// array of ModulePermission), and the module version its migrations were applied for.
+model Module {
+  id                 String   @id // the module's stable id = its folder name
+  name               String
+  version            String
+  enabled            Boolean  @default(false)
+  source             String   @default("bundled") // repo URL, or "imported"/"bundled"
+  grantedPermissions String   @default("[]")
+  migratedVersion    String?
+  installedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// Generic per-module key/value store (no bespoke table needed). Secret rows are
+// encrypted at rest via lib/crypto.
+model ModuleRecord {
+  id        String   @id @default(cuid())
+  moduleId  String
+  key       String
+  valueJson String
+  secret    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([moduleId, key])
+  @@index([moduleId])
+}
+
+// Tracks which of a module's raw-SQL migrations (modules/<id>/migrations/*.sql) have
+// been applied. The tables they create are namespaced mod_<id>_* and dropped on uninstall.
+model ModuleMigration {
+  id        String   @id @default(cuid())
+  moduleId  String
+  filename  String
+  appliedAt DateTime @default(now())
+
+  @@unique([moduleId, filename])
+  @@index([moduleId])
+}

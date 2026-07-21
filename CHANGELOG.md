@@ -11,6 +11,22 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.1] — 2026-07-21
+
+### Added
+- **Modules — early foundation.** JonDash now has a module system: a new **Admin → Settings → Modules**
+  page where you can enable, configure and remove optional add-ons that plug in **without changing the base
+  app** (disable or uninstall one and everything returns exactly as before). Before you enable a module it
+  shows the **permissions it needs** (e.g. "make outbound network requests"). A bundled **Sample** module —
+  a small dashboard widget plus its own page — demonstrates it. This release is the framework itself;
+  installing modules from a repository or importing your own comes in a later update.
+- **Module author guide** (`docs/MODULES-AUTHORING.md`) — the full contract, the permission list, testing,
+  and a self-contained **AI prompt** you can paste into any AI to generate a module to your spec.
+
+### Changed
+- Refreshed the README (current features, the Settings sidebar, built-in HTTPS, a Modules section, and an
+  accurate project layout).
+
 ## [1.3.7-beta.1] — 2026-07-21
 
 ### Added
