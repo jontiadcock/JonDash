@@ -11,6 +11,19 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.2] — 2026-07-21
+
+### Added
+- **Module sources.** Modules can now come from a source repository. **Admin → Settings → Modules → Manage
+  sources** lets you add any public GitHub repo that publishes modules (JonDash checks it really does before
+  saving), enable or disable it, and remove it. The official JonDash add-ons source is set up for you.
+- **Browse modules** — see what your sources publish on the **stable** or **beta** channel, including each
+  module's version, the JonDash version it needs, and **the permissions it requests**, before installing
+  anything. (Actually installing from a source arrives in the next update.)
+- **Per-module beta channel** — every module's page now has an **"opt into beta releases for this module"**
+  toggle. It's separate from JonDash's own update channel, so you can run one module on beta while
+  everything else stays on stable.
+
 ## [1.4.0-beta.1] — 2026-07-21
 
 ### Added

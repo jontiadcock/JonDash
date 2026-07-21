@@ -1,3 +1,11 @@
+# Line endings. Node scripts here start with a `#!` shebang; if git checks them out
+# with CRLF, Vite/esbuild fails to strip the shebang and importing one throws
+# "SyntaxError: Invalid or unexpected token" (this broke the test suite once, after a
+# branch switch rewrote the working tree). Keep .mjs as LF. The Windows launcher, by
+# contrast, must stay CRLF.
+*.mjs             text eol=lf
+*.bat             text eol=crlf
+
 # Keep the downloadable package lean: exclude the developer/test tooling from
 # source archives (GitHub "Download ZIP" and the auto-update download). These
 # files stay in the repository, so `git clone` still includes them for anyone

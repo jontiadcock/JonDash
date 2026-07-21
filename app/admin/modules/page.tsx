@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { listModulesForAdmin } from "@/lib/modules/registry";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
@@ -34,6 +35,12 @@ export default async function AdminModulesPage() {
           you enable it.
         </p>
       </section>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/admin/modules/browse" className="btn btn-ghost !py-1.5 text-sm">Browse modules</Link>
+        <Link href="/admin/modules/sources" className="btn btn-ghost !py-1.5 text-sm">Manage sources</Link>
+      </div>
+
+      <h2 className="text-lg font-semibold tracking-tight">Installed</h2>
       <ModulesList items={items} />
     </div>
   );

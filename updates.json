@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.2",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: modules can now come from a source repository. Admin -> Settings -> Modules gains 'Manage sources' (add any public GitHub repo that publishes modules; the official add-ons source is set up for you) and 'Browse modules', showing what each source publishes per stable/beta channel along with the permissions each module requests. Each module also gets its own 'opt into beta releases' toggle, separate from JonDash's update channel. Installing from a source arrives in the next update."
+    },
+    {
       "version": "1.4.0-beta.1",
       "date": "2026-07-21",
       "type": "minor",

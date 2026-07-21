@@ -176,9 +176,16 @@ memory; authored per the approved plan. Key points:
   raw-SQL `mod_<id>_*` migrations, permission consent + capability-scoped context, `modules.manage`
   capability, admin **Modules** page (`/admin/modules` + `[id]` settings), dashboard widget area + `/m/<id>`
   catch-all page. typecheck/lint/build clean, 5 module tests (102 total), live boot OK.
-- **P2 — sources, lifecycle UI, RBAC & live widgets:** git **sources** (default `JonDash-addons` repo +
+- **P2 — sources, lifecycle UI, RBAC & live widgets** — ▶️ **in progress. Chunk A ✅ shipped v1.4.0-beta.2:**
+  `ModuleSource` table + `Module.channel`, GitHub manifest fetch with strict validation
+  (`lib/modules/sources.ts`), admin **Sources** + **Browse** pages, and the **per-module opt-into-beta**
+  toggle — verified against the live addons repo on both channel branches. Full P2 scope: git **sources** (default `JonDash-addons` repo +
   add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
-  rebuild-on-module-change (brick-risk, plan+review); a **"Module admin" role** — a delegable capability
+  rebuild-on-module-change (brick-risk, plan+review); **per-module release channels** — every module has its
+  own **stable/beta** channel with an *"opt into beta releases for this module"* toggle in that module's
+  settings, **independent of JonDash's own app channel** (chosen channel stored on the `Module` row); backed by
+  the addons repo's `main`=stable / `beta` branches + per-add-on `<id>/v<version>` tags — scheme documented in
+  **`JonDash-addons/VERSIONING.md`**; a **"Module admin" role** — a delegable capability
   (extend `modules.manage` to cover add / remove / edit / update / import + assigning modules to groups) so a
   non-full-admin can manage modules, surfaced as a ready-made Access Role; **module RBAC** — a module can be
   **assigned to Service Groups** so non-admins see its widget/page (reuse `getUserVisibleLinks` / `canViewLink`,

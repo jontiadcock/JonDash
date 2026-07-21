@@ -55,9 +55,9 @@ function ModuleCard({ m }: { m: ModuleItem }) {
         <div className="flex flex-none items-center gap-2">
           {m.enabled ? (
             <>
-              {m.hasSettings && (
-                <a href={`/admin/modules/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">Settings</a>
-              )}
+              <a href={`/admin/modules/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">
+                {m.hasSettings ? "Settings" : "Channel"}
+              </a>
               {m.hasPage && (
                 <a href={`/m/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">Open</a>
               )}

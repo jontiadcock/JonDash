@@ -191,10 +191,26 @@ model Module {
   version            String
   enabled            Boolean  @default(false)
   source             String   @default("bundled") // repo URL, or "imported"/"bundled"
+  // Per-module release channel ("stable" | "beta") — deliberately separate from the
+  // app's own update channel, so a user can opt ONE module into beta releases.
+  channel            String   @default("stable")
   grantedPermissions String   @default("[]")
   migratedVersion    String?
   installedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+// A module SOURCE: a public git repo publishing an `addons.json` manifest per channel
+// branch (main = stable, beta = beta). The official JonDash-addons repo is seeded as
+// the default source; admins can add their own by URL, or disable/remove any of them.
+model ModuleSource {
+  id        String   @id @default(cuid())
+  name      String
+  url       String   @unique // repo URL, e.g. https://github.com/jontiadcock/JonDash-addons
+  enabled   Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Generic per-module key/value store (no bespoke table needed). Secret rows are

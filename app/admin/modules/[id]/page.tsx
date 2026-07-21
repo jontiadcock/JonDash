@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { getModuleState } from "@/lib/modules/registry";
 import { moduleSettingsApi } from "@/lib/modules/store";
+import { setModuleChannelAction } from "../actions";
 import { ModuleSettingsForm, type SettingFieldView } from "./ui";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,30 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
           This module is disabled — its settings won&apos;t take effect until you enable it.
         </p>
       )}
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-lg font-semibold">Release channel</h2>
+        <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+          Which releases <strong>this module</strong> updates to. This is separate from JonDash&apos;s own
+          update channel — you can run one module on beta while everything else stays on stable.
+        </p>
+        <form action={setModuleChannelAction} className="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="id" value={def.id} />
+          <input type="hidden" name="channel" value={state.channel === "beta" ? "stable" : "beta"} />
+          <span className="text-sm">
+            Currently on <strong>{state.channel}</strong>
+            {state.channel === "beta" && " — you'll get pre-release versions of this module."}
+          </span>
+          <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={!state.installed}>
+            {state.channel === "beta" ? "Leave beta (use stable)" : "Opt into beta releases"}
+          </button>
+        </form>
+        {!state.installed && (
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            Enable the module first — the channel applies to its updates.
+          </p>
+        )}
+      </section>
 
       <section className="card p-6">
         {fields.length === 0 ? (
