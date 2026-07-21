@@ -23,7 +23,9 @@ function makeFakeServer(dir: string): string {
       "}",
       'if (process.env.JONDASH_FAKE_MODE === "clean") process.exit(0);',
       'if (process.env.JONDASH_FAKE_MODE === "control") process.exit(3221225786); // 0xC000013A',
-      "process.exit(1); // crash immediately",
+      // "run": stay alive past the healthy threshold, then exit cleanly.
+      'if (process.env.JONDASH_FAKE_MODE === "run") { setTimeout(() => process.exit(0), 2000); }',
+      "else process.exit(1); // crash immediately",
       "",
     ].join("\n"),
   );
@@ -81,5 +83,13 @@ describe("server supervisor", () => {
     // The bug: the server was being ended by a console-control event and the
     // supervisor treated it as a crash and restarted, looping. It must stop.
     expect(await runSupervisor(dir, fake, "control")).toBe(0);
+  }, 15000);
+
+  it("clears the post-update marker once the server has booted healthily", async () => {
+    // Otherwise the marker lingers on a healthy server and a *later* unrelated
+    // crash would wrongly roll back a version that actually works.
+    fs.writeFileSync(path.join(dir, ".data", "post-update"), "1");
+    expect(await runSupervisor(dir, fake, "run")).toBe(0); // runs 2s (> MIN_UPTIME 1.5s), then exits 0
+    expect(fs.existsSync(path.join(dir, ".data", "post-update"))).toBe(false);
   }, 15000);
 });

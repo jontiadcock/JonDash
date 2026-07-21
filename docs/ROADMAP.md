@@ -441,6 +441,11 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 - **BUG-16 (Low) · Harmless `session.delete()` error logged by Prisma — fixed v1.3.5-beta.2.** Session
   cleanup used `delete` on an already-gone row (a restart race); switched to `deleteMany` so Prisma no
   longer logs an error. Was already caught (benign) — this just removes the console noise.
+- **BUG-17 (Low) · `post-update` rollback marker lingered on a healthy server — fixed v1.3.5-beta.3.**
+  The supervisor only cleared the marker on a crash-after-healthy, so on a server that just kept running
+  it lingered — meaning a much-later unrelated boot-crash could wrongly trigger a rollback of a working
+  version. Now cleared on a healthy-boot timer (~20s uptime). +1 test. Spotted reviewing the user's
+  install logs 2026-07-21.
 
 ### ⛔ Won't fix (upstream)
 - **BUG-03 (Low) · `Buffer()` deprecation warning (DEP0005).** Confirmed **not JonDash code** — it's

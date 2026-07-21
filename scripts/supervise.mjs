@@ -119,7 +119,24 @@ function runOnce() {
   childAlive = true;
   child = startServer();
 
+  // Once the server has run past the healthy threshold, a pending update has
+  // proven it boots — clear the post-update marker so a *later* unrelated crash
+  // never rolls back a version that actually works. (Previously this only happened
+  // on a crash-after-healthy, so the marker lingered on a server that kept running.)
+  const healthyTimer = setTimeout(() => {
+    if (childAlive && exists(POST_UPDATE)) {
+      try {
+        fs.rmSync(POST_UPDATE, { force: true });
+        appendLog("server", "healthy", "server booted OK — cleared post-update marker");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, MIN_UPTIME_MS);
+  healthyTimer.unref?.();
+
   child.on("exit", (code, signal) => {
+    clearTimeout(healthyTimer);
     childAlive = false;
     const uptimeMs = Date.now() - startedAt;
 

@@ -11,6 +11,14 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.3.5-beta.3] — 2026-07-21
+
+### Fixed
+- **A successful update clears its rollback marker promptly.** The supervisor now marks an update as
+  confirmed once the server has run past the healthy threshold (~20s), rather than only when it later
+  crashes. This prevents a rare case where a much-later, unrelated crash could roll back a version that
+  was actually working fine.
+
 ## [1.3.5-beta.2] — 2026-07-21
 
 ### Fixed
@@ -278,6 +286,7 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.3.5-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.3
 [1.3.5-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.2
 [1.3.5-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.1
 [1.3.4-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.4-beta.1
