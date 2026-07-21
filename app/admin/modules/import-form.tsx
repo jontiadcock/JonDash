@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { importModuleAction, type InstallState } from "./actions";
+import { RestartWarning } from "./restart-warning";
 
 /**
  * Import your own module from a .zip — the sideload path, for a module you wrote (or had
@@ -10,6 +11,7 @@ import { importModuleAction, type InstallState } from "./actions";
  */
 export function ImportModuleForm() {
   const [state, action, pending] = useActionState<InstallState, FormData>(importModuleAction, {});
+  const [chosen, setChosen] = useState<string | null>(null);
 
   return (
     <div className="card flex flex-col gap-3 p-5">
@@ -22,18 +24,33 @@ export function ImportModuleForm() {
           JonDash rebuilds and restarts afterwards.
         </p>
       </div>
-      <form action={action} className="flex flex-wrap items-center gap-2">
-        <input
-          type="file"
-          name="package"
-          accept=".zip,application/zip"
-          required
-          className="text-sm"
-          style={{ color: "var(--muted)" }}
-        />
-        <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={pending}>
-          {pending ? "Checking…" : "Import module"}
-        </button>
+      <form action={action} className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            name="package"
+            accept=".zip,application/zip"
+            required
+            className="text-sm"
+            style={{ color: "var(--muted)" }}
+            onChange={(e) => setChosen(e.target.files?.[0]?.name ?? null)}
+          />
+          {!chosen && (
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              Choose a file to continue
+            </span>
+          )}
+        </div>
+        {chosen && (
+          <>
+            <RestartWarning what={`Check and install “${chosen}”.`} />
+            <div>
+              <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={pending}>
+                {pending ? "Checking and restarting…" : "Import and restart now"}
+              </button>
+            </div>
+          </>
+        )}
       </form>
       {state.error && (
         <p className="text-sm" style={{ color: "var(--danger)" }}>

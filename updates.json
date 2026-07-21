@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.5",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: install several modules at once. Browse modules now has a checkbox on each module - tick the ones you want and install them together, so you get one rebuild and one restart for the whole batch instead of one per module. And you're now warned before anything restarts: installing, importing or uninstalling a module shows a confirmation first, explaining that JonDash will rebuild and restart and that everyone signed in will be signed out. Nothing restarts until you confirm. The module-authoring guide's AI prompt has also been updated - it described the framework as it was before modules could perform actions, so modules generated from it would have been rejected at install."
+    },
+    {
       "version": "1.4.0-beta.4",
       "date": "2026-07-22",
       "type": "patch",

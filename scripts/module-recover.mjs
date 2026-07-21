@@ -28,23 +28,34 @@ function read(file) {
   }
 }
 
-const moduleId = read(INSTALLING);
+// One id per line: modules can be installed as a batch, and a failed batch build gives no
+// way to tell which member broke it — so every module from that batch is rolled back.
+const moduleIds = read(INSTALLING)
+  .split(/\r?\n/)
+  .map((s) => s.trim())
+  .filter((s) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(s));
 
 // Clear the marker FIRST: if anything below throws, the next failure must not loop back
 // into this same recovery.
 fs.rmSync(INSTALLING, { force: true });
 
-if (!moduleId || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) {
+if (moduleIds.length === 0) {
   appendLog("recovery", "module", "no module to remove (marker missing or invalid)");
 } else {
-  const dir = path.join(ROOT, "modules", moduleId);
-  try {
-    fs.rmSync(dir, { recursive: true, force: true });
-    fs.rmSync(`${dir}.installing`, { recursive: true, force: true });
-    appendLog("recovery", "module", `removed "${moduleId}" after a failed build`);
-  } catch (e) {
-    appendLog("recovery", "module", `could not remove "${moduleId}": ${e?.message ?? e}`);
+  const removed = [];
+  for (const moduleId of moduleIds) {
+    const dir = path.join(ROOT, "modules", moduleId);
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(`${dir}.installing`, { recursive: true, force: true });
+      // Drop the install record too, so the module isn't left looking installed.
+      fs.rmSync(path.join(ROOT, ".data", "modules", `${moduleId}.json`), { force: true });
+      removed.push(moduleId);
+    } catch (e) {
+      appendLog("recovery", "module", `could not remove "${moduleId}": ${e?.message ?? e}`);
+    }
   }
+  appendLog("recovery", "module", `removed ${removed.join(", ") || "nothing"} after a failed build`);
 
   try {
     writeRegistry();
@@ -54,7 +65,7 @@ if (!moduleId || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) {
 
   try {
     fs.mkdirSync(path.dirname(FAILED), { recursive: true });
-    fs.writeFileSync(FAILED, `${moduleId}\n${new Date().toISOString()}\n`, "utf8");
+    fs.writeFileSync(FAILED, `${removed.join(", ")}\n${new Date().toISOString()}\n`, "utf8");
   } catch {
     /* best effort — the log above is the durable record */
   }

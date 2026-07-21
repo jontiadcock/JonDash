@@ -81,32 +81,52 @@ export type InstallState = { ok?: boolean; error?: string };
  */
 export async function installModuleAction(_prev: InstallState, formData: FormData): Promise<InstallState> {
   await gate();
+  // One or many: the form posts a "moduleId" per selected module, so a batch costs a
+  // single rebuild + restart instead of one per module.
+  const ids = formData.getAll("moduleId").map(String).filter(Boolean);
   const sourceId = String(formData.get("sourceId") ?? "");
-  const moduleId = String(formData.get("moduleId") ?? "");
   const channel = String(formData.get("channel") ?? "") === "beta" ? "beta" : "stable";
-  if (!sourceId || !moduleId) return { error: "Pick a module to install." };
+  if (ids.length === 0) return { error: "Select at least one module to install." };
 
-  let installedId: string;
-  try {
-    const { modules } = await browseAvailableModules(channel);
-    const entry = modules.find((m) => m.id === moduleId && m.sourceId === sourceId);
-    if (!entry) return { error: "That module is no longer published by this source." };
+  const installed: string[] = [];
+  const failures: string[] = [];
 
-    if (compareVersions(entry.minAppVersion, getAppVersion()) > 0) {
-      return { error: `That module needs JonDash ${entry.minAppVersion} or newer. Update JonDash first.` };
+  const { modules } = await browseAvailableModules(channel).catch(() => ({ modules: [] }));
+
+  for (const moduleId of ids) {
+    try {
+      // Re-resolved from the source, so a tampered form can't change WHAT gets installed.
+      const entry = modules.find(
+        (m) => m.id === moduleId && (!sourceId || m.sourceId === sourceId),
+      );
+      if (!entry) {
+        failures.push(`${moduleId}: no longer published by this source`);
+        continue;
+      }
+      if (compareVersions(entry.minAppVersion, getAppVersion()) > 0) {
+        failures.push(`${moduleId}: needs JonDash ${entry.minAppVersion} or newer`);
+        continue;
+      }
+      const outcome = await installModuleFromSource(entry.sourceUrl, entry, channel);
+      installed.push(outcome.moduleId);
+      await audit("admin.module.install", {
+        detail: `${outcome.moduleId}@${outcome.version} from ${entry.sourceUrl} (${channel})`,
+      });
+    } catch (e) {
+      const why = e instanceof InstallError || e instanceof SourceError ? e.message : "couldn't be installed";
+      failures.push(`${moduleId}: ${why}`);
     }
-
-    const outcome = await installModuleFromSource(entry.sourceUrl, entry, channel);
-    installedId = outcome.moduleId;
-    await audit("admin.module.install", {
-      detail: `${outcome.moduleId}@${outcome.version} from ${entry.sourceUrl} (${channel})`,
-    });
-  } catch (e) {
-    if (e instanceof InstallError || e instanceof SourceError) return { error: e.message };
-    return { error: "Couldn't install that module." };
   }
 
-  return finishInstall(installedId);
+  // Nothing landed — stay put and explain, rather than restarting for no reason.
+  if (installed.length === 0) {
+    return { error: failures.join(" · ") || "Couldn't install that module." };
+  }
+  // Some landed: install what worked and report the rest after the restart.
+  if (failures.length > 0) {
+    await audit("admin.module.install.partial", { detail: failures.join(" · ") });
+  }
+  return finishInstall(installed);
 }
 
 /** Import a module the admin supplies as a ZIP — same verification, no source needed. */
@@ -127,7 +147,7 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
     return { error: "Couldn't import that module." };
   }
 
-  return finishInstall(installedId);
+  return finishInstall([installedId]);
 }
 
 /** Acknowledge the "a module was removed to get the app running" notice. */
@@ -143,9 +163,9 @@ export async function dismissFailedModuleAction(_prev: InstallState, _formData: 
  * installed (so the launcher can remove it if the build fails), and hand over for the
  * rebuild. Never returns — the process exits so the supervisor can restart it.
  */
-function finishInstall(moduleId: string): InstallState {
+function finishInstall(moduleIds: string[]): InstallState {
   regenerateRegistry();
-  markModuleInstalling(moduleId);
+  markModuleInstalling(moduleIds);
   revalidatePath("/admin/modules");
   revalidatePath("/admin/modules/browse");
   requestRebuildAndRestart();

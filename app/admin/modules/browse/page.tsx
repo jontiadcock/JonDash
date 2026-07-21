@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { browseAvailableModules, type ModuleChannel } from "@/lib/modules/sources";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
-import { InstallButton } from "./install-button";
+import { InstallPicker, type BrowseItem } from "./install-button";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,13 @@ export default async function BrowseModulesPage({
   const channel: ModuleChannel = raw === "beta" ? "beta" : "stable";
 
   const { modules, errors } = await browseAvailableModules(channel);
+  const browseItems: BrowseItem[] = modules.map((m) => ({
+    id: m.id,
+    name: m.name,
+    version: m.version,
+    sourceId: m.sourceId,
+    installed: m.installed,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -68,6 +75,8 @@ export default async function BrowseModulesPage({
           brand-new module can take a moment to appear here.
         </p>
       ) : (
+        <InstallPicker items={browseItems} channel={channel}>
+          {(renderCheckbox) => (
         <div className="flex flex-col gap-4">
           {modules.map((m) => (
             <div key={`${m.sourceId}:${m.id}`} className="card flex flex-col gap-3 p-5">
@@ -87,14 +96,7 @@ export default async function BrowseModulesPage({
                     from {m.sourceName} · needs JonDash {m.minAppVersion}+
                   </p>
                 </div>
-                <div className="flex-none">
-                  <InstallButton
-                    sourceId={m.sourceId}
-                    moduleId={m.id}
-                    channel={channel}
-                    installed={m.installed}
-                  />
-                </div>
+                <div className="flex-none">{renderCheckbox(m.id)}</div>
               </div>
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
@@ -115,6 +117,8 @@ export default async function BrowseModulesPage({
             </div>
           ))}
         </div>
+          )}
+        </InstallPicker>
       )}
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>

@@ -185,10 +185,14 @@ memory; authored per the approved plan. Key points:
   run by `prebuild`/`pretest`/`pretypecheck`) so **installing a module no longer needs a core edit** — verified
   end-to-end by building the real health-monitor module; `modules` added to `update.mjs`/`rollback.mjs`
   **PRESERVE** (an app update would otherwise have **deleted every installed module**) and `/modules/*`
-  gitignored as user content. **Remaining in chunk B:** install/update from a tag archive, the **install-time
-  verifier** (permission-vs-code check + banned constructs + archive hygiene — defence-in-depth, *not* a
-  sandbox), uninstall removing files, import-your-own ZIP, and launcher rebuild-on-module-change with
-  auto-recovery. Full P2 scope: git **sources** (default `JonDash-addons` repo +
+  gitignored as user content. **Chunk B ✅ shipped v1.4.0-beta.3** — install from a pinned tag archive, the
+  **install-time verifier** (permission-vs-code + banned constructs + archive hygiene; defence-in-depth,
+  *not* a sandbox), uninstall removing files, import-your-own ZIP, and launcher rebuild-on-module-change with
+  auto-recovery. **v1.4.0-beta.4** added module **provenance** at install — fixing a **data-loss risk** where
+  every module was labelled `bundled`, leaving the prune guard that protects installed modules inert — plus
+  the per-module channel. **v1.4.0-beta.5** added **bulk install** (select several, one rebuild/restart per
+  batch, batch rolls back together on failure) and a **restart confirmation** before any
+  install/import/uninstall. Full P2 scope: git **sources** (default `JonDash-addons` repo +
   add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
   rebuild-on-module-change (brick-risk, plan+review); **per-module release channels** — every module has its
   own **stable/beta** channel with an *"opt into beta releases for this module"* toggle in that module's

@@ -245,6 +245,11 @@ Copy everything in the box below into a capable AI agent (e.g. Claude), then add
 sentences at the end describing the module you want. The prompt is self-contained — the AI does **not** need
 to know anything about JonDash beforehand.
 
+> **Prefer a working example?** The official add-ons source publishes a **"Module template (for developers)"**
+> module — install it from Admin → Modules → Browse (beta channel) and you get a complete, working module
+> with a widget, a page, its own table, and add/delete forms built on `moduleAction`, plus its own
+> `AI-PROMPT.md`. Starting from that is usually faster than generating from scratch.
+
 ````text
 You are building a "module" (an addon) for a self-hosted web app called JonDash. You have never seen this
 app; everything you need is in this prompt. Follow the contract exactly and output complete files.
@@ -275,7 +280,8 @@ THE ModuleDefinition TYPE (produce module.ts matching this shape):
   {
     id: string; name: string; description: string;
     version: string;            // semver, e.g. "1.0.0"
-    minAppVersion: string;      // minimum JonDash version, e.g. "1.4.0"
+    minAppVersion: string;      // minimum JonDash version. Use "1.4.0-beta.3" or later if you use
+                                //   moduleAction / ctx.email / ctx.net / systemModuleContext
     permissions: ModulePermission[];   // request the FEWEST needed (list below)
     settings?: { key: string; label: string; type: "string"|"number"|"boolean";
                  default?: unknown; secret?: boolean }[];   // secret values are encrypted at rest
@@ -295,10 +301,46 @@ THE CONTEXT you receive (ctx) — ONLY the fields your permissions granted are p
   ctx.db?             // ONLY if you ship migrations. .table(name)->"mod_<id>_<name>", .query<T>(sql,...p),
                       //   .run(sql,...p). You may ONLY read/write your own mod_<id>_* tables.
   ctx.fetch?          // ONLY with "network:outbound"
+  ctx.net?            // ONLY with "network:outbound": .ping(host,{timeoutMs?}) -> ms, or null if no reply
   ctx.crypto?         // ONLY with "crypto:use": .encrypt(s) .decrypt(s)
+  ctx.email?          // ONLY with "email:send": .send({to,subject,text?,html?}) — THROWS if it fails
   ctx.usersDb?        // ONLY with "db:users:read"|"db:users:write"
   ctx.audit?(action, detail?)   // ONLY with "audit:write"
   Baseline (no permission needed): your settings, your store, your own mod_<id>_* tables.
+
+DOING SOMETHING (buttons/forms) — a widget or page can render, but a mutation MUST go through moduleAction.
+This is the only sanctioned way for a module to change anything:
+    "use server";
+    import { moduleAction } from "@/lib/modules/api";
+    export const addThing = moduleAction("<id>", async (ctx, formData: FormData) => { ... });
+  It checks the module is installed and enabled and the caller is signed in (a full admin if adminOnly),
+  and hands you a ctx scoped to your granted permissions. It THROWS on failure — never catch and ignore.
+
+BACKGROUND WORK (pollers/schedulers) — there is no signed-in user, and you must NOT reuse a ctx captured
+from a request (every later audit entry would be blamed on whoever triggered the first one):
+    import { systemModuleContext } from "@/lib/modules/api";
+    const ctx = await systemModuleContext("<id>");
+
+THE ONLY TWO CORE IMPORTS YOU MAY USE:
+    "@/lib/modules/types"   types only (no server-only; safe from a client component)
+    "@/lib/modules/api"     runtime: moduleAction, systemModuleContext
+  Anything else under "@/lib/..." is REFUSED at install. Everything else arrives on ctx.
+
+THE INSTALLER STATICALLY VERIFIES YOUR CODE AND WILL REFUSE IT IF IT:
+  - uses a capability it didn't declare — node:net/dns/tls/http(s) or a bare fetch() require
+    "network:outbound"; node:crypto requires "crypto:use";
+  - touches the filesystem (node:fs) — your data belongs in ctx.db / ctx.store;
+  - uses child_process, eval, new Function, or import() with a computed path;
+  - reads process.env — configuration belongs in your settings;
+  - imports core internals instead of the two paths above;
+  - declares different permissions in module.ts than its published listing advertises;
+  - ships a file type outside .ts .tsx .sql .md .json .css .txt .svg + images, escapes its folder, or
+    exceeds 400 files / 2 MB per file / 8 MB total.
+  Every .ts/.tsx file is scanned, INCLUDING a tests/ folder. Tests that import core internals must live
+  outside the published module.
+  NOTE: this is defence in depth, NOT a sandbox — a module runs in-process with the app's privileges. Write
+  module code as trusted code: never eval config, never fetch-and-execute remote code, and treat anything an
+  external service returns as hostile input (cap lengths, strip control characters before storing).
 
 PERMISSIONS (declare the least; each is shown to the admin as a warning at install):
   network:outbound | db:users:read | db:users:write | db:core:read | db:core:write |
@@ -315,7 +357,8 @@ HARD RULES
   cleanup in onUninstall).
 
 DELIVERABLES
-1. modules/<id>/module.ts  2. modules/<id>/MODULE.md  3. any widget.tsx / page.tsx / migrations/*.sql it needs.
+1. modules/<id>/module.ts  2. modules/<id>/MODULE.md  3. any widget.tsx / page.tsx / migrations/*.sql it
+needs, plus a "use server" actions file exporting moduleAction(...) wrappers if it has buttons or forms.
 Explain how to test it: put the folder in modules/<id>/ (or import the zipped folder via Admin → Modules →
 Import), rebuild + restart, enable it in Admin → Modules (approve the permission prompt), verify the
 widget/page/settings work, then confirm disabling hides it and uninstalling removes all its data.

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { enableModuleAction, disableModuleAction, uninstallModuleAction } from "./actions";
+import { RestartWarning } from "./restart-warning";
 
 export type ModuleItem = {
   id: string;
@@ -96,19 +97,26 @@ function ModuleCard({ m }: { m: ModuleItem }) {
       {m.installed && (
         <div className="flex flex-wrap items-center gap-2">
           {confirmUninstall ? (
-            <>
-              <span className="text-sm">
-                Permanently delete this module, its settings and its stored data? JonDash will rebuild and
-                restart, so everyone signed in will need to sign in again.
-              </span>
-              <form action={uninstallModuleAction}>
-                <input type="hidden" name="id" value={m.id} />
-                <button type="submit" className="btn btn-danger !py-1.5 text-sm">Confirm uninstall</button>
-              </form>
-              <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmUninstall(false)}>
-                Cancel
-              </button>
-            </>
+            <div className="flex w-full flex-col gap-3">
+              <RestartWarning
+                what={`Permanently delete ${m.name}, its settings and all of its stored data. This can't be undone.`}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={uninstallModuleAction}>
+                  <input type="hidden" name="id" value={m.id} />
+                  <button type="submit" className="btn btn-danger !py-1.5 text-sm">
+                    Uninstall and restart now
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="btn btn-ghost !py-1.5 text-sm"
+                  onClick={() => setConfirmUninstall(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           ) : (
             <button
               type="button"

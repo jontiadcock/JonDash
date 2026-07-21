@@ -11,6 +11,26 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.5] — 2026-07-22
+
+### Added
+- **Install several modules at once.** Browse modules now has a checkbox on each module: tick the ones you
+  want and install them as a batch, so you get **one rebuild and one restart** for the whole lot instead of
+  one per module. If one of them can't be installed, the rest still go ahead and the failure is reported.
+- **You're now told before the server restarts.** Installing, importing or uninstalling a module recompiles
+  the app, so a confirmation step spells out what's about to happen first — that JonDash will rebuild and
+  restart, that **everyone signed in will be signed out**, and that a module which breaks the build is
+  removed automatically. Nothing restarts until you confirm.
+
+### Changed
+- If a batch of modules breaks the build, all modules from that batch are removed together — a failed build
+  doesn't reveal which one caused it — and the notice suggests installing them one at a time to find it.
+- The module-authoring guide's AI prompt has been brought up to date. It previously described the framework
+  as it was before modules could perform actions, so a module generated from it would have been rejected at
+  install. It now covers server actions, email, ping, background contexts, the allowed imports, and every
+  rule the installer enforces. It also points at the **Module template (for developers)** add-on, which is a
+  complete working example.
+
 ## [1.4.0-beta.4] — 2026-07-22
 
 ### Fixed

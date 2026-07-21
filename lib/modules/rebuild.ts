@@ -35,15 +35,17 @@ export function regenerateRegistry(): void {
 }
 
 /**
- * Note which module is being installed, so the launcher knows what to remove if the
- * resulting build fails. Cleared once a build succeeds.
+ * Note which modules are being installed, so the launcher knows what to remove if the
+ * resulting build fails. Takes a LIST because modules can be installed in a batch: when
+ * a batch build fails there's no way to tell which member broke it, so all of them are
+ * rolled back rather than guessing. Cleared once a build succeeds.
  */
-export function markModuleInstalling(moduleId: string): void {
+export function markModuleInstalling(moduleIds: string[]): void {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(INSTALLING_MARKER, moduleId, "utf8");
+  fs.writeFileSync(INSTALLING_MARKER, moduleIds.join("\n"), "utf8");
 }
 
-/** A module the launcher had to remove because it broke the build (for the admin UI). */
+/** Modules the launcher had to remove because they broke the build (for the admin UI). */
 export function readFailedModule(): { id: string; at: string } | null {
   try {
     const raw = fs.readFileSync(FAILED_MARKER, "utf8").trim();
