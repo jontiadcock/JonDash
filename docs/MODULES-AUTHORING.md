@@ -9,7 +9,7 @@ A **module** (also called an addon) is a self-contained package that plugs extra
 Disable or remove a module and JonDash behaves exactly as it did before (like removing an app from a
 phone). You can get modules three ways:
 
-1. **From a source repo** — the built-in official `JonDash-modules` source, or any public git repo you add
+1. **From a source repo** — the built-in official `JonDash-addons` source, or any public git repo you add
    by URL, then pick a module to install.
 2. **Import your own** — build a module yourself and **import its ZIP directly** (no repo, no app store).
 3. **Generate one with AI** — paste the prompt at the bottom of this file into any capable AI agent

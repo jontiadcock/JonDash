@@ -170,3 +170,9 @@ server.mjs          custom server (plain HTTP, or terminates TLS)
 proxy.ts            security headers + auth gate
 start-dashboard.bat one-click launcher (Windows)
 ```
+
+## License
+
+**Personal-use** — see [LICENSE](LICENSE). Free to use for your own **personal, non-commercial** purposes;
+no selling, no redistribution. You may build your own add-on modules — and if you share one, publish it in
+your own public repository and let the author know via GitHub so it can be linked.

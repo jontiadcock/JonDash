@@ -161,7 +161,7 @@ memory; authored per the approved plan. Key points:
   `ModuleContext`** exposing only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
   (consent + scoped context for **curated** modules; real sandboxing for untrusted third-party = MOD-06).
 - **Sources + sideload:** a module **source** = a public git repo with a manifest. Default = an official
-  **`JonDash-modules`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
+  **`JonDash-addons`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
   then pick a module to install. Each module has its **own version/manifest** — updates without a base update.
   The admin can **also import their own module package** (sideload a ZIP — **no repo/app-store required**;
   permission-consented like any install). Build-your-own is documented with a paste-in **AI-agent prompt**.
@@ -175,9 +175,19 @@ memory; authored per the approved plan. Key points:
   `Module`/`ModuleRecord`/`ModuleMigration` tables, enable/disable/uninstall, settings + generic store +
   raw-SQL `mod_<id>_*` migrations, permission consent + capability-scoped context, `modules.manage`
   capability, admin **Modules** page (`/admin/modules` + `[id]` settings), dashboard widget area + `/m/<id>`
-  catch-all page. typecheck/lint/build clean, 5 module tests (102 total), live boot OK. **P2** git sources +
-  independent install/update + **sideload import** (launcher rebuild-on-module-change — brick-risk, plan+review);
-  **P3** MOD-02 health monitoring; **P4 (later)** hardened sandboxing/signing (MOD-06).
+  catch-all page. typecheck/lint/build clean, 5 module tests (102 total), live boot OK.
+- **P2 — sources, lifecycle UI, RBAC & live widgets:** git **sources** (default `JonDash-addons` repo +
+  add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
+  rebuild-on-module-change (brick-risk, plan+review); a **"Module admin" role** — a delegable capability
+  (extend `modules.manage` to cover add / remove / edit / update / import + assigning modules to groups) so a
+  non-full-admin can manage modules, surfaced as a ready-made Access Role; **module RBAC** — a module can be
+  **assigned to Service Groups** so non-admins see its widget/page (reuse `getUserVisibleLinks` / `canViewLink`,
+  exactly like services); **resizable + movable live widgets** on the dashboard with **size + position saved per user**; a
+  module may ship a **custom, designable icon**; and the **widget-size-affects-appearance** guidance is
+  documented (authors design responsively — a small widget = compact view, larger = more detail).
+- **P3 — MOD-02 Health monitoring** as the first real module: a live, resizable status widget with per-service
+  graphs/red-drops, a full self-contained module page (the "open the app" view), and a custom live icon.
+- **P4 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
 
 #### MOD-07 · Modifications (core-modifying add-ons) — 🌅 Reserved (future; keep the door open)
 A **later** category distinct from modules: **"modifications"** that *can modify the base app itself* (not
@@ -202,8 +212,13 @@ elevated, explicitly-consented `core:*` permissions + core extension/override ho
 Outbound **webhook** and/or **SMTP email** on down/up state-change; secrets stored as
 encrypted `Setting`s.
 
-#### MOD-04 · Live widgets + arrangeable layout — ⏳
-Widgets showing live data (crypto, PC temps, service status) on a dashboard you arrange yourself.
+#### MOD-04 · Arrangeable dashboard — resizable + movable tiles & widgets (per-user) — ⏳
+Make the whole dashboard user-arrangeable: **both core service tiles/icons AND module widgets can be resized
+and moved**, with the **layout + each widget's size saved per user** (my arrangement doesn't change yours).
+Live-data widgets (crypto, PC temps, service status) render at the chosen size. **Widget size changes what a
+widget shows** — the framework + author guide document responsive sizing (small = compact/glanceable, large =
+detailed). Builds on the MOD-01 Phase 2 resizable-module-widget contract; MOD-04 is the full drag-to-arrange
+dashboard for tiles + widgets together. (The user's "resize + movable icons/services" request lands here.)
 
 #### MOD-05 · Official Addons page — ⏳
 Curated **registry manifest** (JSON, hosted in-repo): `id`, `name`, `description`, `version`,
