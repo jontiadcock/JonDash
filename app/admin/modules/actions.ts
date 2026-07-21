@@ -96,7 +96,7 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
       return { error: `That module needs JonDash ${entry.minAppVersion} or newer. Update JonDash first.` };
     }
 
-    const outcome = await installModuleFromSource(entry.sourceUrl, entry);
+    const outcome = await installModuleFromSource(entry.sourceUrl, entry, channel);
     installedId = outcome.moduleId;
     await audit("admin.module.install", {
       detail: `${outcome.moduleId}@${outcome.version} from ${entry.sourceUrl} (${channel})`,

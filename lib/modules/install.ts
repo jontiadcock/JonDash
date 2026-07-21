@@ -4,7 +4,8 @@ import path from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
 import type { ModulePermission } from "./types";
 import { verifyModuleFiles, formatIssues, ALLOWED_EXTENSIONS, LIMITS } from "./verify";
-import { parseRepoUrl, type SourceModuleEntry } from "./sources";
+import { parseRepoUrl, type SourceModuleEntry, type ModuleChannel } from "./sources";
+import { writeProvenance, removeProvenance } from "./provenance";
 
 /**
  * Module installer (MOD-01 Phase 2, chunk B) — fetch a module's pinned tag archive from
@@ -127,10 +128,11 @@ export function writeModuleFiles(moduleId: string, files: ExtractedFile[]): void
   fs.renameSync(staged, dest);
 }
 
-/** Delete a module's source folder (uninstall). Safe if it was never installed. */
+/** Delete a module's source folder + install record (uninstall). Safe if never installed. */
 export function removeModuleFiles(moduleId: string): void {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) throw new InstallError("Invalid module id.");
   fs.rmSync(path.join(MODULES_DIR, moduleId), { recursive: true, force: true });
+  removeProvenance(moduleId);
 }
 
 /** Whether a module's source is present on disk. */
@@ -156,6 +158,7 @@ export type InstallOutcome = {
 export async function installModuleFromSource(
   repoUrl: string,
   entry: SourceModuleEntry,
+  channel: ModuleChannel = "stable",
 ): Promise<InstallOutcome> {
   const zip = await download(archiveUrlFor(repoUrl, entry.tag));
   const files = extractModuleFromArchive(zip, entry.id);
@@ -166,6 +169,9 @@ export async function installModuleFromSource(
   }
 
   writeModuleFiles(entry.id, files);
+  // Record WHERE it came from now — enableModule can't work it out later, and without it
+  // the module is indistinguishable from one JonDash shipped itself.
+  writeProvenance(entry.id, { source: repoUrl, channel, version: entry.version });
   return {
     moduleId: entry.id,
     version: entry.version,
@@ -225,6 +231,9 @@ export async function installModuleFromZip(zip: Uint8Array, expectedId?: string)
 
   const version = /version\s*:\s*["']([^"']+)["']/.exec(files.find((f) => /^module\.tsx?$/.test(f.path))?.text ?? "");
   writeModuleFiles(moduleId, files);
+  // Sideloaded: no repo to point at, but it's still NOT bundled — which is what keeps it
+  // out of the prune's blast radius.
+  writeProvenance(moduleId, { source: "imported", channel: "stable", version: version?.[1] ?? "0.0.0" });
   return {
     moduleId,
     version: version?.[1] ?? "0.0.0",

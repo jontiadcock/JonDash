@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.4",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix - install this if you have installed any module. JonDash recorded every module as though it shipped with the app, which defeated the safeguard protecting installed modules: if a module ever failed to load, its tables, settings and stored data could be wiped automatically (for a health monitor, that means every monitor and all of its history). JonDash now records where each module came from, repairs existing records itself, and never removes a module whose files are still there. Also: a module installed from the beta channel is now correctly marked as beta, so its per-module update channel is right; and Browse modules explains that a just-published module can take a couple of minutes to appear."
+    },
+    {
       "version": "1.4.0-beta.3",
       "date": "2026-07-22",
       "type": "minor",

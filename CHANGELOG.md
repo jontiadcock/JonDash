@@ -11,6 +11,22 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.4] — 2026-07-22
+
+### Fixed
+- **Installed modules could have their data deleted. Update if you have installed any module.** JonDash
+  recorded every module as though it had shipped with the app, because the install didn't record where the
+  module came from. That defeated the safeguard meant to protect installed modules, so if a module ever
+  failed to load — after a bad update or an interrupted rebuild — its tables, settings and stored data could
+  be wiped automatically. For something like a health monitor that means every monitor, all of its history
+  and all of its incidents. JonDash now records where each module came from at install, repairs existing
+  records on its own, and **never** removes a module whose files are still present. No action needed.
+- **A module installed from the beta channel is now correctly marked as a beta module.** Previously it was
+  recorded as stable, so the per-module "opt into beta releases" setting was wrong from the moment of
+  install and update checks would look on the wrong channel.
+- **Browse modules** now explains that a just-published module can take a couple of minutes to appear
+  (GitHub caches the list briefly), instead of simply showing nothing.
+
 ## [1.4.0-beta.3] — 2026-07-22
 
 ### Added

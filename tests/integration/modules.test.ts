@@ -11,7 +11,9 @@ import {
   disableModule,
   uninstallModule,
   pruneRemovedBundledModules,
+  reconcileModuleProvenance,
 } from "@/lib/modules/manage";
+import { writeProvenance, removeProvenance } from "@/lib/modules/provenance";
 import { decryptString } from "@/lib/crypto";
 
 // JonDash ships no modules of its own, but the migration runner reads REAL files from
@@ -36,7 +38,13 @@ function sampleDef(overrides: Partial<ModuleDefinition> = {}): ModuleDefinition 
   };
 }
 
+// Provenance lives in .data — isolate it so tests never touch the real install's records.
+const DATA_DIR = path.join(process.cwd(), ".data-test-modules");
+let prevDataDir: string | undefined;
+
 beforeAll(() => {
+  prevDataDir = process.env.JONDASH_DATA_DIR;
+  process.env.JONDASH_DATA_DIR = DATA_DIR;
   fs.mkdirSync(path.join(MODULE_DIR, "migrations"), { recursive: true });
   fs.writeFileSync(
     path.join(MODULE_DIR, "migrations", "001_init.sql"),
@@ -58,6 +66,7 @@ async function tableExists(name: string): Promise<boolean> {
 }
 
 async function cleanup() {
+  removeProvenance(ID); // install records live in .data, not the DB
   await dropModuleTables(ID).catch(() => {});
   await prisma.moduleMigration.deleteMany();
   await prisma.moduleRecord.deleteMany();
@@ -69,6 +78,9 @@ beforeEach(cleanup);
 afterAll(async () => {
   await cleanup();
   fs.rmSync(MODULE_DIR, { recursive: true, force: true });
+  fs.rmSync(DATA_DIR, { recursive: true, force: true });
+  if (prevDataDir === undefined) delete process.env.JONDASH_DATA_DIR;
+  else process.env.JONDASH_DATA_DIR = prevDataDir;
   await prisma.$disconnect();
 });
 
@@ -178,6 +190,63 @@ describe("module framework", () => {
     expect(await prisma.setting.count({ where: { scope: "module", ownerId: ID } })).toBe(0);
     expect(await prisma.moduleRecord.count({ where: { moduleId: ID } })).toBe(0);
     expect(await prisma.moduleMigration.count({ where: { moduleId: ID } })).toBe(0);
+  });
+
+  // REGRESSION (2026-07-22): installs never wrote a Module row, so enableModule recorded
+  // EVERY module as source:"bundled" — putting source-installed modules inside the
+  // prune's blast radius. A module that failed to load once would have had its tables and
+  // all its data destroyed. Provenance is now recorded at install and the prune is guarded
+  // by it (and by the files still being on disk).
+  it("never purges a module whose code is still on disk, even with no install record", async () => {
+    // This is the state of anything installed by v1.4.0-beta.3: row says "bundled"
+    // (the old enableModule hardcoded it) and there is NO provenance file to repair from.
+    // The only thing standing between it and deletion is "its files are still there".
+    await enableModule(sampleDef());
+    await moduleStoreApi(ID).set("k", 1);
+    const entry = path.join(MODULE_DIR, "module.ts");
+    fs.writeFileSync(entry, "export default {};", "utf8");
+    try {
+      // Definition absent from the registry — exactly what used to trigger the purge.
+      await pruneRemovedBundledModules();
+
+      expect(await prisma.module.findUnique({ where: { id: ID } })).not.toBeNull();
+      expect(await tableExists("mod_testmod_notes")).toBe(true);
+      expect(await prisma.moduleRecord.count({ where: { moduleId: ID } })).toBe(1);
+    } finally {
+      fs.rmSync(entry, { force: true });
+    }
+  });
+
+  it("never purges a module that has an install record", async () => {
+    await enableModule(sampleDef());
+    await moduleStoreApi(ID).set("k", 1);
+    writeProvenance(ID, { source: "https://github.com/someone/addons", channel: "beta", version: "1.0.0" });
+
+    await pruneRemovedBundledModules();
+
+    expect(await prisma.module.findUnique({ where: { id: ID } })).not.toBeNull();
+    expect(await tableExists("mod_testmod_notes")).toBe(true);
+  });
+
+  it("repairs the source and channel of a row written before provenance existed", async () => {
+    await enableModule(sampleDef());
+    expect((await prisma.module.findUnique({ where: { id: ID } }))?.source).toBe("bundled");
+
+    writeProvenance(ID, { source: "https://github.com/someone/addons", channel: "beta", version: "1.0.0" });
+    await reconcileModuleProvenance();
+
+    const row = await prisma.module.findUnique({ where: { id: ID } });
+    expect(row?.source).toBe("https://github.com/someone/addons");
+    expect(row?.channel).toBe("beta"); // per-module beta opt-in now matches where it came from
+  });
+
+  it("records source and channel from the install when first enabled", async () => {
+    writeProvenance(ID, { source: "https://github.com/someone/addons", channel: "beta", version: "1.0.0" });
+    await enableModule(sampleDef());
+
+    const row = await prisma.module.findUnique({ where: { id: ID } });
+    expect(row?.source).toBe("https://github.com/someone/addons");
+    expect(row?.channel).toBe("beta");
   });
 
   it("prunes a bundled module a past build shipped, but never a source-installed one", async () => {

@@ -63,6 +63,9 @@ export default async function BrowseModulesPage({
       {modules.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           No modules are published on the <strong>{channel}</strong> channel by your enabled sources yet.
+          <br />
+          If you&apos;ve just published one, give it a couple of minutes — GitHub caches the list briefly, so a
+          brand-new module can take a moment to appear here.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
