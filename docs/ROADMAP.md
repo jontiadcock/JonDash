@@ -41,18 +41,20 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- ▶️ **MOD-01 — Module framework** — **Phase 1 (framework core) shipped v1.4.0-beta.1.**
-  Plug-and-play modules, git-installed + updated **independently of the base app**, **permission-gated**
-  (app-store-style consent). Full design + phase status in the MOD-01 catalog entry. Next: **P2** (git sources +
-  install/update + sideload import). _(Also shipped: OPS-12 v1.3.7-beta.1, OPS-11 v1.3.6-beta.1. Security next: SEC-04.)_
+- ✅ **MOD-01 — Module framework** — **P1–P3 shipped (v1.4.0-beta.1 → beta.6).**
+  Plug-and-play modules, installed + updated from a git source **independently of the base app**,
+  **permission-gated** (app-store-style consent) with an **install-time verifier**, bulk install, per-module
+  RBAC via Service Groups, and per-user resizable dashboard widgets. Full detail in the MOD-01 catalog entry.
+  _(Also shipped: OPS-12 v1.3.7-beta.1, OPS-11 v1.3.6-beta.1.)_ **Next: SEC-04.**
 
 **Next — security & access control**
 1. ⏳ **SEC-04 — Session lifecycle hardening**
 2. ⏳ **SEC-05 — Trusted-IP auto-login**
 
 **Then — modules & customization platform**
-5. ▶️ **MOD-01 — Module / feature framework** — in progress (Phase 1); approved design in the catalog
-6. ⏳ **MOD-02 — Health monitoring (module, Phase 1: status)**
+5. ✅ **MOD-01 — Module / feature framework** — P1–P3 shipped through v1.4.0-beta.6; detail in the catalog
+6. ▶️ **MOD-02 — Health monitoring (module, Phase 1: status)** — built + published by the add-ons session
+   (`health-monitor/v0.0.1-beta.1`, beta channel); install verified end to end
 7. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
 8. ⏳ **MOD-04 — Live widgets + arrangeable layout**
 9. ⏳ **MOD-05 — Official Addons page**
@@ -192,7 +194,15 @@ memory; authored per the approved plan. Key points:
   every module was labelled `bundled`, leaving the prune guard that protects installed modules inert — plus
   the per-module channel. **v1.4.0-beta.5** added **bulk install** (select several, one rebuild/restart per
   batch, batch rolls back together on failure) and a **restart confirmation** before any
-  install/import/uninstall. Full P2 scope: git **sources** (default `JonDash-addons` repo +
+  install/import/uninstall. **v1.4.0-beta.6 completes P2:** **module RBAC via Service Groups**
+  (`lib/modules/visibility.ts` — no groups = everyone, groups = members only, admins always; enforced at BOTH
+  the dashboard widget list and the `/m/<id>` route, not just hidden in the UI), **per-user resizable +
+  movable widgets** (`ModuleLayout` table + `lib/modules/layout.ts`; width/height 1–3 and order saved per
+  user, explicit controls rather than drag-and-drop — no new dependency, works on touch and keyboard),
+  **custom module icons** (`icon` on the definition), and a **multiline `"text"` settings field**. The
+  **Module-admin role** needed no new work: `modules.manage` was already a delegable Access Role capability
+  and now covers group assignment too. Widget-size guidance is documented in `docs/MODULES-AUTHORING.md`.
+  Full P2 scope (all now delivered): git **sources** (default `JonDash-addons` repo +
   add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
   rebuild-on-module-change (brick-risk, plan+review); **per-module release channels** — every module has its
   own **stable/beta** channel with an *"opt into beta releases for this module"* toggle in that module's

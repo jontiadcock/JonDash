@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/guards";
 import { getModuleState } from "@/lib/modules/registry";
 import { buildModuleContext } from "@/lib/modules/context";
+import { canViewModule } from "@/lib/modules/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export default async function ModulePageRoute({
   const state = await getModuleState(moduleId);
   if (!state || !state.enabled || !state.def.Page) notFound();
   if (state.def.adminOnly && user.role !== "ADMIN") notFound();
+  // Service-Group RBAC: a restricted module 404s for anyone outside its groups, so the
+  // page is enforced here and not merely hidden from the dashboard.
+  if (!(await canViewModule(moduleId, { id: user.id, role: user.role }))) notFound();
 
   const ctx = buildModuleContext(state.def, state.granted, {
     id: user.id,

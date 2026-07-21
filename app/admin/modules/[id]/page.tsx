@@ -3,8 +3,11 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { getModuleState } from "@/lib/modules/registry";
 import { moduleSettingsApi } from "@/lib/modules/store";
+import { prisma } from "@/lib/db";
+import { moduleGroupIds } from "@/lib/modules/visibility";
 import { setModuleChannelAction } from "../actions";
 import { ModuleSettingsForm, type SettingFieldView } from "./ui";
+import { ModuleGroupsForm } from "./groups-form";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,9 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
   const state = await getModuleState(id);
   if (!state) notFound();
   const { def, enabled } = state;
+
+  const groups = await prisma.serviceRole.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const selectedGroupIds = await moduleGroupIds(def.id);
 
   const values = await moduleSettingsApi(def).all();
   const fields: SettingFieldView[] = (def.settings ?? []).map((f) => ({
@@ -41,6 +47,25 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
           This module is disabled — its settings won&apos;t take effect until you enable it.
         </p>
       )}
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-lg font-semibold">Who can see this module</h2>
+        <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+          {def.adminOnly ? (
+            <>
+              This module declares itself <strong>admin-only</strong>, so it is never shown to non-admins
+              whatever you choose here.
+            </>
+          ) : (
+            <>
+              Limit it to Service Groups, exactly like a service tile. <strong>Leave all unticked</strong> and
+              every signed-in user sees it; tick one or more and only their members do. Full admins always see
+              it.
+            </>
+          )}
+        </p>
+        <ModuleGroupsForm moduleId={def.id} groups={groups} selected={selectedGroupIds} />
+      </section>
 
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Release channel</h2>

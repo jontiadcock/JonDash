@@ -39,7 +39,8 @@ export type ModulePermission =
 export type ModuleSettingField = {
   key: string;
   label: string;
-  type: "string" | "number" | "boolean";
+  /** "text" renders a multiline textarea — for JSON blobs, notes, lists of hosts, etc. */
+  type: "string" | "text" | "number" | "boolean";
   default?: string | number | boolean;
   help?: string;
   /** Encrypted at rest and never sent to the client in plaintext. */
@@ -132,6 +133,13 @@ export type ModuleDefinition = {
   /** Declared settings; auto-rendered under Admin → Modules → <module> unless a
    *  custom SettingsPanel is provided. */
   settings?: ModuleSettingField[];
+
+  /**
+   * Optional icon for the module, shown next to its name. A component (usually an inline
+   * SVG) rather than an image file, so it ships with the module, needs no upload or
+   * serving route, and inherits the current theme's colour via `currentColor`.
+   */
+  icon?: ComponentType<{ className?: string }>;
 
   /** Optional UI extension points. */
   DashboardWidget?: ComponentType<ModuleWidgetProps>;

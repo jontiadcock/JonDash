@@ -6,7 +6,7 @@ import { saveModuleSettingsAction, type ModuleSettingsState } from "../actions";
 export type SettingFieldView = {
   key: string;
   label: string;
-  type: "string" | "number" | "boolean";
+  type: "string" | "text" | "number" | "boolean";
   help: string | null;
   secret: boolean;
   value: unknown; // null for secret fields (never sent to the client)
@@ -26,6 +26,20 @@ export function ModuleSettingsForm({ moduleId, fields }: { moduleId: string; fie
               <input type="checkbox" name={f.key} defaultChecked={!!f.value} className="h-4 w-4" />
               <span className="text-sm font-medium">{f.label}</span>
             </label>
+          ) : f.type === "text" && !f.secret ? (
+            <>
+              {/* Multiline: a JSON blob or a list of hosts is unusable in a one-line input. */}
+              <label className="label" htmlFor={`m-${f.key}`}>{f.label}</label>
+              <textarea
+                id={`m-${f.key}`}
+                name={f.key}
+                rows={8}
+                defaultValue={f.value == null ? "" : String(f.value)}
+                className="input font-mono text-sm"
+                style={{ resize: "vertical", minHeight: "8rem" }}
+                spellCheck={false}
+              />
+            </>
           ) : (
             <>
               <label className="label" htmlFor={`m-${f.key}`}>{f.label}</label>

@@ -11,6 +11,31 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.6] — 2026-07-22
+
+### Added
+- **Choose who can see each module.** A module can now be limited to **Service Groups**, exactly like a
+  service tile — under Admin → Modules → *(module)* → **Who can see this module**. Leave every group
+  unticked and it stays visible to everyone signed in; tick one or more and only their members see its
+  dashboard widget, and its page returns "not found" to anyone else. Full admins always see it, and a module
+  that declares itself admin-only stays admin-only regardless.
+- **Arrange your dashboard your way.** Each module widget now has a **Customise** control to set its width
+  and height (1–3) and move it earlier or later. **Your layout is yours alone** — changing it never affects
+  what anyone else sees. "Reset" puts a widget back to its default.
+- **Modules can ship their own icon**, shown beside their name.
+- **Multiline module settings.** A module can declare a setting as multiline text, so things like a JSON
+  configuration or a list of hosts get a proper resizable box instead of a single-line field.
+
+### Changed
+- The module-authoring guide now explains that **each user resizes your widget**, with guidance on designing
+  for it (fill the space you're given, no fixed pixel sizes, stay useful at the smallest size, put detail on
+  your module's page). It also documents icons and multiline settings, and no longer describes the framework
+  as unreleased.
+
+### Note
+- Delegated module administration already worked: the **Manage modules** permission can be granted to a
+  non-admin through an Access Role, and now covers assigning modules to groups as well.
+
 ## [1.4.0-beta.5] — 2026-07-22
 
 ### Added

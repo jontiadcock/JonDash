@@ -21,6 +21,7 @@ export default async function AdminModulesPage() {
     name: def.name,
     description: def.description,
     version: def.version,
+    icon: def.icon ? <def.icon className="h-5 w-5" /> : null,
     enabled,
     installed,
     hasSettings: (def.settings?.length ?? 0) > 0,

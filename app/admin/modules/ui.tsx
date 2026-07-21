@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { enableModuleAction, disableModuleAction, uninstallModuleAction } from "./actions";
 import { RestartWarning } from "./restart-warning";
 
@@ -9,6 +9,9 @@ export type ModuleItem = {
   name: string;
   description: string;
   version: string;
+  /** The module's own icon, already rendered — a component can't cross into a client
+   *  component as a prop, but the element it produces can. */
+  icon: ReactNode;
   enabled: boolean;
   /** Has a Module row — i.e. it has been set up and may be holding settings/data. */
   installed: boolean;
@@ -43,6 +46,7 @@ function ModuleCard({ m }: { m: ModuleItem }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            {m.icon && <span className="flex-none" style={{ color: "var(--primary)" }}>{m.icon}</span>}
             <span className="font-medium">{m.name}</span>
             <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>v{m.version}</span>
             <StateChip enabled={m.enabled} installed={m.installed} />

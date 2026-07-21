@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.6",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: control who sees each module, and arrange your own dashboard. A module can now be limited to Service Groups just like a service tile (Admin -> Modules -> the module -> 'Who can see this module') - leave every group unticked and everyone signed in sees it, tick some and only their members do; its page returns not-found to anyone else. Each module widget also gains a Customise control to set its width and height and move it around, and your layout is yours alone - it never changes what anyone else sees. Modules can ship their own icon, and can now offer multiline settings for things like a JSON configuration. The authoring guide explains how to design a widget that users resize."
+    },
+    {
       "version": "1.4.0-beta.5",
       "date": "2026-07-22",
       "type": "minor",

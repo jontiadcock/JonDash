@@ -22,6 +22,7 @@ import {
   requestRebuildAndRestart,
   clearFailedModule,
 } from "@/lib/modules/rebuild";
+import { setModuleGroups } from "@/lib/modules/visibility";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 
@@ -224,6 +225,34 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
 }
 
 export type ModuleSettingsState = { ok?: boolean; error?: string };
+
+/**
+ * Limit a module to Service Groups (module RBAC). No groups = visible to everyone signed
+ * in, which is its behaviour when the feature isn't used. Only real group ids are
+ * accepted, so a crafted form can't attach a module to something that doesn't exist.
+ */
+export async function setModuleGroupsAction(
+  _prev: ModuleSettingsState,
+  formData: FormData,
+): Promise<ModuleSettingsState> {
+  await gate();
+  const id = String(formData.get("id") ?? "");
+  if (!getModuleDef(id)) return { error: "Unknown module." };
+
+  const requested = formData.getAll("groupId").map(String).filter(Boolean);
+  const real = await prisma.serviceRole.findMany({
+    where: { id: { in: requested } },
+    select: { id: true },
+  });
+
+  await setModuleGroups(id, real.map((g) => g.id));
+  await audit("admin.module.groups", {
+    detail: `${id} -> ${real.length === 0 ? "everyone" : `${real.length} group(s)`}`,
+  });
+  revalidatePath(`/admin/modules/${id}`);
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
 
 export async function saveModuleSettingsAction(
   _prev: ModuleSettingsState,

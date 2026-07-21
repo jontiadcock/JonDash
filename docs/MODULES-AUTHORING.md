@@ -1,8 +1,9 @@
 # Building JonDash modules
 
-> ⚠️ **The module framework (MOD-01) is in active development.** This document is the **target contract**
-> for its first release — treat it as the spec. Some details may be refined as it ships; the roadmap
-> tracks status. Nothing here changes the base app if you don't install any modules.
+> **The module framework is live** as of JonDash 1.4.0-beta.3 — installing from a source, importing your own,
+> the install-time verifier and the runtime APIs below all ship. This document is the contract; where it and
+> the code ever disagree, the code wins and this is a bug. Nothing here changes the base app if you don't
+> install any modules.
 
 A **module** (also called an addon) is a self-contained package that plugs extra functionality into JonDash
 — a dashboard widget, its own page(s), and its own settings — **without ever changing the base app**.
@@ -192,6 +193,29 @@ If a rule blocks something genuinely legitimate, ask for a framework capability 
 
 ---
 
+## Widget size — design for it, don't assume it
+
+Your dashboard widget is **resized by each user, not by you.** Every user can set their own width and
+height (1–3 grid columns/rows) for your widget, and their choice doesn't affect anyone else's. There is no
+"correct" size to design for, so:
+
+- **Never hardcode pixel widths or heights.** Fill the space you're given — the frame sizes itself. Use
+  `width: 100%`, flex/grid, and `max-width: 100%` on anything that could overflow.
+- **Degrade downwards.** At 1×1 (the default, and roughly a third of the row on desktop) show the single
+  most important thing: a status, a count, a colour. Reserve tables, charts and detail for wider sizes.
+- **Don't rely on media queries** — the widget's box changes size independently of the viewport, so a
+  `@media` breakpoint tells you about the screen, not about your widget. Prefer layouts that reflow
+  naturally (`flex-wrap`, `grid-template-columns: repeat(auto-fit, minmax(...))`, `container` queries).
+- **Everything is full width on a phone.** Small screens collapse to one column regardless of the chosen
+  width, so your "wide" layout must still work narrow.
+- **Put the detail on your page, not in the widget.** If it doesn't fit at 1×1, that's a signal it belongs
+  at `/m/<id>`. The widget's job is to be glanceable and to link through.
+
+A module may also ship an **icon** — a small component (typically an inline SVG) on `icon` in its
+definition. Use `currentColor` rather than fixed colours so it follows the user's light/dark theme.
+
+---
+
 ## Extension points
 - **Dashboard widget** (`DashboardWidget`): a React component rendered as a card on the main dashboard.
   Read data via `ctx` (server component) or fetch from your own page/api.
@@ -283,9 +307,11 @@ THE ModuleDefinition TYPE (produce module.ts matching this shape):
     minAppVersion: string;      // minimum JonDash version. Use "1.4.0-beta.3" or later if you use
                                 //   moduleAction / ctx.email / ctx.net / systemModuleContext
     permissions: ModulePermission[];   // request the FEWEST needed (list below)
-    settings?: { key: string; label: string; type: "string"|"number"|"boolean";
+    settings?: { key: string; label: string; type: "string"|"text"|"number"|"boolean";  // "text" = multiline
                  default?: unknown; secret?: boolean }[];   // secret values are encrypted at rest
-    DashboardWidget?: React component;  // optional
+    icon?: React component;             // optional small inline SVG; use currentColor
+    DashboardWidget?: React component;  // optional; EACH USER resizes it (1-3 cols/rows) - fill the
+                                        //   space given, no fixed px, degrade to a glance at 1x1
     Page?: React component;             // optional; enables /m/<id>/...
     SettingsPanel?: React component;    // optional; else the framework auto-renders `settings`
     migrations?: string;                // optional path to the migrations dir

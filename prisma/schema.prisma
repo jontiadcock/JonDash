@@ -58,6 +58,7 @@ model User {
   accessRoles AccessRole[] @relation("UserAccessRoles")
 
   @@index([status])
+  moduleLayouts   ModuleLayout[]
 }
 
 // A named bundle of admin capabilities (permissions). Assigning an access role
@@ -95,6 +96,7 @@ model ServiceRole {
 
   users User[] @relation("UserServiceRoles")
   links Link[]
+  modules Module[] @relation("ModuleServiceRoles")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,6 +198,10 @@ model Module {
   channel            String   @default("stable")
   grantedPermissions String   @default("[]")
   migratedVersion    String?
+  // Service Groups this module is limited to. EMPTY = visible to every signed-in user
+  // (its previous behaviour); assigning groups restricts it to their members. Admins
+  // always see it. Mirrors how service tiles are shared.
+  roles              ServiceRole[] @relation("ModuleServiceRoles")
   installedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -238,4 +244,24 @@ model ModuleMigration {
 
   @@unique([moduleId, filename])
   @@index([moduleId])
+}
+
+/// Per-user dashboard layout for a module's widget (MOD-04 groundwork): each user sizes
+/// and orders module widgets for themselves, so one person's arrangement never changes
+/// anyone else's. Absent row = the module's default size at the end of the list.
+model ModuleLayout {
+  id        String @id @default(cuid())
+  userId    String
+  moduleId  String
+  /// Width in dashboard grid columns (1 = compact, up to 4 = full width).
+  width     Int    @default(1)
+  /// Height in grid rows (1 = standard, larger = taller).
+  height    Int    @default(1)
+  /// Position on the dashboard; lower sorts first.
+  sortOrder Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
 }

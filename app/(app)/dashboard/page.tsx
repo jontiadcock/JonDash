@@ -4,16 +4,25 @@ import { getUserVisibleLinks } from "@/lib/services";
 import { ServiceTile } from "@/app/components/service-tile";
 import { getEnabledModules } from "@/lib/modules/registry";
 import { buildModuleContext } from "@/lib/modules/context";
+import { visibleModuleIds } from "@/lib/modules/visibility";
+import { getUserModuleLayout, applyLayoutOrder } from "@/lib/modules/layout";
+import { WidgetFrame } from "./widget-frame";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
   const links = await getUserVisibleLinks(user.id);
 
-  // Enabled modules that contribute a dashboard widget (adminOnly ones only for admins).
-  const widgets = (await getEnabledModules()).filter(
-    (s) => s.def.DashboardWidget && (!s.def.adminOnly || isAdmin),
+  // Enabled modules with a widget, limited to what this user may see: adminOnly modules
+  // are admin-only, and a module assigned to Service Groups only shows to their members.
+  const visible = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
+  const allowedWidgets = (await getEnabledModules()).filter(
+    (s) => s.def.DashboardWidget && (!s.def.adminOnly || isAdmin) && visible.has(s.def.id),
   );
+  // Each user arranges their own dashboard; without a saved layout nothing changes.
+  const layout = await getUserModuleLayout(user.id);
+  const widgets = applyLayoutOrder(allowedWidgets, layout);
+  const orderedIds = widgets.map((s) => s.def.id);
 
   return (
     <div>
@@ -78,7 +87,19 @@ export default async function DashboardPage() {
                 email: user.email,
                 role: user.role,
               });
-              return <Widget key={s.def.id} ctx={ctx} />;
+              const size = layout.get(s.def.id);
+              return (
+                <WidgetFrame
+                  key={s.def.id}
+                  moduleId={s.def.id}
+                  name={s.def.name}
+                  width={size?.width ?? 1}
+                  height={size?.height ?? 1}
+                  orderedIds={orderedIds}
+                >
+                  <Widget ctx={ctx} />
+                </WidgetFrame>
+              );
             })}
           </div>
         </section>
