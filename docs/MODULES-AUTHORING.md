@@ -175,6 +175,15 @@ outright — with the reason shown to the admin — if it:
 - fails archive hygiene: a path escaping the module folder, a disallowed file type, or a package over the
   size/file-count caps.
 
+**Which files are checked:** every `.ts`/`.tsx` in your package — **including a `tests/` folder**. Test files
+aren't exempt on purpose: your module is compiled into the app, so anything you ship can be imported by real
+code, and an exempt folder would be the obvious place to hide something. `.md`, `.sql` and `.json` are checked
+for type/size only (prose and SQL aren't executed as JavaScript).
+
+That means **tests which exercise the framework itself** — importing `prisma`, `manage`, `context` and so on —
+must live *outside* the module you publish; those imports are refused wherever they appear. Tests that only
+cover your own logic are fine to ship.
+
 This is **defence in depth, not a sandbox** — it catches accidents and undeclared capabilities and keeps the
 consent screen honest, but a determined author could obfuscate past it. Trust the source you install from.
 
