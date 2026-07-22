@@ -460,6 +460,24 @@ _None currently._
 
 ### 🟡 Medium
 
+- **BUG-20 · Nothing verifies an installed module actually has the helpers it declares.**
+  A module that declares a helper it does not have is **silently inert** — for a scheduler-style helper it
+  imports nothing, so the build succeeds, the module looks installed and enabled, and its declared work
+  simply never runs. Nothing anywhere compares an enabled module's `helpers` against what is on disk, so
+  this is never detected or reported. Three ways in:
+  1. **Anything installed during 1.5.0-beta.1–beta.3**, when helpers never installed at all (BUG fixed in
+     beta.3). Upgrading does NOT repair them: the fix runs on install, and they are already installed.
+  2. **The update path**, which deliberately keeps a module whose helper could not be resolved rather than
+     destroying a working install — it audits the failure, then `requestRebuildAndRestart()` exits the
+     process before the message can render, so the admin never sees it.
+  3. **Files disappearing any other way** — a partial restore, a manual delete, a half-completed prune.
+  **Intended fix:** on Admin → Modules, flag a module whose declared helper is missing, naming it, with an
+  **Install it** action that fetches the helper and triggers the rebuild. Deliberately *detect and offer*,
+  **not** self-heal: fetching a helper installs privileged first-party code, and the governing rule is that
+  nothing about a module changes without the user knowing. One check covers all three symptoms.
+  **Workaround today:** uninstall and reinstall the module — the install path resolves helpers correctly.
+  Identified 2026-07-22 while reviewing the beta.4 import fixes; deferred by the user.
+
 - **BUG-18 · ZIP import resolved helpers from the stable channel only — fixed v1.5.0-beta.4.**
   `importModuleAction` hardcoded `ensureHelpersFor(..., "stable")`, but a helper may be published on beta
   only — `scheduler` currently is — so sideloading any module declaring a beta-only helper failed with
