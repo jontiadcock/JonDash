@@ -36,7 +36,10 @@ export function ModulesList({ items }: { items: ModuleItem[] }) {
     );
   }
 
-  const removable = items.filter((m) => m.installed);
+  // Files are present for everything listed here, so all of them can be removed. It used
+  // to require a Module row, which only exists once enabled — so getting rid of a module
+  // you never wanted meant enabling it and granting its permissions first.
+  const removable = items;
   const chosen = removable.filter((m) => selected.has(m.id));
 
   function toggle(id: string) {
@@ -192,10 +195,11 @@ function ModuleCard({
         )}
       </div>
 
-      {/* Only offered when there is actually something to remove. Once uninstalled the
-          module drops back to "Not set up" and this disappears — so the click always has
-          a visible effect. */}
-      {m.installed && (
+      {/* Always available: the module's files are on disk whether or not it was ever
+          enabled, and uninstall removes them. Requiring a Module row meant you had to
+          enable a module — approving every permission it asks for — just to get rid of
+          one you'd decided against. */}
+      {(
         <div className="flex flex-wrap items-center gap-2">
           {confirmUninstall ? (
             <div className="flex w-full flex-col gap-3">

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0-beta.3",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fixes from a full module lifecycle test. Helpers never actually installed with the module that needed them, and were never removed when nothing needed them any more - so the whole helper mechanism did nothing, silently. Importing a module or updating one never installed helpers either. Also fixed: a brand-new install showed an empty module browser instead of setting up the official source, you had to enable a module (approving every permission it asks for) before you could uninstall one you had decided against, the Helpers page was missing from the sidebar, and installing a module now tells you if a helper comes with it."
+    },
+    {
       "version": "1.5.0-beta.2",
       "date": "2026-07-22",
       "type": "patch",

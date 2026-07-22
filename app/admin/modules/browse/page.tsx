@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
-import { browseAvailableModules, type ModuleChannel } from "@/lib/modules/sources";
+import { browseAvailableModules, ensureDefaultSource, listSources, type ModuleChannel } from "@/lib/modules/sources";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
 import { InstallPicker, SelectToggle, type BrowseItem } from "./install-button";
 
@@ -15,6 +15,11 @@ export default async function BrowseModulesPage({
   const { channel: raw } = await searchParams;
   const channel: ModuleChannel = raw === "beta" ? "beta" : "stable";
 
+  // On a fresh install ModuleSource is empty, so this page used to read "nothing is
+  // published" — which sounds like the source has no modules, not like it was never set
+  // up. Seed it here too, and distinguish the two states below.
+  await ensureDefaultSource();
+  const sourceCount = (await listSources()).filter((s) => s.enabled).length;
   const { modules, errors } = await browseAvailableModules(channel);
   const browseItems: BrowseItem[] = modules.map((m) => ({
     id: m.id,
@@ -22,6 +27,7 @@ export default async function BrowseModulesPage({
     version: m.version,
     sourceId: m.sourceId,
     installed: m.installed,
+    helpers: m.helpers,
   }));
 
   return (
@@ -69,7 +75,9 @@ export default async function BrowseModulesPage({
 
       {modules.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          No modules are published on the <strong>{channel}</strong> channel by your enabled sources yet.
+          {sourceCount === 0
+            ? "You have no module sources set up yet, so there is nothing to browse."
+            : `No modules are published on the ${channel} channel by your enabled sources yet.`}
           <br />
           If you&apos;ve just published one, give it a couple of minutes — GitHub caches the list briefly, so a
           brand-new module can take a moment to appear here.

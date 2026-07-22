@@ -11,6 +11,7 @@ import { browseAvailableModules, SourceError } from "@/lib/modules/sources";
 import { installModuleFromSource, InstallError } from "@/lib/modules/install";
 import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } from "@/lib/modules/rebuild";
 import { getModuleUpdateStatus, clearModuleUpdateCache } from "@/lib/modules/updates";
+import { ensureHelpersFor } from "@/lib/helpers/install";
 
 export type ModuleUpdateState = { ok?: boolean; error?: string };
 
@@ -86,7 +87,21 @@ export async function updateModulesAction(
 
       // An update is an install over the top: files are staged then swapped, and the
       // module's own tables and stored data are left untouched.
-      await installModuleFromSource(entry.sourceUrl, entry, info.channel);
+      const outcome = await installModuleFromSource(entry.sourceUrl, entry, info.channel);
+
+      // An update can ADD a helper the previous version didn't need. Without this the
+      // module comes back working-but-inert, with nothing explaining why.
+      if (outcome.declaredHelpers.length > 0) {
+        const res = await ensureHelpersFor(outcome.declaredHelpers, info.channel);
+        if (res.installed.length > 0) {
+          await audit("admin.helper.install", {
+            detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${id})`,
+          });
+        }
+        for (const m of res.missing) {
+          failures.push(`${info.name}: needs the "${m}" helper, which isn't published`);
+        }
+      }
 
       // The verifier has just confirmed the package's code declares exactly these, so
       // this is the set the admin was shown and approved.

@@ -28,6 +28,7 @@ export default async function AdminLayout({
         { href: "/admin/network", label: "Network & HTTPS", show: perms.has("network.manage") },
         { href: "/admin/email", label: "Email", show: perms.has("email.manage") },
         { href: "/admin/modules", label: "Modules", show: perms.has("modules.manage") },
+        { href: "/admin/helpers", label: "Helpers", show: perms.has("modules.manage") },
         { href: "/admin/server", label: "Server power", show: isAdmin },
       ],
     },

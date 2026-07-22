@@ -13,6 +13,8 @@ import {
 } from "@/lib/modules/sources";
 import { ALLOWED_EXTENSIONS, LIMITS } from "@/lib/modules/verify";
 import { getAllModules } from "@/lib/modules/registry";
+import { compareVersions } from "@/lib/version";
+import { getAppVersion } from "@/lib/update";
 
 /**
  * Helper installation (MOD-08).
@@ -173,6 +175,12 @@ export async function ensureHelpersFor(
       missing.push(id);
       continue;
     }
+    // minAppVersion was decorative until now. A helper runs privileged code at boot, so
+    // installing one that needs a newer JonDash is the last thing to do quietly.
+    if (compareVersions(entry.minAppVersion, getAppVersion()) > 0) {
+      missing.push(`${id} (needs JonDash ${entry.minAppVersion} or newer)`);
+      continue;
+    }
     // Already present at this version and on disk? Leave it alone.
     if (helperFilesExist(id) && rows.get(id)?.version === entry.version) continue;
     await installHelper(entry, channel);
@@ -185,9 +193,17 @@ export async function ensureHelpersFor(
  * Remove helpers nothing depends on any more. Files only — see removeHelperFiles.
  * Returns the ids removed, so the caller can tell the admin what went and why.
  */
-export function pruneUnusedHelpers(): string[] {
+export function pruneUnusedHelpers(removingModuleIds: string[] = []): string[] {
+  // getAllModules() is the COMPILED registry, so a module being uninstalled right now is
+  // still in it and counts as its own dependent — nothing would ever be pruned.
+  // Regenerating the registry first doesn't help either: rewriting the file can't change
+  // what the running process already imported.
+  const removing = new Set(removingModuleIds);
   const needed = new Set<string>();
-  for (const m of getAllModules()) for (const h of m.helpers ?? []) needed.add(h);
+  for (const m of getAllModules()) {
+    if (removing.has(m.id)) continue;
+    for (const h of m.helpers ?? []) needed.add(h);
+  }
 
   let present: string[];
   try {

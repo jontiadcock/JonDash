@@ -76,7 +76,7 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
   // A helper exists only to serve a module. With its last dependent gone it's removed —
   // FILES ONLY. Its data stays, so reinstalling the module brings the helper back with
   // its history intact rather than starting from nothing.
-  const droppedHelpers = pruneUnusedHelpers();
+  const droppedHelpers = pruneUnusedHelpers(defs.map((d) => d.id));
   if (droppedHelpers.length > 0) {
     await audit("admin.helper.remove", { detail: `${droppedHelpers.join(", ")} (no longer needed)` });
   }
@@ -133,7 +133,7 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
       // same restart — never on their own initiative, and only from the official source.
       // A helper the source doesn't publish is reported rather than left to fail the
       // build later with nothing explaining why.
-      const helperIds = getModuleDef(outcome.moduleId)?.helpers ?? [];
+      const helperIds = outcome.declaredHelpers;
       if (helperIds.length > 0) {
         const res = await ensureHelpersFor(helperIds, channel);
         if (res.installed.length > 0) {
@@ -175,6 +175,21 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
     const outcome = await installModuleFromZip(bytes);
     installedId = outcome.moduleId;
     await audit("admin.module.import", { detail: `${outcome.moduleId}@${outcome.version} (${outcome.fileCount} files)` });
+
+    // A sideloaded module declaring a helper needs it just as much as an installed one.
+    // The helper still comes only from the official source — importing your own module
+    // doesn't let you bring your own helper.
+    if (outcome.declaredHelpers.length > 0) {
+      const res = await ensureHelpersFor(outcome.declaredHelpers, "stable");
+      if (res.installed.length > 0) {
+        await audit("admin.helper.install", {
+          detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${outcome.moduleId})`,
+        });
+      }
+      if (res.missing.length > 0) {
+        return { error: `That module needs the "${res.missing.join(", ")}" helper, which isn't published.` };
+      }
+    }
   } catch (e) {
     if (e instanceof InstallError) return { error: e.message };
     return { error: "Couldn't import that module." };

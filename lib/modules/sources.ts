@@ -32,6 +32,8 @@ export type SourceModuleEntry = {
   version: string;
   minAppVersion: string;
   permissions: ModulePermission[];
+  /** Helper ids this module needs; installed alongside it and shown before you confirm. */
+  helpers: string[];
   path: string;
   tag: string;
   /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
@@ -139,6 +141,9 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
       ? e.minAppVersion.trim()
       : "0.0.0",
     permissions: [...new Set(permissions)],
+    helpers: Array.isArray(e.helpers)
+      ? [...new Set(e.helpers.filter((h): h is string => typeof h === "string" && ID_RE.test(h)))]
+      : [],
     path,
     tag,
     ...(notes ? { notes } : {}),

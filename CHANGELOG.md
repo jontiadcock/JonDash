@@ -49,6 +49,27 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.5.0-beta.3] — 2026-07-22
+
+Fixes from a full module lifecycle test — install, enable, use, disable, uninstall, batch install.
+
+### Fixed
+- **Helpers never installed.** A module that needed one was installed without it and then sat there doing
+  nothing, with no error anywhere. The same fault in reverse meant a helper was never removed when the last
+  module needing it was uninstalled. Between them the whole helper mechanism did nothing at all.
+- **Importing a module, or updating one, never installed helpers either** — only a fresh install from a
+  source tried, and that was the path that was broken.
+- **A brand-new install showed an empty module browser**, reading as though nothing existed, when in fact
+  the official source hadn't been set up yet. It's now set up when you first browse, and the message
+  distinguishes "no sources configured" from "nothing published".
+- **You couldn't uninstall a module you'd never enabled.** Removing one you'd decided against meant
+  enabling it first — approving every permission it asks for — just to delete it.
+- **The Helpers page was missing from the sidebar**, reachable only by typing the address.
+- A helper's minimum JonDash version is now checked before it's installed, instead of being ignored.
+
+### Changed
+- Installing a module now **tells you if a helper comes with it**, before you confirm.
+
 ## [1.5.0-beta.2] — 2026-07-22
 
 ### Changed

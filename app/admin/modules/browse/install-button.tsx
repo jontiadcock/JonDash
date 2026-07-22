@@ -11,6 +11,8 @@ export type BrowseItem = {
   version: string;
   sourceId: string;
   installed: boolean;
+  /** Helpers this module needs — installed alongside it, so named before you confirm. */
+  helpers: string[];
 };
 
 /**
@@ -58,6 +60,10 @@ export function InstallPicker({
 
   const installable = items.filter((m) => !m.installed);
   const chosen = installable.filter((m) => selected.has(m.id));
+  // Helpers are meant to arrive as one VISIBLE batch. Without naming them here the admin
+  // approves a module and silently gets a helper too — true by luck today only because
+  // the scheduler asks for no permissions.
+  const helperNames = [...new Set(chosen.flatMap((m) => m.helpers))];
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -89,9 +95,15 @@ export function InstallPicker({
                   <input key={m.id} type="hidden" name="moduleId" value={m.id} />
                 ))}
                 <RestartWarning
-                  what={`Install ${chosen.length} module${chosen.length === 1 ? "" : "s"}: ${chosen
-                    .map((m) => m.name)
-                    .join(", ")}.`}
+                  what={
+                    `Install ${chosen.length} module${chosen.length === 1 ? "" : "s"}: ` +
+                    `${chosen.map((m) => m.name).join(", ")}.` +
+                    (helperNames.length > 0
+                      ? ` This also installs the ${helperNames.join(", ")} helper${
+                          helperNames.length === 1 ? "" : "s"
+                        }, which ${helperNames.length === 1 ? "it needs" : "they need"} to work.`
+                      : "")
+                  }
                 />
                 <div className="flex flex-wrap items-center gap-2">
                   <button

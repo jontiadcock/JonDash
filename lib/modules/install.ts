@@ -147,6 +147,13 @@ export type InstallOutcome = {
   moduleId: string;
   version: string;
   declaredPermissions: ModulePermission[];
+  /**
+   * Helper ids the package declares. Returned from HERE because the caller has no other
+   * way to get them: `getModuleDef` reads the compiled registry, which by definition
+   * cannot contain a module downloaded seconds earlier in the same request. Reading it
+   * there silently yielded an empty list, so helpers never installed at all.
+   */
+  declaredHelpers: string[];
   fileCount: number;
 };
 
@@ -176,6 +183,7 @@ export async function installModuleFromSource(
     moduleId: entry.id,
     version: entry.version,
     declaredPermissions: result.declaredPermissions,
+    declaredHelpers: result.declaredHelpers,
     fileCount: files.length,
   };
 }
@@ -238,6 +246,7 @@ export async function installModuleFromZip(zip: Uint8Array, expectedId?: string)
     moduleId,
     version: version?.[1] ?? "0.0.0",
     declaredPermissions: result.declaredPermissions,
+    declaredHelpers: result.declaredHelpers,
     fileCount: files.length,
   };
 }
