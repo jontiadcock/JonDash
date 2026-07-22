@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Keeping modules up to date, and modules that can work in the background. Module updates now live in Admin -> Updates alongside JonDash's own - each module shows its installed and available version, you can update several together in one restart, and everything they have stored is kept. Modules are never updated automatically, even when JonDash updates itself, and a version wanting more access than you approved must be approved first. Modules can also now declare background work that runs from the moment JonDash starts rather than when someone opens a page, so a monitoring module restarted overnight keeps watching. This is delivered by helpers: shared components that come only from the official add-ons source, arrive with the module that needs them, and are listed read-only under Admin -> Helpers. Modules from the official source repair themselves if something they need goes missing; ones you imported or got elsewhere are reported instead. Nothing restarts on its own. Nothing changes if you do not install modules."
+    },
+    {
       "version": "1.5.0-beta.5",
       "date": "2026-07-22",
       "type": "minor",

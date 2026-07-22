@@ -47,7 +47,58 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 - Building your own is documented in `docs/MODULES-AUTHORING.md`, including a paste-in prompt for having an
   AI write one for you.
 
+## [1.5.0] — 2026-07-22
+
+**Keeping modules up to date, and modules that can work in the background.** Coming from 1.4.0, this is
+everything in one release.
+
+### Added
+- **Module updates live in Admin → Updates**, in their own section beneath JonDash's own update panel. Each
+  module shows its installed and available version, which channel it follows, and where it came from.
+  Select several and update them together — one rebuild and one restart for the batch, and everything they
+  have stored is kept.
+- **You're told when module updates are waiting**, wherever JonDash already flags an update — including
+  when JonDash itself is up to date, so you never have to go looking.
+- **Modules are never updated automatically**, even when JonDash installs its own updates automatically.
+  Updating a module is always something you choose.
+- **A module asking for more access than you approved can't slip through.** If a new version wants an
+  additional permission, the update says so in plain language and you must approve that specific change
+  first. Versions that give up permissions apply without interrupting you.
+- **Modules can do work in the background, reliably.** A module can declare recurring work — checking
+  something on a schedule, tidying up old records — and it runs **from the moment JonDash starts**, not
+  from the first time somebody opens a page. A monitoring module restarted overnight genuinely keeps
+  watching instead of sitting idle until morning.
+- **Helpers**: shared components that modules rely on for capabilities they can't have on their own. They
+  come only from the official add-ons source, arrive automatically with the module that needs them, and are
+  listed read-only under **Admin → Helpers** showing which modules use each one. There's nothing to install
+  or remove — the page answers "what is this, and why is it on my system?"
+- **Modules repair themselves if something they need goes missing** — but only modules from the official
+  source. Anything you imported yourself, or installed from elsewhere, is reported with what's wrong and how
+  to fix it, rather than JonDash fetching code on its behalf. Nothing restarts on its own; making a repair
+  live is always your click.
+
+### Fixed
+- Updating a module now brings its stored data up to date with it. Previously a module that changed how it
+  stores things could end up running against the old layout, with no error to explain the resulting
+  misbehaviour.
+- An updated module is no longer denied access it declares and you approved.
+- Importing your own module: a failed import no longer leaves the module half-installed and silently
+  broken, and importing a module that needs a beta-only component now works if you're on the beta channel.
+- You can uninstall a module you never enabled, without having to enable it — and grant everything it asks
+  for — just to delete it.
+- A brand-new install now sets up the official add-ons source when you first browse, instead of showing an
+  empty list that reads as though nothing exists.
+
+### Notes
+- Nothing here changes anything if you don't install modules.
+- **Why helpers exist:** modules are deliberately forbidden from touching the filesystem, running programs
+  or opening raw network connections — that restriction is what makes the permissions you approve mean
+  something. A helper does such work *for* a module through a narrow interface you approve, so the
+  capability can be offered without trusting the module itself.
+
 ## Beta channel (pre-release)
+
+_The pre-release history below led to 1.5.0 above._
 
 ## [1.5.0-beta.5] — 2026-07-22
 
