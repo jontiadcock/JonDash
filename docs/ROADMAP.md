@@ -24,7 +24,7 @@
 - **Standardize on every edit:** a new item gets the next free ID in its category and is
   slotted into the build queue by priority. Keep one canonical entry per item (don't
   re-describe it in multiple places). Don't change existing priorities without the user.
-- **The `/View-Roadmap` board groups by criticality, not by phase** (user rule, 2026-07-22). Bug
+- **The `/JonDash-view-roadmap` board groups by criticality, not by phase** (user rule, 2026-07-22). Bug
   severity is authoritative; a feature's criticality is derived from its status — in progress or next
   in the queue = High, Planned = Medium, Backlog or Someday = Low.
 
