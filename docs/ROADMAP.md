@@ -60,6 +60,9 @@ updates + helpers, v1.5.0). Detail in the catalog entries, not here.
 
 **Planned — slot in as decided (not tied to the sequence above)**
 - ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
+- ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21** (M365 test send hangs
+  forever). Not slotted into the queue yet; do it with the BUG-21 fix, or before OPS-02 pt 2, which
+  can't be trusted while email failures are silent
 - ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security sections, General on top
 - ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
 - ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
@@ -433,6 +436,26 @@ The "next 2 things for a beta," built on a proper launcher **supervisor** (which
   `node_modules`/`.next`/user data, which regenerate or are preserved). Ties into OPS-04 (self-heal)
   and the auto-update flow. **A launcher change carries brick-risk — plan + review before building.**
 
+#### OPS-13 · Email: bounded, diagnosable connection testing — ⏳ (exposed by BUG-21)
+BUG-21 is the hang; this is the reason a hang was possible to ship and impossible to act on. Fixing the
+timeouts stops the button spinning forever, but the admin is then told only *that* it failed — for an
+integration with this many external moving parts (OAuth consent, tenant policy, blocked ports, expired
+refresh tokens) "failed" is not actionable. Scope:
+- **Timeouts everywhere, as a rule not a patch** — every outbound call in the email path bounded
+  (`AbortSignal.timeout()` on the token fetch; `connectionTimeout`/`greetingTimeout`/`socketTimeout` on
+  both transports). Audit the *other* outbound paths for the same omission at the same time: ACME/TLS,
+  the update check, and the module source/manifest fetch.
+- **Say which step failed** — token fetch / TCP connect / TLS / SMTP AUTH / send. `transport.verify()`
+  before `sendMail` separates "can't connect or authenticate" from "connected but the send was
+  rejected", which are entirely different fixes for the admin.
+- **Name the known provider traps in the failure message**, since they're the common causes: M365 has
+  **SMTP AUTH disabled by default** per mailbox; Google needs an app password unless using OAuth2; a
+  refresh token can be revoked without warning; outbound 587 is often blocked on home connections.
+- **Never let the UI wait unbounded** — the button needs its own ceiling and a "still working…" state,
+  so a hung Server Action can't present as a frozen page.
+- **Then re-test the real M365 account** (the owner's; needs their tenant) — the point is a truthful
+  error, not merely a fast one.
+
 ### CORE — Core app & UX
 
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
@@ -469,6 +492,111 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-26 · Renaming or moving the install folder permanently breaks it (`Failed to load external
+  module`) — OPEN.** Reported by the owner 2026-07-22, from two directions and now confirmed: copying
+  `JonDash-Stable` in Explorer **hangs on `sharp-20c6a5da84e2135f`** every time; and after
+  moving/renaming an install, every page returns **Internal Server Error** with
+  `Failed to load external module @prisma/client-2c3a283f134fdcb6: Cannot find module …`. Moving the
+  folder back fixes it — which is the proof of cause.
+  **Cause: absolute paths baked into `.next`.** Turbopack emits **absolute symlinks** in
+  `.next/node_modules/` for the native external packages. Verified, three of them —
+  `sharp-<hash>`, `@node-rs/argon2-<hash>`, `@prisma/client-<hash>` — each pointing at
+  `<install>/node_modules/…`. Rename or move the folder and all three dangle; Explorer separately stalls
+  when *copying* them because recreating a symlink on Windows needs `SeCreateSymbolicLinkPrivilege`
+  (admin or Developer Mode), and `sharp` is the one that visibly hangs because it's the largest
+  (`@img` ≈ 19 MB).
+  **It never recovers on its own, and that's the actual defect.** The launcher rebuilds only when
+  `node_modules` is missing, `.next` is missing, or the **version** changed
+  (`start-dashboard.bat:74-77`). A moved install has all three unchanged, so it never rebuilds — restart
+  it as often as you like and it stays broken, with a Turbopack stack trace and nothing pointing at the
+  folder name. Moving a self-hosted app to a bigger drive, or renaming its folder, is an entirely normal
+  thing to do.
+  **Fix (small, and mirrors what's already there):** record the install path next to the version marker
+  — write `%CD%` to `.data\built-path` where `built-version` is written (`:107`) and add
+  `if not "%CD%"=="%BUILTPATH%" set "NEEDBUILD=1"` to the same block. `.data` is preserved by the
+  updater, so it survives updates, and it catches **any** absolute path baked into a build, not just
+  these three symlinks. A `.next`-symlink-resolves-outside-the-install check would also work but is
+  narrower. **Not Critical** only because no data is lost and the manual recovery (delete `.next`, or
+  move the folder back) is trivial *once you know it* — which today nobody does.
+  **Also document it:** `README.md` says what to back up but never says how to move or duplicate an
+  install — copy everything **except** `node_modules` and `.next` (the launcher regenerates both), or
+  export a backup and restore into a fresh install.
+- **BUG-25 · An "encrypted" backup leaves every icon readable in the clear — OPEN.** Reported by the
+  owner 2026-07-22, who opened an encrypted backup ZIP and viewed `icons/<hash>.png` straight out of it
+  with no passphrase. **They are right, and the framing is the point:** the promise of an encrypted
+  backup is that the backup is encrypted, not that most of it is. People store these off-site — cloud
+  drive, USB, email — *because* of that promise.
+  **Cause:** `serializeBackup` (`lib/backup.ts:309-312`) writes `icons/<filename>` as **raw bytes into
+  the ZIP unconditionally**, whether or not a passphrase was given. Only `backup.json`'s `data` payload
+  goes through scrypt + AES-256-GCM (`buildEnvelopeJson:281-296`).
+  **What IS protected (so this is High, not Critical):** users, password hashes, TOTP secrets, backup
+  codes, secret settings, the master key and TLS material all live inside the ciphertext. **What leaks:**
+  the icon images themselves — arbitrary admin-uploaded pictures, and in practice a legible inventory of
+  *which services the user runs* (brand logos), i.e. reconnaissance on their environment. The envelope's
+  `includes`/`exportedAt` are also outside the ciphertext; that's defensible archive metadata, icons are
+  not.
+  **Fix — prefer restructuring over patching.** The narrow fix is to encrypt the icon bytes too (inside
+  `data`, or per-file with the same derived key and a per-file IV). The better fix is to make an
+  encrypted backup **one opaque ciphertext blob** plus a small plaintext header, because this bug
+  happened *by someone adding a file next to the envelope* — and any design where "add a file to the
+  archive" can silently add a plaintext file will produce this bug again the next time the backup gains
+  content. Bump `FORMAT_VERSION` to 4 (`lib/backup.ts:54`) and keep restoring v2/v3, whose icons are
+  plaintext by definition.
+  **Test it the way the owner found it:** assert that an encrypted archive contains **no entry** that is
+  readable without the passphrase — not merely that decryption succeeds.
+  **Tell the user, when fixed:** every encrypted backup they have already taken exposes its icons. Those
+  should be re-exported and the old copies destroyed, wherever they were stored.
+- **BUG-23 · Every full-screen overlay is trapped inside the content column — `position: fixed` is broken
+  app-wide inside admin pages — OPEN.** Reported by the owner 2026-07-22 ("when installing/updating a
+  module I want this to take up the entire screen, not just the window on the right") with a screenshot of
+  *Applying your module changes…* filling only the right-hand pane while the sidebar, header and the
+  "1 module update is available" banner stay visible and clickable.
+  **Cause — found, and it is not the overlay's fault.** `ServerWaitOverlay` already asks for
+  `fixed inset-0 z-[9999]` (`app/components/server-wait-overlay.tsx:121`), which is correct. But
+  `app/admin/layout.tsx:101` wraps every page in `<PageTransition>` → `<div class="page-fade">`, and
+  `.page-fade` (`app/globals.css:146`) is `animation: page-fade-in 0.22s ease-out both` whose keyframes
+  animate **`transform`**. A non-`none` `transform` makes that element the **containing block for
+  descendant `position: fixed`**, so "fixed" resolves against the content column instead of the viewport.
+  `animation-fill-mode: both` means the final `transform: translateY(0)` is **retained forever**, so this
+  is permanent, not just for the 0.22s the animation runs.
+  **Blast radius — bigger than the reported symptom.** Everything `fixed` rendered from an admin *page*
+  is affected, in all four overlay modes: module install/update (reported), **JonDash's own update**,
+  **restart**, and **shutdown** — i.e. most of the OPS-11 grace screen — plus every
+  `ConfirmDialog` (`app/components/confirm-dialog.tsx:46`). The one that *does* work is the update
+  triggered from `app/admin/update-banner.tsx`, because the banner is rendered at `layout.tsx:91`,
+  **outside** `PageTransition`. That asymmetry is why this looked like it worked before.
+  **Fix:** render `ServerWaitOverlay` (and `ConfirmDialog`) through `createPortal` into `document.body`,
+  which escapes ancestor transforms, `overflow` and stacking contexts for good rather than depending on
+  layout CSS staying benign. Removing the lingering transform (animate `opacity` only, or don't retain the
+  final frame) also fixes the symptom, but leaves the next `transform` anyone adds free to re-break it.
+  **Add a regression test** — the trap is invisible in review and the CSS that caused it is three
+  components away from the component that broke.
+  **While in there:** the overlay should also be a real modal — the sidebar and banner are still
+  clickable during a rebuild, which flatly contradicts "Please don't refresh or close this tab".
+- **BUG-21 · "Send test email" hangs forever on a Microsoft 365 (OAuth2) connector — OPEN.**
+  Reported by the owner 2026-07-22 against their real M365 account. The settings **save** fine, but
+  pressing **Send test email** leaves the button on "Sending…" indefinitely: no success, no error, no
+  timeout. High because email is a shipped feature (OPS-02 pt 1) whose *only* validation path is this
+  button, it gives the admin nothing to act on, and OPS-02 pt 2 (self-service reset) and MOD-03
+  (health-monitor alerting) both depend on email working.
+  **Not yet reproduced or diagnosed** — what follows is from reading the code, so treat it as where to
+  start, not as the cause:
+  - **Nothing in the path has a timeout.** `lib/email/oauth.ts:73` calls `fetch(p.tokenUrl, …)` with no
+    `AbortSignal.timeout()`, and `lib/email/send.ts` builds both transports (`:17` OAuth2, `:26` SMTP)
+    with no `connectionTimeout` / `greetingTimeout` / `socketTimeout`. Nodemailer's own defaults are
+    generous (connection 2 min, socket 10 min), so even the "working" failure path spins for minutes.
+  - The button reflects only `useActionState`'s `pending` (`app/admin/email/ui.tsx:213`), which stays
+    true until the Server Action returns — so a hung server call is a permanently spinning button with
+    no client-side escape.
+  - `sendMail` catches everything and returns `{ok:false,error}`, so a *thrown* error would surface;
+    a **hang** is the one failure mode that produces exactly this symptom.
+  - **Worth checking first on the account itself:** M365 tenants have **SMTP AUTH disabled by default**,
+    and it must be enabled per-mailbox even for OAuth2/XOAUTH2. Also confirm outbound **587** isn't
+    blocked. Either could be the real story, with the missing timeouts being why it presents as a hang
+    instead of an error.
+  **Fix must include a regression test** that a hung token endpoint / dead socket resolves as a failure
+  within a bounded time, rather than only fixing whatever the account-side cause turns out to be. See
+  **OPS-13** for the diagnostics work this exposed.
 - **BUG-19 · A failed module import left the module installed anyway — fixed v1.5.0-beta.4.**
   `importModuleAction` wrote the module's files via `installModuleFromZip`, then resolved its declared
   helpers. When one couldn't be resolved it returned an error but never removed what it had just written,
@@ -490,6 +618,45 @@ _None currently._
 
 ### 🟡 Medium
 
+- **BUG-24 · Settings changes are audited without saying what changed — OPEN.** Reported by the owner
+  2026-07-22: editing the sign-in message logs `settings.updated` with an empty **Detail** (`—`), so the
+  entry records that *a* setting changed but not **which one**, or **from what to what**. For a security
+  product that's most of the value of the entry — "who changed the idle timeout, and to what" is exactly
+  the question an audit log exists to answer.
+  **It is systemic, not one action.** All three `applySettingsForm`-based saves log no detail:
+  `app/admin/settings/actions.ts:69` (`settings.updated`), `app/admin/sessions/actions.ts:35`
+  (`settings.session.updated`), `app/admin/audit/actions.ts:20` (`settings.audit.updated`). The two
+  single-value toggles in the *same file* do it correctly — `settings.auto-update` logs `on`/`off`
+  (`:26`) and `settings.update-channel` logs the channel (`:51`) — which is why the gap is easy to miss.
+  **Fix:** `applySettingsForm` (`lib/settings.ts:168`) already iterates exactly the keys it writes and
+  skips those absent from the form — return the applied keys and have each caller put them in `detail`.
+  **⚠ Do NOT simply log the submitted values.** `writeSetting` encrypts settings marked `secret`
+  (`lib/settings.ts:192`); dumping form values into `detail` would write those secrets **in plaintext**
+  into the audit log — which is readable by anyone holding the **delegable** `audit.view` capability and
+  is carried in backups. Log key **names** always, and values only for non-secret settings (old → new is
+  ideal where it's short). That trap is the reason this is worth doing carefully rather than quickly.
+- **BUG-22 · Can't import your own module — the Import button isn't visible — OPEN.**
+  Reported by the owner 2026-07-22 with a screenshot: **Admin → Modules → Import your own module** shows a
+  bare "Choose File / No file chosen" control and the hint "Choose a file to continue", and no button to
+  act with. **Cause (from the code, not yet confirmed against the running app):** the button is
+  *deliberately* hidden until a file is picked — `{chosen && (…)}` at
+  `app/admin/modules/import-form.tsx:53`, with `chosen` set by the input's `onChange`. So an untouched
+  card legitimately has no button, which reads as a broken page.
+  **The card also diverges from the app's own pattern**, which is why it looks unfinished: the restore
+  form (`app/admin/backup/ui.tsx:108`) styles its file input with `className="input"` and **always
+  renders its submit button**; the import form uses an unstyled native control (`className="text-sm"`)
+  and hides its action. Progressive disclosure is the wrong choice for a card's *primary* action.
+  **Fix:** always render the button, disabled until a file is chosen (matching Save / Send-test
+  everywhere else), and style the input like every other file input. Keep the `RestartWarning` gated on a
+  file being chosen — that part is right.
+  **One thing to confirm before assuming it's only cosmetic:** if the button **still** doesn't appear
+  *after* choosing a `.zip`, then `onChange` isn't firing and importing is genuinely impossible — that
+  would make this **High**, not Medium, and the fix a different one. The screenshot was taken with no
+  file selected, so it doesn't settle the question.
+  *Also visible in the same screenshot (cosmetic, unexplained):* the sentence renders as
+  "…with its `module.ts`**inside**" — the space between the `<code>` element and the next word is missing
+  on screen, though it is present in the source (`import-form.tsx:30`) and the identical construct one
+  clause earlier ("`.zip` containing") renders correctly. Worth one look while in there.
 - **BUG-20 · Nothing verified an installed module had the helpers it declares — fixed v1.5.0-beta.5.**
   A module that declares a helper it does not have is **silently inert** — for a scheduler-style helper it
   imports nothing, so the build succeeds, the module looks installed and enabled, and its declared work
