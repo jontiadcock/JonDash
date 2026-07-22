@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Modules: JonDash can now be extended with add-ons that plug in without changing the base app. Admin -> Settings -> Modules lets you browse the official add-ons source (or any public GitHub repo that publishes modules), install several at once, or import your own .zip. Before anything installs you see in plain language exactly what it can do, and a module is refused if its code reaches for something it did not declare - a strong safety net, though not a sandbox, so only install modules you trust. If a module ever stops JonDash building, it is removed automatically and you are told which one. Modules can add a dashboard widget, their own pages and settings, background checks and email. You choose who sees each module using Service Groups, and each person can resize and arrange their own widgets. Nothing changes if you install no modules."
+    },
+    {
       "version": "1.4.0-beta.11",
       "date": "2026-07-22",
       "type": "patch",

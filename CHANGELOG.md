@@ -9,7 +9,47 @@ JonDash ships on **two channels** — pick yours under Admin → Settings → Up
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.4.0] — 2026-07-22
+
+**Modules.** JonDash can now be extended with add-ons that plug in without changing the base app — like
+adding an app to a phone. Coming from 1.3.0, this is the whole feature in one release.
+
+### Added
+- **Install modules from a source.** **Admin → Settings → Modules** gains **Browse modules**: the official
+  add-ons source is set up for you, and you can add any public GitHub repository that publishes modules.
+  Tick several and install them together — one rebuild and one restart for the batch.
+- **Import your own module** from a `.zip`, with no repository involved. Same safety checks either way.
+- **You approve what a module can do.** Before anything is installed you see, in plain language, exactly
+  what it's asking for — connecting out to other servers, encryption, audit entries, sending email. A module
+  is refused outright if its code reaches for something it didn't declare, touches the filesystem, runs
+  code built at runtime, reads the server's environment, or reaches into JonDash's internals. This is a
+  strong safety net, **not a sandbox** — a module still runs with the app's privileges, so only install
+  modules you trust.
+- **Automatic recovery.** If a module ever stops JonDash building, the launcher removes it, starts up
+  without it, and tells you which one. Your data isn't touched.
+- **Modules can do real work** — their own dashboard widget, their own pages, their own settings screen,
+  working buttons and forms, background checks, email, and host reachability checks.
+- **Choose who sees each module.** Limit one to Service Groups exactly like a service tile: leave every
+  group unticked and everyone signed in sees it; tick some and only their members do.
+- **Arrange your dashboard.** Each module widget has a **Customise** control for its width, height and
+  position — and your layout is yours alone; it never changes what anyone else sees.
+- **Per-module update channels** — opt a single module into its beta releases without moving JonDash itself
+  onto beta.
+- Modules are preserved across JonDash updates, and installing or removing one shows a full-screen progress
+  screen that waits for the restart and returns you to sign-in on its own.
+
+### Changed
+- **Delegated administration covers modules.** The **Manage modules** permission can be granted to a
+  non-admin through an Access Role, including assigning modules to groups.
+
+### Notes
+- Nothing changes if you install no modules — the base app behaves exactly as it did in 1.3.0.
+- Building your own is documented in `docs/MODULES-AUTHORING.md`, including a paste-in prompt for having an
+  AI write one for you.
+
 ## Beta channel (pre-release)
+
+_The pre-release history below led to 1.4.0 above._
 
 ## [1.4.0-beta.11] — 2026-07-22
 

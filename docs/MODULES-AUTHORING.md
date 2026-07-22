@@ -112,6 +112,13 @@ It verifies the module is installed and enabled, that the caller is signed in (a
 is `adminOnly`), and hands you a ctx scoped to your granted permissions. It **throws** on any failure rather
 than returning something falsy — never catch and ignore it.
 
+> **Trap — React 19 resets the form, but not your state.** After a successful form action React clears
+> *uncontrolled* inputs itself. Any field whose value you hold in React state is **not** cleared with them,
+> so a form that mixes the two ends up half-reset: a controlled `<select>` snaps back to its first option
+> while the fields that depend on it still show the previous choice. Reset that state **inside the action**,
+> not in an effect — `setState` in an effect is what you'll reach for first, and the React Compiler lint
+> correctly refuses it. (Found the hard way by the health-monitor author.)
+
 ### Your own settings UI: `SettingsPanel`
 
 Declared settings are auto-rendered as a simple form. When you need more than that — a table, a wizard, a

@@ -157,10 +157,12 @@ memory; authored per the approved plan. Key points:
 - **Data (hybrid):** settings via the existing Setting store (`scope=module`, encrypted secrets, auto-form);
   a generic per-module KV/JSON store; **bespoke tables via module-carried raw-SQL migrations** namespaced
   `mod_<id>_*` (a scoped raw-SQL helper, not the core Prisma client — enables independent updates).
-- **Permissions & consent:** manifest declares needs (`db:users:write`, `crypto:use`/`crypto:key:read`,
-  `network:outbound`, `sessions:read`, `email:send`, …); install/enable shows a plain-language **permission
-  warning screen**; grants stored on the `Module` row; the framework hands each module a **capability-scoped
-  `ModuleContext`** exposing only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
+- **Permissions & consent:** manifest declares needs — as shipped the taxonomy is exactly
+  **`network:outbound`, `crypto:use`, `audit:write`, `email:send`** (v1.4.0-beta.11 removed the nine that
+  were declared but never wired to a capability, so a consent screen can't overstate; each returns with the
+  capability that implements it). Install/enable shows a plain-language **permission warning screen**; grants
+  stored on the `Module` row; the framework hands each module a **capability-scoped `ModuleContext`** exposing
+  only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
   (consent + scoped context for **curated** modules; real sandboxing for untrusted third-party = MOD-06).
 - **Sources + sideload:** a module **source** = a public git repo with a manifest. Default = an official
   **`JonDash-addons`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
