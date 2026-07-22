@@ -93,11 +93,22 @@ describe("server supervisor", () => {
     expect(await runSupervisor(dir, fake, "clean")).toBe(0);
   }, 15000);
 
-  it("exits cleanly (0) on a console-control termination (0xC000013A) — no restart loop", async () => {
-    // The bug: the server was being ended by a console-control event and the
-    // supervisor treated it as a crash and restarted, looping. It must stop.
-    expect(await runSupervisor(dir, fake, "control")).toBe(0);
-  }, 15000);
+  // WINDOWS ONLY — and it has to be, because the condition can't exist elsewhere.
+  // 0xC000013A (3221225786) is STATUS_CONTROL_C_EXIT, which Windows sets when a process
+  // is ended by a console event (Ctrl+C, window close, logoff). POSIX exit codes are
+  // truncated to 8 bits, so on Linux the fake server would exit 58 — a perfectly ordinary
+  // application exit that the supervisor SHOULD treat as a crash. Asserting a clean stop
+  // there would be asserting the wrong behaviour, so the case is skipped rather than
+  // fudged. JonDash is launched by start-dashboard.bat on Windows, where this runs.
+  it.skipIf(process.platform !== "win32")(
+    "exits cleanly (0) on a console-control termination (0xC000013A) — no restart loop",
+    async () => {
+      // The bug: the server was being ended by a console-control event and the
+      // supervisor treated it as a crash and restarted, looping. It must stop.
+      expect(await runSupervisor(dir, fake, "control")).toBe(0);
+    },
+    15000,
+  );
 
   it("restarts in place on a .restart-and-run signal, then exits 0 when the server stops", async () => {
     // The supervisor should relaunch the server (not exit), then stop cleanly when
