@@ -50,7 +50,8 @@ function pruneOldLogs() {
   try {
     const cutoff = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
     for (const name of fs.readdirSync(LOG_DIR)) {
-      if (!name.startsWith("launcher-") || !name.endsWith(".log")) continue;
+      const ours = name.startsWith("launcher-") || name.startsWith("server-");
+      if (!ours || !name.endsWith(".log")) continue;
       const p = path.join(LOG_DIR, name);
       try {
         if (fs.statSync(p).mtimeMs < cutoff) fs.rmSync(p, { force: true });

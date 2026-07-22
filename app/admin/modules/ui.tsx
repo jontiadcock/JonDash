@@ -1,0 +1,256 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { enableModuleAction, disableModuleAction, uninstallModuleAction } from "./actions";
+import { RestartWarning } from "./restart-warning";
+import { useRebuildWatch } from "./rebuild-watch";
+
+export type ModuleItem = {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  /** The module's own icon, already rendered — a component can't cross into a client
+   *  component as a prop, but the element it produces can. */
+  icon: ReactNode;
+  enabled: boolean;
+  /** Has a Module row — i.e. it has been set up and may be holding settings/data. */
+  installed: boolean;
+  hasSettings: boolean;
+  hasPage: boolean;
+  permissions: { key: string; warning: string; dangerous: boolean }[];
+};
+
+export function ModulesList({ items }: { items: ModuleItem[] }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+  // One watcher for the whole list — every uninstall path ends in the same rebuild.
+  const { overlay, start } = useRebuildWatch();
+
+  if (items.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        No modules are installed. JonDash ships without any — use <strong>Browse modules</strong> above to
+        see what a source publishes, or import your own below.
+      </p>
+    );
+  }
+
+  const removable = items.filter((m) => m.installed);
+  const chosen = removable.filter((m) => selected.has(m.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setConfirming(false); // changing the selection invalidates a pending confirmation
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {overlay}
+      {items.map((m) => (
+        <ModuleCard
+          key={m.id}
+          m={m}
+          selected={selected.has(m.id)}
+          onToggle={() => toggle(m.id)}
+          onRebuildStart={start}
+        />
+      ))}
+
+      {/* Removing several modules is one rebuild + restart for the batch, matching install. */}
+      {removable.length > 1 && (
+        <div className="card flex flex-col gap-3 p-4">
+          {chosen.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Tick several modules to uninstall them together — one rebuild and one restart for the whole
+              batch instead of one each.
+            </p>
+          ) : confirming ? (
+            <>
+              <RestartWarning
+                what={`Permanently delete ${chosen.length} modules and all of their settings and stored data: ${chosen
+                  .map((m) => m.name)
+                  .join(", ")}. This can't be undone.`}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={uninstallModuleAction}>
+                  {chosen.map((m) => (
+                    <input key={m.id} type="hidden" name="id" value={m.id} />
+                  ))}
+                  <button type="submit" className="btn btn-danger !py-1.5 text-sm" onClick={start}>
+                    Uninstall {chosen.length} and restart now
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="btn btn-ghost !py-1.5 text-sm"
+                  onClick={() => setConfirming(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost !py-1.5 text-sm"
+                style={{ color: "var(--danger)" }}
+                onClick={() => setConfirming(true)}
+              >
+                Uninstall {chosen.length} selected
+              </button>
+              <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setSelected(new Set())}>
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModuleCard({
+  m,
+  selected,
+  onToggle,
+  onRebuildStart,
+}: {
+  m: ModuleItem;
+  selected: boolean;
+  onToggle: () => void;
+  /** Show the "applying your module changes" cover — uninstalling restarts the server. */
+  onRebuildStart: () => void;
+}) {
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+
+  return (
+    <div className="card flex flex-col gap-3 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {m.installed && (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={onToggle}
+                aria-label={`Select ${m.name} for bulk uninstall`}
+              />
+            )}
+            {m.icon && <span className="flex-none" style={{ color: "var(--primary)" }}>{m.icon}</span>}
+            <span className="font-medium">{m.name}</span>
+            <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>v{m.version}</span>
+            <StateChip enabled={m.enabled} installed={m.installed} />
+          </div>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{m.description}</p>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {m.enabled ? (
+            <>
+              <a href={`/admin/modules/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">
+                {m.hasSettings ? "Settings" : "Channel"}
+              </a>
+              {m.hasPage && (
+                <a href={`/m/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">Open</a>
+              )}
+              <form action={disableModuleAction}>
+                <input type="hidden" name="id" value={m.id} />
+                <button type="submit" className="btn btn-ghost !py-1.5 text-sm">Disable</button>
+              </form>
+            </>
+          ) : (
+            <form action={enableModuleAction}>
+              <input type="hidden" name="id" value={m.id} />
+              <button type="submit" className="btn btn-primary !py-1.5 text-sm">Enable</button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
+        <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Permissions</p>
+        {m.permissions.length === 0 ? (
+          <p className="mt-1 text-sm">None beyond the basics (its own settings and its own data).</p>
+        ) : (
+          <ul className="mt-1 flex flex-col gap-1 text-sm">
+            {m.permissions.map((p) => (
+              <li key={p.key} style={p.dangerous ? { color: "var(--danger)" } : undefined}>
+                {p.dangerous ? "⚠ " : "• "}
+                {p.warning}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!m.enabled && m.permissions.length > 0 && (
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>Enabling the module grants these.</p>
+        )}
+      </div>
+
+      {/* Only offered when there is actually something to remove. Once uninstalled the
+          module drops back to "Not set up" and this disappears — so the click always has
+          a visible effect. */}
+      {m.installed && (
+        <div className="flex flex-wrap items-center gap-2">
+          {confirmUninstall ? (
+            <div className="flex w-full flex-col gap-3">
+              <RestartWarning
+                what={`Permanently delete ${m.name}, its settings and all of its stored data. This can't be undone.`}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={uninstallModuleAction}>
+                  <input type="hidden" name="id" value={m.id} />
+                  <button
+                    type="submit"
+                    className="btn btn-danger !py-1.5 text-sm"
+                    onClick={onRebuildStart}
+                  >
+                    Uninstall and restart now
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="btn btn-ghost !py-1.5 text-sm"
+                  onClick={() => setConfirmUninstall(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost !py-1.5 text-sm"
+              style={{ color: "var(--danger)" }}
+              onClick={() => setConfirmUninstall(true)}
+            >
+              Uninstall
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Unambiguous lifecycle state, so enable/disable/uninstall each visibly change the card. */
+function StateChip({ enabled, installed }: { enabled: boolean; installed: boolean }) {
+  const { label, color } = enabled
+    ? { label: "Enabled", color: "var(--primary)" }
+    : installed
+      ? { label: "Disabled", color: "var(--muted)" }
+      : { label: "Not set up", color: "var(--muted)" };
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-xs font-medium"
+      style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}
+    >
+      {label}
+    </span>
+  );
+}

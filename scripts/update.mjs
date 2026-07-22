@@ -17,6 +17,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isPreserved } from "./preserve.mjs";
 
 const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -72,6 +73,26 @@ function channel() {
   return "stable";
 }
 
+// Whether the launcher may auto-install an available update at startup. Off by
+// default — otherwise JonDash only notifies and the user installs manually.
+function autoInstall() {
+  try {
+    return fs.readFileSync(path.join(REPO_DIR, ".data", "auto-update"), "utf8").trim().toLowerCase() === "on";
+  } catch {
+    return false;
+  }
+}
+
+// The last update that failed and was rolled back (so we don't auto-retry it).
+function lastFailure() {
+  try {
+    const o = JSON.parse(fs.readFileSync(path.join(REPO_DIR, ".data", "update-failed"), "utf8"));
+    return o && o.failedVersion ? o : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getLatest() {
   const branch = channel() === "beta" ? "beta" : "main";
   const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${branch}/updates.json`, {
@@ -105,16 +126,52 @@ async function cmdCheck() {
   return 10;
 }
 
+// Launch-time check that also decides whether to auto-install. Exit 10 ONLY when an
+// update should be installed automatically now; otherwise notify and exit 0.
+async function cmdAutoCheck() {
+  const current = localVersion();
+  let latest;
+  try {
+    latest = await getLatest();
+  } catch {
+    console.log("  Couldn't reach GitHub (offline or unavailable). Skipping update check.");
+    return 0;
+  }
+  const ch = channel();
+  if (!latest || !isNewer(latest.version, current)) {
+    console.log(`  You're up to date (v${current}, ${ch} channel).`);
+    return 0;
+  }
+
+  // A prior attempt on this exact version failed and was rolled back — don't retry.
+  const failed = lastFailure();
+  if (failed && failed.failedVersion === latest.version) {
+    console.log("");
+    console.log(`  Update v${latest.version} is available, but the last attempt failed and was rolled`);
+    console.log(`  back to v${failed.revertedTo}. Install it manually from Admin -> Updates when ready.`);
+    return 0;
+  }
+
+  console.log("");
+  console.log(`  An update is available:  v${latest.version}   (you have v${current}, ${ch} channel)`);
+  console.log(`     ${latest.summary}`);
+  if (!autoInstall()) {
+    console.log("  Auto-install is off — install it from Admin -> Updates (or enable auto-install there).");
+    return 0;
+  }
+  console.log(`  Auto-install is on — installing v${latest.version}...`);
+  return 10;
+}
+
 async function copyOver(srcRoot) {
-  // Directories/files whose local contents must be preserved (never overwritten
-  // by the archive — they hold user data / build artifacts and aren't in it).
-  const PRESERVE = new Set([".env", ".data", "uploads", "node_modules", ".next", ".git", "logs"]);
+  // What must not be overwritten is defined once, in scripts/preserve.mjs — and matches
+  // the TOP-LEVEL segment only. Matching a bare entry name at any depth once caused
+  // `lib/modules/` to be skipped along with the top-level `modules/` folder.
   async function walk(relDir) {
     const entries = await fsp.readdir(path.join(srcRoot, relDir), { withFileTypes: true });
     for (const e of entries) {
       const rel = relDir ? path.join(relDir, e.name) : e.name;
-      const top = rel.split(path.sep)[0];
-      if (PRESERVE.has(top) || PRESERVE.has(e.name)) continue;
+      if (isPreserved(rel)) continue;
       const dest = path.join(REPO_DIR, rel);
       if (e.isDirectory()) {
         await fsp.mkdir(dest, { recursive: true });
@@ -187,7 +244,7 @@ async function cmdApply() {
 }
 
 const cmd = process.argv[2];
-const run = cmd === "apply" ? cmdApply : cmdCheck;
+const run = cmd === "apply" ? cmdApply : cmd === "autocheck" ? cmdAutoCheck : cmdCheck;
 // Set exitCode and let the process end on its own. Calling process.exit() here can
 // race with the fetch socket tearing down and crash libuv on Windows (which would
 // give a bogus non-zero code the launcher misreads as "update available").

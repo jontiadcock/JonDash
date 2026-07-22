@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import { writeEmailConfig, type EmailConfig } from "@/lib/email/config";
 import { sendTestEmail } from "@/lib/email/send";
 
-// Email configuration holds credentials and can send mail as the org — ADMIN only.
+// Email configuration holds credentials and can send mail as the org, so it's
+// gated by the `email.manage` capability (full admins have it; delegable via an
+// access role).
 
 export type EmailState = { error?: string; ok?: boolean; testOk?: boolean; testResult?: string };
 
@@ -26,7 +28,7 @@ const emailSchema = z.object({
 
 export async function saveEmailConfigAction(_prev: EmailState, formData: FormData): Promise<EmailState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("email.manage");
 
   const parsed = emailSchema.safeParse({
     enabled: formData.get("enabled") === "on",
@@ -61,7 +63,7 @@ export async function saveEmailConfigAction(_prev: EmailState, formData: FormDat
 
 export async function sendTestEmailAction(_prev: EmailState, formData: FormData): Promise<EmailState> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("email.manage");
 
   const to = String(formData.get("to") ?? "").trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { error: "Enter a valid recipient email." };
@@ -78,7 +80,7 @@ export async function sendTestEmailAction(_prev: EmailState, formData: FormData)
 
 export async function disconnectOAuthAction(): Promise<void> {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requirePermission("email.manage");
   await writeEmailConfig({ oauthRefreshToken: "" });
   await audit("admin.email.oauth.disconnected", { userId: admin.id });
   revalidatePath("/admin/email");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getCurrentUser } from "@/lib/auth/guards";
+import { userHasPermission } from "@/lib/auth/permissions";
 import { getRequestOrigin, isSecureRequest } from "@/lib/request";
 import { readEmailConfig } from "@/lib/email/config";
 import { buildAuthUrl, isOAuthProvider } from "@/lib/email/oauth";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const origin = await getRequestOrigin();
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") {
+  if (!user || !(await userHasPermission(user, "email.manage"))) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 

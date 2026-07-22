@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { getRequestOrigin } from "@/lib/request";
 import { readEmailConfig } from "@/lib/email/config";
 import { EmailSettings } from "./ui";
@@ -16,7 +16,7 @@ export default async function EmailPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("email.manage");
   const cfg = await readEmailConfig();
   const origin = await getRequestOrigin();
   const sp = await searchParams;
@@ -46,7 +46,8 @@ export default async function EmailPage({
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">Email</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Configure an outgoing mail account so JonDash can send email. Supports a standard SMTP
-          username + app password, or OAuth2 for Google and Microsoft. Only full admins can change this.
+          username + app password, or OAuth2 for Google and Microsoft. Requires the Email capability
+          (full admins have it).
         </p>
       </section>
 

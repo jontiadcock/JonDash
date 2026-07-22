@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { readNetworkConfig, readTlsStatus } from "@/lib/tls/network";
 import { NetworkForm } from "./ui";
 
@@ -18,7 +18,7 @@ function fmt(iso: string): string {
 }
 
 export default async function NetworkPage() {
-  await requireAdmin();
+  await requirePermission("network.manage");
   const config = readNetworkConfig();
   const status = readTlsStatus();
   const tlsOn = config.mode !== "off";
@@ -29,8 +29,8 @@ export default async function NetworkPage() {
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">Network &amp; HTTPS</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Choose how the dashboard is served — plain HTTP, an automatic Let&apos;s Encrypt
-          certificate, or your own certificate — and which ports it listens on. Only full admins
-          can change these.
+          certificate, or your own certificate — and which ports it listens on. Requires the
+          Network &amp; HTTPS capability (full admins have it).
         </p>
       </section>
 

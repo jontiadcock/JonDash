@@ -1,6 +1,6 @@
 # JonDash
 
-**[Features](#features) · [Quick start](#turn-it-on-windows) · [Using it](#using-it) · [Security](#security-measures) · [Changelog](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)**
+**[Features](#features) · [Quick start](#turn-it-on-windows) · [Using it](#using-it) · [Modules](#modules--addons) · [Security](#security-measures) · [Changelog](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)**
 
 A modern, login-protected dashboard where each user sees a personal grid of
 service tiles (icon + name → link). You (the admin) customise what each user
@@ -17,10 +17,20 @@ required.**
 - **Per-user dashboards** — each person sees only the service tiles you give them.
 - **Service Groups** — bundle tiles into a group and assign it to many users at once.
 - **Two-factor sign-in** with **backup recovery codes** if you lose your authenticator.
+- **Delegated admin** — grant specific admin powers to a user with **Access Roles**, without full admin.
 - **Account self-service** — users change their own password and re-enrol their authenticator.
 - **Session manager** — view and revoke active sign-ins (device, approximate location).
 - **Audit log** and configurable **Settings** (sign-in message, session/idle timeouts, retention).
-- **Backup & restore** — export/import your data; accounts only leave in an encrypted file.
+- **Full server backup & selective restore** — export your whole instance to one file; an encrypted backup
+  also carries credentials and keys, so your authenticator (2FA) keeps working after a restore/migration.
+- **Optional HTTPS** — an automatic Let's Encrypt certificate or bring-your-own, with configurable ports
+  (off by default).
+- **Outgoing email** — connect an SMTP account (app-password or OAuth2), set up in the app.
+- **One-click updates** — choose a **Stable** or **Beta** channel and update from inside the app; a
+  self-supervising launcher captures crashes, auto-restarts, and **rolls back a failed update**.
+- **Restart / shut down** the server from the Settings area.
+- **Modules (in development)** — plug in optional addons that add features **without touching the base app**;
+  see [Modules & addons](#modules--addons).
 - **Secure by default** and **zero-config** — keys, database, and site address set up on first run.
 
 See the [changelog](CHANGELOG.md) for what changed in each version.
@@ -44,17 +54,41 @@ stop. To start again later, just double-click `start-dashboard.bat` again.
 
 ## Using it
 
-- **You (admin)** get an **Admin** area with a **Menu** dropdown covering:
+- **You (admin)** get a **Settings** area (a left sidebar grouped **General · Server settings · Security**)
+  covering:
   - **Users** — create accounts (you get a **one-time setup link** to send to each person),
     manage each user's tiles, assign Service Groups, reset access, disable/delete.
-  - **Service Groups** — create shared tile bundles and manage their services.
-  - **Sessions**, **Audit**, **Backup**, and **Settings**.
+  - **Service Groups** and **Access Roles** (delegated-admin capability bundles).
+  - **Sessions**, **Audit log**, and **General settings**.
+  - **Server settings** — Updates, Backup & restore, Network & HTTPS, Email, and Server power
+    (restart / shut down).
   - Uploading an icon per tile (PNG/JPEG/WebP/GIF).
 - **Users** sign in and click their tiles. From **Account** they can change their password,
   re-enrol their authenticator, view recovery codes, and manage their own sessions.
 
 When you create a user, share the setup link with them. They open it, choose a
 password, scan the QR code, save their recovery codes, and they're in.
+
+---
+
+## Modules & addons
+
+Modules are optional addons that plug extra features into JonDash — a dashboard widget, their own page(s),
+and their own settings — **without changing the base app**. Disable or remove a module and JonDash works
+exactly as before (like removing an app from a phone). At install you're shown the **permissions** a module
+requests (e.g. "can make outbound network requests", "can read your user accounts") and you approve them,
+app-store style.
+
+Three ways to add one:
+- **From a source** — the built-in official modules source, or **any public git repo you add by URL**, then
+  pick a module to install. Modules update **independently** of the base app.
+- **Import your own** — build a module and **import its ZIP directly** (no repo required).
+- **Generate one with AI** — paste the self-contained prompt in **[Building modules](docs/MODULES-AUTHORING.md)**
+  into any AI agent, describe what you want, and import the result.
+
+See **[docs/MODULES-AUTHORING.md](docs/MODULES-AUTHORING.md)** for the full contract, the permission list and
+etiquette, the testing process, and the AI prompt. *(The module framework is in active development — see the
+[roadmap](docs/ROADMAP.md).)*
 
 ---
 
@@ -69,10 +103,10 @@ npm run build
 npm run start           # serves on port 3000
 ```
 
-- Run it under a process manager (systemd/pm2) and put **nginx or Caddy in front
-  to add HTTPS**, proxying to `127.0.0.1:3000`. When the site is served over
-  HTTPS, the app automatically switches cookies to Secure and enables HSTS — no
-  setting to flip.
+- Run it under a process manager (systemd/pm2). **HTTPS, two options:** enable JonDash's **built-in TLS**
+  (automatic Let's Encrypt or bring-your-own, under Admin → Network & HTTPS — no reverse proxy needed),
+  **or** put **nginx / Caddy in front** proxying to `127.0.0.1:3000`. Either way, when served over HTTPS
+  the app automatically switches cookies to Secure and enables HSTS — no setting to flip.
 - Forward the real host/scheme/IP (`X-Forwarded-Host` / `X-Forwarded-Proto` /
   `X-Forwarded-For`) from the proxy; these are set by nginx/Caddy by default.
 - **Back up** the `prisma/` database file, the `uploads/` folder (icons), and the
@@ -116,19 +150,29 @@ command-line alternative (`npm run db:seed`) also exists but isn't needed.
 
 ```
 app/
-  welcome/          first-run wizard: create the first admin (GUI)
+  welcome/          first-run wizard: create the first admin (or restore a backup)
   login/            two-step login (password → authenticator code)
   setup/[token]/    a user completes their account from an invite link
-  (app)/dashboard/  user service grid (view-only)
-  admin/            users list, per-user link management, icon upload
-  api/icons/[id]/   authenticated, ownership-checked icon serving
+  (app)/dashboard/  user service grid; (app)/account/ self-service
+  admin/            Settings area: users, service-groups, sessions, audit, backup,
+                    updates, network, email, access-roles, server power
+  api/              icons, backup export, update apply/status, server restart/shutdown, health
 lib/
-  auth/             password, totp, session, preauth, guards, bootstrap
+  auth/             password, totp, session, preauth, guards, bootstrap, permissions (RBAC)
   security/         csrf, upload processing, rate limit
-  config.ts         auto-generated encryption key
-  request.ts        site URL / HTTPS derived from the request
-  crypto.ts db.ts audit.ts icons.ts validation/
+  tls/              HTTPS / ACME (Let's Encrypt or bring-your-own cert)
+  email/            outgoing SMTP / OAuth2
+  backup.ts         full server backup + selective restore
+  config.ts crypto.ts db.ts settings.ts request.ts audit.ts icons.ts update*.ts server-control.ts
 prisma/             schema, migrations
+scripts/            launcher supervisor, updater, rollback, redacted logs
+server.mjs          custom server (plain HTTP, or terminates TLS)
 proxy.ts            security headers + auth gate
 start-dashboard.bat one-click launcher (Windows)
 ```
+
+## License
+
+**Personal-use** — see [LICENSE](LICENSE). Free to use for your own **personal, non-commercial** purposes;
+no selling, no redistribution. You may build your own add-on modules — and if you share one, publish it in
+your own public repository and let the author know via GitHub so it can be linked.

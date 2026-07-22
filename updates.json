@@ -1,6 +1,153 @@
 {
   "releases": [
     {
+      "version": "1.4.0",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Modules: JonDash can now be extended with add-ons that plug in without changing the base app. Admin -> Settings -> Modules lets you browse the official add-ons source (or any public GitHub repo that publishes modules), install several at once, or import your own .zip. Before anything installs you see in plain language exactly what it can do, and a module is refused if its code reaches for something it did not declare - a strong safety net, though not a sandbox, so only install modules you trust. If a module ever stops JonDash building, it is removed automatically and you are told which one. Modules can add a dashboard widget, their own pages and settings, background checks and email. You choose who sees each module using Service Groups, and each person can resize and arrange their own widgets. Nothing changes if you install no modules."
+    },
+    {
+      "version": "1.4.0-beta.11",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: three module-framework fixes found while testing for the 1.4.0 stable release. A module's own settings screen never appeared - the framework silently ignored it - and now renders under Admin -> Modules -> the module, below its simple settings. Modules can no longer request permissions that do nothing: nine of thirteen were never connected to anything, including \"Create, modify or delete your user accounts\", which looked alarming at approval time and granted nothing; only outbound connections, encryption, audit entries and sending email remain, and the others return when they are actually built. And legitimate modules are no longer rejected over ordinary English - the check that blocks dynamically loaded code was matching plain wording like \"Bulk import (JSON)\" on a module's own page. No published module is affected."
+    },
+    {
+      "version": "1.4.0-beta.10",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: installing, importing or uninstalling a module no longer leaves the page stuck on \"Installing…\". Because a module is built into the dashboard, those actions rebuild and restart JonDash - and the page that triggered them was left waiting forever with no explanation. You now get the same full-screen \"Applying your module changes…\" cover used for updates and restarts, which waits for the new server and returns you to sign-in on its own. If a restart never actually starts, it now says so and offers a reload instead of spinning indefinitely."
+    },
+    {
+      "version": "1.4.0-beta.9",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: uninstall several modules at once. Each installed module now has a tick box - select the ones you want gone and remove them together, so you get one rebuild and one restart for the whole batch instead of one per module, and the confirmation names every module being deleted first. This completes the bulk selection added in 1.4.0-beta.5, which only covered installing."
+    },
+    {
+      "version": "1.4.0-beta.8",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: Browse modules crashed whenever a channel actually had modules to show. Admin -> Modules -> Browse modules gave an error page instead of the list, so nothing could be installed from a source. It only happened once a channel had something published in it, which is why the empty stable channel looked fine while beta failed. Selecting and installing modules works normally again."
+    },
+    {
+      "version": "1.4.0-beta.7",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "critical",
+      "summary": "Critical fix - install this. Since 1.4.0-beta.3, updating could leave JonDash unable to start. The rule protecting your installed add-ons from being overwritten matched any folder named 'modules' anywhere in the app, including the module framework itself, so updates stopped copying it - and if an update then failed, the automatic rollback deleted it without being able to put it back. The rule now only matches top-level folders. Your data was never at risk. If your install is already stuck and won't start, a normal update cannot fix it (the faulty updater is the thing doing the updating) - see 'Recovering an install that won't start' in CHANGELOG.md for the one-time manual step."
+    },
+    {
+      "version": "1.4.0-beta.6",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "critical",
+      "summary": "DO NOT USE THIS VERSION - it can leave JonDash unable to start. A fault in this build (present in 1.4.0-beta.3 through 1.4.0-beta.6) means updating can delete part of the app itself, and if that update then fails the automatic rollback cannot put it back, so the app will not start and cannot repair itself. Install 1.4.0-beta.7 or later instead. Your data is not at risk. If you are already stuck, see \"Recovering an install that won't start\" in CHANGELOG.md - a normal update cannot fix it. Original notes: Beta: control who sees each module, and arrange your own dashboard. A module can now be limited to Service Groups just like a service tile (Admin -> Modules -> the module -> 'Who can see this module') - leave every group unticked and everyone signed in sees it, tick some and only their members do; its page returns not-found to anyone else. Each module widget also gains a Customise control to set its width and height and move it around, and your layout is yours alone - it never changes what anyone else sees. Modules can ship their own icon, and can now offer multiline settings for things like a JSON configuration. The authoring guide explains how to design a widget that users resize."
+    },
+    {
+      "version": "1.4.0-beta.5",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "critical",
+      "summary": "DO NOT USE THIS VERSION - it can leave JonDash unable to start. A fault in this build (present in 1.4.0-beta.3 through 1.4.0-beta.6) means updating can delete part of the app itself, and if that update then fails the automatic rollback cannot put it back, so the app will not start and cannot repair itself. Install 1.4.0-beta.7 or later instead. Your data is not at risk. If you are already stuck, see \"Recovering an install that won't start\" in CHANGELOG.md - a normal update cannot fix it. Original notes: Beta: install several modules at once. Browse modules now has a checkbox on each module - tick the ones you want and install them together, so you get one rebuild and one restart for the whole batch instead of one per module. And you're now warned before anything restarts: installing, importing or uninstalling a module shows a confirmation first, explaining that JonDash will rebuild and restart and that everyone signed in will be signed out. Nothing restarts until you confirm. The module-authoring guide's AI prompt has also been updated - it described the framework as it was before modules could perform actions, so modules generated from it would have been rejected at install."
+    },
+    {
+      "version": "1.4.0-beta.4",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "critical",
+      "summary": "DO NOT USE THIS VERSION - it can leave JonDash unable to start. A fault in this build (present in 1.4.0-beta.3 through 1.4.0-beta.6) means updating can delete part of the app itself, and if that update then fails the automatic rollback cannot put it back, so the app will not start and cannot repair itself. Install 1.4.0-beta.7 or later instead. Your data is not at risk. If you are already stuck, see \"Recovering an install that won't start\" in CHANGELOG.md - a normal update cannot fix it. Original notes: Beta fix - install this if you have installed any module. JonDash recorded every module as though it shipped with the app, which defeated the safeguard protecting installed modules: if a module ever failed to load, its tables, settings and stored data could be wiped automatically (for a health monitor, that means every monitor and all of its history). JonDash now records where each module came from, repairs existing records itself, and never removes a module whose files are still there. Also: a module installed from the beta channel is now correctly marked as beta, so its per-module update channel is right; and Browse modules explains that a just-published module can take a couple of minutes to appear."
+    },
+    {
+      "version": "1.4.0-beta.3",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "critical",
+      "summary": "DO NOT USE THIS VERSION - it can leave JonDash unable to start. A fault in this build (present in 1.4.0-beta.3 through 1.4.0-beta.6) means updating can delete part of the app itself, and if that update then fails the automatic rollback cannot put it back, so the app will not start and cannot repair itself. Install 1.4.0-beta.7 or later instead. Your data is not at risk. If you are already stuck, see \"Recovering an install that won't start\" in CHANGELOG.md - a normal update cannot fix it. Original notes: Beta: modules can now be installed for real. Admin -> Settings -> Modules -> Browse modules installs a module from a source, or import your own as a .zip; JonDash checks the module first (refusing anything that uses a capability it didn't declare, touches the filesystem, runs constructed code or reaches into app internals), then rebuilds and restarts so it's live - so you'll need to sign in again. If a module ever stops the app building, JonDash removes it, starts up without it and tells you. Modules can now also have working buttons, send email and ping hosts. Uninstalling now removes a module completely, and each module shows whether it's Enabled, Disabled or Not set up. The bundled Sample module has been removed."
+    },
+    {
+      "version": "1.4.0-beta.2",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: modules can now come from a source repository. Admin -> Settings -> Modules gains 'Manage sources' (add any public GitHub repo that publishes modules; the official add-ons source is set up for you) and 'Browse modules', showing what each source publishes per stable/beta channel along with the permissions each module requests. Each module also gets its own 'opt into beta releases' toggle, separate from JonDash's update channel. Installing from a source arrives in the next update."
+    },
+    {
+      "version": "1.4.0-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: new Modules system (early foundation). Admin -> Settings -> Modules lets you enable, configure and remove optional add-ons that plug in without changing the base app; each module shows the permissions it needs before you enable it, and a bundled Sample module (a dashboard widget + its own page) demonstrates it. Installing modules from a repository or importing your own comes in a later update. Build your own with the guide + paste-in AI prompt in docs/MODULES-AUTHORING.md."
+    },
+    {
+      "version": "1.3.7-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: full server backup — one file now captures your entire server (accounts, service groups, access roles, all settings, network/HTTPS config, icons, and the encryption key when you set a passphrase), and restore lets you choose what to bring back. Fixes the bug where your authenticator (2FA) stopped working after a restore: an encrypted backup now carries the key across, so 2FA survives a restore or migration. Encrypted backups now require a strong passphrase."
+    },
+    {
+      "version": "1.3.6-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: applying an update or restarting now shows a full-screen 'Updating…' screen that waits for the server to be reliably back before returning you to sign-in, so a too-quick refresh no longer briefly breaks remote access. New Restart & Shut down controls under Admin -> Settings -> Server power (full-admin only). And an update/restart now signs you out fully — login starts at the password step, not a leftover 2-factor prompt — so you can sign in as a different account."
+    },
+    {
+      "version": "1.3.5-beta.3",
+      "date": "2026-07-21",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: small robustness fix — the server now clears its 'update in progress' rollback marker once it has booted successfully, instead of only on a later crash, so a much-later unrelated crash can't wrongly roll back a version that's working fine."
+    },
+    {
+      "version": "1.3.5-beta.2",
+      "date": "2026-07-21",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fixes for 1.3.5-beta.1: the server no longer restart-loops (and signs you out repeatedly) when the OS/console stops it — it now stops cleanly; self-updating no longer corrupts the launcher script mid-write; and a harmless session-cleanup error no longer shows in the console."
+    },
+    {
+      "version": "1.3.5-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the launcher now supervises the server — it captures crashes to a log and auto-restarts, and gives up cleanly instead of leaving it down. Updates are safer too: JonDash snapshots itself before updating and automatically rolls back to the previous version if an update fails to start, with an on-screen notice. New 'automatically install updates' checkbox (off by default) under Admin -> Updates. Your data, settings and uploads are never touched by an update or rollback."
+    },
+    {
+      "version": "1.3.4-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: access roles now cover the whole admin area. Two new delegable capabilities — Manage network & HTTPS and Manage email — let you grant those areas to a user via an access role instead of full-admin-only, and the settings capability now also covers Updates. Full admins are unaffected and existing access roles keep exactly the powers they had."
+    },
+    {
+      "version": "1.3.3-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the admin menu is reorganised into a left 'Settings' sidebar (General, Server settings, Security), with Updates on its own page. Plus fixes: Off-mode network save works, the update-channel toggle updates immediately, 'Update now' returns to the sign-in screen after restarting, and the mobile service-edit form no longer runs off-screen."
+    },
+    {
+      "version": "1.3.2-beta.1",
+      "date": "2026-07-21",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: better mobile support — on small screens the header no longer crowds or scrolls sideways (the version tag and long labels collapse) and spacing is tighter. Desktop is unchanged. Groundwork; the bigger mobile improvement comes with the admin 'Settings' redesign."
+    },
+    {
+      "version": "1.3.1-beta.1",
+      "date": "2026-07-20",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: smoother page transitions — the page content now fades in gently as you move between pages, while the header and navigation stay put. Automatically disabled if your system prefers reduced motion."
+    },
+    {
       "version": "1.3.0",
       "date": "2026-07-20",
       "type": "minor",

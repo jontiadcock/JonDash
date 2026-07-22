@@ -48,8 +48,15 @@ describe("admin section visibility", () => {
     expect(firstPermittedAdminPath(new Set<Permission>())).toBe("/dashboard");
   });
 
-  it("a full set (every capability) exposes every section", () => {
+  it("a full set (every capability) exposes every section, including network & email", () => {
     const all = new Set<Permission>(ALL_PERMISSIONS);
-    expect(allowedSections(all).length).toBeGreaterThanOrEqual(6);
+    const labels = allowedSections(all).map((s) => s.label);
+    expect(labels).toEqual(expect.arrayContaining(["Network & HTTPS", "Email"]));
+    expect(labels.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("network.manage / email.manage each unlock their own section", () => {
+    expect(firstPermittedAdminPath(new Set<Permission>(["network.manage"]))).toBe("/admin/network");
+    expect(firstPermittedAdminPath(new Set<Permission>(["email.manage"]))).toBe("/admin/email");
   });
 });

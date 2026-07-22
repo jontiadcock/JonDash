@@ -1,7 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { saveUpdateChannelAction, type ChannelState } from "./actions";
+import {
+  saveUpdateChannelAction,
+  saveAutoInstallAction,
+  dismissUpdateFailureAction,
+  type ChannelState,
+  type AutoInstallState,
+} from "./actions";
+import { ServerWaitOverlay } from "@/app/components/server-wait-overlay";
+
+type UpdateFailure = { failedVersion: string; revertedTo: string; at: string };
 
 type Release = { version: string; type: string; criticality: string; summary: string };
 type Status = {
@@ -21,12 +30,27 @@ const TYPE_LABEL: Record<string, string> = {
 
 const initial: ChannelState = {};
 
-export function UpdatesPanel({ version, channel }: { version: string; channel: string }) {
+export function UpdatesPanel({
+  version,
+  channel,
+  autoInstall,
+  failure,
+}: {
+  version: string;
+  channel: string;
+  autoInstall: boolean;
+  failure: UpdateFailure | null;
+}) {
   const [chanState, chanAction, chanPending] = useActionState(saveUpdateChannelAction, initial);
+  // After a save the server prop is stale until reload, so prefer the just-saved value.
+  const currentChannel = chanState.channel ?? channel;
+
+  const [autoState, autoAction] = useActionState<AutoInstallState, FormData>(saveAutoInstallAction, {});
 
   const [phase, setPhase] = useState<"idle" | "checking" | "result" | "updating" | "error">("idle");
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [overlayBoot, setOverlayBoot] = useState<number | null | undefined>(undefined);
 
   async function check() {
     setPhase("checking");
@@ -45,6 +69,7 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
   async function applyUpdate() {
     setPhase("updating");
     setError(null);
+    let oldBoot: number | null = null;
     try {
       const res = await fetch("/api/update/apply", { method: "POST" });
       if (!res.ok) {
@@ -53,28 +78,18 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
         setPhase("error");
         return;
       }
+      const body = (await res.json().catch(() => null)) as { boot?: number } | null;
+      if (typeof body?.boot === "number") oldBoot = body.boot;
     } catch {
-      /* connection may drop as the server exits — treat as restart in progress */
+      /* connection may drop as the server exits — the overlay falls back to down-detection */
     }
-    waitForRestart();
+    // Full-screen "updating…" cover; it polls /api/health and returns to /login
+    // once the new server is reliably back.
+    setOverlayBoot(oldBoot);
   }
 
-  function waitForRestart() {
-    setPhase("updating");
-    let tries = 0;
-    const timer = setInterval(async () => {
-      tries += 1;
-      try {
-        const r = await fetch("/api/update/status", { cache: "no-store" });
-        if (r.ok) {
-          clearInterval(timer);
-          window.location.reload();
-        }
-      } catch {
-        /* still down, keep waiting */
-      }
-      if (tries > 120) clearInterval(timer);
-    }, 2000);
+  if (overlayBoot !== undefined) {
+    return <ServerWaitOverlay mode="updating" oldBoot={overlayBoot} />;
   }
 
   return (
@@ -84,10 +99,35 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
         <span className="font-mono text-sm">v{version}</span>
       </div>
 
+      {failure && (
+        <div
+          className="rounded-xl border p-3 text-sm"
+          style={{ borderColor: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, transparent)" }}
+        >
+          <p className="font-medium" style={{ color: "var(--danger)" }}>
+            The last update failed and was rolled back.
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            Updating to v{failure.failedVersion} didn&apos;t start cleanly, so JonDash restored
+            v{failure.revertedTo}. It won&apos;t be retried automatically — use &ldquo;Update now&rdquo;
+            below to try again manually.
+          </p>
+          <form action={dismissUpdateFailureAction} className="mt-2">
+            <button type="submit" className="btn btn-ghost !py-1 !px-2 text-xs">Dismiss</button>
+          </form>
+        </div>
+      )}
+
       <form action={chanAction} className="flex flex-col gap-2">
         <label className="label" htmlFor="channel">Update channel</label>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select id="channel" name="channel" defaultValue={channel} className="input sm:max-w-xs">
+          <select
+            id="channel"
+            name="channel"
+            key={currentChannel}
+            defaultValue={currentChannel}
+            className="input sm:max-w-xs"
+          >
             <option value="stable">Stable — tested releases (recommended)</option>
             <option value="beta">Beta — pre-release builds, early access</option>
           </select>
@@ -99,7 +139,25 @@ export function UpdatesPanel({ version, channel }: { version: string; channel: s
         </div>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
           Beta receives pre-release builds early and may be less stable. Takes effect on the next
-          update check. Currently on the <strong>{channel}</strong> channel.
+          update check. Currently on the <strong>{currentChannel}</strong> channel.
+        </p>
+      </form>
+
+      <form action={autoAction} className="flex flex-col gap-1">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            name="autoInstall"
+            defaultChecked={autoInstall}
+            onChange={(e) => e.currentTarget.form?.requestSubmit()}
+            className="h-4 w-4"
+          />
+          <span className="text-sm font-medium">Automatically install updates when available</span>
+          {autoState.ok && <span className="text-sm" style={{ color: "var(--primary)" }}>Saved.</span>}
+        </label>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Off by default — JonDash only tells you an update is available and you install it here with
+          &ldquo;Update now&rdquo;. When on, the launcher installs updates automatically at startup.
         </p>
       </form>
 

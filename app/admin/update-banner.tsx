@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ServerWaitOverlay } from "@/app/components/server-wait-overlay";
 
 type Phase = "idle" | "available" | "updating" | "error";
 
 type Release = { version: string; type: string; criticality: string; summary: string };
+type UpdateFailure = { failedVersion: string; revertedTo: string; at: string };
 
 const TYPE_LABEL: Record<string, string> = {
   major: "Major update",
@@ -24,6 +26,8 @@ export function UpdateBanner() {
   const [release, setRelease] = useState<Release | null>(null);
   const [channel, setChannel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<UpdateFailure | null>(null);
+  const [overlayBoot, setOverlayBoot] = useState<number | null | undefined>(undefined);
 
   // Check once on mount.
   useEffect(() => {
@@ -31,7 +35,9 @@ export function UpdateBanner() {
     fetch("/api/update/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((s) => {
-        if (active && s?.updateAvailable && s.release) {
+        if (!active || !s) return;
+        if (s.failure) setFailure(s.failure as UpdateFailure);
+        if (s.updateAvailable && s.release) {
           setCurrent(s.current ?? null);
           setRelease(s.release);
           setChannel(s.channel ?? null);
@@ -47,6 +53,7 @@ export function UpdateBanner() {
   async function applyUpdate() {
     setPhase("updating");
     setError(null);
+    let oldBoot: number | null = null;
     try {
       const res = await fetch("/api/update/apply", { method: "POST" });
       if (!res.ok) {
@@ -55,39 +62,37 @@ export function UpdateBanner() {
         setPhase("error");
         return;
       }
-      // Server is restarting (pull + rebuild). Poll until it's back, then reload.
-      waitForRestart();
+      const body = (await res.json().catch(() => null)) as { boot?: number } | null;
+      if (typeof body?.boot === "number") oldBoot = body.boot;
     } catch {
-      // The connection may drop as the server exits — treat as restart in progress.
-      waitForRestart();
+      // The connection may drop as the server exits — the overlay falls back to down-detection.
     }
+    // Full-screen "updating…" cover; polls /api/health, returns to /login when back.
+    setOverlayBoot(oldBoot);
   }
 
-  function waitForRestart() {
-    setPhase("updating");
-    let tries = 0;
-    const timer = setInterval(async () => {
-      tries += 1;
-      try {
-        const r = await fetch("/api/update/status", { cache: "no-store" });
-        if (r.ok) {
-          clearInterval(timer);
-          window.location.reload();
-        }
-      } catch {
-        /* still down, keep waiting */
-      }
-      if (tries > 120) clearInterval(timer); // give up after ~4 min
-    }, 2000);
+  if (overlayBoot !== undefined) {
+    return <ServerWaitOverlay mode="updating" oldBoot={overlayBoot} />;
   }
 
-  if (phase === "idle") return null;
+  if (phase === "idle" && !failure) return null;
 
   return (
-    <div
-      className="mx-auto mt-4 w-full max-w-6xl px-4"
-      role="status"
-    >
+    <div className="mx-auto mt-4 flex w-full max-w-6xl flex-col gap-2 px-4" role="status">
+      {failure && (
+        <div
+          className="rounded-xl border p-3 text-sm"
+          style={{ borderColor: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, transparent)" }}
+        >
+          <strong style={{ color: "var(--danger)" }}>The last update failed and was rolled back</strong>
+          <span style={{ color: "var(--muted)" }}>
+            {" "}
+            — v{failure.failedVersion} didn&apos;t start, so v{failure.revertedTo} was restored. Update
+            manually from <a href="/admin/updates" style={{ color: "var(--primary)" }}>Settings → Updates</a>.
+          </span>
+        </div>
+      )}
+      {phase !== "idle" && (
       <div
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm"
         style={{ borderColor: "var(--primary)", background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}
@@ -127,6 +132,7 @@ export function UpdateBanner() {
           <span className="form-error">{error}</span>
         )}
       </div>
+      )}
     </div>
   );
 }

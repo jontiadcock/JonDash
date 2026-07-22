@@ -12,8 +12,14 @@ import { randomBytes } from "node:crypto";
  * a local data file. An ENCRYPTION_KEY environment variable, if present, always
  * takes precedence (useful for advanced/hosted setups).
  */
-const DATA_DIR = path.join(process.cwd(), ".data");
-const SECRETS_FILE = path.join(DATA_DIR, "secrets.json");
+// Resolved lazily (per call) so it honours JONDASH_DATA_DIR — used to isolate the
+// data directory in tests, and available for advanced/relocated installs.
+function dataDir(): string {
+  return process.env.JONDASH_DATA_DIR || path.join(process.cwd(), ".data");
+}
+function secretsPath(): string {
+  return path.join(dataDir(), "secrets.json");
+}
 
 type Secrets = { encryptionKey: string };
 
@@ -29,8 +35,9 @@ function loadSecrets(): Secrets {
   }
 
   try {
-    if (fs.existsSync(SECRETS_FILE)) {
-      const parsed = JSON.parse(fs.readFileSync(SECRETS_FILE, "utf8")) as Secrets;
+    const file = secretsPath();
+    if (fs.existsSync(file)) {
+      const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Secrets;
       if (parsed?.encryptionKey && /^[0-9a-f]{64}$/.test(parsed.encryptionKey)) {
         cached = parsed;
         return cached;
@@ -42,12 +49,46 @@ function loadSecrets(): Secrets {
 
   // First run: generate and persist.
   const secrets: Secrets = { encryptionKey: randomBytes(32).toString("hex") };
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(SECRETS_FILE, JSON.stringify(secrets, null, 2), { mode: 0o600 });
+  fs.mkdirSync(dataDir(), { recursive: true });
+  fs.writeFileSync(secretsPath(), JSON.stringify(secrets, null, 2), { mode: 0o600 });
   cached = secrets;
   return cached;
 }
 
 export function getEncryptionKey(): Buffer {
   return Buffer.from(loadSecrets().encryptionKey, "hex");
+}
+
+/**
+ * Drop the cached key so the next getEncryptionKey() re-reads it. Called after a
+ * restore adopts a backup's key (writes a new secrets.json) so the running process
+ * picks it up immediately — no restart needed for TOTP/email to decrypt again.
+ * No-op when the key comes from ENCRYPTION_KEY (that always wins on next read too).
+ */
+export function reloadEncryptionKey(): void {
+  cached = null;
+}
+
+/** Raw secrets.json text, for backing up the master key. Null if none on disk
+ *  (e.g. an ENCRYPTION_KEY env install — those manage the key themselves). */
+export function readSecretsFileText(): string | null {
+  try {
+    const file = secretsPath();
+    if (fs.existsSync(file)) return fs.readFileSync(file, "utf8");
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+/** Write secrets.json (adopt a backup's key) and drop the cache. Validates it holds
+ *  a 64-hex key so a corrupt blob can't brick decryption. */
+export function writeSecretsFileText(text: string): void {
+  const parsed = JSON.parse(text) as Secrets;
+  if (!parsed?.encryptionKey || !/^[0-9a-f]{64}$/i.test(parsed.encryptionKey)) {
+    throw new Error("Backup key material is invalid.");
+  }
+  fs.mkdirSync(dataDir(), { recursive: true });
+  fs.writeFileSync(secretsPath(), text, { mode: 0o600 });
+  cached = null;
 }

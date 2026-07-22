@@ -33,3 +33,18 @@ export function validatePasswordStrength(password: string): string | null {
   }
   return null;
 }
+
+/**
+ * Backup-passphrase policy — deliberately stricter than the login password rule:
+ * an encrypted backup carries the master key + every credential, so require length
+ * ≥12 with at least one uppercase letter, one number, and one symbol. Returns an
+ * error string, or null if acceptable.
+ */
+export function validateBackupPassphrase(passphrase: string): string | null {
+  if (passphrase.length < 12) return "Passphrase must be at least 12 characters long.";
+  if (passphrase.length > 200) return "Passphrase is too long.";
+  if (!/[A-Z]/.test(passphrase)) return "Passphrase needs at least one uppercase letter.";
+  if (!/[0-9]/.test(passphrase)) return "Passphrase needs at least one number.";
+  if (!/[^A-Za-z0-9]/.test(passphrase)) return "Passphrase needs at least one symbol.";
+  return null;
+}

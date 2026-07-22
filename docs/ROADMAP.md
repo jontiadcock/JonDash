@@ -5,7 +5,7 @@
 
 ## How to read this roadmap
 
-- **Stable IDs.** Every item has a permanent ID (`SEC-03`, `MOD-01`, …). An ID never
+- **Stable IDs.** Every item has a permanent ID (`SEC-04`, `MOD-01`, …). An ID never
   changes even if priority does, so it's always safe to reference. Categories:
   - **SEC** — security & access control
   - **MOD** — modules & customization platform
@@ -41,33 +41,61 @@ Built one at a time, each via the per-item workflow (plan → preview → review
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
 **Now**
-- _Nothing actively in progress. Next queued item: **SEC-03**._
+- ✅ **MOD-01 — Module framework** — **P1–P3 shipped (v1.4.0-beta.1 → beta.6).**
+  Plug-and-play modules, installed + updated from a git source **independently of the base app**,
+  **permission-gated** (app-store-style consent) with an **install-time verifier**, bulk install, per-module
+  RBAC via Service Groups, and per-user resizable dashboard widgets. Full detail in the MOD-01 catalog entry.
+  _(Also shipped: OPS-12 v1.3.7-beta.1, OPS-11 v1.3.6-beta.1.)_ **Next: SEC-04.**
 
 **Next — security & access control**
-1. ⏳ **SEC-03 — Country allow / deny (GeoIP)**
-2. ⏳ **SEC-04 — Session lifecycle hardening**
-3. ⏳ **SEC-05 — Trusted-IP auto-login**
+1. ⏳ **SEC-04 — Session lifecycle hardening**
+2. ⏳ **SEC-05 — Trusted-IP auto-login**
 
 **Then — modules & customization platform**
-5. ⏳ **MOD-01 — Module / feature framework**
-6. ⏳ **MOD-02 — Health monitoring (module, Phase 1: status)**
+5. ✅ **MOD-01 — Module / feature framework** — P1–P3 shipped through v1.4.0-beta.6; detail in the catalog
+6. ▶️ **MOD-02 — Health monitoring (module, Phase 1: status)** — built + published by the add-ons session
+   (`health-monitor/v0.0.1-beta.1`, beta channel); install verified end to end
 7. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
 8. ⏳ **MOD-04 — Live widgets + arrangeable layout**
 9. ⏳ **MOD-05 — Official Addons page**
 
 **Planned — slot in as decided (not tied to the sequence above)**
-- ⏳ **OPS-01 — Shrink install footprint**
-- ⏳ **OPS-02 — Email + self-service password reset** — unlocks MOD-03 and CORE-01 email
+- ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
+- ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security sections, General on top
+- ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+- ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+- ✅ **OPS-10 — Launcher supervisor: crash capture + auto-backup & revert** — shipped v1.3.5-beta.1 (fixed BUG-10; added the auto-install-updates checkbox)
+- ✅ **OPS-11 — Update grace screen + Server power (restart/shutdown) + full sign-out on restart** — shipped v1.3.6-beta.1 (follow-on to OPS-10; `/api/health` probe, `ServerWaitOverlay`, `/admin/server`, pre-auth cookie tied to `SERVER_BOOT_TIME`)
+- ✅ **OPS-12 — Full server backup + selective restore (+ BUG-04 TOTP fix)** — shipped v1.3.7-beta.1. Export is always full (all tables + whole settings table + `.data` config + master key + icons; sensitive only in an encrypted, strong-passphrase backup); restore is selective and adopts the backup's key so TOTP/email survive migration. `lib/backup.ts` v3, `lib/config-backup.ts`, `validateBackupPassphrase`. Fixes BUG-04.
 
 **Backlog**
-- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-03/SEC-05, which share the trusted-proxy XFF prereq)
+- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-05, which shares the trusted-proxy XFF prereq)
 - 🧊 **CORE-01 — "No / low recovery codes" reminder**
+- 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity.)_
 
 **Someday — big conversions**
 - 🌅 **MOD-06 — Third-party addons**
+- 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; module framework must allow adding it later
 - 🌅 **OPS-03 — VHD appliance**
+
+_Retired (owner decision 2026-07-21): **SEC-03** (Country allow / deny, GeoIP) and **OPS-09** (SMTP
+provider presets + auth-type clarity) were dropped — their IDs are retired, not reused. **CORE-03**
+(mobile / responsive support) moved to **Ongoing maintenance** below._
+
+---
+
+## Ongoing maintenance
+
+Continuous quality work — handled as part of normal development, not scheduled as build-queue
+milestones (no feature ID).
+
+- **Mobile / responsive support** (moved from CORE-03, 2026-07-21) — keep the app usable and tidy at
+  phone/tablet widths as features ship: sanity-check new pages/forms at ~375px, sensible tap targets,
+  wide tables scroll within their wrapper, the header doesn't crowd or scroll sideways. Baseline is the
+  v1.3.2-beta.1 header/spacing polish (user-confirmed "significantly better" 2026-07-21); treat
+  regressions as bugs.
 
 ---
 
@@ -85,17 +113,16 @@ Delegate specific admin powers to a normal USER without granting full ADMIN.
   admin area opens to anyone with ≥1 capability; nav shows only permitted sections.
 - **Kept ADMIN-only:** managing/assigning access roles, creating/acting-on ADMIN accounts,
   backup **restore** (export is delegable). Anti-escalation guards throughout. +10 tests.
+- **v1.3.4-beta.1:** capability set grown to **9** — added `network.manage` + `email.manage` so the
+  new Network & HTTPS and Email admin areas are delegable (they were incidentally ADMIN-only), and
+  `settings.manage` now also covers the Updates page. Standing rule: keep `PERMISSIONS`/`ADMIN_SECTIONS`
+  in sync with the admin surface as sections are added.
 
 #### SEC-02 · IP allow / deny — 🧊 Backlog (deprioritised 2026-07-20)
 Restrict access to chosen IP/CIDR ranges, blocked before login (proxy-enforced). Mode:
 allowlist (default deny) or denylist. Clear "you could lock yourself out" warning.
 - **Prereq:** strict trusted-proxy `X-Forwarded-For` parsing — the client IP must come from a
   known reverse proxy or it's spoofable.
-
-#### SEC-03 · Country allow / deny (GeoIP) — ⏳
-Allow/block by country of the client IP. External **free** geo-IP API with **automatic
-failover** to backup provider(s) + caching. Enforced server-side at the session/login guard.
-(Lookups are external, so visitor IPs are sent to the provider; cache + pick privacy-reasonable providers.)
 
 #### SEC-04 · Session lifecycle hardening — ⏳
 Token rotation on privilege change (review finding #5). Idle timeout already shipped (v1.0.2).
@@ -115,17 +142,102 @@ prevention, signed-update verification, durable (Redis) rate-limit.
 
 ### MOD — Modules & customization platform
 
-#### MOD-01 · Module / feature framework — ⏳
-The plumbing that lets features & widgets plug into the core without forking.
-- DB-backed registry; a **"Features"** admin tab with on/off switches; a first-run "Do you
-  want to enable these features?" prompt; **admin-only** (later gated by a SEC-01 capability).
-- **Extension points:** core pages iterate a registry to render registered widgets/panels;
-  module pages via one catch-all `/addons/[module]/[...]`. `Module` table (`key`, `name`,
-  `version`, `enabled`, `configJson`, `installedAt`).
-- **Contract:** a `ModuleDefinition` interface (id, version, minAppVersion, register()
-  hooks, settings schema, migrations) — designed from day one for external authors.
-- **Install model:** modules ship in-repo (or via auto-update); "install" = enable +
-  configure + run migrations. No arbitrary remote code (safest for a security app).
+#### MOD-01 · Module framework — ▶️ In progress (Phase 1 shipped v1.4.0-beta.1; P2 next)
+Plug-and-play **modules** that plug into the core with a hard **isolation guarantee** (the baseline app is
+never affected — "remove the app, the phone is fine"), **installed & updated over public git independently
+of the base app**, and **permission-gated** at install. Full design in the **[[jondash-module-framework]]**
+memory; authored per the approved plan. Key points:
+- **Isolation:** the core **never imports a module** — only a build-time **generated registry**
+  (`scripts/gen-modules.mjs` scans a gitignored, update-preserved `modules/` dir). Zero modules ⇒ the app is
+  its current self. Enable/disable = instant DB flag; install/update/uninstall = fetch/delete + rebuild +
+  restart (reuse OPS-11 grace screen; launcher rebuilds on module-set/version change).
+- **Contract:** `modules/<id>/module.ts` exports a `ModuleDefinition` (id, name, version, minAppVersion,
+  **permissions[]**, settings schema, `DashboardWidget?`/`Page?`/`SettingsPanel?`, SQL `migrations?`, lifecycle
+  hooks). `Module` + `ModuleRecord` + `ModuleMigration` core tables.
+- **Data (hybrid):** settings via the existing Setting store (`scope=module`, encrypted secrets, auto-form);
+  a generic per-module KV/JSON store; **bespoke tables via module-carried raw-SQL migrations** namespaced
+  `mod_<id>_*` (a scoped raw-SQL helper, not the core Prisma client — enables independent updates).
+- **Permissions & consent:** manifest declares needs — as shipped the taxonomy is exactly
+  **`network:outbound`, `crypto:use`, `audit:write`, `email:send`** (v1.4.0-beta.11 removed the nine that
+  were declared but never wired to a capability, so a consent screen can't overstate; each returns with the
+  capability that implements it). Install/enable shows a plain-language **permission warning screen**; grants
+  stored on the `Module` row; the framework hands each module a **capability-scoped `ModuleContext`** exposing
+  only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
+  (consent + scoped context for **curated** modules; real sandboxing for untrusted third-party = MOD-06).
+- **Sources + sideload:** a module **source** = a public git repo with a manifest. Default = an official
+  **`JonDash-addons`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
+  then pick a module to install. Each module has its **own version/manifest** — updates without a base update.
+  The admin can **also import their own module package** (sideload a ZIP — **no repo/app-store required**;
+  permission-consented like any install). Build-your-own is documented with a paste-in **AI-agent prompt**.
+- **Extension points (v1):** settings panel (in a new **Modules** settings group), dashboard widget, and
+  own pages via one catch-all `/m/<id>/…`. Auth reused via guards + a new **`modules.manage`** capability.
+- **Deliverable — 3rd-party author guide:** a public `docs/MODULES-AUTHORING.md` covering the contract,
+  **permission list + etiquette**, versioning **cadence**, and **how to structure a module repo** to the
+  framework's requirements. Plus each module carries a self-cleaning `modules/<id>/MODULE.md`.
+- **Phasing:** **P1 ✅ shipped v1.4.0-beta.1** — framework core + a bundled `sample`
+  module (**since removed** — a real module now exists; upgrading installs auto-prune its leftovers):
+  `lib/modules/*` (types, registry, store, migrate, context, permissions, manage),
+  `Module`/`ModuleRecord`/`ModuleMigration` tables, enable/disable/uninstall, settings + generic store +
+  raw-SQL `mod_<id>_*` migrations, permission consent + capability-scoped context, `modules.manage`
+  capability, admin **Modules** page (`/admin/modules` + `[id]` settings), dashboard widget area + `/m/<id>`
+  catch-all page. typecheck/lint/build clean, 5 module tests (102 total), live boot OK.
+- **P2 — sources, lifecycle UI, RBAC & live widgets** — ▶️ **in progress. Chunk A ✅ shipped v1.4.0-beta.2:**
+  `ModuleSource` table + `Module.channel`, GitHub manifest fetch with strict validation
+  (`lib/modules/sources.ts`), admin **Sources** + **Browse** pages, and the **per-module opt-into-beta**
+  toggle — verified against the live addons repo on both channel branches.
+  **Chunk B ▶️ in progress:** **codegen registry ✅** (`scripts/gen-module-registry.mjs` → `lib/modules/generated.ts`,
+  run by `prebuild`/`pretest`/`pretypecheck`) so **installing a module no longer needs a core edit** — verified
+  end-to-end by building the real health-monitor module; `modules` added to `update.mjs`/`rollback.mjs`
+  **PRESERVE** (an app update would otherwise have **deleted every installed module**) and `/modules/*`
+  gitignored as user content. **Chunk B ✅ shipped v1.4.0-beta.3** — install from a pinned tag archive, the
+  **install-time verifier** (permission-vs-code + banned constructs + archive hygiene; defence-in-depth,
+  *not* a sandbox), uninstall removing files, import-your-own ZIP, and launcher rebuild-on-module-change with
+  auto-recovery. **v1.4.0-beta.4** added module **provenance** at install — fixing a **data-loss risk** where
+  every module was labelled `bundled`, leaving the prune guard that protects installed modules inert — plus
+  the per-module channel. **v1.4.0-beta.5** added **bulk install** (select several, one rebuild/restart per
+  batch, batch rolls back together on failure) and a **restart confirmation** before any
+  install/import/uninstall. **v1.4.0-beta.6 completes P2:** **module RBAC via Service Groups**
+  (`lib/modules/visibility.ts` — no groups = everyone, groups = members only, admins always; enforced at BOTH
+  the dashboard widget list and the `/m/<id>` route, not just hidden in the UI), **per-user resizable +
+  movable widgets** (`ModuleLayout` table + `lib/modules/layout.ts`; width/height 1–3 and order saved per
+  user, explicit controls rather than drag-and-drop — no new dependency, works on touch and keyboard),
+  **custom module icons** (`icon` on the definition), and a **multiline `"text"` settings field**. The
+  **Module-admin role** needed no new work: `modules.manage` was already a delegable Access Role capability
+  and now covers group assignment too. Widget-size guidance is documented in `docs/MODULES-AUTHORING.md`.
+  Full P2 scope (all now delivered): git **sources** (default `JonDash-addons` repo +
+  add-by-URL) + **install / update / uninstall / import (sideload ZIP) UI** + independent updates + launcher
+  rebuild-on-module-change (brick-risk, plan+review); **per-module release channels** — every module has its
+  own **stable/beta** channel with an *"opt into beta releases for this module"* toggle in that module's
+  settings, **independent of JonDash's own app channel** (chosen channel stored on the `Module` row); backed by
+  the addons repo's `main`=stable / `beta` branches + per-add-on `<id>/v<version>` tags — scheme documented in
+  **`JonDash-addons/VERSIONING.md`**; a **"Module admin" role** — a delegable capability
+  (extend `modules.manage` to cover add / remove / edit / update / import + assigning modules to groups) so a
+  non-full-admin can manage modules, surfaced as a ready-made Access Role; **module RBAC** — a module can be
+  **assigned to Service Groups** so non-admins see its widget/page (reuse `getUserVisibleLinks` / `canViewLink`,
+  exactly like services); **resizable + movable live widgets** on the dashboard with **size + position saved per user**; a
+  module may ship a **custom, designable icon**; and the **widget-size-affects-appearance** guidance is
+  documented (authors design responsively — a small widget = compact view, larger = more detail).
+- **P3 — Module runtime APIs ("make add-ons actually work")** — ✅ **built 2026-07-22, awaiting release.**
+  Without these a module can render but do nothing: no working buttons, no email, and background work
+  misattributed to a random admin. Added: **`moduleAction(id, handler)`** — the sanctioned mutation entry
+  point (module must be installed + enabled, caller authenticated, full admin when `adminOnly`, ctx scoped to
+  granted permissions, throws rather than silently no-op'ing); **`ctx.email.send()`** under `email:send`
+  (throws on failure so a module can't silently not send); **`systemModuleContext(id)`** for pollers/schedulers
+  so background audit entries aren't attributed to whoever loaded a page first; **`ctx.net.ping()`** under
+  `network:outbound` — ICMP belongs in core because it needs the OS `ping` binary, which the verifier bans in
+  modules, so the hardening (strict host validation, `execFile`, no shell, clamped timeout) lives once in
+  trusted code. Consent wording for `network:outbound` widened to disclose raw TCP/DNS/TLS/ping. **Modules may
+  import exactly two core paths — `@/lib/modules/types` (types, client-safe) and `@/lib/modules/api` (runtime);
+  everything else arrives on `ctx`** and the verifier refuses it. 118 tests.
+- **P4 — MOD-02 Health monitoring** as the first real module: a live, resizable status widget with per-service
+  graphs/red-drops, a full self-contained module page (the "open the app" view), and a custom live icon.
+- **P5 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
+
+#### MOD-07 · Modifications (core-modifying add-ons) — 🌅 Reserved (future; keep the door open)
+A **later** category distinct from modules: **"modifications"** that *can modify the base app itself* (not
+just add alongside it) — higher trust, more invasive. **Not built now** (base app is the focus), but the
+module framework must be designed so this can be added later (e.g. a separate `ModificationDefinition` with
+elevated, explicitly-consented `core:*` permissions + core extension/override hooks). Reserved 2026-07-21.
 
 #### MOD-02 · Health monitoring (first module) — Phase 1: status only — ⏳
 - Per-service checks: **HTTP(S)** (status + latency) and **TCP port** (raw connect).
@@ -144,8 +256,13 @@ The plumbing that lets features & widgets plug into the core without forking.
 Outbound **webhook** and/or **SMTP email** on down/up state-change; secrets stored as
 encrypted `Setting`s.
 
-#### MOD-04 · Live widgets + arrangeable layout — ⏳
-Widgets showing live data (crypto, PC temps, service status) on a dashboard you arrange yourself.
+#### MOD-04 · Arrangeable dashboard — resizable + movable tiles & widgets (per-user) — ⏳
+Make the whole dashboard user-arrangeable: **both core service tiles/icons AND module widgets can be resized
+and moved**, with the **layout + each widget's size saved per user** (my arrangement doesn't change yours).
+Live-data widgets (crypto, PC temps, service status) render at the chosen size. **Widget size changes what a
+widget shows** — the framework + author guide document responsive sizing (small = compact/glanceable, large =
+detailed). Builds on the MOD-01 Phase 2 resizable-module-widget contract; MOD-04 is the full drag-to-arrange
+dashboard for tiles + widgets together. (The user's "resize + movable icons/services" request lands here.)
 
 #### MOD-05 · Official Addons page — ⏳
 Curated **registry manifest** (JSON, hosted in-repo): `id`, `name`, `description`, `version`,
@@ -230,11 +347,84 @@ diagnostics.
 - **No sensitive data:** logs must never contain the encryption key, `.env`/secrets, passwords,
   tokens, session tokens, or DB contents — redact anything sensitive. **Gitignore `logs/`** (never pushed).
 
+#### OPS-06 · Optional skip of browser auto-open on launch — 🧊 Backlog (reclassified from BUG-06, 2026-07-20)
+An improvement, not a defect: `start-dashboard.bat` opens the browser on first launch
+(`start "" "%DISPLAYURL%"`) with no way to disable it for a headless / remote-server setup. Add an
+opt-out the launcher checks before opening — a `.data` flag, a launcher argument, or an env var
+(e.g. `JONDASH_NO_BROWSER`).
+
+#### OPS-07 · Bring-your-own certificate: guidance + validate/upload, or OS cert store — ⏳
+Make the BYO-cert path (Admin → Network & HTTPS) friendlier and safer to configure. Extends OPS-05.
+- **Brief how-to inline on the page** — what the certificate + private key (PEM) are, where to get
+  them, and exactly which field is which (leaf + chain, and the key), with a link to fuller docs.
+- **Upload + validate before applying** — let the admin **upload** the cert/key files (not only
+  point at a path), then **confirm the pair is usable**: parse the PEM, check the private key matches
+  the certificate, and surface issuer, subject/SANs and validity dates (warn on expired /
+  not-yet-valid / self-signed). `lib/tls/network.ts` already `createSecureContext`-validates a BYO
+  cert (pass/fail); extend it to report these details back to the UI.
+- **Optional — pick from the OS personal certificate store** (Windows "Personal"/`My`) if feasible:
+  enumerate installed certs that have a private key and let the admin select one instead of PEM
+  files. Node has no first-class cert-store access, so **spike feasibility first** (a PowerShell /
+  `certutil` bridge, or a native module) before committing.
+- Keep the 0600 posture for any uploaded key material and never log it (OPS-04 redaction).
+
+#### OPS-08 · Let's Encrypt: process-oriented progress feedback — ⏳
+Today enabling Let's Encrypt saves the config and issuance happens on the next restart, with only a
+status panel to poll. Make it feel like a **guided process**: a step-by-step progress UI during
+issuance — e.g. "Saving configuration → Requesting certificate → Answering the HTTP-01 challenge →
+Certificate issued → Switching to HTTPS" — with a "this can take a minute" note, working/among-steps
+indicators, and a clear success/failure end state that surfaces the ACME error text on failure.
+Drive it off the ACME lifecycle already in `lib/tls/acme.mjs` + the cert-status state; likely needs a
+small progress/status endpoint the Network page polls. Pairs with OPS-07 (both polish the Network &
+HTTPS page).
+
+#### OPS-10 · Launcher supervisor: crash capture + auto-backup & revert — ✅ Shipped v1.3.5-beta.1 (beta)
+**Shipped v1.3.5-beta.1:** `scripts/supervise.mjs` (tees server output to `logs/server-*.log`, restarts
+on an unexpected crash, crash-loop guard → exit codes the `.bat` branches on), `scripts/rollback.mjs`
+(snapshot/restore/mark-failed), backup-before-update + auto-revert in `start-dashboard.bat`, an
+opt-in **auto-install-updates** checkbox (default off) + a "last update failed, rolled back" admin
+notice (`lib/update-prefs.ts`). Fixes BUG-10. Original spec below:
+
+The "next 2 things for a beta," built on a proper launcher **supervisor** (which also fixes BUG-10):
+1. **Auto-backup before an update** — snapshot the current, known-good install (the code the updater
+   is about to overwrite — not user data, which is already preserved) so there's always a last-good
+   package to fall back to.
+2. **Auto-revert on a failed update / crash** — if the newly-installed version **fails to start or
+   crashes on boot**, the supervisor restores the backed-up last-good package and relaunches instead
+   of leaving the server down. **Marker-guarded** (revert once, then stop with a clear message — no
+   loop), mirroring OPS-04's recovery guard.
+- **Foundation — fix first (BUG-10):** make a **supervisor** the launcher's first action. It spawns
+  `server.mjs`, **tees the server's stdout/stderr + exit code into `logs/`** (so a *runtime* crash is
+  actually captured — today it isn't), detects an unexpected exit to trigger revert/restart, and
+  **exits cleanly when the server is stopped or the console window is closed** (Windows CTRL_CLOSE).
+  Real crash detection is the prerequisite for "revert on crash" to work at all.
+- **Design notes:** the current updater (`scripts/update.mjs`) copies over in place with **no rollback
+  point** — OPS-10 adds the pre-update snapshot + restore. Keep the snapshot lightweight (exclude
+  `node_modules`/`.next`/user data, which regenerate or are preserved). Ties into OPS-04 (self-heal)
+  and the auto-update flow. **A launcher change carries brick-risk — plan + review before building.**
+
 ### CORE — Core app & UX
 
 #### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
 Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
 accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
+
+#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ▶️ Shipped v1.3.3-beta.1 (beta)
+Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
+**Shipped v1.3.3-beta.1:** desktop left sidebar (`app/admin/admin-sidebar.tsx`) titled "Settings" with
+**General** on top, **Server settings** (Updates, Backup, Network & HTTPS, Email) and **Security**
+(Users, Service Groups, Sessions, Audit, Access Roles); Updates moved to its own `/admin/updates` page
+(off the General/Settings page); capability-gating preserved (empty groups dropped); the mobile view
+keeps the "Menu ▾" dropdown (sidebar is `md`+ only). Verified at desktop + 375px. Original spec below:
+- **Move the nav to a left sidebar** (from today's top "Menu ▾" dropdown, `app/admin/admin-nav.tsx`)
+  and **rename the "Admin" area to "Settings."**
+- **"General" as the top item** (standalone, first) — the current Settings page (sign-in message etc.).
+- **Group the rest into sub-categories:**
+  - **Server settings** — Updates (moved here from its current spot), Backup, Network & HTTPS, Email.
+  - **Security** — Audit log, Sessions, Users, Service Groups (and Access Roles).
+- **Preserve capability-gating:** a delegate still sees only the sections their Access Role permits
+  (`ADMIN_SECTIONS` / `allowedSections`), now rendered grouped in the sidebar; full-admin-only
+  sections (Network, Email, Access Roles) stay ADMIN-only. Landing page = `firstPermittedAdminPath`.
 
 ---
 
@@ -248,13 +438,29 @@ practical. Stable `BUG-##` IDs.
 _None currently._
 
 ### 🟠 High
-_None currently._
+- **BUG-04 (fixed v1.3.7-beta.1 — OPS-12) · Restoring a backup broke the authenticator (TOTP).** After a
+  restore, users couldn't sign in with their authenticator app, though one-time backup codes did.
+  **Cause:** TOTP secrets are stored **encrypted** (`totpSecretEnc`) with the per-install AES key in
+  `.data/secrets.json`, which wasn't in the backup — a different install decrypted them with a different
+  key and verification failed. **Fix (OPS-12):** an **encrypted** backup now carries the master key;
+  restoring **Users** adopts it (`writeSecretsFileText` + in-process `reloadEncryptionKey`) so TOTP + email
+  decrypt again with no restart. Covered by a real-authenticator round-trip test (K1→K2→adopt-K1). Logged
+  2026-07-20; fixed + shipped 2026-07-21 (v1.3.7-beta.1).
 
 ### 🟡 Medium
-_None currently._
+- **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
+  a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
+  self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already
+  running. **Fix:** a single-instance guard at launch — e.g. a `.data/launcher.lock` (PID + staleness
+  check) or a "is the configured port already listening?" probe — and exit with a clear "JonDash is
+  already running" message instead of proceeding. Logged 2026-07-20.
 
 ### 🟢 Low
 _None currently._
+
+_(BUG-08 "Email OAuth2 option isn't discoverable" was removed 2026-07-20 — the option does exist
+behind the Authentication dropdown, judged not a defect. BUG-06 "skip browser auto-open" was
+reclassified as an improvement → **OPS-06** in the catalog.)_
 
 ### ✅ Fixed
 - **BUG-01 (High) · Backup silently omitted icons — fixed v1.2.4.** Backups are now a **compressed
@@ -264,6 +470,45 @@ _None currently._
 - **BUG-02 (Medium) · Icon upload / restore over ~1 MB crashed — fixed v1.2.4.** Raised the Server
   Actions `bodySizeLimit` to `10mb` and added client-side size pre-checks with a friendly message
   (icon uploads and backup restore), so an oversized file no longer triggers an unhandled 413 crash.
+- **BUG-05 (Medium) · Network page rejected a valid port in Off mode — fixed v1.3.3-beta.1.**
+  `parseAndSaveNetworkConfig` (`lib/tls/network.ts`) now coalesces a missing/blank port from the
+  existing config before validating, so an Off-mode save (which hides the HTTPS-port field) succeeds
+  instead of coercing `""` → 0. Verified live: Off-mode save returns "Saved — restart to apply."
+- **BUG-09 (Low) · Update-channel toggle showed the old channel until refresh — fixed v1.3.3-beta.1.**
+  `saveUpdateChannelAction` returns the saved channel and the panel shows it immediately. Verified live.
+- **BUG-11 (Low) · Old "website-custom" name in package metadata — fixed v1.3.3-beta.1.** Renamed to
+  `jondash` in `package.json` + `package-lock.json` (npm banners now read `jondash@…`).
+- **BUG-12 (Medium) · "Update now" never auto-reloaded — fixed v1.3.3-beta.1.** The reload poll
+  (`update-banner.tsx` + `settings/updates-panel.tsx`) now treats *any* response as "server's back"
+  once it has first seen it go down, then navigates to `/login` (the restart ends the session), instead
+  of waiting for a 2xx that never comes (the endpoint 403s post sign-out). Code path verified; the full
+  update+restart cycle still wants a live confirmation.
+- **BUG-13 (Medium) · Editing a personal service overflowed on mobile — fixed v1.3.3-beta.1.** The edit
+  form was wedged into the horizontal controls row; `link-list.tsx` now renders it full-width **below**
+  the row (per-row client state; `EditLinkForm` → `EditLinkFields`). Verified: no page overflow at 375px
+  with the form open. Logged + fixed 2026-07-21.
+- **BUG-10 (High) · Launcher didn't recover a *running* server crash — fixed v1.3.5-beta.1.** The
+  launcher now runs the server under a supervisor (`scripts/supervise.mjs`) that captures crash output
+  to `logs/server-*.log`, restarts on an unexpected crash, and gives up cleanly on a boot-crash loop
+  (instead of leaving the server down with no diagnostics). Part of OPS-10.
+- **BUG-14 (High) · Self-update corrupted the launcher mid-write — fixed v1.3.5-beta.2.** `update.mjs`
+  overwrote `start-dashboard.bat` while it was running, so cmd re-read the changed file at a stale byte
+  offset and errored (the `'rites'` error). The apply/rollback + relaunch now run on a single buffered
+  line ending in `exit`, so the script is never re-read while it's being replaced. Reproduced + fixed
+  against cmd.exe. Found from OPS-10 live testing 2026-07-21.
+- **BUG-15 (High) · Supervisor restart-looped on an external stop — fixed v1.3.5-beta.2.** A
+  console-control termination (exit `0xC000013A` — Ctrl+C / window close / an external kill such as
+  antivirus) was treated as a crash and restarted, looping and signing everyone out every 1–3 min. The
+  supervisor now treats control-event / signal / clean exits as a clean stop (exit 0, no restart);
+  only genuine app crashes restart. +2 tests. Found from OPS-10 live testing 2026-07-21.
+- **BUG-16 (Low) · Harmless `session.delete()` error logged by Prisma — fixed v1.3.5-beta.2.** Session
+  cleanup used `delete` on an already-gone row (a restart race); switched to `deleteMany` so Prisma no
+  longer logs an error. Was already caught (benign) — this just removes the console noise.
+- **BUG-17 (Low) · `post-update` rollback marker lingered on a healthy server — fixed v1.3.5-beta.3.**
+  The supervisor only cleared the marker on a crash-after-healthy, so on a server that just kept running
+  it lingered — meaning a much-later unrelated boot-crash could wrongly trigger a rollback of a working
+  version. Now cleared on a healthy-boot timer (~20s uptime). +1 test. Spotted reviewing the user's
+  install logs 2026-07-21.
 
 ### ⛔ Won't fix (upstream)
 - **BUG-03 (Low) · `Buffer()` deprecation warning (DEP0005).** Confirmed **not JonDash code** — it's

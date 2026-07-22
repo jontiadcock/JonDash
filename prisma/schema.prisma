@@ -58,6 +58,7 @@ model User {
   accessRoles AccessRole[] @relation("UserAccessRoles")
 
   @@index([status])
+  moduleLayouts   ModuleLayout[]
 }
 
 // A named bundle of admin capabilities (permissions). Assigning an access role
@@ -95,6 +96,7 @@ model ServiceRole {
 
   users User[] @relation("UserServiceRoles")
   links Link[]
+  modules Module[] @relation("ModuleServiceRoles")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,4 +180,88 @@ model Setting {
   updatedAt DateTime @updatedAt
 
   @@unique([scope, ownerId, key])
+}
+
+// ---- Module framework (MOD-01) ----
+
+// A module's installed state. The module's code lives in modules/<id>/; this row
+// tracks whether it's enabled, the permissions the admin granted at install (JSON
+// array of ModulePermission), and the module version its migrations were applied for.
+model Module {
+  id                 String   @id // the module's stable id = its folder name
+  name               String
+  version            String
+  enabled            Boolean  @default(false)
+  source             String   @default("bundled") // repo URL, or "imported"/"bundled"
+  // Per-module release channel ("stable" | "beta") — deliberately separate from the
+  // app's own update channel, so a user can opt ONE module into beta releases.
+  channel            String   @default("stable")
+  grantedPermissions String   @default("[]")
+  migratedVersion    String?
+  // Service Groups this module is limited to. EMPTY = visible to every signed-in user
+  // (its previous behaviour); assigning groups restricts it to their members. Admins
+  // always see it. Mirrors how service tiles are shared.
+  roles              ServiceRole[] @relation("ModuleServiceRoles")
+  installedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// A module SOURCE: a public git repo publishing an `addons.json` manifest per channel
+// branch (main = stable, beta = beta). The official JonDash-addons repo is seeded as
+// the default source; admins can add their own by URL, or disable/remove any of them.
+model ModuleSource {
+  id        String   @id @default(cuid())
+  name      String
+  url       String   @unique // repo URL, e.g. https://github.com/jontiadcock/JonDash-addons
+  enabled   Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Generic per-module key/value store (no bespoke table needed). Secret rows are
+// encrypted at rest via lib/crypto.
+model ModuleRecord {
+  id        String   @id @default(cuid())
+  moduleId  String
+  key       String
+  valueJson String
+  secret    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([moduleId, key])
+  @@index([moduleId])
+}
+
+// Tracks which of a module's raw-SQL migrations (modules/<id>/migrations/*.sql) have
+// been applied. The tables they create are namespaced mod_<id>_* and dropped on uninstall.
+model ModuleMigration {
+  id        String   @id @default(cuid())
+  moduleId  String
+  filename  String
+  appliedAt DateTime @default(now())
+
+  @@unique([moduleId, filename])
+  @@index([moduleId])
+}
+
+/// Per-user dashboard layout for a module's widget (MOD-04 groundwork): each user sizes
+/// and orders module widgets for themselves, so one person's arrangement never changes
+/// anyone else's. Absent row = the module's default size at the end of the list.
+model ModuleLayout {
+  id        String @id @default(cuid())
+  userId    String
+  moduleId  String
+  /// Width in dashboard grid columns (1 = compact, up to 4 = full width).
+  width     Int    @default(1)
+  /// Height in grid rows (1 = standard, larger = taller).
+  height    Int    @default(1)
+  /// Position on the dashboard; lower sorts first.
+  sortOrder Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
 }

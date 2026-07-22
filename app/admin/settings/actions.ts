@@ -6,10 +6,35 @@ import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import { applySettingsForm, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 import { writeChannel, isChannel } from "@/lib/update-channel";
+import { writeAutoInstall, clearUpdateFailure } from "@/lib/update-prefs";
 
 export type SettingsState = SettingsFormState;
 
-export type ChannelState = { error?: string; ok?: boolean };
+export type ChannelState = { error?: string; ok?: boolean; channel?: string };
+
+export type AutoInstallState = { error?: string; ok?: boolean; autoInstall?: boolean };
+
+/** Toggle whether the launcher auto-installs updates at startup (default off). */
+export async function saveAutoInstallAction(
+  _prev: AutoInstallState,
+  formData: FormData,
+): Promise<AutoInstallState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("settings.manage");
+  const on = formData.get("autoInstall") === "on";
+  writeAutoInstall(on);
+  await audit("settings.auto-update", { userId: admin.id, detail: on ? "on" : "off" });
+  revalidatePath("/admin/updates");
+  return { ok: true, autoInstall: on };
+}
+
+/** Dismiss the "last update failed" notice (clears the rollback marker). */
+export async function dismissUpdateFailureAction(): Promise<void> {
+  await assertSameOrigin();
+  await requirePermission("settings.manage");
+  clearUpdateFailure();
+  revalidatePath("/admin/updates");
+}
 
 /** Choose the update channel (stable = main branch, beta = beta branch). */
 export async function saveUpdateChannelAction(
@@ -24,8 +49,10 @@ export async function saveUpdateChannelAction(
 
   writeChannel(raw);
   await audit("settings.update-channel", { userId: admin.id, detail: raw });
-  revalidatePath("/admin/settings");
-  return { ok: true };
+  revalidatePath("/admin/updates");
+  // Return the saved channel so the client can reflect it immediately — the
+  // client component's `channel` prop wouldn't otherwise update until a reload.
+  return { ok: true, channel: raw };
 }
 
 /** Save the general (non-critical) settings on the Settings page. */
