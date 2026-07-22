@@ -1,4 +1,4 @@
-import type { ModulePermission } from "./types";
+import { helperIdForPermission, type DeclaredPermission, type ModulePermission } from "./types";
 
 /**
  * Install-time module verifier (MOD-01 Phase 2, chunk B).
@@ -27,7 +27,7 @@ export type VerifyResult = {
   ok: boolean;
   issues: VerifyIssue[];
   /** Permissions parsed out of the module's own `module.ts`. */
-  declaredPermissions: ModulePermission[];
+  declaredPermissions: DeclaredPermission[];
   /** Helper ids parsed out of the module's own `module.ts`. */
   declaredHelpers: string[];
 };
@@ -36,11 +36,14 @@ export type VerifyResult = {
  * Permissions that only a HELPER can provide (MOD-08). A module may declare one only if
  * it also declares a helper that provides it — the helper does the privileged work, the
  * admin approved the effect, and the module never touches the primitive itself.
+ *
+ * There is deliberately NO list of them here. The namespace IS the helper id, so
+ * `filesystem:write` requires the `filesystem` helper and `backup:restore` requires
+ * `backup` — derived by `helperIdForPermission`, never a table that can drift out of step
+ * with what helpers actually publish. (It used to be a hardcoded `files:read`/`files:write`
+ * map, which is exactly the coupling that stopped a new helper naming its own capability
+ * without a core release.)
  */
-export const HELPER_PROVIDED_PERMISSIONS: Record<string, string> = {
-  "files:read": "filesystem",
-  "files:write": "filesystem",
-};
 
 /** Files a module may contain. Anything else (executables, archives, …) is refused. */
 export const ALLOWED_EXTENSIONS = new Set([
@@ -162,13 +165,14 @@ function coreImportsIn(src: string): string[] {
  * Permissions declared in the module's own `module.ts`. Parsed rather than executed —
  * the point is to check the code before it ever runs.
  */
-export function parseDeclaredPermissions(moduleSource: string): ModulePermission[] {
+export function parseDeclaredPermissions(moduleSource: string): DeclaredPermission[] {
   const m = /permissions\s*:\s*\[([\s\S]*?)\]/.exec(moduleSource);
   if (!m) return [];
-  const out: ModulePermission[] = [];
-  const re = /["']([a-z]+:[a-z:]+)["']/g;
+  const out: DeclaredPermission[] = [];
+  // Core (`crypto:use`) and helper-namespaced (`filesystem:write`, `my-helper:read`) both.
+  const re = /["']([a-z0-9][a-z0-9-]*:[a-z][a-z0-9:-]*)["']/g;
   let hit: RegExpExecArray | null;
-  while ((hit = re.exec(m[1]))) out.push(hit[1] as ModulePermission);
+  while ((hit = re.exec(m[1]))) out.push(hit[1]);
   return [...new Set(out)];
 }
 
@@ -191,7 +195,7 @@ export function parseDeclaredHelpers(moduleSource: string): string[] {
 export function verifyModuleFiles(
   moduleId: string,
   files: { path: string; text?: string; bytes: number }[],
-  manifestPermissions?: ModulePermission[],
+  manifestPermissions?: DeclaredPermission[],
 ): VerifyResult {
   const issues: VerifyIssue[] = [];
   const add = (file: string, rule: string, detail: string) => issues.push({ file, rule, detail });
@@ -231,7 +235,7 @@ export function verifyModuleFiles(
   // and allowing it un-backed would put a capability on the consent screen that nothing
   // can actually deliver.
   for (const p of declaredPermissions) {
-    const needs = HELPER_PROVIDED_PERMISSIONS[p];
+    const needs = helperIdForPermission(p);
     if (needs && !declaredHelpers.includes(needs)) {
       add(
         "module.ts",

@@ -165,8 +165,14 @@ import { raw } from "@/helpers/filesystem/lib/fs";`;
     expect(res.issues.map((i) => i.rule)).toContain("helper-internals");
   });
 
+  /**
+   * 1.5.1: which helper backs a permission is DERIVED from its namespace, not looked up in
+   * a hardcoded map. `filesystem:write` needs the `filesystem` helper because the namespace
+   * says so — which is what lets a new helper name its own capability without a core
+   * release. The old map (`files:read`/`files:write` → `filesystem`) is gone.
+   */
   it("refuses a helper-provided permission without the helper that provides it", () => {
-    const noHelper = verify([MODULE_TS(["files:write"])]);
+    const noHelper = verify([MODULE_TS(["filesystem:write"])]);
     expect(noHelper.ok).toBe(false);
     expect(noHelper.issues.map((i) => i.rule)).toContain("missing-helper");
 
@@ -174,10 +180,37 @@ import { raw } from "@/helpers/filesystem/lib/fs";`;
 import type { ModuleDefinition } from "@/lib/modules/types";
 const mod: ModuleDefinition = {
   id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
-  permissions: ["files:write"], helpers: ["filesystem"],
+  permissions: ["filesystem:write"], helpers: ["filesystem"],
 };
 export default mod;`;
     expect(verify([{ path: "module.ts", bytes: 300, text: withHelper }]).ok).toBe(true);
+  });
+
+  it("derives the helper from the namespace — no core edit for a NEW helper's capability", () => {
+    // A helper core has never heard of. Nothing in core lists `backup:restore`; the rule
+    // still holds purely from the namespace. This is the whole point of the feature.
+    const missing = verify([MODULE_TS(["backup:restore"])]);
+    expect(missing.ok).toBe(false);
+    expect(missing.issues.map((i) => i.rule)).toContain("missing-helper");
+    expect(missing.issues.find((i) => i.rule === "missing-helper")?.detail).toContain("backup");
+
+    const declared = `
+import type { ModuleDefinition } from "@/lib/modules/types";
+const mod: ModuleDefinition = {
+  id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.1",
+  permissions: ["backup:restore"], helpers: ["backup"],
+};
+export default mod;`;
+    expect(verify([{ path: "module.ts", bytes: 300, text: declared }]).ok).toBe(true);
+  });
+
+  it("does not mistake a CORE permission for a helper-provided one", () => {
+    // `crypto:use` is namespaced-looking but core implements it — it must never demand a
+    // "crypto" helper. This is the regression that would break every existing module.
+    for (const p of ["network:outbound", "crypto:use", "audit:write", "email:send"]) {
+      const res = verify([MODULE_TS([p])]);
+      expect(res.issues.map((i) => i.rule), p).not.toContain("missing-helper");
+    }
   });
 
   it("enforces archive hygiene: file types, traversal and size", () => {

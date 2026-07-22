@@ -1,4 +1,4 @@
-import type { ModuleDefinition, ModulePermission } from "./types";
+import type { DeclaredPermission, ModuleDefinition } from "./types";
 
 /**
  * Module permission grants (MOD-01). Consent is all-or-nothing: the admin reviews the
@@ -7,15 +7,15 @@ import type { ModuleDefinition, ModulePermission } from "./types";
  */
 
 /** The permissions granted when a module is enabled (its declared set, de-duped). */
-export function grantsForModule(def: ModuleDefinition): ModulePermission[] {
+export function grantsForModule(def: ModuleDefinition): DeclaredPermission[] {
   return [...new Set(def.permissions)];
 }
 
 /** Parse the JSON grant list stored on the Module row. */
-export function parseGrants(json: string): ModulePermission[] {
+export function parseGrants(json: string): DeclaredPermission[] {
   try {
     const arr = JSON.parse(json);
-    return Array.isArray(arr) ? (arr as ModulePermission[]) : [];
+    return Array.isArray(arr) ? (arr as DeclaredPermission[]) : [];
   } catch {
     return [];
   }

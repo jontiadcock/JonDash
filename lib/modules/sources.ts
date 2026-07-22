@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { PERMISSION_WARNINGS, type ModulePermission } from "./types";
+import { helperIdForPermission, isValidPermission, type DeclaredPermission } from "./types";
 import { getAllModules } from "./registry";
 
 /**
@@ -11,8 +11,10 @@ import { getAllModules } from "./registry";
  *
  * Everything fetched here is UNTRUSTED remote JSON, so the manifest is strictly
  * validated and sanitised before it reaches the rest of the app: ids must be safe
- * slugs, versions semver-shaped, permissions must exist in our taxonomy, and paths
- * may not escape `addons/<id>`. Invalid entries are dropped rather than trusted.
+ * slugs, versions semver-shaped, permissions well-formed, and paths
+ * may not escape `addons/<id>`. Invalid entries are dropped rather than trusted — EXCEPT
+ * where dropping would hide a capability from the admin (permissions, a helper's
+ * `provides`), which refuses the whole entry instead.
  */
 
 export const DEFAULT_SOURCE_URL = "https://github.com/jontiadcock/JonDash-addons";
@@ -31,13 +33,29 @@ export type SourceModuleEntry = {
   description: string;
   version: string;
   minAppVersion: string;
-  permissions: ModulePermission[];
+  permissions: DeclaredPermission[];
   /** Helper ids this module needs; installed alongside it and shown before you confirm. */
   helpers: string[];
   path: string;
   tag: string;
   /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
   notes?: string;
+};
+
+/**
+ * One capability a helper advertises in the manifest: the permission id a consuming
+ * module must declare, and the sentence shown to the admin before anything is installed.
+ *
+ * The label is authored by the HELPER, which is only safe because helpers are
+ * first-party-only — a third-party source can never inject consent text (see
+ * `fetchSourceManifest`). Trusting a one-line description from code you already trust to
+ * spawn processes is not a larger ask.
+ */
+export type SourceHelperCapability = {
+  /** `<helperId>:<verb>`, namespaced to the helper that provides it. */
+  id: string;
+  /** Plain-language effect, e.g. "Read and write files in folders you choose". */
+  label: string;
 };
 
 /**
@@ -51,8 +69,13 @@ export type SourceHelperEntry = {
   description: string;
   version: string;
   minAppVersion: string;
-  /** Permissions it provides to consuming modules; drives the consent roll-up. */
-  provides: ModulePermission[];
+  /**
+   * Capabilities it provides to consuming modules, each with the wording an admin reads
+   * — this drives the consent roll-up at BROWSE time, where no helper code has been
+   * downloaded and no config exists, so `describe(config)` cannot run. The live,
+   * config-aware sentence comes from the helper itself once installed.
+   */
+  provides: SourceHelperCapability[];
   path: string;
   tag: string;
   notes?: string;
@@ -73,7 +96,6 @@ const MAX_MANIFEST_BYTES = 512 * 1024; // a manifest is small; refuse anything s
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9a-z.]+)?$/i;
-const VALID_PERMISSIONS = new Set(Object.keys(PERMISSION_WARNINGS));
 
 /** Parse a GitHub repo URL into owner/repo. Returns null if it isn't one we support. */
 export function parseRepoUrl(raw: string): { owner: string; repo: string } | null {
@@ -108,9 +130,14 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
   const version = typeof e.version === "string" ? e.version.trim() : "";
   if (!SEMVER_RE.test(version)) return null;
 
-  const permissions = Array.isArray(e.permissions)
-    ? (e.permissions.filter((p): p is ModulePermission => typeof p === "string" && VALID_PERMISSIONS.has(p)))
-    : [];
+  // A module may declare a core permission OR one named by a helper it depends on. An
+  // unrecognised SHAPE refuses the entry rather than being filtered away — a dropped
+  // permission reappears as a code/manifest mismatch at install, which is confusing, but a
+  // dropped one that happens to match the code is worse: it installs with consent missing.
+  if (e.permissions !== undefined && !Array.isArray(e.permissions)) return null;
+  const rawPermissions = Array.isArray(e.permissions) ? e.permissions : [];
+  if (!rawPermissions.every(isValidPermission)) return null;
+  const permissions = rawPermissions as DeclaredPermission[];
 
   // The path must stay inside addons/<id> — never trust a remote path.
   const path = typeof e.path === "string" ? e.path.trim() : `addons/${id}`;
@@ -257,9 +284,25 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
   const tag = typeof e.tag === "string" ? e.tag.trim() : "";
   if (!tag || tag.length > 200 || /\s/.test(tag)) return null;
 
-  const provides = Array.isArray(e.provides)
-    ? e.provides.filter((p): p is ModulePermission => typeof p === "string" && VALID_PERMISSIONS.has(p))
-    : [];
+  // `provides` is the consent roll-up. A malformed entry must REFUSE THE HELPER, never be
+  // quietly filtered out: dropping it publishes a helper whose capabilities the admin is
+  // never shown, which is the exact failure this shape replaced. Bare strings were the old
+  // format and are refused loudly for the same reason.
+  const provides: SourceHelperCapability[] = [];
+  if (e.provides !== undefined) {
+    if (!Array.isArray(e.provides)) return null;
+    for (const raw of e.provides) {
+      if (!raw || typeof raw !== "object") return null; // includes the legacy bare string
+      const c = raw as Record<string, unknown>;
+      const capId = typeof c.id === "string" ? c.id.trim() : "";
+      const label = typeof c.label === "string" ? c.label.trim() : "";
+      // The namespace must BE this helper's id — no collisions, no shadowing a core
+      // permission, and no helper describing a capability that isn't its own.
+      if (helperIdForPermission(capId) !== id) return null;
+      if (!label) return null;
+      provides.push({ id: capId, label: label.slice(0, 200) });
+    }
+  }
 
   return {
     id,
@@ -270,7 +313,7 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
       typeof e.minAppVersion === "string" && SEMVER_RE.test(e.minAppVersion.trim())
         ? e.minAppVersion.trim()
         : "0.0.0",
-    provides: [...new Set(provides)],
+    provides,
     path,
     tag,
   };
@@ -324,6 +367,17 @@ export type AvailableModule = SourceModuleEntry & {
   channel: ModuleChannel;
   installed: boolean;
   installedVersion: string | null;
+  /**
+   * Every capability provided by the helpers this module declares — shown at install
+   * **whether or not the module declared the matching permission itself**.
+   *
+   * That is deliberate and is the property MOD-08 rests on. A module earns the right to
+   * `import "@/helpers/<id>/api"` by declaring the helper, not by declaring a permission,
+   * so consent driven only by the module's own list would understate what taking the
+   * helper actually allows. If you accept the filesystem helper, you are told what the
+   * filesystem helper can do — the module's honesty is not load-bearing.
+   */
+  helperCapabilities: SourceHelperCapability[];
 };
 
 /**
@@ -345,8 +399,13 @@ export async function browseAvailableModules(
   for (const s of sources) {
     try {
       const manifest = await fetchSourceManifest(s.url, channel);
+      const helperById = new Map(manifest.helpers.map((h) => [h.id, h]));
       for (const entry of manifest.modules) {
         const row = installed.get(entry.id);
+        // Roll up what this module's helpers can do. A declared helper we can't find in
+        // the manifest contributes nothing here, but the install itself refuses later —
+        // so this never silently understates a helper that will actually be installed.
+        const helperCapabilities = entry.helpers.flatMap((h) => helperById.get(h)?.provides ?? []);
         modules.push({
           ...entry,
           sourceId: s.id,
@@ -355,6 +414,7 @@ export async function browseAvailableModules(
           channel,
           installed: !!row || compiledIn.has(entry.id),
           installedVersion: row?.version ?? null,
+          helperCapabilities,
         });
       }
     } catch (e) {

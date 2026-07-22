@@ -52,9 +52,12 @@ not a temporary one. Country-based policy was also dropped (retired SEC-03).
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Nothing is in flight.** This list is only what's left to build — shipped items live in the **Shipped
-log** and their catalog entries, not here. The **modules platform is complete**: MOD-01 (v1.4.0),
-MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0).
+**In flight: MOD-09** — helper-named capabilities + the consent roll-up, **built as v1.5.1-beta.1, not yet
+pushed**. Detail in its catalog entry.
+
+Otherwise this list is only what's left to build — shipped items live in the **Shipped log** and their
+catalog entries, not here. The **modules platform is otherwise complete**: MOD-01 (v1.4.0), MOD-02 (the
+`health-monitor` module), MOD-08 (v1.5.0).
 
 1. ⏳ **SEC-04 — Session lifecycle hardening**
 2. ⏳ **SEC-05 — Trusted-IP auto-login**
@@ -259,6 +262,28 @@ of the base app**, and **permission-gated** at install. Author-facing contract:
 - **P4 — MOD-02 Health monitoring** ✅ as the first real module (built in the add-ons repo, not here).
 - **P5 —** hardened sandboxing/signing for untrusted third-party modules: **not happening** (retired
   MOD-06, 2026-07-22). Modules remain curated / self-built, gated by the verifier + consent.
+
+#### MOD-09 · Helper-named capabilities + consent roll-up — 🔨 Built, unpublished (v1.5.1-beta.1)
+Closes the gap that made MOD-08's consent guarantee unenforceable. A helper could **provide** a capability
+but not **name** one: `sources.ts` filtered a helper's `provides` against the four core permissions, so
+`files:write` was **silently dropped**. And nothing consumed `provides` at all — `install-button.tsx` said
+so in a comment ("true by luck today only because the scheduler asks for no permissions"). A module could
+take a filesystem helper and the approval screen would list only its own milder permissions.
+- **Capabilities are `{id, label}`**, `id` namespaced `<helperId>:<verb>`; the **helper supplies the
+  wording**, which is safe only because helpers are first-party-only. Runtime keeps `describe(config)` so
+  the sentence can name real directories; the manifest carries a static label because browse-time consent
+  runs before any helper code or config exists.
+- **Consent lists every capability of every helper a module declares** — whether or not the module named
+  it. Declaring the helper is what grants access, so the module's honesty isn't load-bearing.
+- **Helper-provided ⇒ high-risk by default.** Core has no opinion about a capability it didn't define.
+- **Which helper backs a permission is derived from the namespace**, replacing a hardcoded
+  `files:*` → `filesystem` map — that map was the coupling that stopped a new helper naming its own
+  capability without a core release.
+- **Malformed = refused, never dropped.** Silent filtering is how the original gap stayed invisible.
+- **Verified against the live manifests on both channels**: `health-monitor`, `template` and `scheduler`
+  all parse unchanged, so nothing needs republishing. 207 tests (was 191).
+- Raised by the add-ons session while specifying the `filesystem` helper for Backup Manager, which is
+  blocked on it.
 
 #### MOD-08 · Module updates + helpers — ✅ Shipped v1.5.0 (2026-07-22)
 The second half of the platform: keeping installed modules current, and letting a module do work it can't do
@@ -823,6 +848,10 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   re-fetching it for an official-source module, and reporting rather than fetching for an imported one.
 - **Module update path, end to end** (v1.5.0) — batch update, the added-permission approval gate, and a
   module's new migrations running on update.
+- **Helper capability consent** (MOD-09, v1.5.1-beta.1) — **no helper publishes a capability yet**, so the
+  roll-up is currently unexercisable in the UI: `scheduler` provides nothing, which is exactly why the gap
+  went unnoticed. Test it the day the `filesystem` helper lands — install a module that declares it and
+  confirm the browse screen lists the helper's capability, in the helper's own words, in red.
 
 ---
 

@@ -1,7 +1,15 @@
 # Helpers — design (MOD-08)
 
-> Status: **shipped in 1.5.0** (`scheduler` is the first helper). This is the design of record; where it and
-> the code disagree, the code wins and this is a bug.
+> Status: **shipped in 1.5.0** (`scheduler` is the first helper); **helper-named capabilities + the consent
+> roll-up in 1.5.1**. This is the design of record; where it and the code disagree, the code wins and this
+> is a bug.
+>
+> **1.5.1 closed the gap that made rule 4 unenforceable.** A helper could *provide* a capability but not
+> *name* one: `provides` was filtered against the four core permissions, so anything else was silently
+> dropped and never reached a consent screen. A capability is now `{id, label}` with `id` namespaced to the
+> helper (`filesystem:write`), the helper supplies the wording, and an unrecognised entry **refuses the
+> helper** instead of being discarded. Consent lists every capability of every helper a module declares —
+> whether or not the module named it — because declaring the helper is what grants access.
 >
 > Related: [module authoring](MODULES-AUTHORING.md) · [the official source](https://github.com/jontiadcock/JonDash-addons) · [README](../README.md)
 

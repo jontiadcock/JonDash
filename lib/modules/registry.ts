@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import type { ModuleDefinition, ModulePermission } from "./types";
+import type { DeclaredPermission, ModuleDefinition } from "./types";
 import { parseGrants } from "./permissions";
 import { INSTALLED } from "./generated";
 
@@ -29,7 +29,7 @@ export type ModuleChannel = "stable" | "beta";
 export type ModuleState = {
   def: ModuleDefinition;
   enabled: boolean;
-  granted: ModulePermission[];
+  granted: DeclaredPermission[];
   /** Per-module release channel (which channel its updates come from). */
   channel: ModuleChannel;
   /** Whether a Module row exists (installed/known to the DB) at all. */

@@ -30,7 +30,9 @@ const HELPER_ENTRY = {
   description: "reads and writes files",
   version: "1.0.0",
   minAppVersion: "1.5.0",
-  provides: ["network:outbound"],
+  // A capability is `{id, label}` — the id namespaced to THIS helper, the label the
+  // sentence the admin reads before installing. Bare strings were the 1.5.0 shape.
+  provides: [{ id: "filesystem:write", label: "Read and write files in folders you choose" }],
   path: "helpers/filesystem",
   tag: "filesystem/v1.0.0",
 };
@@ -90,10 +92,53 @@ describe("helpers are first-party only", () => {
     }
   });
 
-  it("strips a permission that isn't in the taxonomy from `provides`", async () => {
-    mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, provides: ["network:outbound", "make:coffee"] }] }));
+  /**
+   * THE REGRESSION THIS FEATURE EXISTS TO PREVENT (1.5.1).
+   *
+   * `provides` used to be filtered against the four core permissions, so a filesystem
+   * helper declaring `files:write` had it SILENTLY DROPPED — the helper installed, the
+   * module got filesystem access through it, and the consent screen said nothing. That is
+   * "consent bypassable by proxy" failing quietly, which is the one property MOD-08 rests
+   * on. A malformed `provides` must now refuse the HELPER, loudly and completely.
+   */
+  it("REFUSES a helper whose `provides` is the old bare-string shape", async () => {
+    mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, provides: ["files:write"] }] }));
     const m = await fetchSourceManifest(OFFICIAL, "beta");
-    expect(m.helpers[0].provides).toEqual(["network:outbound"]);
+    expect(m.helpers).toEqual([]); // refused, NOT installed with the capability dropped
+  });
+
+  it("refuses a capability whose namespace isn't the helper's own id", async () => {
+    // Otherwise a helper could describe — and appear to grant — someone else's capability,
+    // or shadow a core permission with wording of its choosing.
+    for (const bad of [
+      { id: "other:write", label: "Write files" },
+      { id: "crypto:use", label: "Totally harmless, promise" },
+      { id: "filesystem", label: "No verb" },
+      { id: "filesystem:write", label: "" },
+      { id: "filesystem:write" },
+      "filesystem:write",
+    ]) {
+      mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, provides: [bad] }] }));
+      const m = await fetchSourceManifest(OFFICIAL, "beta");
+      expect(m.helpers, JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
+  it("keeps the label so the consent screen can render it", async () => {
+    mockManifest(manifest({ helpers: [HELPER_ENTRY] }));
+    const m = await fetchSourceManifest(OFFICIAL, "beta");
+    expect(m.helpers[0].provides).toEqual([
+      { id: "filesystem:write", label: "Read and write files in folders you choose" },
+    ]);
+  });
+
+  it("still accepts a helper that provides nothing (the scheduler's shape)", async () => {
+    // `scheduler` ships `provides: []` on both live channels — this asserts the published
+    // manifests keep parsing unchanged across the schema change.
+    mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, id: "scheduler", path: "helpers/scheduler", tag: "scheduler/v0.0.2", provides: [] }] }));
+    const m = await fetchSourceManifest(OFFICIAL, "beta");
+    expect(m.helpers.map((h) => h.id)).toEqual(["scheduler"]);
+    expect(m.helpers[0].provides).toEqual([]);
   });
 
   it("builds the pinned tag archive URL both installers use", () => {

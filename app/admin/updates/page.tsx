@@ -4,7 +4,8 @@ import { getAppVersion } from "@/lib/update";
 import { readChannel } from "@/lib/update-channel";
 import { readAutoInstall, readUpdateFailure } from "@/lib/update-prefs";
 import { getModuleUpdateStatus } from "@/lib/modules/updates";
-import { PERMISSION_WARNINGS } from "@/lib/modules/types";
+import { describePermission } from "@/lib/modules/types";
+import { helperCapabilityLabels } from "@/lib/helpers/registry";
 import { UpdatesPanel } from "../settings/updates-panel";
 import { ModuleUpdatesPanel, type ModuleUpdateView } from "./module-updates-panel";
 
@@ -23,6 +24,9 @@ export default async function AdminUpdatesPage() {
     errors: [] as { source: string; message: string }[],
     checkedAt: 0,
   }));
+  // A new version may add a helper-provided capability; resolve its wording from the
+  // installed helpers so the approval prompt names the effect, not the permission key.
+  const helperLabels = helperCapabilityLabels();
   const moduleViews: ModuleUpdateView[] = moduleStatus.modules.map((m) => ({
     id: m.id,
     name: m.name,
@@ -35,7 +39,7 @@ export default async function AdminUpdatesPage() {
     isDowngrade: m.isDowngrade,
     // Resolved to plain language here, so the admin approves a described capability
     // rather than a permission key.
-    permissionWarningsAdded: m.permissionsAdded.map((p) => PERMISSION_WARNINGS[p]).filter(Boolean),
+    permissionWarningsAdded: m.permissionsAdded.map((p) => describePermission(p, helperLabels).text),
     permissionsRemovedCount: m.permissionsRemoved.length,
     notes: m.notes,
   }));

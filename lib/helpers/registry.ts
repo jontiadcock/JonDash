@@ -37,6 +37,33 @@ export function allRequiredHelperIds(): Set<string> {
   return out;
 }
 
+/**
+ * Consent wording for every capability the INSTALLED helpers provide, keyed by permission
+ * id — the roll-up that makes a helper-provided capability visible on a consent screen.
+ *
+ * Each label comes from the helper's own `describe(config)`, so it can name what actually
+ * happens to the machine ("Read and write files in D:\Backups") rather than a capability
+ * name. Reading config is best-effort: a helper that throws while describing itself must
+ * not take a consent screen down, so it falls back to the permission id and
+ * `describePermission` renders it as unexplained-but-flagged.
+ */
+export function helperCapabilityLabels(
+  configs?: Readonly<Record<string, Record<string, unknown>>>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const h of getAllHelpers()) {
+    for (const cap of h.provides ?? []) {
+      try {
+        const text = cap.describe(configs?.[h.id] ?? {});
+        if (typeof text === "string" && text.trim()) out[cap.permission] = text.trim().slice(0, 200);
+      } catch {
+        // Leave it unlabelled — never silently omit the permission itself.
+      }
+    }
+  }
+  return out;
+}
+
 export type HelperState = {
   def: HelperDefinition;
   installed: boolean;

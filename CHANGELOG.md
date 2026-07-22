@@ -9,6 +9,33 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.1-beta.1] — 2026-07-23
+
+**Beta: a module's helpers now show up on the screen where you approve it.** Nothing changes unless you
+install modules, and no module you already have behaves differently.
+
+### Fixed
+- **A module could gain a capability you were never shown.** Helpers can do things modules are forbidden —
+  reading and writing files, for example. A helper is supposed to declare what it can do so that JonDash
+  can tell you before you install anything that uses it. That declaration was being **silently discarded**,
+  because JonDash only recognised the four capabilities it implements itself and quietly dropped anything
+  else. The result: a module could take a helper that reads and writes your files, and the approval screen
+  would list only the module's own, milder permissions. Nothing warned anyone, because nothing failed.
+- **What you approve now includes everything the module's helpers can do**, whether or not the module
+  asked for it by name. Taking a helper is how a module gets that helper's abilities, so that is what
+  you're told — the module's own honesty isn't what protects you.
+- **These entries are highlighted as high-risk.** A capability JonDash doesn't implement itself is one it
+  can't reason about, so it never gets the quiet styling.
+- **A capability JonDash can't make sense of is now refused outright** rather than dropped — a module or
+  helper published with a malformed permission won't install at all. Silently discarding one is exactly
+  how the problem above stayed invisible.
+
+### Added
+- **Helpers can describe their own capabilities.** A helper supplies the sentence you read, so it can say
+  what actually happens to your machine — "Read and write files in D:\Backups" — instead of a technical
+  name. It also means a new capability can arrive with a helper, without waiting for a JonDash release,
+  which is the point of helpers.
+
 ## [1.5.0] — 2026-07-22
 
 **Keeping modules up to date, and modules that can work in the background.** Coming from 1.4.0, this is
@@ -751,6 +778,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.1-beta.1
 [1.5.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0
 [1.4.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0
 [1.5.0-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.5

@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
-import type { ModulePermission } from "./types";
+import type { DeclaredPermission } from "./types";
 import { parseGrants } from "./permissions";
 import { fetchSourceManifest, listSources, SourceError, type ModuleChannel } from "./sources";
 import { readProvenance } from "./provenance";
@@ -34,8 +34,8 @@ export type ModuleUpdate = {
   blockedReason?: string;
   /** Offered version is OLDER than installed — a channel switch, not an update. */
   isDowngrade: boolean;
-  permissionsAdded: ModulePermission[];
-  permissionsRemoved: ModulePermission[];
+  permissionsAdded: DeclaredPermission[];
+  permissionsRemoved: DeclaredPermission[];
   /** One short line from the source manifest on what changed. Untrusted: capped + cleaned. */
   notes?: string;
 };

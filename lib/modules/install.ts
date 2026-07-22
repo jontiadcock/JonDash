@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
-import type { ModulePermission } from "./types";
+import type { DeclaredPermission } from "./types";
 import { verifyModuleFiles, formatIssues, ALLOWED_EXTENSIONS, LIMITS } from "./verify";
 import { parseRepoUrl, type SourceModuleEntry, type ModuleChannel } from "./sources";
 import { writeProvenance, removeProvenance } from "./provenance";
@@ -170,7 +170,7 @@ export function moduleFilesExist(moduleId: string): boolean {
 export type InstallOutcome = {
   moduleId: string;
   version: string;
-  declaredPermissions: ModulePermission[];
+  declaredPermissions: DeclaredPermission[];
   /**
    * Helper ids the package declares. Returned from HERE because the caller has no other
    * way to get them: `getModuleDef` reads the compiled registry, which by definition

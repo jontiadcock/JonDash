@@ -158,7 +158,7 @@ const ctx = await systemModuleContext("my-module");
 `manage`, `registry` and `context`. Everything else you need arrives on `ctx`. You may import your **own**
 files (`@/modules/<your-id>/…`) but never another module's.
 
-### Depending on a helper (JonDash 1.5.0+)
+### Depending on a helper (JonDash 1.5.0+; capabilities 1.5.1+)
 
 A **helper** is a first-party shared component that does things modules are forbidden to do themselves.
 Declare the ones you need and JonDash installs them with your module — the admin never installs a helper
@@ -173,6 +173,29 @@ const mod: ModuleDefinition = { …, helpers: ["scheduler"] };
 - Your `addons.json` entry must list exactly the same helpers, the same rule permissions follow.
 - Helpers come **only from the official source**. A module from anywhere else may declare one, but the
   helper itself is never fetched from a third-party repo.
+
+#### Helper-provided capabilities (1.5.1+)
+
+A helper may expose capabilities that core itself doesn't implement, named `<helperId>:<verb>` — e.g.
+`filesystem:write`. Declare one in `permissions` exactly like a core permission:
+
+```ts
+const mod: ModuleDefinition = {
+  …,
+  permissions: ["audit:write", "filesystem:write"],
+  helpers: ["filesystem"],
+};
+```
+
+- **The namespace must be a helper you declare.** `filesystem:write` requires `helpers: ["filesystem"]` —
+  derived from the name, so a helper can introduce a capability without a JonDash release.
+- **You cannot invent one.** The helper defines what it provides; declaring `filesystem:teleport` fails
+  because no helper offers it.
+- **Assume the admin sees everything your helpers can do**, not just what you declared. Consent lists every
+  capability of every helper you take — because taking the helper is what grants you access to it. Don't
+  take a broad helper for one narrow call.
+- Helper-provided capabilities are always shown as **high-risk**. That's not a judgement on your module; it
+  reflects that core can't reason about a capability it didn't define.
 
 **Background work** is the reason most modules take a helper. Don't start your own timer — *declare* the
 work and the `scheduler` helper runs it from server start, whether or not anyone has opened a page:
@@ -200,6 +223,11 @@ per module and is how the last-run time is remembered across restarts.
 | `crypto:use`      | Encrypt/decrypt with the app key (`ctx.crypto`).            |
 | `audit:write`     | Write audit-log entries (`ctx.audit`).                      |
 | `email:send`      | Send email via the admin's configured mailer.               |
+
+These four are **core** permissions: each gates a field on `ctx`, so the name exists only because core
+implements it. **Helper-provided** capabilities (`<helperId>:<verb>`, 1.5.1+) are a different kind — core
+doesn't enumerate them and grants nothing; the helper enforces them behind its own API. See
+[Helper-provided capabilities](#helper-provided-capabilities-151) above.
 
 **Etiquette:** request the *fewest* permissions that make your module work; be truthful
 in `name`/`description`; if you call an external service, declare

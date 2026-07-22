@@ -94,14 +94,42 @@ describe("module sources", () => {
     expect(m.modules.map((x) => x.id)).toEqual(["health-monitor"]);
   });
 
-  it("keeps only permissions that exist in the taxonomy", async () => {
+  // CONTRACT CHANGE (1.5.1): permissions used to be silently FILTERED to the core taxonomy.
+  // They are now validated by shape and a bad one refuses the whole entry. Silent filtering
+  // is what let a helper's capabilities vanish from the consent screen, so it is gone
+  // everywhere, not just for helpers.
+  it("accepts core and helper-namespaced permissions", async () => {
     mockFetch({
       manifestVersion: 1,
       channel: "stable",
-      modules: [validEntry({ permissions: ["network:outbound", "not:a:permission", "crypto:use"] })],
+      modules: [validEntry({ permissions: ["network:outbound", "filesystem:write", "crypto:use"] })],
     });
     const m = await fetchSourceManifest(REPO, "stable");
-    expect(m.modules[0].permissions).toEqual(["network:outbound", "crypto:use"]);
+    expect(m.modules[0].permissions).toEqual(["network:outbound", "filesystem:write", "crypto:use"]);
+  });
+
+  it("REFUSES an entry with a malformed permission rather than dropping it", async () => {
+    mockFetch({
+      manifestVersion: 1,
+      channel: "stable",
+      modules: [validEntry({ permissions: ["network:outbound", "not a permission"] })],
+    });
+    const m = await fetchSourceManifest(REPO, "stable");
+    // The whole module is gone, not quietly installed minus a permission. A dropped
+    // permission that happens to match the code installs with consent missing.
+    expect(m.modules).toEqual([]);
+  });
+
+  it("refuses a permission that is neither core nor `<helper>:<verb>`", async () => {
+    for (const bad of ["files", "Files:Write", "filesystem:", ":write", "file system:write", 42]) {
+      mockFetch({
+        manifestVersion: 1,
+        channel: "stable",
+        modules: [validEntry({ permissions: [bad] })],
+      });
+      const m = await fetchSourceManifest(REPO, "stable");
+      expect(m.modules, JSON.stringify(bad)).toEqual([]);
+    }
   });
 
   it("rejects a newer manifest version, a 404 channel, and bad JSON", async () => {

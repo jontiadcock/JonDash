@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.1-beta.1",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: a module's helpers now appear on the screen where you approve it. Helpers can do things modules are forbidden - reading and writing your files, for example - and a helper is meant to declare that so JonDash can tell you before you install anything using it. That declaration was being silently discarded, so a module could take a helper with access to your files while the approval screen listed only its own milder permissions. What you approve now includes everything the module's helpers can do, whether or not the module named it, and those entries are highlighted as high-risk. A capability JonDash cannot make sense of is refused outright rather than dropped. Helpers now supply their own wording, so the screen can say what actually happens to your machine. Nothing changes if you do not install modules, and no module you already have behaves differently."
+    },
+    {
       "version": "1.5.0",
       "date": "2026-07-22",
       "type": "minor",

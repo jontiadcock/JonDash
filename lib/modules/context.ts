@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { encryptString, decryptString } from "@/lib/crypto";
 import { audit as coreAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email/send";
-import type { ModuleContext, ModuleDefinition, ModulePermission } from "./types";
+import type { DeclaredPermission, ModuleContext, ModuleDefinition } from "./types";
 import { moduleSettingsApi, moduleStoreApi } from "./store";
 import { moduleTableName } from "./migrate";
 import { pingHost } from "./net";
@@ -19,10 +19,10 @@ import { getModuleState } from "./registry";
  */
 export function buildModuleContext(
   def: ModuleDefinition,
-  granted: ModulePermission[],
+  granted: DeclaredPermission[],
   user: ModuleContext["user"],
 ): ModuleContext {
-  const has = (p: ModulePermission) => granted.includes(p);
+  const has = (p: DeclaredPermission) => granted.includes(p);
 
   const ctx: ModuleContext = {
     moduleId: def.id,

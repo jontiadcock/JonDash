@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { browseAvailableModules, ensureDefaultSource, listSources, type ModuleChannel } from "@/lib/modules/sources";
-import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
+import { describePermission } from "@/lib/modules/types";
 import { InstallPicker, SelectToggle, type BrowseItem } from "./install-button";
 
 export const dynamic = "force-dynamic";
@@ -108,18 +108,29 @@ export default async function BrowseModulesPage({
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Permissions it requests</p>
-                {m.permissions.length === 0 ? (
-                  <p className="mt-1 text-sm">None beyond the basics (its own settings and data).</p>
-                ) : (
-                  <ul className="mt-1 flex flex-col gap-1 text-sm">
-                    {m.permissions.map((p) => (
-                      <li key={p} style={DANGEROUS_PERMISSIONS.has(p) ? { color: "var(--danger)" } : undefined}>
-                        {DANGEROUS_PERMISSIONS.has(p) ? "⚠ " : "• "}
-                        {PERMISSION_WARNINGS[p]}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                {(() => {
+                  // What the admin is actually approving: the module's own permissions PLUS
+                  // everything its helpers can do. Keyed by permission id so a capability the
+                  // module also declared isn't listed twice.
+                  const labels = Object.fromEntries(m.helperCapabilities.map((c) => [c.id, c.label]));
+                  const ids = [...new Set([...m.permissions, ...m.helperCapabilities.map((c) => c.id)])];
+                  if (ids.length === 0) {
+                    return <p className="mt-1 text-sm">None beyond the basics (its own settings and data).</p>;
+                  }
+                  return (
+                    <ul className="mt-1 flex flex-col gap-1 text-sm">
+                      {ids.map((p) => {
+                        const { text, dangerous } = describePermission(p, labels);
+                        return (
+                          <li key={p} style={dangerous ? { color: "var(--danger)" } : undefined}>
+                            {dangerous ? "⚠ " : "• "}
+                            {text}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                })()}
               </div>
             </div>
           ))}

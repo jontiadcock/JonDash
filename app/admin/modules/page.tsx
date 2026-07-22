@@ -4,7 +4,8 @@ import { listModulesForAdmin } from "@/lib/modules/registry";
 import { pruneRemovedBundledModules, ensureModuleMigrations } from "@/lib/modules/manage";
 import { readFailedModule } from "@/lib/modules/rebuild";
 import { reconcileHelpers } from "@/lib/helpers/reconcile";
-import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
+import { describePermission } from "@/lib/modules/types";
+import { helperCapabilityLabels } from "@/lib/helpers/registry";
 import { ModulesList, type ModuleItem } from "./ui";
 import { ImportModuleForm } from "./import-form";
 import { FailedModuleNotice } from "./failed-notice";
@@ -22,6 +23,9 @@ export default async function AdminModulesPage() {
   // third-party and imported ones are reported and left alone.
   const helperGaps = await reconcileHelpers().catch(() => []);
   const failed = readFailedModule(); // a module the launcher had to remove to boot
+  // Wording for capabilities the installed HELPERS provide, so a module that gets its
+  // privilege by proxy still says so on screen.
+  const helperLabels = helperCapabilityLabels();
 
   const items: ModuleItem[] = states.map(({ def, enabled, installed }) => ({
     id: def.id,
@@ -33,11 +37,10 @@ export default async function AdminModulesPage() {
     installed,
     hasSettings: (def.settings?.length ?? 0) > 0,
     hasPage: !!def.Page,
-    permissions: def.permissions.map((p) => ({
-      key: p,
-      warning: PERMISSION_WARNINGS[p],
-      dangerous: DANGEROUS_PERMISSIONS.has(p),
-    })),
+    permissions: def.permissions.map((p) => {
+      const { text, dangerous } = describePermission(p, helperLabels);
+      return { key: p, warning: text, dangerous };
+    }),
   }));
 
   return (

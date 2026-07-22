@@ -1,4 +1,4 @@
-import type { ModuleContext, ModulePermission } from "@/lib/modules/types";
+import type { DeclaredPermission, ModuleContext } from "@/lib/modules/types";
 
 /**
  * Helper contract (MOD-08). See docs/HELPERS-DESIGN.md for the reasoning.
@@ -14,8 +14,16 @@ import type { ModuleContext, ModulePermission } from "@/lib/modules/types";
 
 /** A capability a helper exposes, described for the consent screen. */
 export type HelperCapability = {
-  /** The permission a consuming module must declare to use it. */
-  permission: ModulePermission;
+  /**
+   * The permission a consuming module must declare to use it — `<thisHelperId>:<verb>`
+   * (e.g. `filesystem:write`). Namespaced to the helper so two helpers can never collide
+   * and none can shadow a core permission; validated at install, not merely by convention.
+   *
+   * A helper may name a capability core has never heard of. That is deliberate — it is
+   * what lets a new capability ship without a core release. Core does not enforce it; the
+   * helper does, behind its own narrow API. See `DeclaredPermission` in modules/types.ts.
+   */
+  permission: DeclaredPermission;
   /**
    * The real-world effect, in plain language, shown to the admin — "Read and write files
    * in D:\Backups", not "filesystem access". A capability name tells nobody what could

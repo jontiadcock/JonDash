@@ -33,6 +33,62 @@ export type ModulePermission =
   | "audit:write" // write audit-log entries (ctx.audit)
   | "email:send"; // send email via the admin's configured mailer
 
+/**
+ * A capability NAMED BY A HELPER rather than by core (MOD-08), shaped `<helperId>:<verb>`
+ * — e.g. `filesystem:write`. Core deliberately does not enumerate these.
+ *
+ * The distinction is not cosmetic. A core permission is a **capability token**: it gates a
+ * field on `ModuleContext` (see `context.ts`), so it cannot exist without core code that
+ * grants it, and inventing the string grants nothing. A helper-provided permission gates
+ * nothing in core — the helper enforces it behind its own narrow API, and the verifier
+ * refuses `@/helpers/<id>/api` unless the module declared that helper. Core's only job is
+ * to **describe** it to the admin, and description is words.
+ *
+ * That is what lets a helper ship a new capability without a core release, which is the
+ * whole point of helpers. The namespace must equal the helper's id, so two helpers can
+ * never collide and none can shadow a core permission.
+ */
+export type HelperPermission = string;
+
+/** Anything a module may declare: a core permission, or one named by a helper it declares. */
+export type DeclaredPermission = ModulePermission | (string & {});
+
+/** `<helperId>:<verb>` — lowercase, no leading digit on the verb. */
+export const HELPER_PERMISSION_RE = /^[a-z0-9][a-z0-9-]*:[a-z][a-z0-9-]*$/;
+
+/**
+ * The capabilities core itself implements. Declared here rather than derived from
+ * `PERMISSION_WARNINGS` (defined further down) so nothing depends on evaluation order —
+ * these predicates are called from module scope in places.
+ */
+export const CORE_PERMISSIONS: ReadonlySet<string> = new Set([
+  "network:outbound",
+  "crypto:use",
+  "audit:write",
+  "email:send",
+]);
+
+/** True for one of the four capabilities core itself implements. */
+export function isCorePermission(p: string): p is ModulePermission {
+  return CORE_PERMISSIONS.has(p);
+}
+
+/**
+ * The helper that must be declared for this permission, or null if it isn't
+ * helper-provided. The namespace IS the helper id — derived, never a hardcoded map, so
+ * the two can't drift apart.
+ */
+export function helperIdForPermission(p: string): string | null {
+  if (isCorePermission(p)) return null;
+  if (!HELPER_PERMISSION_RE.test(p)) return null;
+  return p.slice(0, p.indexOf(":"));
+}
+
+/** Shape a manifest/definition permission list must satisfy to be accepted at all. */
+export function isValidPermission(p: unknown): p is DeclaredPermission {
+  return typeof p === "string" && (isCorePermission(p) || HELPER_PERMISSION_RE.test(p));
+}
+
 /** A configurable setting a module declares; the framework renders + stores it
  *  (secret values encrypted at rest via the app's crypto). */
 export type ModuleSettingField = {
@@ -135,7 +191,7 @@ export type ModuleDefinition = {
   description: string;
   version: string; // semver
   minAppVersion: string; // minimum JonDash version required
-  permissions: ModulePermission[];
+  permissions: DeclaredPermission[];
 
   /**
    * Helper ids this module needs (MOD-08). Declaring one lets the module import
@@ -194,7 +250,7 @@ export type InstalledModule = {
   version: string;
   enabled: boolean;
   source: string; // repo URL, or "imported" for a sideloaded package
-  grantedPermissions: ModulePermission[];
+  grantedPermissions: DeclaredPermission[];
   installedAt: string;
 };
 
@@ -213,6 +269,38 @@ export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
  * exactly the ones still to be built, and they must be highlighted the day they land.
  */
 export const DANGEROUS_PERMISSIONS: ReadonlySet<ModulePermission> = new Set<ModulePermission>([]);
+
+/**
+ * Resolve any declared permission to the sentence an admin reads, plus whether to
+ * highlight it. **The single place consent text is decided** — every surface (browse,
+ * module page, update approval) goes through this, so none of them can quietly render a
+ * blank for a permission core doesn't recognise.
+ *
+ * `helperLabels` maps a helper-provided permission id to the wording the HELPER supplied.
+ * A helper-provided capability is **dangerous by default**: core has no opinion about a
+ * capability it didn't define, so it never gets the quiet styling.
+ *
+ * When a label is missing the permission is still shown — named, flagged, and honestly
+ * described as unexplained. Silently dropping it is the failure this whole feature exists
+ * to remove.
+ */
+export function describePermission(
+  p: DeclaredPermission,
+  helperLabels?: Readonly<Record<string, string>>,
+): { text: string; dangerous: boolean } {
+  if (isCorePermission(p)) {
+    return { text: PERMISSION_WARNINGS[p], dangerous: DANGEROUS_PERMISSIONS.has(p) };
+  }
+  const helperId = helperIdForPermission(p);
+  const label = helperLabels?.[p];
+  if (label) return { text: label, dangerous: true };
+  return {
+    text: helperId
+      ? `"${p}" — provided by the ${helperId} helper, which did not describe it`
+      : `"${p}" — unrecognised capability`,
+    dangerous: true,
+  };
+}
 
 /** Re-exported for convenience where a widget/panel returns markup. */
 export type ModuleRenderable = ReactNode;
