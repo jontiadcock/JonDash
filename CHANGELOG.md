@@ -1,6 +1,6 @@
 # Changelog
 
-JonDash ships on **two channels** — pick yours under Admin → Settings → Updates:
+JonDash ships on **two channels** — pick yours under Admin → Updates:
 
 - **Stable** (`main` branch) — tested releases, versioning `MAJOR.MINOR.PATCH`; the default, and the
   public auto-update channel.
@@ -8,44 +8,6 @@ JonDash ships on **two channels** — pick yours under Admin → Settings → Up
 
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
-
-## [1.4.0] — 2026-07-22
-
-**Modules.** JonDash can now be extended with add-ons that plug in without changing the base app — like
-adding an app to a phone. Coming from 1.3.0, this is the whole feature in one release.
-
-### Added
-- **Install modules from a source.** **Admin → Settings → Modules** gains **Browse modules**: the official
-  add-ons source is set up for you, and you can add any public GitHub repository that publishes modules.
-  Tick several and install them together — one rebuild and one restart for the batch.
-- **Import your own module** from a `.zip`, with no repository involved. Same safety checks either way.
-- **You approve what a module can do.** Before anything is installed you see, in plain language, exactly
-  what it's asking for — connecting out to other servers, encryption, audit entries, sending email. A module
-  is refused outright if its code reaches for something it didn't declare, touches the filesystem, runs
-  code built at runtime, reads the server's environment, or reaches into JonDash's internals. This is a
-  strong safety net, **not a sandbox** — a module still runs with the app's privileges, so only install
-  modules you trust.
-- **Automatic recovery.** If a module ever stops JonDash building, the launcher removes it, starts up
-  without it, and tells you which one. Your data isn't touched.
-- **Modules can do real work** — their own dashboard widget, their own pages, their own settings screen,
-  working buttons and forms, background checks, email, and host reachability checks.
-- **Choose who sees each module.** Limit one to Service Groups exactly like a service tile: leave every
-  group unticked and everyone signed in sees it; tick some and only their members do.
-- **Arrange your dashboard.** Each module widget has a **Customise** control for its width, height and
-  position — and your layout is yours alone; it never changes what anyone else sees.
-- **Per-module update channels** — opt a single module into its beta releases without moving JonDash itself
-  onto beta.
-- Modules are preserved across JonDash updates, and installing or removing one shows a full-screen progress
-  screen that waits for the restart and returns you to sign-in on its own.
-
-### Changed
-- **Delegated administration covers modules.** The **Manage modules** permission can be granted to a
-  non-admin through an Access Role, including assigning modules to groups.
-
-### Notes
-- Nothing changes if you install no modules — the base app behaves exactly as it did in 1.3.0.
-- Building your own is documented in `docs/MODULES-AUTHORING.md`, including a paste-in prompt for having an
-  AI write one for you.
 
 ## [1.5.0] — 2026-07-22
 
@@ -99,6 +61,44 @@ everything in one release.
 ## Beta channel (pre-release)
 
 _The pre-release history below led to 1.5.0 above._
+
+## [1.4.0] — 2026-07-22
+
+**Modules.** JonDash can now be extended with add-ons that plug in without changing the base app — like
+adding an app to a phone. Coming from 1.3.0, this is the whole feature in one release.
+
+### Added
+- **Install modules from a source.** **Admin → Modules** gains **Browse modules**: the official
+  add-ons source is set up for you, and you can add any public GitHub repository that publishes modules.
+  Tick several and install them together — one rebuild and one restart for the batch.
+- **Import your own module** from a `.zip`, with no repository involved. Same safety checks either way.
+- **You approve what a module can do.** Before anything is installed you see, in plain language, exactly
+  what it's asking for — connecting out to other servers, encryption, audit entries, sending email. A module
+  is refused outright if its code reaches for something it didn't declare, touches the filesystem, runs
+  code built at runtime, reads the server's environment, or reaches into JonDash's internals. This is a
+  strong safety net, **not a sandbox** — a module still runs with the app's privileges, so only install
+  modules you trust.
+- **Automatic recovery.** If a module ever stops JonDash building, the launcher removes it, starts up
+  without it, and tells you which one. Your data isn't touched.
+- **Modules can do real work** — their own dashboard widget, their own pages, their own settings screen,
+  working buttons and forms, background checks, email, and host reachability checks.
+- **Choose who sees each module.** Limit one to Service Groups exactly like a service tile: leave every
+  group unticked and everyone signed in sees it; tick some and only their members do.
+- **Arrange your dashboard.** Each module widget has a **Customise** control for its width, height and
+  position — and your layout is yours alone; it never changes what anyone else sees.
+- **Per-module update channels** — opt a single module into its beta releases without moving JonDash itself
+  onto beta.
+- Modules are preserved across JonDash updates, and installing or removing one shows a full-screen progress
+  screen that waits for the restart and returns you to sign-in on its own.
+
+### Changed
+- **Delegated administration covers modules.** The **Manage modules** permission can be granted to a
+  non-admin through an Access Role, including assigning modules to groups.
+
+### Notes
+- Nothing changes if you install no modules — the base app behaves exactly as it did in 1.3.0.
+- Building your own is documented in `docs/MODULES-AUTHORING.md`, including a paste-in prompt for having an
+  AI write one for you.
 
 ## [1.5.0-beta.5] — 2026-07-22
 
@@ -375,7 +375,7 @@ by hand once, and updates work normally again afterwards:
 > JonDash unable to start (detail under 1.4.0-beta.6). **Install 1.4.0-beta.7 or later.**
 
 ### Added
-- **Modules can now actually be installed.** **Admin → Settings → Modules → Browse modules** installs a module
+- **Modules can now actually be installed.** **Admin → Modules → Browse modules** installs a module
   straight from a source: JonDash downloads that exact published version, checks it, then rebuilds and
   restarts so the module is live. Everyone signed in will need to sign in again (the app restarts).
 - **Import your own module** — a `.zip` of your module folder, from the Modules page. It goes through exactly
@@ -407,7 +407,7 @@ by hand once, and updates work normally again afterwards:
 ## [1.4.0-beta.2] — 2026-07-21
 
 ### Added
-- **Module sources.** Modules can now come from a source repository. **Admin → Settings → Modules → Manage
+- **Module sources.** Modules can now come from a source repository. **Admin → Modules → Manage
   sources** lets you add any public GitHub repo that publishes modules (JonDash checks it really does before
   saving), enable or disable it, and remove it. The official JonDash add-ons source is set up for you.
 - **Browse modules** — see what your sources publish on the **stable** or **beta** channel, including each
@@ -420,7 +420,7 @@ by hand once, and updates work normally again afterwards:
 ## [1.4.0-beta.1] — 2026-07-21
 
 ### Added
-- **Modules — early foundation.** JonDash now has a module system: a new **Admin → Settings → Modules**
+- **Modules — early foundation.** JonDash now has a module system: a new **Admin → Modules**
   page where you can enable, configure and remove optional add-ons that plug in **without changing the base
   app** (disable or uninstall one and everything returns exactly as before). Before you enable a module it
   shows the **permissions it needs** (e.g. "make outbound network requests"). A bundled **Sample** module —
@@ -462,7 +462,7 @@ by hand once, and updates work normally again afterwards:
   returning you to sign-in — so refreshing a half-started server no longer briefly breaks remote
   access. It watches a new lightweight health probe and reconnects on its own; don't refresh or close
   the tab while it works.
-- **Restart & Shut down controls** (Admin → Settings → **Server power**, full-admin only). Restart
+- **Restart & Shut down controls** (Admin → **Server power**, full-admin only). Restart
   relaunches the server in place (a few seconds, no rebuild); Shut down stops it completely. Both ask
   for a quick confirmation first. Note: after a shutdown the dashboard can only be started again from
   the server PC.
@@ -751,6 +751,27 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0
+[1.4.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0
+[1.5.0-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.5
+[1.5.0-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.4
+[1.5.0-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.3
+[1.5.0-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.2
+[1.5.0-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0-beta.1
+[1.4.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.1-beta.1
+[1.4.0-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.11
+[1.4.0-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.10
+[1.4.0-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.9
+[1.4.0-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.8
+[1.4.0-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.7
+[1.4.0-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.6
+[1.4.0-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.5
+[1.4.0-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.4
+[1.4.0-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.3
+[1.4.0-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.2
+[1.4.0-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0-beta.1
+[1.3.7-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.7-beta.1
+[1.3.6-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.6-beta.1
 [1.3.5-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.3
 [1.3.5-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.2
 [1.3.5-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.3.5-beta.1

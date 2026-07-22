@@ -60,11 +60,12 @@ MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0).
 2. ⏳ **SEC-05 — Trusted-IP auto-login**
 3. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
 4. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
-5. ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security, General on top
-6. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-7. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-8. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+5. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+6. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+7. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
+8. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+   owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
 9. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 10. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
@@ -137,6 +138,29 @@ Map an IP/CIDR → an account logged in automatically without credentials (e.g. 
   for any public/external IP.
 - **Enforcement:** in session resolution; only the forwarded IP from the known reverse proxy
   is trusted; every auto-login is audit-logged; rules are per-entry enable/disable.
+
+#### SEC-06 · Scoped API tokens + read-first JSON API — 🧊 Backlog (low priority, owner decision 2026-07-23)
+An authenticated **`/api/v1`** for external clients, plus the token model behind it. Nothing inside JonDash
+needs this — it exists to unblock the separate **JonDash-MCP** server, which can currently do only an
+unauthenticated health check. **Full specification already written** and maintained by the MCP session:
+[JonDash-mcp/docs/API-CONTRACT.md](https://github.com/jontiadcock/JonDash-mcp/blob/main/docs/API-CONTRACT.md)
+— implement from that rather than re-deriving it.
+- **Token model:** an `ApiToken` row storing only a **SHA-256 hash** plus an 8-char display prefix; format
+  `jd_` + 43 base64url chars. Shown once at mint, revocable, optional expiry.
+- **Authorization is an intersection, not a replacement:** effective permission =
+  `token scopes ∩ getEffectivePermissions(user)`, evaluated per request. A token can never grant more than
+  the account it belongs to, and existing RBAC stays untouched.
+- **Scopes:** `status:read`, `services:read/write`, `groups:read`, `modules:read/write`, `users:read/write`,
+  `audit:read`, `sessions:read`. Read-first — writes are a later, opt-in tier.
+- **The same-origin/CSRF exemption is scoped to token-authenticated `/api/v1` handlers and nothing else** —
+  this is the part to get right, since widening it anywhere else would undo CSRF protection app-wide.
+- **Never returned by the API:** `passwordHash`, `totpSecretEnc`, `setupTokenHash`, `codeHash`,
+  `tokenHash`, session tokens. Deliberately excluded from the API surface entirely: applying updates,
+  restart/shutdown, backup export/restore, resetting access, deleting users.
+- **Why it's low:** a bearer token in an AI client's config is a weaker credential than an interactive
+  password + 2FA login, and this adds a new externally-reachable authenticated surface to a security-first
+  app that currently has none. There is no user-facing pressure for it — the cost of getting it wrong is
+  much higher than the cost of waiting.
 
 #### Security hardening backlog (from `docs/SECURITY-REVIEW.md`)
 Dummy-argon2 on unknown-user login (timing), `poweredByHeader:false`, TOTP replay

@@ -3,6 +3,12 @@
 > Authorized testing of the owner's own app on `localhost`, production build.
 > Testing performed on a throwaway dataset; the owner's real data was backed up and
 > restored afterward. **No code changes made** — this is findings + a plan for review.
+>
+> **This is a dated report and is deliberately not rewritten.** It reflects the app as of
+> 2026-07-18 — **before modules and helpers existed** (v1.4.0 / v1.5.0), so nothing here
+> covers the module install path, the install-time verifier, or helper privilege. Treat those
+> as unreviewed. Findings below are marked fixed where a later release addressed them; the
+> rest remain open and are tracked in `ROADMAP.md` under the security hardening backlog.
 
 ## Verdict
 

@@ -220,10 +220,15 @@ outright — with the reason shown to the admin — if it:
 - touches the **filesystem** (`node:fs`) — your data belongs in `ctx.db` / `ctx.store`;
 - uses `child_process`, `eval`, `new Function`, or a **computed** `import()`;
 - reads `process.env` — configuration belongs in your settings;
-- imports core internals instead of the two allowed paths above;
+- imports core internals instead of the two allowed paths above, **or another module's files** (your own
+  `@/modules/<your-id>/…` is fine);
 - declares different permissions in `module.ts` than its `addons.json` entry advertises;
+- imports `@/helpers/<id>/api` **without declaring that helper**, or reaches past that one public path into
+  a helper's internals;
+- declares a permission that only a **helper** provides, without declaring the helper that provides it;
+- has no `module.ts` at the package root;
 - fails archive hygiene: a path escaping the module folder, a disallowed file type, or a package over the
-  size/file-count caps.
+  per-file / total-size / file-count caps.
 
 **Which files are checked:** every `.ts`/`.tsx` in your package — **including a `tests/` folder**. Test files
 aren't exempt on purpose: your module is compiled into the app, so anything you ship can be imported by real
