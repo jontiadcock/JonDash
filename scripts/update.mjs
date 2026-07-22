@@ -17,6 +17,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isPreserved } from "./preserve.mjs";
 
 const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -163,17 +164,14 @@ async function cmdAutoCheck() {
 }
 
 async function copyOver(srcRoot) {
-  // Directories/files whose local contents must be preserved (never overwritten
-  // by the archive — they hold user data / build artifacts and aren't in it).
-  // "modules" holds installed add-ons (user content, fetched from a source) — an update
-  // must never delete them; the registry is regenerated from the folder at build time.
-  const PRESERVE = new Set([".env", ".data", "uploads", "modules", "node_modules", ".next", ".git", "logs"]);
+  // What must not be overwritten is defined once, in scripts/preserve.mjs — and matches
+  // the TOP-LEVEL segment only. Matching a bare entry name at any depth once caused
+  // `lib/modules/` to be skipped along with the top-level `modules/` folder.
   async function walk(relDir) {
     const entries = await fsp.readdir(path.join(srcRoot, relDir), { withFileTypes: true });
     for (const e of entries) {
       const rel = relDir ? path.join(relDir, e.name) : e.name;
-      const top = rel.split(path.sep)[0];
-      if (PRESERVE.has(top) || PRESERVE.has(e.name)) continue;
+      if (isPreserved(rel)) continue;
       const dest = path.join(REPO_DIR, rel);
       if (e.isDirectory()) {
         await fsp.mkdir(dest, { recursive: true });

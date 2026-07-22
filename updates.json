@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.7",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "critical",
+      "summary": "Critical fix - install this. Since 1.4.0-beta.3, updating could leave JonDash unable to start. The rule protecting your installed add-ons from being overwritten matched any folder named 'modules' anywhere in the app, including the module framework itself, so updates stopped copying it - and if an update then failed, the automatic rollback deleted it without being able to put it back. The rule now only matches top-level folders. Your data was never at risk. If your install is already stuck and won't start, a normal update cannot fix it (the faulty updater is the thing doing the updating) - see 'Recovering an install that won't start' in CHANGELOG.md for the one-time manual step."
+    },
+    {
       "version": "1.4.0-beta.6",
       "date": "2026-07-22",
       "type": "minor",

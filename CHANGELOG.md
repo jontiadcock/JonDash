@@ -11,6 +11,28 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.7] — 2026-07-22
+
+### Fixed
+- **Critical: updating could leave JonDash unable to start.** When "installed add-ons" were added to the
+  list of things an update must not overwrite (1.4.0-beta.3), the rule matched any folder *named* `modules`
+  anywhere in the app — including `lib/modules`, which is the module framework itself. Updates therefore
+  stopped copying it, and if an update then failed, the automatic rollback deleted it without being able to
+  restore it, leaving an install that could not build at all and could not be recovered by the launcher's
+  own retries. The rule now only ever matches top-level folders. **If you are stuck on a failed update, see
+  the recovery note below — a normal update can't fix this one, because the broken updater is the thing
+  performing it.**
+
+#### Recovering an install that won't start
+Your data is safe — `.env`, `.data`, `uploads` and the database were never touched. Restore the app files
+by hand once, and updates work normally again afterwards:
+1. Download the source ZIP for the latest version from the repository's Releases and extract it somewhere new.
+2. Copy `.env`, `.data`, `uploads`, `prisma\dev.db` (and `modules\` if you installed any add-ons) from the
+   broken folder into the extracted one.
+3. Delete `.data\update-failed` and the `.data\rollback` folder in the new copy — they refer to the failed
+   attempt and to a snapshot that is missing the same files.
+4. Run `start-dashboard.bat` in the new folder, and keep the old one until you're satisfied.
+
 ## [1.4.0-beta.6] — 2026-07-22
 
 ### Added

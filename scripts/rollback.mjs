@@ -16,6 +16,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isPreserved } from "./preserve.mjs";
 
 const ROOT = process.env.JONDASH_ROOT
   ? path.resolve(process.env.JONDASH_ROOT)
@@ -24,9 +25,8 @@ const SNAP_ROOT = path.join(ROOT, ".data", "rollback");
 const SNAP_DIR = path.join(SNAP_ROOT, "snapshot");
 const SNAP_VERSION = path.join(SNAP_ROOT, "version");
 
-// Never snapshot/overwrite: user data + regenerables (mirrors update.mjs PRESERVE),
-// and the SQLite database files (which live under prisma/).
-const PRESERVE = new Set([".env", ".data", "uploads", "modules", "node_modules", ".next", ".git", "logs"]);
+// Never snapshot/overwrite: user data + regenerables (shared with update.mjs via
+// scripts/preserve.mjs), and the SQLite database files (which live under prisma/).
 const isDbFile = (rel) => /(^|[\\/])prisma[\\/][^\\/]*\.db($|[-.])/i.test(rel);
 
 function appVersion() {
@@ -42,8 +42,7 @@ async function copyTree(srcRoot, dstRoot, relDir = "") {
   const entries = await fsp.readdir(path.join(srcRoot, relDir), { withFileTypes: true });
   for (const e of entries) {
     const rel = relDir ? path.join(relDir, e.name) : e.name;
-    const top = rel.split(path.sep)[0];
-    if (PRESERVE.has(top) || PRESERVE.has(e.name)) continue;
+    if (isPreserved(rel)) continue;
     if (isDbFile(rel)) continue;
     const dst = path.join(dstRoot, rel);
     if (e.isDirectory()) {
