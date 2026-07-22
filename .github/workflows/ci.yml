@@ -1,13 +1,26 @@
 name: CI
 
+# Runs on BOTH branches. CI used to trigger only on `main`, but `beta` is the working
+# branch — so a whole release line's worth of tests reached stable having never run in
+# CI, and v1.4.0 went red on a Linux-only assumption nobody had exercised. Testing where
+# the code is written, not where it's promoted, is what keeps that from recurring.
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
   pull_request:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # JonDash is a Windows app (start-dashboard.bat, the supervisor's console-control
+    # handling, the ping arguments) but CI only ever proved Linux. Both are checked now:
+    # Linux catches case-sensitivity and path assumptions a Windows dev box hides, and
+    # Windows covers the platform users actually run — including the launcher tests that
+    # exist to stop an install being bricked.
+    strategy:
+      fail-fast: false # one platform failing must not hide the other's result
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
