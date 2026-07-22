@@ -14,19 +14,31 @@
   - **BUG** — known bugs (tracked in the **Bugs / known issues** section, by severity)
 - **Status:** ✅ Shipped · 🔨 Built (unpublished) · ▶️ In progress · ⏳ Planned · 🧊 Backlog · 🌅 Someday
 - **Bug severity:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
-- **Views:** the **Build queue** is the single source of feature *priority order*; the
-  **Catalog** holds per-feature detail by category; **Bugs / known issues** tracks defects by severity.
+- **Views:** the **Build queue** is the single source of feature *priority order* and holds **only
+  unbuilt work**; the **Catalog** holds per-feature detail by category, including shipped items;
+  **Bugs / known issues** tracks defects by severity; the **Shipped log** is landmarks only, with
+  per-release detail in `CHANGELOG.md`.
+- **Retiring an item:** when something is delivered by other means or dropped, remove it from the queue
+  and the catalog and add a row to **Retired IDs** saying which and why. **IDs are never reused** — an
+  old reference must always resolve.
 - **Standardize on every edit:** a new item gets the next free ID in its category and is
   slotted into the build queue by priority. Keep one canonical entry per item (don't
   re-describe it in multiple places). Don't change existing priorities without the user.
+- **The `/View-Roadmap` board groups by criticality, not by phase** (user rule, 2026-07-22). Bug
+  severity is authoritative; a feature's criticality is derived from its status — in progress or next
+  in the queue = High, Planned = Medium, Backlog or Someday = Low.
 
 ## Vision
 
-JonDash grows from a per-user/role services dashboard into a **modular, security-first
-platform**: a lean core plus installable **modules/addons** (integrations and live-data
-widgets), self-service account management over email, and strong access controls
-(delegated admin, IP/country policies, trusted-IP auto-login). Long term, **third parties
-can author their own addons**.
+JonDash is a per-user/role services dashboard that grew into a **modular, security-first platform**: a
+lean core plus installable **modules** (integrations and live-data widgets), self-service account
+management over email, and strong access controls (delegated admin, IP policies, trusted-IP auto-login).
+
+The platform half is **done** — modules install, update and extend the app without touching it
+(v1.4.0 / v1.5.0). What's left is the security and self-service half. Modules stay **curated or
+self-built**: anyone may write and import one, but sandboxing for untrusted third-party authors was
+considered and dropped (retired MOD-06), so "only install modules you trust" is a standing condition,
+not a temporary one. Country-based policy was also dropped (retired SEC-03).
 
 - **Scope now:** built for the **owner's own use** (single operator). Broad multi-user /
   public readiness (Docker, scale, i18n, legal) is a later goal — not over-engineered for yet.
@@ -40,51 +52,39 @@ can author their own addons**.
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Now — nothing in flight. Next: SEC-04.**
-The module platform is complete and released: **MOD-01** (framework, v1.4.0) and **MOD-08** (module
-updates + helpers, v1.5.0). Detail in the catalog entries, not here.
+**Nothing is in flight.** This list is only what's left to build — shipped items live in the **Shipped
+log** and their catalog entries, not here. The **modules platform is complete**: MOD-01 (v1.4.0),
+MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0).
 
-**Next — security & access control**
 1. ⏳ **SEC-04 — Session lifecycle hardening**
 2. ⏳ **SEC-05 — Trusted-IP auto-login**
+3. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
+4. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
+5. ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security, General on top
+6. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+7. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+8. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+   trusted-proxy XFF prereq
+9. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+10. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+    to add it later
+11. 🌅 **OPS-03 — VHD appliance**
 
-**Then — modules & customization platform**
-3. ✅ **MOD-01 — Module / feature framework** — P1–P3, shipped v1.4.0; detail in the catalog
-4. ✅ **MOD-08 — Module updates + helpers** — shipped v1.5.0; detail in the catalog
-5. ✅ **MOD-02 — Health monitoring (module, Phase 1: status)** — built + published by the add-ons session;
-   `health-monitor` is on both channels and installs end to end. The module's own roadmap lives in that repo.
-6. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
-7. ⏳ **MOD-04 — Arrangeable dashboard (core tiles too)** — per-user *module widget* sizing shipped in
-   v1.4.0; the remaining scope is arranging core service tiles alongside them
-8. ⏳ **MOD-05 — Official Addons page**
+_(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
+comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
 
-**Planned — slot in as decided (not tied to the sequence above)**
-- ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
-- ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21** (M365 test send hangs
-  forever). Not slotted into the queue yet; do it with the BUG-21 fix, or before OPS-02 pt 2, which
-  can't be trusted while email failures are silent
-- ⏳ **CORE-02 — Admin → "Settings" left-sidebar redesign** — grouped Server / Security sections, General on top
-- ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-- ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-- ✅ **OPS-10 — Launcher supervisor: crash capture + auto-backup & revert** — shipped v1.3.5-beta.1 (fixed BUG-10; added the auto-install-updates checkbox)
-- ✅ **OPS-11 — Update grace screen + Server power (restart/shutdown) + full sign-out on restart** — shipped v1.3.6-beta.1 (follow-on to OPS-10; `/api/health` probe, `ServerWaitOverlay`, `/admin/server`, pre-auth cookie tied to `SERVER_BOOT_TIME`)
-- ✅ **OPS-12 — Full server backup + selective restore (+ BUG-04 TOTP fix)** — shipped v1.3.7-beta.1. Export is always full (all tables + whole settings table + `.data` config + master key + icons; sensitive only in an encrypted, strong-passphrase backup); restore is selective and adopts the backup's key so TOTP/email survive migration. `lib/backup.ts` v3, `lib/config-backup.ts`, `validateBackupPassphrase`. Fixes BUG-04.
+### Retired IDs — never reused
 
-**Backlog**
-- 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20 (revisit alongside SEC-05, which shares the trusted-proxy XFF prereq)
-- 🧊 **CORE-01 — "No / low recovery codes" reminder**
-- 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-
-_(Known bugs are tracked in the **Bugs / known issues** section, by severity.)_
-
-**Someday — big conversions**
-- 🌅 **MOD-06 — Third-party addons**
-- 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; module framework must allow adding it later
-- 🌅 **OPS-03 — VHD appliance**
-
-_Retired (owner decision 2026-07-21): **SEC-03** (Country allow / deny, GeoIP) and **OPS-09** (SMTP
-provider presets + auth-type clarity) were dropped — their IDs are retired, not reused. **CORE-03**
-(mobile / responsive support) moved to **Ongoing maintenance** below._
+| ID | What it was | Why it's gone |
+| -- | ----------- | ------------- |
+| SEC-03 | Country allow / deny (GeoIP) | Dropped by the owner, 2026-07-21 |
+| OPS-09 | SMTP provider presets + auth-type clarity | Dropped by the owner, 2026-07-21 |
+| CORE-03 | Mobile / responsive support | Moved to **Ongoing maintenance** below, 2026-07-21 |
+| MOD-03 | Health monitoring alerting (Phase 2) | **Delivered** by the `health-monitor` module — email + webhook alerts on state change, credentials encrypted in the module's own store. Closed 2026-07-22 |
+| MOD-05 | Official Addons page | **Delivered** by MOD-01 Phase 2 — `addons.json` manifest, `/admin/modules/browse`, install/enable/configure/disable, `minAppVersion` enforced. Closed 2026-07-22 |
+| MOD-04 | Arrangeable dashboard (core tiles too) | Dropped by the owner, 2026-07-22. Per-user **module widget** sizing/ordering shipped in v1.4.0 and stays; arranging core service tiles is not wanted |
+| MOD-06 | Third-party addons (sandboxing / signing) | Dropped by the owner, 2026-07-22. Modules stay a **curated / self-built** feature — the install-time verifier plus permission consent is the security model, and it is documented as defence in depth, not a sandbox |
+| CORE-01 | "No / low recovery codes" reminder | Dropped by the owner, 2026-07-22 |
 
 ---
 
@@ -147,10 +147,10 @@ prevention, signed-update verification, durable (Redis) rate-limit.
 #### MOD-01 · Module framework — ✅ Shipped v1.4.0 (P1–P3; 2026-07-22)
 Plug-and-play **modules** that plug into the core with a hard **isolation guarantee** (the baseline app is
 never affected — "remove the app, the phone is fine"), **installed & updated over public git independently
-of the base app**, and **permission-gated** at install. Full design in the **[[jondash-module-framework]]**
-memory; authored per the approved plan. Key points:
+of the base app**, and **permission-gated** at install. Author-facing contract:
+**`docs/MODULES-AUTHORING.md`**. Key points:
 - **Isolation:** the core **never imports a module** — only a build-time **generated registry**
-  (`scripts/gen-modules.mjs` scans a gitignored, update-preserved `modules/` dir). Zero modules ⇒ the app is
+  (`scripts/gen-module-registry.mjs` scans a gitignored, update-preserved `modules/` dir). Zero modules ⇒ the app is
   its current self. Enable/disable = instant DB flag; install/update/uninstall = fetch/delete + rebuild +
   restart (reuse OPS-11 grace screen; launcher rebuilds on module-set/version change).
 - **Contract:** `modules/<id>/module.ts` exports a `ModuleDefinition` (id, name, version, minAppVersion,
@@ -165,7 +165,8 @@ memory; authored per the approved plan. Key points:
   capability that implements it). Install/enable shows a plain-language **permission warning screen**; grants
   stored on the `Module` row; the framework hands each module a **capability-scoped `ModuleContext`** exposing
   only what was granted. *Honest limit:* in-process modules aren't hard-sandboxed
-  (consent + scoped context for **curated** modules; real sandboxing for untrusted third-party = MOD-06).
+  (consent + scoped context for **curated / self-built** modules). Hardened sandboxing for untrusted
+  third-party authors was considered and **dropped** (retired MOD-06) — this is the security model.
 - **Sources + sideload:** a module **source** = a public git repo with a manifest. Default = an official
   **`JonDash-addons`** repo (added by default, **removable/toggleable**); admin can **add any repo by URL**
   then pick a module to install. Each module has its **own version/manifest** — updates without a base update.
@@ -232,7 +233,8 @@ memory; authored per the approved plan. Key points:
   import exactly two core paths — `@/lib/modules/types` (types, client-safe) and `@/lib/modules/api` (runtime);
   everything else arrives on `ctx`** and the verifier refuses it. 118 tests.
 - **P4 — MOD-02 Health monitoring** ✅ as the first real module (built in the add-ons repo, not here).
-- **P5 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
+- **P5 —** hardened sandboxing/signing for untrusted third-party modules: **not happening** (retired
+  MOD-06, 2026-07-22). Modules remain curated / self-built, gated by the verifier + consent.
 
 #### MOD-08 · Module updates + helpers — ✅ Shipped v1.5.0 (2026-07-22)
 The second half of the platform: keeping installed modules current, and letting a module do work it can't do
@@ -285,25 +287,14 @@ this entry stays only to record that the core-side goal is met. Original scope, 
 - **Data:** `ServiceCheck` (config + rolling status) 1:1-optional on `Link`; `CheckResult`
   history + retention prune for uptime%. New tests: check logic + status-visibility IDOR.
 
-#### MOD-03 · Health monitoring alerting — Phase 2 — ⏳ (needs OPS-02)
-Outbound **webhook** and/or **SMTP email** on down/up state-change; secrets stored as
-encrypted `Setting`s.
+_MOD-03, MOD-04, MOD-05 and MOD-06 are **retired** — see the Retired IDs table in the build queue.
+MOD-03 and MOD-05 were delivered (by the `health-monitor` module and by MOD-01's Browse page); MOD-04
+and MOD-06 were dropped by the owner on 2026-07-22._
 
-#### MOD-04 · Arrangeable dashboard — resizable + movable tiles & widgets (per-user) — ⏳
-Make the whole dashboard user-arrangeable: **both core service tiles/icons AND module widgets can be resized
-and moved**, with the **layout + each widget's size saved per user** (my arrangement doesn't change yours).
-Live-data widgets (crypto, PC temps, service status) render at the chosen size. **Widget size changes what a
-widget shows** — the framework + author guide document responsive sizing (small = compact/glanceable, large =
-detailed). Builds on the MOD-01 Phase 2 resizable-module-widget contract; MOD-04 is the full drag-to-arrange
-dashboard for tiles + widgets together. (The user's "resize + movable icons/services" request lands here.)
-
-#### MOD-05 · Official Addons page — ⏳
-Curated **registry manifest** (JSON, hosted in-repo): `id`, `name`, `description`, `version`,
-`minAppVersion`, `category`, `configSchema`, docs URL. Admin Addons page with
-Install/Enable/Configure/Disable; incompatible (minAppVersion) addons greyed out.
-
-#### MOD-06 · Third-party addons — 🌅
-External authors build & publish their own, behind signing / review / sandboxing. Deferred (v3).
+**One leftover from MOD-05, deliberately not carried as its own item:** Browse *prints* a module's
+requirement ("needs JonDash 1.5.0+") rather than greying out entries this build is too old for. The
+enforcement is real — installs are refused — only the visual cue is missing. Fold it into the next
+piece of module-UI work rather than tracking it.
 
 ### OPS — Platform, packaging & operations
 
@@ -325,14 +316,19 @@ An install is ~26k files, **97.5% `node_modules`**; our own source is ~120 files
 - *Interacts with:* auto-update (fetch prebuilt release) and OPS-03 (imaging sidesteps file counts).
 - **Standing rule:** avoid adding heavy dependencies casually; keep the runtime footprint in mind.
 
-#### OPS-02 · Email + self-service password reset — ▶️ Part 1 shipped v1.2.5
-**Part 1 — SHIPPED v1.2.5 (2026-07-20):** outgoing email service (`nodemailer`)
-with authenticated SMTP (app password; Gmail/Outlook/Hotmail/M365 presets) **and OAuth2** for
-Google + Microsoft (XOAUTH2, admin-registered OAuth app + consent flow). Encrypted config in the
-Settings store; ADMIN-only **Admin → Email** page with a **test-send**. `lib/email/*`.
-**Part 2 — planned:** self-service password reset via an emailed one-time token (reuses the
-hashed-token + setup-flow machinery); emailed new-user setup links + admin "reset access".
-**Unlocks MOD-03 alerting.**
+#### OPS-02 · Self-service password reset (SSPR) — ⏳
+**Scope is now SSPR only.** Outgoing email shipped in **v1.2.5** and is no longer part of this item —
+`nodemailer` with authenticated SMTP (app password; Gmail/Outlook/Hotmail/M365 presets) **and OAuth2**
+for Google + Microsoft (XOAUTH2, admin-registered app + consent flow), encrypted config in the Settings
+store, and an ADMIN-only **Admin → Email** page with a test-send (`lib/email/*`).
+
+What's left to build: **a user resets their own password via an emailed one-time token**, reusing the
+existing hashed-token + setup-flow machinery; plus **emailed new-user setup links** and an emailed admin
+"reset access", so an admin no longer has to hand a link over by other means.
+
+**Do OPS-13 first.** SSPR is only as reliable as email delivery, and today a failing send can hang with
+no diagnosis (**BUG-21**) — shipping a password-reset flow on top of that would turn a silent email
+failure into a user locked out with no explanation.
 
 #### OPS-03 · VHD appliance — 🌅
 Package everything as a bootable VM image for a hypervisor. Big convert, later.
@@ -458,11 +454,10 @@ refresh tokens) "failed" is not actionable. Scope:
 
 ### CORE — Core app & UX
 
-#### CORE-01 · "No / low recovery codes" reminder — 🧊 Backlog
-Nudge accounts that have no (or few) backup codes to generate a set; closes the gap for
-accounts created before v1.0.1. Pushed back 2026-07-19; low urgency.
+_CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
+Retired IDs table in the build queue._
 
-#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ▶️ Shipped v1.3.3-beta.1 (beta)
+#### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ✅ Shipped v1.3.3-beta.1, released in v1.4.0
 Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
 **Shipped v1.3.3-beta.1:** desktop left sidebar (`app/admin/admin-sidebar.tsx`) titled "Settings" with
 **General** on top, **Server settings** (Updates, Backup, Network & HTTPS, Email) and **Security**
@@ -577,8 +572,8 @@ _None currently._
   Reported by the owner 2026-07-22 against their real M365 account. The settings **save** fine, but
   pressing **Send test email** leaves the button on "Sending…" indefinitely: no success, no error, no
   timeout. High because email is a shipped feature (OPS-02 pt 1) whose *only* validation path is this
-  button, it gives the admin nothing to act on, and OPS-02 pt 2 (self-service reset) and MOD-03
-  (health-monitor alerting) both depend on email working.
+  button, it gives the admin nothing to act on, and both **OPS-02** (self-service password reset) and
+  the `health-monitor` module's email alerts depend on email actually working.
   **Not yet reproduced or diagnosed** — what follows is from reading the code, so treat it as where to
   start, not as the cause:
   - **Nothing in the path has a timeout.** `lib/email/oauth.ts:73` calls `fetch(p.tokenUrl, …)` with no
@@ -809,12 +804,16 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
 
 ## Locked decisions
 
-1. **Addons:** curated/bundled to start; third-party author-created addons are a goal (v3),
-   with the contract designed for that now.
-2. **GeoIP:** external **free** geo-IP API, with **automatic failover** to backup provider(s).
-3. **Trusted-IP auto-login:** off by default for everyone; **admins never** eligible as
-   targets; users opt in with a recorded disclaimer; external IPs need the stronger warning + typed confirmation.
-4. **Addon manifest:** hosted in-repo.
-5. **First audience:** owner only for now; public/multi-user hardening deferred.
-6. **Third-party addon code:** wanted eventually, but deferred; keep addons curated/declarative for now.
-7. **Deployment:** current basis is the Windows launcher; eventual target is a bootable VHD appliance.
+1. **Modules are curated or self-built — permanently.** Anyone may write a module and import it, and any
+   public repo can be added as a source, but there is **no sandbox**: the install-time verifier plus
+   permission consent is the whole security model, and hardened sandboxing for untrusted authors was
+   considered and dropped (retired MOD-06, 2026-07-22). "Only install modules you trust" is a standing
+   condition of the design, not a caveat awaiting a fix. Say so plainly wherever it comes up.
+2. **Module manifest:** hosted in-repo (`addons.json` per channel branch); versions and tags per add-on.
+3. **Trusted-IP auto-login:** off by default for everyone; **admins never** eligible as targets; users
+   opt in with a recorded disclaimer; external IPs need the stronger warning + typed confirmation.
+4. **First audience:** owner only for now; public/multi-user hardening deferred.
+5. **Deployment:** current basis is the Windows launcher; eventual target is a bootable VHD appliance.
+
+_Superseded: the old GeoIP decision went with **SEC-03** when country-based policy was dropped
+(2026-07-21)._
