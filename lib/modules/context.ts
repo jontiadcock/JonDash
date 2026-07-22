@@ -62,7 +62,9 @@ export function buildModuleContext(
       await coreAudit(`module.${def.id}.${action}`, { userId: user?.id, detail });
     };
   }
-  // usersDb (db:users:*) and other elevated caps are wired in a later phase.
+  // Elevated capabilities (user accounts, core tables, sessions, files) aren't built yet.
+  // Their permissions were removed from the taxonomy rather than left declared-but-inert;
+  // each returns with the capability that implements it.
 
   return ctx;
 }

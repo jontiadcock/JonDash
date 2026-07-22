@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.11",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: three module-framework fixes found while testing for the 1.4.0 stable release. A module's own settings screen never appeared - the framework silently ignored it - and now renders under Admin -> Modules -> the module, below its simple settings. Modules can no longer request permissions that do nothing: nine of thirteen were never connected to anything, including \"Create, modify or delete your user accounts\", which looked alarming at approval time and granted nothing; only outbound connections, encryption, audit entries and sending email remain, and the others return when they are actually built. And legitimate modules are no longer rejected over ordinary English - the check that blocks dynamically loaded code was matching plain wording like \"Bulk import (JSON)\" on a module's own page. No published module is affected."
+    },
+    {
       "version": "1.4.0-beta.10",
       "date": "2026-07-22",
       "type": "patch",

@@ -68,7 +68,11 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
   },
   {
     rule: "banned-construct",
-    re: /\bimport\s*\(\s*(?!["'])/,
+    // Must sit where an expression can start (after =, (, ,, ;, {, }, await, return, or
+    // a line start). Matching a bare "import (" also hit ordinary English in JSX TEXT —
+    // a UI label reading "Bulk import (JSON)" was refused as a computed import. JSX text
+    // is neither a comment nor a string literal, so the noise stripper can't help.
+    re: /(?:^|[=(,;{}]|\b(?:await|return))\s*import\s*\(\s*(?!["'])/m,
     detail: "dynamic import() with a computed path — imports must be literal and reviewable",
   },
   {

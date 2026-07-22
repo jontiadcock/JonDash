@@ -11,6 +11,25 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.11] — 2026-07-22
+
+Three module-framework defects found while testing for the 1.4.0 stable release. All three would have
+shipped as "stable" and been the version add-on authors built against.
+
+### Fixed
+- **A module's own settings screen never appeared.** Modules could declare a custom settings panel and the
+  framework silently ignored it — an author wired it up and got nothing, with no error and no explanation.
+  It now renders under **Admin → Modules → *the module***, below the module's simple settings, so a module
+  can have both. It appears once the module is enabled and only gets the permissions you approved.
+- **Modules can no longer ask for permissions that don't do anything.** Nine of the thirteen permissions
+  were never connected to anything — including *"Create, modify or delete your user accounts"*, which
+  looked alarming at approval time and granted nothing at all. Only the four that genuinely work remain:
+  outbound connections, encryption, audit entries and sending email. Account, session and file access will
+  come back when they're actually built. **No published module is affected** — none used the removed ones.
+- **Legitimate modules were rejected over ordinary English.** The safety check that blocks modules from
+  loading code dynamically also matched plain wording in a module's own screens, so a module whose page
+  said "Bulk import (JSON)" was refused. Real dynamic loading is still refused.
+
 ## [1.4.0-beta.10] — 2026-07-22
 
 ### Fixed

@@ -17,7 +17,7 @@ phone). You can get modules three ways:
    (Claude, etc.), describe what you want, and it produces a ready-to-import module.
 
 Installing/updating a module downloads it, shows you the **permissions it requests** (e.g. "can make
-outbound network requests", "can read & write your user accounts") for your approval, then rebuilds and
+outbound network requests", "can send email using your configured mail account") for your approval, then rebuilds and
 restarts once. Everything a module stores is removed when you uninstall it.
 
 ---
@@ -83,7 +83,6 @@ type ModuleContext = {
   fetch?:   typeof fetch;                                                 // only with network:outbound
   net?:     { ping(host: string, opts?: { timeoutMs?: number }): Promise<number | null> };  // network:outbound
   email?:   { send(msg: { to; subject; text?; html? }): Promise<void> };  // only with email:send
-  usersDb?: { /* scoped user access */ };                                // only with db:users:*
   audit?:   (action: string, detail?: string) => Promise<void>;          // only with audit:write
 };
 ```
@@ -113,6 +112,22 @@ It verifies the module is installed and enabled, that the caller is signed in (a
 is `adminOnly`), and hands you a ctx scoped to your granted permissions. It **throws** on any failure rather
 than returning something falsy — never catch and ignore it.
 
+### Your own settings UI: `SettingsPanel`
+
+Declared settings are auto-rendered as a simple form. When you need more than that — a table, a wizard, a
+list with add/remove — export a `SettingsPanel` component from your definition. It renders in
+**Admin → Modules → *your module*, below the auto-generated fields**, so you can have both:
+
+```tsx
+// module.ts
+import SettingsPanel from "./settings-panel";
+const mod: ModuleDefinition = { …, settings: [ … ], SettingsPanel };
+```
+
+It receives the same **capability-scoped `ctx`** as your widget and page — being on an admin screen grants
+it nothing extra. It renders only once the module is **enabled**, since permissions aren't granted before
+that. Use `moduleAction` for anything it changes.
+
 ### Background work: `systemModuleContext`
 
 For pollers and schedulers there's no signed-in user. Don't hold on to a ctx captured from a request — every
@@ -140,20 +155,12 @@ const ctx = await systemModuleContext("my-module");
 | Permission        | Grants                                                        |
 | ----------------- | ------------------------------------------------------------ |
 | `network:outbound`| Connect out: `ctx.fetch`, `ctx.net.ping`, and raw TCP/DNS/TLS (`node:net`/`dns`/`tls`/`http(s)`). |
-| `db:users:read`   | Read user accounts.                                          |
-| `db:users:write`  | Modify user accounts. *(Sensitive.)*                         |
-| `db:core:read`    | Read other core tables.                                      |
-| `db:core:write`   | Modify other core tables. *(Sensitive.)*                     |
 | `crypto:use`      | Encrypt/decrypt with the app key (`ctx.crypto`).            |
-| `crypto:key:read` | Read the raw encryption key. **Dangerous — avoid.**         |
-| `sessions:read`   | See active sessions.                                        |
-| `sessions:manage` | Revoke sessions. *(Sensitive.)*                             |
-| `files:read` / `files:write` | Read/write the uploads/filesystem area.           |
 | `audit:write`     | Write audit-log entries (`ctx.audit`).                      |
 | `email:send`      | Send email via the admin's configured mailer.               |
 
-**Etiquette:** request the *fewest* permissions that make your module work; never request `crypto:key:read`
-unless you genuinely must; be truthful in `name`/`description`; if you call an external service, declare
+**Etiquette:** request the *fewest* permissions that make your module work; be truthful
+in `name`/`description`; if you call an external service, declare
 `network:outbound` and say which service in `MODULE.md`. Each permission is shown to the admin as a
 plain-language warning at install — over-asking gets your module declined.
 
@@ -313,7 +320,8 @@ THE ModuleDefinition TYPE (produce module.ts matching this shape):
     DashboardWidget?: React component;  // optional; EACH USER resizes it (1-3 cols/rows) - fill the
                                         //   space given, no fixed px, degrade to a glance at 1x1
     Page?: React component;             // optional; enables /m/<id>/...
-    SettingsPanel?: React component;    // optional; else the framework auto-renders `settings`
+    SettingsPanel?: React component;    // optional; rendered UNDER the auto-generated `settings` fields
+                                        //   in Admin -> Modules -> <module>, with a scoped ctx
     migrations?: string;                // optional path to the migrations dir
     adminOnly?: boolean;                // optional; restrict all UI to admins
     onEnable?(ctx): Promise<void>; onDisable?(ctx): Promise<void>; onUninstall?(ctx): Promise<void>;
@@ -330,7 +338,6 @@ THE CONTEXT you receive (ctx) — ONLY the fields your permissions granted are p
   ctx.net?            // ONLY with "network:outbound": .ping(host,{timeoutMs?}) -> ms, or null if no reply
   ctx.crypto?         // ONLY with "crypto:use": .encrypt(s) .decrypt(s)
   ctx.email?          // ONLY with "email:send": .send({to,subject,text?,html?}) — THROWS if it fails
-  ctx.usersDb?        // ONLY with "db:users:read"|"db:users:write"
   ctx.audit?(action, detail?)   // ONLY with "audit:write"
   Baseline (no permission needed): your settings, your store, your own mod_<id>_* tables.
 
@@ -369,9 +376,8 @@ THE INSTALLER STATICALLY VERIFIES YOUR CODE AND WILL REFUSE IT IF IT:
   external service returns as hostile input (cap lengths, strip control characters before storing).
 
 PERMISSIONS (declare the least; each is shown to the admin as a warning at install):
-  network:outbound | db:users:read | db:users:write | db:core:read | db:core:write |
-  crypto:use | crypto:key:read (DANGEROUS, avoid) | sessions:read | sessions:manage |
-  files:read | files:write | audit:write | email:send
+  network:outbound | crypto:use | audit:write | email:send
+  (These are ALL of them. Account, session and filesystem access are not available to modules.)
 
 HARD RULES
 - Only ADD; never modify the base app or its tables. Namespace every table you create as mod_<id>_*.

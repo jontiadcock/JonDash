@@ -19,18 +19,17 @@ import type { ComponentType, ReactNode } from "react";
  * ModuleContext when it was granted. Baseline (no permission needed): a module's own
  * settings, its own generic store, and its own `mod_<id>_*` tables.
  */
+/**
+ * Only permissions that actually grant something are listed. Earlier drafts also declared
+ * `db:users:*`, `db:core:*`, `crypto:key:read`, `sessions:*` and `files:*` — none of which
+ * were ever wired to a capability. They were removed rather than left in place, because a
+ * permission that shows the admin a serious-sounding warning ("Create, modify or delete
+ * your user accounts") and then grants nothing teaches people to wave consent screens
+ * through. Each will be reintroduced with the capability that implements it.
+ */
 export type ModulePermission =
   | "network:outbound" // outbound connections: ctx.fetch, raw TCP/DNS/TLS, ctx.net.ping
-  | "db:users:read" // read user accounts (ctx.usersDb)
-  | "db:users:write" // modify user accounts (sensitive)
-  | "db:core:read" // read other core tables
-  | "db:core:write" // modify other core tables (sensitive)
   | "crypto:use" // encrypt/decrypt with the app key (ctx.crypto)
-  | "crypto:key:read" // read the raw encryption key — DANGEROUS, avoid
-  | "sessions:read" // see active sessions
-  | "sessions:manage" // revoke sessions (sensitive)
-  | "files:read" // read the uploads/filesystem area
-  | "files:write" // write the uploads/filesystem area
   | "audit:write" // write audit-log entries (ctx.audit)
   | "email:send"; // send email via the admin's configured mailer
 
@@ -104,7 +103,6 @@ export type ModuleContext = {
   fetch?: typeof fetch; // "network:outbound"
   net?: ModuleNetApi; // "network:outbound"
   email?: ModuleEmailApi; // "email:send"
-  usersDb?: unknown; // "db:users:*" — shape defined as the runtime lands
   audit?: (action: string, detail?: string) => Promise<void>; // "audit:write"
 };
 
@@ -172,27 +170,18 @@ export type InstalledModule = {
 /** Human-readable, one-line warning shown at install for each permission. */
 export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
   "network:outbound": "Connect out to other servers (web requests, and raw TCP, DNS, TLS and ping checks)",
-  "db:users:read": "Read your user accounts",
-  "db:users:write": "Create, modify or delete your user accounts",
-  "db:core:read": "Read other app data",
-  "db:core:write": "Modify other app data",
   "crypto:use": "Encrypt and decrypt data with your app's key",
-  "crypto:key:read": "Read your raw encryption key (full access to all secrets)",
-  "sessions:read": "See who is signed in",
-  "sessions:manage": "Sign other people out",
-  "files:read": "Read uploaded files",
-  "files:write": "Write files to the app's storage",
   "audit:write": "Add entries to your audit log",
   "email:send": "Send email using your configured mail account",
 };
 
-/** Permissions flagged as high-risk (highlighted red in the consent screen). */
-export const DANGEROUS_PERMISSIONS: ReadonlySet<ModulePermission> = new Set<ModulePermission>([
-  "db:users:write",
-  "db:core:write",
-  "crypto:key:read",
-  "sessions:manage",
-]);
+/**
+ * Permissions flagged as high-risk (highlighted red in the consent screen). Empty for
+ * now — everything currently grantable is comparatively low-risk. The set exists because
+ * the genuinely dangerous capabilities (user-account access, reading the raw key) are
+ * exactly the ones still to be built, and they must be highlighted the day they land.
+ */
+export const DANGEROUS_PERMISSIONS: ReadonlySet<ModulePermission> = new Set<ModulePermission>([]);
 
 /** Re-exported for convenience where a widget/panel returns markup. */
 export type ModuleRenderable = ReactNode;

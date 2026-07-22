@@ -86,6 +86,34 @@ describe("module verifier", () => {
     expect(res.issues.map((i) => i.rule)).toContain("permission-mismatch");
   });
 
+  // REGRESSION: a module was refused because its UI said "Bulk import (JSON)". JSX text
+  // is neither a comment nor a string literal, so the noise stripper never saw it —
+  // ordinary English was read as a computed dynamic import.
+  it("does not mistake English in JSX text for a computed import()", () => {
+    const ui = `export default function P() {
+      return (<div>
+        <p>Paste a saved configuration into Bulk import (JSON) to restore it.</p>
+        <p>You can import (or export) your settings at any time.</p>
+      </div>);
+    }`;
+    expect(verify([MODULE_TS([]), { path: "page.tsx", bytes: 200, text: ui }]).ok).toBe(true);
+  });
+
+  it("still catches a real computed import() in every expression position", () => {
+    for (const body of [
+      "const m = await import(userPath);",
+      "const m = import(userPath);",
+      "return import(userPath);",
+      "register(import(userPath));",
+    ]) {
+      const res = verify([MODULE_TS([], body)]);
+      expect(res.ok, body).toBe(false);
+      expect(res.issues.map((i) => i.rule), body).toContain("banned-construct");
+    }
+    // ...while a literal import stays fine.
+    expect(verify([MODULE_TS([], 'const m = await import("./thing");')]).ok).toBe(true);
+  });
+
   it("does not trip on rule words appearing in comments or prose", () => {
     const res = verify([
       MODULE_TS([], "// never use eval() or node:child_process here\n/* process.env is banned */"),
