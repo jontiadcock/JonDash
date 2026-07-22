@@ -14,8 +14,16 @@ import {
   setSourceEnabled,
   SourceError,
   browseAvailableModules,
+  type ModuleChannel,
 } from "@/lib/modules/sources";
-import { installModuleFromSource, installModuleFromZip, removeModuleFiles, InstallError } from "@/lib/modules/install";
+import {
+  installModuleFromSource,
+  installModuleFromZip,
+  removeModuleFiles,
+  moduleFilesExist,
+  peekZipModuleId,
+  InstallError,
+} from "@/lib/modules/install";
 import {
   regenerateRegistry,
   markModuleInstalling,
@@ -24,6 +32,7 @@ import {
 } from "@/lib/modules/rebuild";
 import { setModuleGroups } from "@/lib/modules/visibility";
 import { ensureHelpersFor, pruneUnusedHelpers } from "@/lib/helpers/install";
+import { readChannel } from "@/lib/update-channel";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 
@@ -91,6 +100,44 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
 export type InstallState = { ok?: boolean; error?: string };
 
 /**
+ * Resolve the helpers a freshly-written module declares, rolling the module back if any
+ * can't be had.
+ *
+ * A module without its declared helper **cannot work** — for a scheduler-style helper it
+ * imports nothing, so the build succeeds and the module simply sits there, its scheduled
+ * work never running. Leaving that installed produces exactly the failure this project
+ * keeps hitting: something that looks fine and silently does nothing. So both install
+ * paths refuse it rather than one keeping it and the other abandoning its files.
+ *
+ * `existedBefore` is the guard that makes rollback safe: on an UPDATE the files have
+ * already been overwritten, and deleting them would destroy a working module over a
+ * missing helper. There we report and keep the new version instead.
+ *
+ * Returns an error string, or null on success.
+ */
+async function resolveHelpersOrRollBack(
+  moduleId: string,
+  declaredHelpers: string[],
+  channel: ModuleChannel,
+  existedBefore: boolean,
+): Promise<string | null> {
+  if (declaredHelpers.length === 0) return null;
+
+  const res = await ensureHelpersFor(declaredHelpers, channel);
+  if (res.installed.length > 0) {
+    await audit("admin.helper.install", {
+      detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${moduleId})`,
+    });
+  }
+  if (res.missing.length === 0) return null;
+
+  const why = `needs the ${res.missing.map((m) => `"${m}"`).join(", ")} helper, which isn't published on the ${channel} channel`;
+  if (existedBefore) return why; // an update — keep what's there rather than destroying it
+  removeModuleFiles(moduleId); // fresh install: leave nothing behind for a later rebuild
+  return why;
+}
+
+/**
  * Install a module from one of the configured sources. The posted form only identifies
  * WHICH module — the version, tag and permissions are re-resolved from the source here,
  * so a tampered form can't install a different package or understate what it asks for.
@@ -123,28 +170,27 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
         failures.push(`${moduleId}: needs JonDash ${entry.minAppVersion} or newer`);
         continue;
       }
+      const existedBefore = moduleFilesExist(moduleId);
       const outcome = await installModuleFromSource(entry.sourceUrl, entry, channel);
+
+      // Helpers the module declared arrive with it — same batch, same restart, official
+      // source only. If one can't be had the module is rolled back rather than installed
+      // in a state where it can never work; the import path does exactly the same.
+      const helperError = await resolveHelpersOrRollBack(
+        outcome.moduleId,
+        outcome.declaredHelpers,
+        channel,
+        existedBefore,
+      );
+      if (helperError) {
+        failures.push(`${entry.name}: ${helperError}`);
+        continue;
+      }
+
       installed.push(outcome.moduleId);
       await audit("admin.module.install", {
         detail: `${outcome.moduleId}@${outcome.version} from ${entry.sourceUrl} (${channel})`,
       });
-
-      // Helpers the module declared arrive with it, as part of the same batch and the
-      // same restart — never on their own initiative, and only from the official source.
-      // A helper the source doesn't publish is reported rather than left to fail the
-      // build later with nothing explaining why.
-      const helperIds = outcome.declaredHelpers;
-      if (helperIds.length > 0) {
-        const res = await ensureHelpersFor(helperIds, channel);
-        if (res.installed.length > 0) {
-          await audit("admin.helper.install", {
-            detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${outcome.moduleId})`,
-          });
-        }
-        for (const m of res.missing) {
-          failures.push(`${entry.name}: needs the "${m}" helper, which the official source doesn't publish`);
-        }
-      }
     } catch (e) {
       const why = e instanceof InstallError || e instanceof SourceError ? e.message : "couldn't be installed";
       failures.push(`${moduleId}: ${why}`);
@@ -172,24 +218,27 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
   let installedId: string;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
+    // Whether these files are replacing an existing module decides whether a helper
+    // failure may roll them back — see resolveHelpersOrRollBack.
+    const peeked = peekZipModuleId(bytes);
+    const existedBefore = peeked ? moduleFilesExist(peeked) : false;
+
     const outcome = await installModuleFromZip(bytes);
     installedId = outcome.moduleId;
     await audit("admin.module.import", { detail: `${outcome.moduleId}@${outcome.version} (${outcome.fileCount} files)` });
 
     // A sideloaded module declaring a helper needs it just as much as an installed one.
     // The helper still comes only from the official source — importing your own module
-    // doesn't let you bring your own helper.
-    if (outcome.declaredHelpers.length > 0) {
-      const res = await ensureHelpersFor(outcome.declaredHelpers, "stable");
-      if (res.installed.length > 0) {
-        await audit("admin.helper.install", {
-          detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${outcome.moduleId})`,
-        });
-      }
-      if (res.missing.length > 0) {
-        return { error: `That module needs the "${res.missing.join(", ")}" helper, which isn't published.` };
-      }
-    }
+    // doesn't let you bring your own helper. A sideloaded package has no manifest and so
+    // no channel of its own, so the admin's own update channel decides: someone on stable
+    // shouldn't silently receive beta helper code.
+    const helperError = await resolveHelpersOrRollBack(
+      outcome.moduleId,
+      outcome.declaredHelpers,
+      readChannel() === "beta" ? "beta" : "stable",
+      existedBefore,
+    );
+    if (helperError) return { error: `That module ${helperError}.` };
   } catch (e) {
     if (e instanceof InstallError) return { error: e.message };
     return { error: "Couldn't import that module." };

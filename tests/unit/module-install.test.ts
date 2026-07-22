@@ -9,6 +9,7 @@ import {
   writeModuleFiles,
   removeModuleFiles,
   moduleFilesExist,
+  peekZipModuleId,
   InstallError,
 } from "@/lib/modules/install";
 
@@ -121,5 +122,38 @@ describe("module installer", () => {
 
   it("refuses a module id that isn't a safe slug", () => {
     expect(() => removeModuleFiles("../../etc")).toThrow(InstallError);
+  });
+});
+
+/**
+ * REGRESSION (BUG-19, 2026-07-22). The import path wrote a module's files, then returned
+ * an error if its declared helper couldn't be resolved — WITHOUT removing what it had just
+ * written. The admin was told the import failed, but the folder stayed in modules/ and the
+ * next unrelated rebuild compiled the module in WITHOUT its helper, so its scheduled work
+ * silently never ran. Found by reading, not by running, so it gets a test that runs.
+ */
+describe("peeking a ZIP before writing it (BUG-19 rollback support)", () => {
+  const PEEK_SRC = `
+import type { ModuleDefinition } from "@/lib/modules/types";
+const mod: ModuleDefinition = {
+  id: "peeked", name: "Peeked", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
+  permissions: [], helpers: ["scheduler"],
+};
+export default mod;`;
+
+  it("reports the module id a ZIP would install, writing nothing", () => {
+    const zip = zipSync({ "peeked/module.ts": strToU8(PEEK_SRC) });
+    expect(peekZipModuleId(zip)).toBe("peeked");
+    // Nothing may be created just by looking.
+    expect(fs.existsSync(path.join(process.cwd(), "modules", "peeked"))).toBe(false);
+  });
+
+  it("returns null for a ZIP with no module, rather than throwing", () => {
+    expect(peekZipModuleId(zipSync({ "readme.md": strToU8("# no module") }))).toBeNull();
+    expect(peekZipModuleId(strToU8("not a zip"))).toBeNull();
+  });
+
+  it("refuses an unsafe folder name instead of reporting it as an id", () => {
+    expect(peekZipModuleId(zipSync({ "../evil/module.ts": strToU8(PEEK_SRC) }))).toBeNull();
   });
 });

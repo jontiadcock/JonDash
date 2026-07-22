@@ -438,6 +438,17 @@ practical. Stable `BUG-##` IDs.
 _None currently._
 
 ### 🟠 High
+
+- **BUG-19 · A failed module import left the module installed anyway — fixed v1.5.0-beta.4.**
+  `importModuleAction` wrote the module's files via `installModuleFromZip`, then resolved its declared
+  helpers. When one couldn't be resolved it returned an error but never removed what it had just written,
+  so `gen-module-registry.mjs` picked the folder up on the **next unrelated rebuild** and compiled the
+  module in **without the helper it declared** — its scheduled work then silently never ran. The
+  source-install path did the opposite (kept the module, reported the helper as a failure); the two
+  disagreed. **Resolved by making both refuse:** a module that can't have its declared helper cannot work,
+  so it is rolled back rather than installed inert — except on an *update*, where the files are already
+  overwritten and deleting them would destroy a working module, so there it reports and keeps the new
+  version. Reported by the addons session (by code review, not reproduction) 2026-07-22.
 - **BUG-04 (fixed v1.3.7-beta.1 — OPS-12) · Restoring a backup broke the authenticator (TOTP).** After a
   restore, users couldn't sign in with their authenticator app, though one-time backup codes did.
   **Cause:** TOTP secrets are stored **encrypted** (`totpSecretEnc`) with the per-install AES key in
@@ -448,6 +459,13 @@ _None currently._
   2026-07-20; fixed + shipped 2026-07-21 (v1.3.7-beta.1).
 
 ### 🟡 Medium
+
+- **BUG-18 · ZIP import resolved helpers from the stable channel only — fixed v1.5.0-beta.4.**
+  `importModuleAction` hardcoded `ensureHelpersFor(..., "stable")`, but a helper may be published on beta
+  only — `scheduler` currently is — so sideloading any module declaring a beta-only helper failed with
+  "isn't published", including the official `template`. A sideloaded package has no manifest and so no
+  channel of its own; it now uses **the admin's own update channel**, so someone on stable is not silently
+  given beta helper code. Reported by the addons session 2026-07-22.
 - **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
   a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
   self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already

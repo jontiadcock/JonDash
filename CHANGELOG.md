@@ -49,6 +49,21 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.5.0-beta.4] — 2026-07-22
+
+### Fixed
+- **A failed import left the module installed anyway.** You were told the import had failed, but its files
+  stayed on disk and were quietly compiled in on the next restart — without the helper it needed, so its
+  background work never ran. A module that can't have the helper it declares is now **refused outright**
+  rather than installed in a state where it can never work.
+- **Installing from a source now behaves the same way.** It previously kept such a module and reported the
+  helper separately, so the two routes disagreed about what a missing helper meant. The one exception is
+  *updating* an existing module: there the files are already replaced, so the update is kept and the
+  problem reported, rather than deleting a module that was working.
+- **Importing looked for helpers on the stable channel only**, so importing any module needing a beta-only
+  helper always failed. It now follows your own update channel — if you're on stable you won't silently be
+  given beta helper code.
+
 ## [1.5.0-beta.3] — 2026-07-22
 
 Fixes from a full module lifecycle test — install, enable, use, disable, uninstall, batch install.

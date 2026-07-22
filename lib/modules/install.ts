@@ -135,6 +135,30 @@ export function removeModuleFiles(moduleId: string): void {
   removeProvenance(moduleId);
 }
 
+/**
+ * The module id a ZIP would install, without writing anything. Used to tell a fresh
+ * import from one replacing an existing module — which decides whether a later failure
+ * may delete the files, or must leave a working module alone.
+ */
+export function peekZipModuleId(zip: Uint8Array): string | null {
+  try {
+    const entries = unzipSync(zip);
+    const entryFile = Object.keys(entries)
+      .map((n) => n.replace(/\\/g, "/"))
+      // A traversal path must never yield an id: basename("../evil/") is "evil", which
+      // looks perfectly valid. Nothing is written from this, but a function that reports
+      // an id for an unsafe path is a trap for whoever uses it next.
+      .filter((n) => !n.split("/").includes("..") && !n.startsWith("/"))
+      .filter((n) => /(^|\/)module\.tsx?$/.test(n))
+      .sort((a, b) => a.split("/").length - b.split("/").length)[0];
+    if (!entryFile) return null;
+    const id = path.basename(entryFile.replace(/module\.tsx?$/, "").replace(/\/$/, ""));
+    return /^[a-z0-9][a-z0-9-]{0,63}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether a module's source is present on disk. */
 export function moduleFilesExist(moduleId: string): boolean {
   return (

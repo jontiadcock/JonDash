@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0-beta.4",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fixes for importing your own module. A failed import left the module's files behind: you were told it had failed, but it was quietly compiled in on the next restart without the helper it needed, so its background work never ran. A module that cannot have the helper it declares is now refused outright rather than installed in a state where it can never work - and installing from a source behaves the same way, which it previously did not. Importing also looked for helpers on the stable channel only, so importing a module needing a beta-only helper always failed; it now follows your own update channel."
+    },
+    {
       "version": "1.5.0-beta.3",
       "date": "2026-07-22",
       "type": "patch",
