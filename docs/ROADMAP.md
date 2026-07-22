@@ -40,24 +40,23 @@ can author their own addons**.
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Now**
-- ✅ **MOD-01 — Module framework** — **P1–P3 shipped (v1.4.0-beta.1 → beta.6).**
-  Plug-and-play modules, installed + updated from a git source **independently of the base app**,
-  **permission-gated** (app-store-style consent) with an **install-time verifier**, bulk install, per-module
-  RBAC via Service Groups, and per-user resizable dashboard widgets. Full detail in the MOD-01 catalog entry.
-  _(Also shipped: OPS-12 v1.3.7-beta.1, OPS-11 v1.3.6-beta.1.)_ **Next: SEC-04.**
+**Now — nothing in flight. Next: SEC-04.**
+The module platform is complete and released: **MOD-01** (framework, v1.4.0) and **MOD-08** (module
+updates + helpers, v1.5.0). Detail in the catalog entries, not here.
 
 **Next — security & access control**
 1. ⏳ **SEC-04 — Session lifecycle hardening**
 2. ⏳ **SEC-05 — Trusted-IP auto-login**
 
 **Then — modules & customization platform**
-5. ✅ **MOD-01 — Module / feature framework** — P1–P3 shipped through v1.4.0-beta.6; detail in the catalog
-6. ▶️ **MOD-02 — Health monitoring (module, Phase 1: status)** — built + published by the add-ons session
-   (`health-monitor/v0.0.1-beta.1`, beta channel); install verified end to end
-7. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
-8. ⏳ **MOD-04 — Live widgets + arrangeable layout**
-9. ⏳ **MOD-05 — Official Addons page**
+3. ✅ **MOD-01 — Module / feature framework** — P1–P3, shipped v1.4.0; detail in the catalog
+4. ✅ **MOD-08 — Module updates + helpers** — shipped v1.5.0; detail in the catalog
+5. ✅ **MOD-02 — Health monitoring (module, Phase 1: status)** — built + published by the add-ons session;
+   `health-monitor` is on both channels and installs end to end. The module's own roadmap lives in that repo.
+6. ⏳ **MOD-03 — Health monitoring alerting (Phase 2)** — needs OPS-02
+7. ⏳ **MOD-04 — Arrangeable dashboard (core tiles too)** — per-user *module widget* sizing shipped in
+   v1.4.0; the remaining scope is arranging core service tiles alongside them
+8. ⏳ **MOD-05 — Official Addons page**
 
 **Planned — slot in as decided (not tied to the sequence above)**
 - ⏳ **OPS-02 — Email + self-service password reset** — part 1 (email) shipped v1.2.5; part 2 (emailed setup/reset links + self-service reset) unlocks MOD-03
@@ -142,7 +141,7 @@ prevention, signed-update verification, durable (Redis) rate-limit.
 
 ### MOD — Modules & customization platform
 
-#### MOD-01 · Module framework — ▶️ In progress (Phase 1 shipped v1.4.0-beta.1; P2 next)
+#### MOD-01 · Module framework — ✅ Shipped v1.4.0 (P1–P3; 2026-07-22)
 Plug-and-play **modules** that plug into the core with a hard **isolation guarantee** (the baseline app is
 never affected — "remove the app, the phone is fine"), **installed & updated over public git independently
 of the base app**, and **permission-gated** at install. Full design in the **[[jondash-module-framework]]**
@@ -217,7 +216,7 @@ memory; authored per the approved plan. Key points:
   exactly like services); **resizable + movable live widgets** on the dashboard with **size + position saved per user**; a
   module may ship a **custom, designable icon**; and the **widget-size-affects-appearance** guidance is
   documented (authors design responsively — a small widget = compact view, larger = more detail).
-- **P3 — Module runtime APIs ("make add-ons actually work")** — ✅ **built 2026-07-22, awaiting release.**
+- **P3 — Module runtime APIs ("make add-ons actually work")** — ✅ **shipped v1.4.0-beta.3.**
   Without these a module can render but do nothing: no working buttons, no email, and background work
   misattributed to a random admin. Added: **`moduleAction(id, handler)`** — the sanctioned mutation entry
   point (module must be installed + enabled, caller authenticated, full admin when `adminOnly`, ctx scoped to
@@ -229,9 +228,36 @@ memory; authored per the approved plan. Key points:
   trusted code. Consent wording for `network:outbound` widened to disclose raw TCP/DNS/TLS/ping. **Modules may
   import exactly two core paths — `@/lib/modules/types` (types, client-safe) and `@/lib/modules/api` (runtime);
   everything else arrives on `ctx`** and the verifier refuses it. 118 tests.
-- **P4 — MOD-02 Health monitoring** as the first real module: a live, resizable status widget with per-service
-  graphs/red-drops, a full self-contained module page (the "open the app" view), and a custom live icon.
+- **P4 — MOD-02 Health monitoring** ✅ as the first real module (built in the add-ons repo, not here).
 - **P5 (later) —** hardened sandboxing/signing for untrusted third-party modules (MOD-06).
+
+#### MOD-08 · Module updates + helpers — ✅ Shipped v1.5.0 (2026-07-22)
+The second half of the platform: keeping installed modules current, and letting a module do work it can't do
+alone. Design of record: **`docs/HELPERS-DESIGN.md`**; author-facing contract: `docs/MODULES-AUTHORING.md`.
+- **Module updates** in **Admin → Updates**, in their own section under the app's own panel — installed vs
+  available version, channel, source; batch update in one rebuild/restart; module data preserved. **Modules
+  are never updated automatically**, even when the app auto-updates itself — the app may change on its own,
+  a module never does. An update that **adds** a permission needs explicit approval for that specific change;
+  one that gives permissions up applies silently. Update also runs the module's new migrations
+  (`ensureModuleMigrations`, keyed on `migratedVersion`, retried on failure) and rewrites `grantedPermissions`.
+- **Helpers** — first-party privileged capability a module declares and depends on. **Official source only,
+  enforced in code** (a `helpers` array from any other source is silently dropped); auto-installed with the
+  module that needs them and pruned when the last dependent goes (files only — **helper-owned data is
+  never destroyed**); read-only **Admin → Helpers** page listing each helper and its dependents. Boot phase
+  via `instrumentation.ts` → `lib/helpers/boot.ts`, each helper isolated and 5s-bounded so one can never stop
+  the server starting.
+- **Declared background work** — `schedules: [{ key, everyMs, run(ctx) }]` on `ModuleDefinition`, run by the
+  `scheduler` helper **from server start** rather than from the first page render. Declarative on purpose: a
+  module never runs arbitrary code at boot and its schedule is inspectable without executing it. Fixes the
+  real defect it was built for — a restart at 03:00 no longer leaves services unwatched until morning.
+- **Self-heal** — a module missing something it needs is detected on Admin → Modules; **official-source**
+  modules have the missing files re-fetched with a *Restart now* button, imported/third-party ones are
+  reported with what's wrong. Nothing restarts on its own, and JonDash never fetches code on a third party's
+  behalf.
+- **Verifier extended:** `@/helpers/<id>/api` allowed only for declared helpers and nothing deeper; a module
+  may import its own files but **not another module's** (the old check allowed every `@/modules/…` path).
+- **Filesystem helper deliberately deferred** — it needs admin-configured roots (its own UI chunk), and its
+  consumer must be defined *before* the API is designed, or the test only proves the helper matches itself.
 
 #### MOD-07 · Modifications (core-modifying add-ons) — 🌅 Reserved (future; keep the door open)
 A **later** category distinct from modules: **"modifications"** that *can modify the base app itself* (not
@@ -239,7 +265,11 @@ just add alongside it) — higher trust, more invasive. **Not built now** (base 
 module framework must be designed so this can be added later (e.g. a separate `ModificationDefinition` with
 elevated, explicitly-consented `core:*` permissions + core extension/override hooks). Reserved 2026-07-21.
 
-#### MOD-02 · Health monitoring (first module) — Phase 1: status only — ⏳
+#### MOD-02 · Health monitoring (first module) — Phase 1: status only — ✅ Shipped (add-ons repo)
+Built and published by the add-ons session as the `health-monitor` module, on both channels. It went
+further than the Phase-1 scope below: HTTP, TCP, ping, DNS and certificate checks, uptime + response-time
+history, and email/webhook alerts. Its own versioning and roadmap live in **JonDash-addons**, not here —
+this entry stays only to record that the core-side goal is met. Original scope, for reference:
 - Per-service checks: **HTTP(S)** (status + latency) and **TCP port** (raw connect).
   Admin-configured (users don't create tiles).
 - **Everything selectable:** enable per tile, check type, refresh interval, timeout, expected
@@ -581,6 +611,32 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 - **v1.2.4** (2026-07-20) — bug fixes: **BUG-01** backups are now a compressed ZIP archive with real icon files (icons-only export no longer empty; legacy `.json` still restores); **BUG-02** >1 MB icon uploads / restores no longer crash (Server Actions `bodySizeLimit` 10 MB + friendly client size checks). BUG-03 closed as upstream/harmless.
 - **v1.2.5** (2026-07-20) — OPS-02 part 1: outgoing email (authenticated SMTP app-password + Google/Microsoft OAuth2), encrypted config, ADMIN-only Email page + test-send.
 - **v1.3.0** (2026-07-20) — **update channels (Stable / Beta)** + a Check-for-updates button (`Admin → Settings → Updates`; beta uses `X.Y.Z-beta.N`, channel per branch) — the beta auto-update-channel capability that unblocks the two-branch workflow; **and first-run backup restore** on the welcome screen (initialise a fresh install from a backup; gated to before the first admin exists).
+- **v1.3.1 – v1.3.7** (2026-07-21 → 22, beta line) — CORE-02 Settings sidebar, OPS-10 launcher supervisor
+  (crash capture + auto-revert), OPS-11 update grace screen + Server power + full sign-out on restart,
+  OPS-12 full server backup + selective restore (BUG-04 TOTP fix). Per-release detail: `CHANGELOG.md`.
+- **v1.4.0** (2026-07-22) — **MOD-01 modules.** Install from a git source or import your own ZIP,
+  permission consent + install-time verifier, bulk install, module RBAC via Service Groups, per-user
+  resizable widgets, auto-recovery from a module that breaks the build.
+- **v1.5.0** (2026-07-22) — **MOD-08 module updates + helpers.** Module updates in Admin → Updates
+  (batch, never automatic, permission-change approval, migrations on update), helpers with a boot phase,
+  declared background work via the `scheduler` helper, read-only Admin → Helpers, and self-heal for
+  official-source modules.
+
+**Per-release detail is in `CHANGELOG.md`** — this log is landmarks only, one line per release line.
+
+---
+
+## Testing required — confirm before trusting
+
+Shipped but never exercised by a person. Cleared only when the user confirms. Step-by-step notes live
+privately in `PROJECT_MEMORY.md § Testing notes`, never here.
+
+- **Module install rollback on helper failure** (v1.5.0-beta.4) — a module whose declared helper can't be
+  resolved must be refused *and* have its files removed, not left half-installed.
+- **Helper reconcile + self-heal** (v1.5.0-beta.5) — Admin → Modules detecting a missing helper,
+  re-fetching it for an official-source module, and reporting rather than fetching for an imported one.
+- **Module update path, end to end** (v1.5.0) — batch update, the added-permission approval gate, and a
+  module's new migrations running on update.
 
 ---
 

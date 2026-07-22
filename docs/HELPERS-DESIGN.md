@@ -1,7 +1,9 @@
 # Helpers — design (MOD-08)
 
-> Status: **in progress**, targeting 1.5.0. This is the design of record; where it and the code disagree,
-> the code wins and this is a bug.
+> Status: **shipped in 1.5.0** (`scheduler` is the first helper). This is the design of record; where it and
+> the code disagree, the code wins and this is a bug.
+>
+> Related: [module authoring](MODULES-AUTHORING.md) · [the official source](https://github.com/jontiadcock/JonDash-addons) · [README](../README.md)
 
 ## Why
 

@@ -1,9 +1,11 @@
 # Building JonDash modules
 
-> **The module framework is live** as of JonDash 1.4.0-beta.3 — installing from a source, importing your own,
-> the install-time verifier and the runtime APIs below all ship. This document is the contract; where it and
-> the code ever disagree, the code wins and this is a bug. Nothing here changes the base app if you don't
-> install any modules.
+> **The module framework is live.** Installing from a source, importing your own, the install-time verifier
+> and the runtime APIs below ship in **JonDash 1.4.0**; **module updates, helpers and declared background
+> work** ship in **1.5.0**. This document is the contract; where it and the code ever disagree, the code wins
+> and this is a bug. Nothing here changes the base app if you don't install any modules.
+>
+> Related: [helper design](HELPERS-DESIGN.md) · [the official source](https://github.com/jontiadcock/JonDash-addons) · [README](../README.md)
 
 A **module** (also called an addon) is a self-contained package that plugs extra functionality into JonDash
 — a dashboard widget, its own page(s), and its own settings — **without ever changing the base app**.
@@ -153,7 +155,40 @@ const ctx = await systemModuleContext("my-module");
 | `@/lib/modules/api` | Runtime: `moduleAction`, `systemModuleContext`. |
 
 **Anything else under `@/lib/…` is refused at install** — including the framework's own `store`, `migrate`,
-`manage`, `registry` and `context`. Everything else you need arrives on `ctx`.
+`manage`, `registry` and `context`. Everything else you need arrives on `ctx`. You may import your **own**
+files (`@/modules/<your-id>/…`) but never another module's.
+
+### Depending on a helper (JonDash 1.5.0+)
+
+A **helper** is a first-party shared component that does things modules are forbidden to do themselves.
+Declare the ones you need and JonDash installs them with your module — the admin never installs a helper
+directly, and they're listed read-only under **Admin → Helpers**:
+
+```ts
+const mod: ModuleDefinition = { …, helpers: ["scheduler"] };
+```
+
+- Declaring a helper is what allows `import … from "@/helpers/<id>/api"` — the verifier refuses that import
+  otherwise, and refuses anything deeper than that one public path.
+- Your `addons.json` entry must list exactly the same helpers, the same rule permissions follow.
+- Helpers come **only from the official source**. A module from anywhere else may declare one, but the
+  helper itself is never fetched from a third-party repo.
+
+**Background work** is the reason most modules take a helper. Don't start your own timer — *declare* the
+work and the `scheduler` helper runs it from server start, whether or not anyone has opened a page:
+
+```ts
+const mod: ModuleDefinition = {
+  …,
+  helpers: ["scheduler"],
+  schedules: [
+    { key: "poll", everyMs: 60_000, skipOnBoot: false, run: async (ctx) => { /* handle your own errors */ } },
+  ],
+};
+```
+
+`run` gets a system context (no signed-in user) and must not throw past its own handler. `key` is stable
+per module and is how the last-run time is remembered across restarts.
 
 ---
 
@@ -271,9 +306,14 @@ crypto/audit/email/users via declared permissions.
 ## Packaging / publishing
 - **Import (sideload):** ZIP the module folder (so `module.ts` sits at the archive root) and import it in
   **Admin → Modules → Import**. No repo needed.
-- **Repo (for sharing/auto-update):** put the module in a public git repo with a manifest listing its id,
-  version, `minAppVersion`, permissions, and a release-archive URL per version. Bump `version` (semver) to
-  publish an update; installs update **independently of the JonDash base version**.
+- **Repo (for sharing/updates):** put the module in a public GitHub repo with an `addons.json` manifest at
+  its root listing each module's `id`, `name`, `description`, `version`, `minAppVersion`, `permissions`,
+  `helpers`, `path` and the `tag` its archive is downloaded from. Bump `version` (semver) to publish an
+  update; modules update **independently of the JonDash base version**.
+  The manifest format, the stable/beta branch scheme and the `minAppVersion` pre-release rule are documented
+  in the official source's
+  **[VERSIONING.md](https://github.com/jontiadcock/JonDash-addons/blob/main/VERSIONING.md)** — copy it,
+  including for your own repo, since JonDash's installer reads the same format from every source.
 
 ---
 
