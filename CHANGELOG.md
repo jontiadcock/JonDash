@@ -11,6 +11,15 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.8] — 2026-07-22
+
+### Fixed
+- **Browse modules crashed whenever a channel actually had modules to show.** Opening
+  **Admin → Modules → Browse modules** on a channel with published modules produced an error page instead
+  of the list, so there was no way to install anything from a source. Introduced in 1.4.0-beta.5 along with
+  multi-select; it only appeared once a channel had something in it, which is why the empty **stable**
+  channel looked fine while **beta** failed. Selecting and installing modules works normally again.
+
 ## [1.4.0-beta.7] — 2026-07-22
 
 ### Fixed

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.8",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: Browse modules crashed whenever a channel actually had modules to show. Admin -> Modules -> Browse modules gave an error page instead of the list, so nothing could be installed from a source. It only happened once a channel had something published in it, which is why the empty stable channel looked fine while beta failed. Selecting and installing modules works normally again."
+    },
+    {
       "version": "1.4.0-beta.7",
       "date": "2026-07-22",
       "type": "patch",
