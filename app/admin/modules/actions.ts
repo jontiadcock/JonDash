@@ -23,6 +23,7 @@ import {
   clearFailedModule,
 } from "@/lib/modules/rebuild";
 import { setModuleGroups } from "@/lib/modules/visibility";
+import { ensureHelpersFor, pruneUnusedHelpers } from "@/lib/helpers/install";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 
@@ -72,6 +73,14 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
     removeModuleFiles(def.id);
   }
 
+  // A helper exists only to serve a module. With its last dependent gone it's removed —
+  // FILES ONLY. Its data stays, so reinstalling the module brings the helper back with
+  // its history intact rather than starting from nothing.
+  const droppedHelpers = pruneUnusedHelpers();
+  if (droppedHelpers.length > 0) {
+    await audit("admin.helper.remove", { detail: `${droppedHelpers.join(", ")} (no longer needed)` });
+  }
+
   regenerateRegistry();
   revalidatePath("/admin/modules");
   requestRebuildAndRestart(); // exits the process; the launcher rebuilds and restarts
@@ -119,6 +128,23 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
       await audit("admin.module.install", {
         detail: `${outcome.moduleId}@${outcome.version} from ${entry.sourceUrl} (${channel})`,
       });
+
+      // Helpers the module declared arrive with it, as part of the same batch and the
+      // same restart — never on their own initiative, and only from the official source.
+      // A helper the source doesn't publish is reported rather than left to fail the
+      // build later with nothing explaining why.
+      const helperIds = getModuleDef(outcome.moduleId)?.helpers ?? [];
+      if (helperIds.length > 0) {
+        const res = await ensureHelpersFor(helperIds, channel);
+        if (res.installed.length > 0) {
+          await audit("admin.helper.install", {
+            detail: `${res.installed.map((h) => `${h.id}@${h.version}`).join(", ")} (for ${outcome.moduleId})`,
+          });
+        }
+        for (const m of res.missing) {
+          failures.push(`${entry.name}: needs the "${m}" helper, which the official source doesn't publish`);
+        }
+      }
     } catch (e) {
       const why = e instanceof InstallError || e instanceof SourceError ? e.message : "couldn't be installed";
       failures.push(`${moduleId}: ${why}`);

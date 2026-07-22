@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0-beta.2",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: helpers are now installed from the official add-ons source alongside the module that needs them, rather than shipping inside JonDash. A module declares the helpers it requires and they arrive with it in the same batch and the same restart; when nothing needs a helper any more its files are removed, but its data is kept, so reinstalling brings it back intact. Helpers can only ever come from the official source - that is enforced, not assumed, because a helper is trusted to do things modules are deliberately forbidden. Admin -> Helpers still lists what is installed and which modules rely on it."
+    },
+    {
       "version": "1.5.0-beta.1",
       "date": "2026-07-22",
       "type": "minor",

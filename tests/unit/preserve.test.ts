@@ -11,7 +11,7 @@ import { isPreserved, PRESERVE } from "@/scripts/preserve.mjs";
  */
 describe("update/rollback preserve rule", () => {
   it("preserves user data and regenerables at the top level", () => {
-    for (const p of [".env", ".data", "uploads", "modules", "node_modules", ".next", ".git", "logs"]) {
+    for (const p of [".env", ".data", "uploads", "modules", "helpers", "node_modules", ".next", ".git", "logs"]) {
       expect(isPreserved(p), p).toBe(true);
       expect(isPreserved(`${p}/something/deep.txt`), p).toBe(true);
     }
@@ -20,6 +20,7 @@ describe("update/rollback preserve rule", () => {
   it("does NOT preserve a nested folder that merely shares a preserved name", () => {
     // The exact bug: lib/modules is core code and MUST be copied by an update.
     expect(isPreserved("lib/modules")).toBe(false);
+    expect(isPreserved("lib/helpers/boot.ts")).toBe(false); // same collision, helpers edition
     expect(isPreserved("lib/modules/registry.ts")).toBe(false);
     expect(isPreserved("lib/modules/generated.ts")).toBe(false);
     // Same class of collision elsewhere in the tree.
@@ -47,7 +48,7 @@ describe("update/rollback preserve rule", () => {
   it("keeps exactly the intended top-level entries", () => {
     // A new entry here silently changes what updates overwrite — make it deliberate.
     expect([...PRESERVE].sort()).toEqual(
-      [".data", ".env", ".git", ".next", "logs", "modules", "node_modules", "uploads"].sort(),
+      [".data", ".env", ".git", ".next", "helpers", "logs", "modules", "node_modules", "uploads"].sort(),
     );
   });
 });

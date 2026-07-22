@@ -38,11 +38,31 @@ export type SourceModuleEntry = {
   notes?: string;
 };
 
+/**
+ * A helper published by a source (MOD-08). Helpers are FIRST-PARTY ONLY: entries are
+ * accepted solely from the official source, enforced in `fetchSourceManifest`. Without
+ * that, anyone could publish a `helpers/` array and inherit the privilege helpers carry.
+ */
+export type SourceHelperEntry = {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  minAppVersion: string;
+  /** Permissions it provides to consuming modules; drives the consent roll-up. */
+  provides: ModulePermission[];
+  path: string;
+  tag: string;
+  notes?: string;
+};
+
 export type SourceManifest = {
   manifestVersion: number;
   channel: ModuleChannel;
   name: string;
   modules: SourceModuleEntry[];
+  /** Only ever populated for the official source — see sanitizeHelperEntry. */
+  helpers: SourceHelperEntry[];
 };
 
 const SUPPORTED_MANIFEST_VERSION = 1;
@@ -128,6 +148,20 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
 export class SourceError extends Error {}
 
 /**
+ * `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip` for a pinned tag.
+ * Shared by the module and helper installers so both fetch the same immutable thing.
+ * Tags are namespaced (`<id>/v<version>`), so each segment is encoded but the separators
+ * are kept.
+ */
+export function archiveUrlForRepo(repoUrl: string, tag: string): string {
+  const parsed = parseRepoUrl(repoUrl);
+  if (!parsed) throw new SourceError("That source isn't a valid GitHub repository URL.");
+  if (!tag || /\s/.test(tag)) throw new SourceError("That release tag is invalid.");
+  const safeTag = tag.split("/").map(encodeURIComponent).join("/");
+  return `https://github.com/${parsed.owner}/${parsed.repo}/archive/refs/tags/${safeTag}.zip`;
+}
+
+/**
  * Fetch + validate a source's manifest for a channel. Throws SourceError with a
  * user-facing message on any problem (offline, 404 — e.g. no beta branch — bad JSON).
  */
@@ -180,11 +214,60 @@ export async function fetchSourceManifest(
     ? m.modules.map(sanitizeEntry).filter((x): x is SourceModuleEntry => x !== null)
     : [];
 
+  // FIRST-PARTY ONLY, enforced here rather than by convention: helpers are trusted to do
+  // what modules are forbidden, so a `helpers` array from anywhere but the official source
+  // is ignored entirely. Otherwise publishing a helpers folder inherits that privilege.
+  const helpers =
+    isOfficialSource(repoUrl) && Array.isArray(m.helpers)
+      ? m.helpers.map(sanitizeHelperEntry).filter((x): x is SourceHelperEntry => x !== null)
+      : [];
+
   return {
     manifestVersion,
     channel,
     name: typeof m.name === "string" && m.name.trim() ? m.name.trim().slice(0, 100) : repoUrl,
     modules,
+    helpers,
+  };
+}
+
+/** Same repo as the built-in official source, ignoring case and a trailing slash. */
+export function isOfficialSource(repoUrl: string): boolean {
+  const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+  return norm(repoUrl) === norm(DEFAULT_SOURCE_URL);
+}
+
+/** Validate a helper entry. Mirrors sanitizeEntry; `path` must be exactly `helpers/<id>`. */
+function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const e = raw as Record<string, unknown>;
+  const id = typeof e.id === "string" ? e.id.trim().toLowerCase() : "";
+  if (!ID_RE.test(id)) return null;
+  const version = typeof e.version === "string" ? e.version.trim() : "";
+  if (!SEMVER_RE.test(version)) return null;
+
+  const path = typeof e.path === "string" ? e.path.trim() : `helpers/${id}`;
+  if (path !== `helpers/${id}`) return null;
+
+  const tag = typeof e.tag === "string" ? e.tag.trim() : "";
+  if (!tag || tag.length > 200 || /\s/.test(tag)) return null;
+
+  const provides = Array.isArray(e.provides)
+    ? e.provides.filter((p): p is ModulePermission => typeof p === "string" && VALID_PERMISSIONS.has(p))
+    : [];
+
+  return {
+    id,
+    name: typeof e.name === "string" && e.name.trim() ? e.name.trim().slice(0, 100) : id,
+    description: typeof e.description === "string" ? e.description.trim().slice(0, 300) : "",
+    version,
+    minAppVersion:
+      typeof e.minAppVersion === "string" && SEMVER_RE.test(e.minAppVersion.trim())
+        ? e.minAppVersion.trim()
+        : "0.0.0",
+    provides: [...new Set(provides)],
+    path,
+    tag,
   };
 }
 

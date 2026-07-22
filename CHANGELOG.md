@@ -49,6 +49,19 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.5.0-beta.2] — 2026-07-22
+
+### Changed
+- **Helpers are now installed from the official add-ons source, not shipped inside JonDash.** A module
+  declares the helpers it needs and they arrive **with it** — same batch, same restart — so new shared
+  capability can be published without waiting for a JonDash release.
+- **Helpers can only ever come from the official source.** This is enforced rather than assumed: a
+  `helpers` list published by any other source is ignored outright. A helper is trusted to do things
+  modules are deliberately forbidden, so that restriction is the whole reason it's safe to offer them.
+- **When nothing needs a helper any more, its files are removed but its data is kept** — reinstalling the
+  module brings the helper back with its history intact rather than starting from nothing.
+- Installed helpers are preserved across JonDash updates, the same as modules.
+
 ## [1.5.0-beta.1] — 2026-07-22
 
 ### Added

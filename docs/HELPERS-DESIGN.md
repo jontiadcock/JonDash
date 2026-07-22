@@ -80,6 +80,20 @@ opens a page. Two constraints follow from "must complete before serving":
 **Admin surface.** A read-only **Helpers** page: each installed helper, its version, and which modules
 depend on it — so "why is this here?" has an answer. No install, import or remove controls.
 
+## Where helper code lives
+
+Helpers live in the **official addons repository** (`helpers/<id>/`) and are installed from it, exactly
+like a module — not shipped inside the app. That keeps new capability on the addons cadence rather than the
+core release cadence, which is the point of the mechanism.
+
+The safety argument rests entirely on **official-source-only**, enforced in code: `fetchSourceManifest`
+discards a `helpers` array from any other source, so publishing one cannot inherit the privilege. Helper
+code is deliberately NOT run through the module verifier — its bans are the things a helper exists to do —
+but archive hygiene (traversal, file types, size caps) still applies.
+
+Helpers arrive **with the module that declares them**, in the same batch and the same restart, and are
+removed when nothing depends on them any more — **files only, never their data**.
+
 ## Build order
 
 1. **Framework** + **scheduler helper** — the scheduler proves boot-time execution and helper-owned data

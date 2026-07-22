@@ -15,6 +15,7 @@ export const PRESERVE = new Set([
   ".data", // secrets, network config, install records
   "uploads", // user-uploaded icons
   "modules", // installed add-ons (top level ONLY — never lib/modules)
+  "helpers", // installed helpers (top level ONLY — never lib/helpers)
   "node_modules",
   ".next",
   ".git",
