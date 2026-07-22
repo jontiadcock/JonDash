@@ -106,6 +106,18 @@ export type ModuleContext = {
   audit?: (action: string, detail?: string) => Promise<void>; // "audit:write"
 };
 
+/** A unit of periodic work a module declares; run by the scheduler helper. */
+export type ModuleSchedule = {
+  /** Stable id, unique within the module — used to remember when it last ran. */
+  key: string;
+  /** How often to run, in milliseconds. Clamped to a sane floor by the scheduler. */
+  everyMs: number;
+  /** Run it. Receives a system context (no signed-in user). Must handle its own errors. */
+  run: (ctx: ModuleContext) => Promise<void>;
+  /** Skip the catch-up run at boot and wait a full interval instead. */
+  skipOnBoot?: boolean;
+};
+
 /** Props passed to a module's dashboard widget. */
 export type ModuleWidgetProps = { ctx: ModuleContext };
 /** Props passed to a module's page (served at /m/<id>/...). */
@@ -124,6 +136,25 @@ export type ModuleDefinition = {
   version: string; // semver
   minAppVersion: string; // minimum JonDash version required
   permissions: ModulePermission[];
+
+  /**
+   * Helper ids this module needs (MOD-08). Declaring one lets the module import
+   * `@/helpers/<id>/api` — the verifier refuses that import otherwise — and lets it
+   * declare the permissions that helper provides. The manifest entry must match exactly,
+   * the same rule permissions follow.
+   */
+  helpers?: string[];
+
+  /**
+   * Periodic work, DECLARED rather than started by the module (MOD-08). The scheduler
+   * helper collects these at server boot and runs them — so a module's background work
+   * runs from the moment the server starts, not from the first time somebody renders its
+   * widget. Requires declaring the "scheduler" helper.
+   *
+   * Declarative on purpose: a module never gets to run arbitrary code at boot, and the
+   * schedule is inspectable without executing anything.
+   */
+  schedules?: ModuleSchedule[];
 
   /** Restrict all of the module's UI to full admins. */
   adminOnly?: boolean;

@@ -104,6 +104,7 @@ export const ADMIN_SECTIONS: {
   { href: "/admin/network", label: "Network & HTTPS", anyOf: ["network.manage"] },
   { href: "/admin/email", label: "Email", anyOf: ["email.manage"] },
   { href: "/admin/modules", label: "Modules", anyOf: ["modules.manage"] },
+  { href: "/admin/helpers", label: "Helpers", anyOf: ["modules.manage"] },
 ];
 
 /** The nav sections a permission set may see (href + label). */

@@ -49,6 +49,32 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.5.0-beta.1] — 2026-07-22
+
+### Added
+- **Modules can now do work in the background, reliably.** A module can declare recurring work — checking
+  something on a schedule, tidying up old records — and it runs **from the moment JonDash starts**, not
+  from the first time somebody opens a page. A monitoring module restarted overnight now genuinely keeps
+  watching instead of sitting idle until morning.
+- **Helpers** — a new kind of built-in component that provides shared capability to modules. Helpers come
+  with JonDash, are used only when a module asks for one, and are listed read-only under
+  **Admin → Helpers**, showing which of your modules relies on each. There is nothing to install or remove:
+  the page exists to answer "what is this, and why is it on my system?"
+- The first helper is a **scheduler**, which runs modules' declared background work. If a job fell due while
+  the server was off it runs shortly after starting rather than waiting for its next turn; a module that is
+  switched off stops immediately and resumes when switched back on, with no restart.
+
+### Why helpers exist
+Modules are deliberately forbidden from touching the filesystem, running programs, or opening raw network
+connections — that restriction is what makes the permissions you approve mean anything. But it also makes
+whole categories of module impossible to write. A helper does that work *for* a module through a narrow,
+purpose-built interface you approve, so the capability can be offered without trusting the module itself.
+This release lays that groundwork; the filesystem helper comes later.
+
+### Notes
+- Nothing changes if you have no modules installed.
+- A helper that fails to start is logged and skipped — it can never prevent JonDash from starting.
+
 ## [1.4.1-beta.1] — 2026-07-22
 
 ### Added

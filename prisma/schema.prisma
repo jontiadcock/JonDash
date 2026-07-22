@@ -265,3 +265,19 @@ model ModuleLayout {
   @@unique([userId, moduleId])
   @@index([userId])
 }
+
+/// An installed helper (MOD-08). Helpers are FIRST-PARTY ONLY — installable solely from
+/// the official source — which is what makes it safe for them to do the privileged work
+/// modules are forbidden (filesystem, process spawning, raw sockets). Kept in its own
+/// table rather than reusing Module so helpers can never leak into module lists, RBAC or
+/// the dashboard: they have no UI of their own and are not user-installable.
+model Helper {
+  id          String   @id // stable lowercase-kebab slug = its folder name
+  name        String
+  version     String
+  /// Capabilities it provides, as a JSON array of permission keys (may be empty).
+  providesJson String  @default("[]")
+  migratedVersion String?
+  installedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

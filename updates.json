@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0-beta.1",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: groundwork for modules that can do more. Modules can now declare background work that runs from the moment JonDash starts, rather than only when someone opens a page - so a monitoring module restarted overnight actually keeps watching. This is delivered by a new kind of built-in component called a helper: shared capability that comes with JonDash, is used only when a module asks for it, and is listed read-only under Admin -> Helpers so you can see what is on your system and why. Helpers exist so that modules can eventually do things they are deliberately forbidden from doing directly - reaching the filesystem, for example - through a narrow, purpose-built interface you approve, rather than by trusting the module itself. Nothing changes if you have no modules installed."
+    },
+    {
       "version": "1.4.1-beta.1",
       "date": "2026-07-22",
       "type": "minor",

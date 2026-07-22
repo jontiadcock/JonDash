@@ -122,6 +122,64 @@ describe("module verifier", () => {
     expect(res.ok).toBe(true);
   });
 
+  // MOD-08. The cross-module case is a REGRESSION: the check meant to allow "its own
+  // files" allowed every `@/modules/…` path, so a module could reach into another's
+  // internals — sidestepping that module's permission scoping and coupling the two
+  // invisibly (uninstall one, the other's build breaks and auto-recovery removes it).
+  it("allows a module its own files but not another module's", () => {
+    const own = verify([MODULE_TS([], 'import { helper } from "@/modules/demo/lib/util";')]);
+    expect(own.ok).toBe(true);
+
+    const other = verify([MODULE_TS([], 'import { secret } from "@/modules/health-monitor/lib/store";')]);
+    expect(other.ok).toBe(false);
+    expect(other.issues.map((i) => i.rule)).toContain("core-internals");
+  });
+
+  it("allows a declared helper's public api, and nothing else about it", () => {
+    const declared = `
+import type { ModuleDefinition } from "@/lib/modules/types";
+const mod: ModuleDefinition = {
+  id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
+  permissions: [], helpers: ["filesystem"],
+};
+export default mod;
+import { readFile } from "@/helpers/filesystem/api";`;
+    expect(verify([{ path: "module.ts", bytes: 300, text: declared }]).ok).toBe(true);
+
+    // Undeclared helper.
+    const undeclared = verify([MODULE_TS([], 'import { readFile } from "@/helpers/filesystem/api";')]);
+    expect(undeclared.ok).toBe(false);
+    expect(undeclared.issues.map((i) => i.rule)).toContain("undeclared-helper");
+
+    // Declared, but reaching past the narrow API into its internals.
+    const internals = `
+import type { ModuleDefinition } from "@/lib/modules/types";
+const mod: ModuleDefinition = {
+  id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
+  permissions: [], helpers: ["filesystem"],
+};
+export default mod;
+import { raw } from "@/helpers/filesystem/lib/fs";`;
+    const res = verify([{ path: "module.ts", bytes: 300, text: internals }]);
+    expect(res.ok).toBe(false);
+    expect(res.issues.map((i) => i.rule)).toContain("helper-internals");
+  });
+
+  it("refuses a helper-provided permission without the helper that provides it", () => {
+    const noHelper = verify([MODULE_TS(["files:write"])]);
+    expect(noHelper.ok).toBe(false);
+    expect(noHelper.issues.map((i) => i.rule)).toContain("missing-helper");
+
+    const withHelper = `
+import type { ModuleDefinition } from "@/lib/modules/types";
+const mod: ModuleDefinition = {
+  id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
+  permissions: ["files:write"], helpers: ["filesystem"],
+};
+export default mod;`;
+    expect(verify([{ path: "module.ts", bytes: 300, text: withHelper }]).ok).toBe(true);
+  });
+
   it("enforces archive hygiene: file types, traversal and size", () => {
     const traversal = verify([MODULE_TS([]), { path: "../../evil.ts", bytes: 10, text: "x" }]);
     expect(traversal.issues.map((i) => i.rule)).toContain("path-traversal");

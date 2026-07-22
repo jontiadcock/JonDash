@@ -28,6 +28,18 @@ export type VerifyResult = {
   issues: VerifyIssue[];
   /** Permissions parsed out of the module's own `module.ts`. */
   declaredPermissions: ModulePermission[];
+  /** Helper ids parsed out of the module's own `module.ts`. */
+  declaredHelpers: string[];
+};
+
+/**
+ * Permissions that only a HELPER can provide (MOD-08). A module may declare one only if
+ * it also declares a helper that provides it — the helper does the privileged work, the
+ * admin approved the effect, and the module never touches the primitive itself.
+ */
+export const HELPER_PROVIDED_PERMISSIONS: Record<string, string> = {
+  "files:read": "filesystem",
+  "files:write": "filesystem",
 };
 
 /** Files a module may contain. Anything else (executables, archives, …) is refused. */
@@ -160,6 +172,17 @@ export function parseDeclaredPermissions(moduleSource: string): ModulePermission
   return [...new Set(out)];
 }
 
+/** Helper ids declared in the module's own `module.ts` (parsed, never executed). */
+export function parseDeclaredHelpers(moduleSource: string): string[] {
+  const m = /\bhelpers\s*:\s*\[([\s\S]*?)\]/.exec(moduleSource);
+  if (!m) return [];
+  const out: string[] = [];
+  const re = /["']([a-z0-9][a-z0-9-]{0,63})["']/g;
+  let hit: RegExpExecArray | null;
+  while ((hit = re.exec(m[1]))) out.push(hit[1]);
+  return [...new Set(out)];
+}
+
 /**
  * Verify a module package. `files` maps a module-relative path to its contents (text
  * files as strings, binary as byte length only — binaries are size/extension checked,
@@ -202,6 +225,21 @@ export function verifyModuleFiles(
   if (!entry) add(moduleId, "no-entry", "no module.ts at the package root");
 
   const declaredPermissions = entry?.text ? parseDeclaredPermissions(entry.text) : [];
+  const declaredHelpers = entry?.text ? parseDeclaredHelpers(entry.text) : [];
+
+  // A helper-provided permission is meaningless without the helper that implements it —
+  // and allowing it un-backed would put a capability on the consent screen that nothing
+  // can actually deliver.
+  for (const p of declaredPermissions) {
+    const needs = HELPER_PROVIDED_PERMISSIONS[p];
+    if (needs && !declaredHelpers.includes(needs)) {
+      add(
+        "module.ts",
+        "missing-helper",
+        `declares "${p}", which only the "${needs}" helper provides — add it to \`helpers\``,
+      );
+    }
+  }
 
   // ---- manifest must match the code -------------------------------------------
   if (manifestPermissions) {
@@ -227,7 +265,31 @@ export function verifyModuleFiles(
     }
 
     for (const imp of coreImportsIn(src)) {
-      if (imp.startsWith("@/modules/")) continue; // its own files
+      // Its OWN files only. This used to permit any `@/modules/…` path, so a module could
+      // reach into another module's internals — sidestepping that module's permission
+      // scoping, and coupling the two invisibly (uninstall one, the other's build breaks
+      // and auto-recovery removes the innocent party).
+      if (imp === `@/modules/${moduleId}` || imp.startsWith(`@/modules/${moduleId}/`)) continue;
+
+      // A declared helper's public entry point — and only that. Reaching into a helper's
+      // internals would let a module bypass the narrow API that makes privileged work
+      // reviewable in the first place.
+      const helper = /^@\/helpers\/([a-z0-9-]+)\/api$/.exec(imp);
+      if (helper) {
+        if (!declaredHelpers.includes(helper[1])) {
+          add(
+            f.path,
+            "undeclared-helper",
+            `imports the "${helper[1]}" helper without declaring it in \`helpers\``,
+          );
+        }
+        continue;
+      }
+      if (imp.startsWith("@/helpers/")) {
+        add(f.path, "helper-internals", `imports "${imp}" — a module may only import a helper's /api`);
+        continue;
+      }
+
       if (!ALLOWED_CORE_IMPORTS.includes(imp)) {
         add(
           f.path,
@@ -248,7 +310,7 @@ export function verifyModuleFiles(
     }
   }
 
-  return { ok: issues.length === 0, issues, declaredPermissions };
+  return { ok: issues.length === 0, issues, declaredPermissions, declaredHelpers };
 }
 
 /** One-line-per-issue summary for the admin UI / audit detail. */
