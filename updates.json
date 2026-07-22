@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.1-beta.1",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: module updates now live in Admin -> Updates, in their own section under JonDash's update panel - installed and available versions, which channel each module follows, and where it came from. Select several and update them together: one rebuild and one restart, and their data is kept. You are told when module updates are waiting, wherever JonDash already flags an update, even when JonDash itself is up to date. Modules are NEVER updated automatically, not even when JonDash auto-installs its own updates - updating a module is always your choice. And a version wanting more access than you approved says so in plain language and needs your approval first. Also fixes two problems that made updating unsafe: a module that added a new table or column in a later version ran against the old layout with no error, and an updated module kept the permissions recorded when it was first enabled, so new capabilities it declared quietly did not work."
+    },
+    {
       "version": "1.4.0",
       "date": "2026-07-22",
       "type": "minor",

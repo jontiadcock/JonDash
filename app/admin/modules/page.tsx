@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { listModulesForAdmin } from "@/lib/modules/registry";
-import { pruneRemovedBundledModules } from "@/lib/modules/manage";
+import { pruneRemovedBundledModules, ensureModuleMigrations } from "@/lib/modules/manage";
 import { readFailedModule } from "@/lib/modules/rebuild";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
 import { ModulesList, type ModuleItem } from "./ui";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminModulesPage() {
   await requirePermission("modules.manage");
+  await ensureModuleMigrations(); // apply migrations gained in an update
   await pruneRemovedBundledModules(); // drop leftovers from a module a past build shipped
   const states = await listModulesForAdmin();
   const failed = readFailedModule(); // a module the launcher had to remove to boot

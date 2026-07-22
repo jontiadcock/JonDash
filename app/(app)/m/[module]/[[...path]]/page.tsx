@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { getModuleState } from "@/lib/modules/registry";
 import { buildModuleContext } from "@/lib/modules/context";
 import { canViewModule } from "@/lib/modules/visibility";
+import { ensureModuleMigrations } from "@/lib/modules/manage";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function ModulePageRoute({
   const user = await requireUser();
   const { module: moduleId, path } = await params;
 
+  await ensureModuleMigrations(); // new version may have shipped new tables
   const state = await getModuleState(moduleId);
   if (!state || !state.enabled || !state.def.Page) notFound();
   if (state.def.adminOnly && user.role !== "ADMIN") notFound();

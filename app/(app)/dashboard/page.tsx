@@ -5,6 +5,7 @@ import { ServiceTile } from "@/app/components/service-tile";
 import { getEnabledModules } from "@/lib/modules/registry";
 import { buildModuleContext } from "@/lib/modules/context";
 import { visibleModuleIds } from "@/lib/modules/visibility";
+import { ensureModuleMigrations } from "@/lib/modules/manage";
 import { getUserModuleLayout, applyLayoutOrder } from "@/lib/modules/layout";
 import { WidgetFrame } from "./widget-frame";
 
@@ -15,6 +16,9 @@ export default async function DashboardPage() {
 
   // Enabled modules with a widget, limited to what this user may see: adminOnly modules
   // are admin-only, and a module assigned to Service Groups only shows to their members.
+  // A module updated in the last restart may ship new migrations; apply them before its
+  // widget renders against the old schema. Memoised, so this is a no-op after the first.
+  await ensureModuleMigrations();
   const visible = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
   const allowedWidgets = (await getEnabledModules()).filter(
     (s) => s.def.DashboardWidget && (!s.def.adminOnly || isAdmin) && visible.has(s.def.id),

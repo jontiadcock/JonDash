@@ -34,6 +34,8 @@ export type SourceModuleEntry = {
   permissions: ModulePermission[];
   path: string;
   tag: string;
+  /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
+  notes?: string;
 };
 
 export type SourceManifest = {
@@ -95,6 +97,19 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
   const tag = typeof e.tag === "string" ? e.tag.trim() : "";
   if (!tag || tag.length > 200 || /\s/.test(tag)) return null;
 
+  // Author-written text that gets rendered to an admin on the update card — capped and
+  // stripped of control characters, the same treatment `description` gets.
+  const notes =
+    typeof e.notes === "string"
+      ? Array.from(e.notes.trim())
+          .filter((ch) => {
+            const c = ch.codePointAt(0)!;
+            return c >= 32 && c !== 127;
+          })
+          .join("")
+          .slice(0, 300)
+      : "";
+
   return {
     id,
     name: typeof e.name === "string" && e.name.trim() ? e.name.trim().slice(0, 100) : id,
@@ -106,6 +121,7 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
     permissions: [...new Set(permissions)],
     path,
     tag,
+    ...(notes ? { notes } : {}),
   };
 }
 

@@ -49,6 +49,35 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.4.1-beta.1] — 2026-07-22
+
+### Added
+- **Module updates now live in Admin → Updates**, in their own section under JonDash's own update panel —
+  so keeping your modules current is as easy as keeping JonDash current. Each module shows its installed
+  and available version, which channel it follows, and where it came from. Select several and update them
+  together: one rebuild and one restart for the batch, and their stored data is kept.
+- **You're told when module updates are waiting.** A notice appears wherever JonDash already tells you an
+  update is available — including when JonDash itself is up to date — so you never have to go looking.
+- **Modules are never updated automatically.** Even when JonDash installs its own updates automatically, it
+  will never change a module as a side effect. Updating a module is always something you choose.
+- **A module asking for more access than you approved can't slip through.** If a new version wants an
+  additional permission, the update card says so in plain language and you must approve that specific change
+  before it can be applied. Versions that give up permissions apply without interruption.
+
+### Fixed
+- **A module updated to a version with database changes could break.** Modules only set up their storage
+  when first enabled, so a module that added a new table or column in a later version ran with the old
+  layout after updating — with no error to explain the resulting misbehaviour. Updates now bring a module's
+  storage up to date on the next start, including for modules already updated before this release.
+- **An updated module could be denied access it needs.** The permissions recorded for a module were only
+  ever written when it was first enabled, so after an update it kept the old set — a new version relying on
+  something it now declares would quietly not work.
+
+### Notes
+- Modules that can't be updated yet explain why rather than failing — needing a newer JonDash, no longer
+  being published, or having been imported manually (update those by importing the new version).
+- A just-published version can take a couple of minutes to appear, as GitHub briefly caches the list.
+
 _The pre-release history below led to 1.4.0 above._
 
 ## [1.4.0-beta.11] — 2026-07-22

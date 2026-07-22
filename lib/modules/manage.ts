@@ -64,6 +64,50 @@ export async function uninstallModule(def: ModuleDefinition): Promise<void> {
 }
 
 /**
+ * Apply migrations a module gained in an UPDATE (MOD-01, 2026-07-22).
+ *
+ * `runModuleMigrations` was only ever called from `enableModule`, but an update replaces
+ * files while the module is already enabled — so enable never runs again and a version
+ * shipping `002_add_column.sql` would run new code against the old schema. Nothing would
+ * warn; the module would simply misbehave.
+ *
+ * Keyed on the `migratedVersion` column that already exists. Only files not recorded in
+ * `ModuleMigration` actually run, so this is idempotent and it self-heals modules that
+ * were updated before this existed. It must run AFTER the rebuild+restart, because the
+ * new definition isn't loadable until then — hence lazily, on the first registry read of
+ * a fresh process, rather than at the moment of updating.
+ *
+ * One module failing must not stop the others, or block the page that triggered this.
+ */
+let migrationSync: Promise<void> | null = null;
+
+export function ensureModuleMigrations(): Promise<void> {
+  // Once per process, and concurrent callers share the same run rather than racing.
+  migrationSync ??= (async () => {
+    try {
+      const rows = await prisma.module.findMany({
+        where: { enabled: true },
+        select: { id: true, migratedVersion: true },
+      });
+      for (const row of rows) {
+        const def = getAllModules().find((m) => m.id === row.id);
+        if (!def || row.migratedVersion === def.version) continue;
+        try {
+          await runModuleMigrations(def);
+          await prisma.module.updateMany({ where: { id: def.id }, data: { migratedVersion: def.version } });
+        } catch (e) {
+          // Leave migratedVersion alone so it's retried next boot rather than skipped.
+          console.error(`[modules] migrations failed for "${def.id}":`, e);
+        }
+      }
+    } catch (e) {
+      console.error("[modules] migration sync failed:", e);
+    }
+  })();
+  return migrationSync;
+}
+
+/**
  * Repair rows whose provenance was lost. Builds before this fix recorded EVERY module as
  * `source: "bundled"` (enableModule had no install record to consult), which broke the
  * per-module beta channel and — far worse — put source-installed modules inside the

@@ -28,6 +28,9 @@ export function UpdateBanner() {
   const [error, setError] = useState<string | null>(null);
   const [failure, setFailure] = useState<UpdateFailure | null>(null);
   const [overlayBoot, setOverlayBoot] = useState<number | null | undefined>(undefined);
+  // Modules never auto-update, so an available one has to be surfaced here — otherwise
+  // the only way to find out is to go looking, which is the thing the user ruled out.
+  const [moduleUpdates, setModuleUpdates] = useState(0);
 
   // Check once on mount.
   useEffect(() => {
@@ -37,6 +40,7 @@ export function UpdateBanner() {
       .then((s) => {
         if (!active || !s) return;
         if (s.failure) setFailure(s.failure as UpdateFailure);
+        if (typeof s.moduleUpdates === "number") setModuleUpdates(s.moduleUpdates);
         if (s.updateAvailable && s.release) {
           setCurrent(s.current ?? null);
           setRelease(s.release);
@@ -75,10 +79,24 @@ export function UpdateBanner() {
     return <ServerWaitOverlay mode="updating" oldBoot={overlayBoot} />;
   }
 
-  if (phase === "idle" && !failure) return null;
+  // Also render when only MODULE updates are waiting: they never install themselves, so
+  // this banner is the thing that makes them known without the admin going looking.
+  if (phase === "idle" && !failure && moduleUpdates === 0) return null;
 
   return (
     <div className="mx-auto mt-4 flex w-full max-w-6xl flex-col gap-2 px-4" role="status">
+      {moduleUpdates > 0 && phase !== "updating" && (
+        <div className="rounded-xl border p-3 text-sm" style={{ borderColor: "var(--border-strong)" }}>
+          <strong>
+            {moduleUpdates} module update{moduleUpdates === 1 ? " is" : "s are"} available
+          </strong>
+          <span style={{ color: "var(--muted)" }}>
+            {" "}
+            — modules are never updated automatically.{" "}
+            <a href="/admin/updates" style={{ color: "var(--primary)" }}>Review them</a>.
+          </span>
+        </div>
+      )}
       {failure && (
         <div
           className="rounded-xl border p-3 text-sm"
