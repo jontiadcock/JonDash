@@ -3,10 +3,12 @@ import { requirePermission } from "@/lib/auth/guards";
 import { listModulesForAdmin } from "@/lib/modules/registry";
 import { pruneRemovedBundledModules, ensureModuleMigrations } from "@/lib/modules/manage";
 import { readFailedModule } from "@/lib/modules/rebuild";
+import { reconcileHelpers } from "@/lib/helpers/reconcile";
 import { PERMISSION_WARNINGS, DANGEROUS_PERMISSIONS } from "@/lib/modules/types";
 import { ModulesList, type ModuleItem } from "./ui";
 import { ImportModuleForm } from "./import-form";
 import { FailedModuleNotice } from "./failed-notice";
+import { HelperGapNotice } from "./helper-gap-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,10 @@ export default async function AdminModulesPage() {
   await ensureModuleMigrations(); // apply migrations gained in an update
   await pruneRemovedBundledModules(); // drop leftovers from a module a past build shipped
   const states = await listModulesForAdmin();
+  // A module declaring a helper it doesn't have is silently inert. First-party modules
+  // heal themselves here (files only — activation needs a restart the admin triggers);
+  // third-party and imported ones are reported and left alone.
+  const helperGaps = await reconcileHelpers().catch(() => []);
   const failed = readFailedModule(); // a module the launcher had to remove to boot
 
   const items: ModuleItem[] = states.map(({ def, enabled, installed }) => ({
@@ -45,6 +51,7 @@ export default async function AdminModulesPage() {
         </p>
       </section>
       {failed && <FailedModuleNotice moduleId={failed.id} at={failed.at} />}
+      <HelperGapNotice gaps={helperGaps} />
 
       <div className="flex flex-wrap items-center gap-2">
         <Link href="/admin/modules/browse" className="btn btn-ghost !py-1.5 text-sm">Browse modules</Link>

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.0-beta.5",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: JonDash now notices when a module is missing something it needs. A module can end up installed but quietly doing nothing if the shared component it relies on is not there - which could happen to anything installed during earlier 1.5.0 betas. Admin -> Modules now checks, and for modules from the official add-ons source it downloads what is missing automatically and offers you a Restart now button to finish the job. Modules you imported yourself, or installed from another source, are reported rather than repaired - JonDash will not fetch code on their behalf without you asking. Nothing restarts on its own."
+    },
+    {
       "version": "1.5.0-beta.4",
       "date": "2026-07-22",
       "type": "patch",

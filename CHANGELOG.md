@@ -49,6 +49,23 @@ adding an app to a phone. Coming from 1.3.0, this is the whole feature in one re
 
 ## Beta channel (pre-release)
 
+## [1.5.0-beta.5] — 2026-07-22
+
+### Added
+- **JonDash now notices when a module is missing something it needs.** A module can end up installed and
+  enabled but quietly doing nothing, if a shared component it relies on isn't there — which could happen to
+  anything installed during the earlier 1.5.0 betas, and which updating alone doesn't repair. Admin →
+  Modules now checks every time you open it.
+- **Modules from the official add-ons source repair themselves.** What's missing is downloaded for you, and
+  you get a **Restart now** button to finish the job — the download alone isn't enough, because these
+  components only become active when JonDash rebuilds.
+- **Modules you imported yourself, or installed from another source, are reported rather than repaired**,
+  with what's wrong and how to fix it (reinstall or re-import). JonDash won't fetch code on their behalf
+  without you asking.
+
+### Notes
+- **Nothing restarts on its own.** The repair happens quietly; making it live is always your click.
+
 ## [1.5.0-beta.4] — 2026-07-22
 
 ### Fixed

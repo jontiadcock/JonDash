@@ -460,7 +460,7 @@ _None currently._
 
 ### 🟡 Medium
 
-- **BUG-20 · Nothing verifies an installed module actually has the helpers it declares.**
+- **BUG-20 · Nothing verified an installed module had the helpers it declares — fixed v1.5.0-beta.5.**
   A module that declares a helper it does not have is **silently inert** — for a scheduler-style helper it
   imports nothing, so the build succeeds, the module looks installed and enabled, and its declared work
   simply never runs. Nothing anywhere compares an enabled module's `helpers` against what is on disk, so
@@ -475,8 +475,12 @@ _None currently._
   **Install it** action that fetches the helper and triggers the rebuild. Deliberately *detect and offer*,
   **not** self-heal: fetching a helper installs privileged first-party code, and the governing rule is that
   nothing about a module changes without the user knowing. One check covers all three symptoms.
-  **Workaround today:** uninstall and reinstall the module — the install path resolves helpers correctly.
-  Identified 2026-07-22 while reviewing the beta.4 import fixes; deferred by the user.
+  **Resolved:** `reconcileHelpers()` runs on Admin → Modules. A module from the OFFICIAL source heals
+  itself — the missing helper is downloaded and the admin gets a **Restart now** button, since a helper is a
+  compile-time import and only becomes active on a rebuild. A third-party or imported module is **reported,
+  never fetched for**: provenance makes that a fact rather than a guess, and fetching code on behalf of a
+  module the user got elsewhere is not a decision to make quietly. Nothing restarts on its own.
+  Identified 2026-07-22 reviewing the beta.4 import fixes; fixed at the user's request the same day.
 
 - **BUG-18 · ZIP import resolved helpers from the stable channel only — fixed v1.5.0-beta.4.**
   `importModuleAction` hardcoded `ensureHelpersFor(..., "stable")`, but a helper may be published on beta

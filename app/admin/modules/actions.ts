@@ -247,6 +247,21 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
   return finishInstall([installedId]);
 }
 
+/**
+ * Rebuild so helpers healed by the reconcile pass become active.
+ *
+ * Their files are already on disk; a helper is a compile-time import, so only a rebuild
+ * makes it real. Deliberately an explicit action rather than something the heal does on
+ * its own — the files healing quietly is fine, signing everyone out is not.
+ */
+export async function rebuildForHelpersAction(): Promise<void> {
+  await gate();
+  await audit("admin.helper.activate", { detail: "rebuild requested to activate restored helpers" });
+  regenerateRegistry();
+  revalidatePath("/admin/modules");
+  requestRebuildAndRestart(); // exits; the launcher rebuilds and restarts
+}
+
 /** Acknowledge the "a module was removed to get the app running" notice. */
 export async function dismissFailedModuleAction(_prev: InstallState, _formData: FormData): Promise<InstallState> {
   await gate();
