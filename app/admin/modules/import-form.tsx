@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { importModuleAction, type InstallState } from "./actions";
 import { RestartWarning } from "./restart-warning";
+import { useRebuildWatch } from "./rebuild-watch";
 
 /**
  * Import your own module from a .zip — the sideload path, for a module you wrote (or had
@@ -12,9 +13,17 @@ import { RestartWarning } from "./restart-warning";
 export function ImportModuleForm() {
   const [state, action, pending] = useActionState<InstallState, FormData>(importModuleAction, {});
   const [chosen, setChosen] = useState<string | null>(null);
+  const { overlay, start, stop } = useRebuildWatch();
+
+  // A successful import never returns (the process exits to rebuild), so an error coming
+  // back means nothing is restarting — drop the cover and show what went wrong.
+  useEffect(() => {
+    if (state.error) stop();
+  }, [state, stop]);
 
   return (
     <div className="card flex flex-col gap-3 p-5">
+      {overlay}
       <div>
         <h2 className="font-medium">Import your own module</h2>
         <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
@@ -45,7 +54,12 @@ export function ImportModuleForm() {
           <>
             <RestartWarning what={`Check and install “${chosen}”.`} />
             <div>
-              <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={pending}>
+              <button
+                type="submit"
+                className="btn btn-ghost !py-1.5 text-sm"
+                disabled={pending}
+                onClick={start}
+              >
                 {pending ? "Checking and restarting…" : "Import and restart now"}
               </button>
             </div>

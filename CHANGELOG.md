@@ -11,6 +11,21 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.10] — 2026-07-22
+
+### Fixed
+- **Installing a module left the page stuck on "Installing…" forever.** A module's code is built into the
+  dashboard, so installing, importing or uninstalling one rebuilds and restarts JonDash — but the page that
+  triggered it just sat there, because the request it was waiting on never came back. You now get the same
+  full-screen **"Applying your module changes…"** cover already used for updates and restarts: it explains
+  what's happening, waits for the *new* server to be reliably back, and returns you to sign-in on its own.
+  Applies to installing, bulk installing, importing and uninstalling.
+
+### Added
+- **The waiting screen no longer spins forever if nothing happens.** If the server is still answering
+  normally well after a restart was requested — meaning it never began — the screen now says so and offers
+  a reload, instead of looking identical to a broken app.
+
 ## [1.4.0-beta.9] — 2026-07-22
 
 ### Added

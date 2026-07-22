@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useActionState, useContext, useState, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 import { installModuleAction, type InstallState } from "../actions";
 import { RestartWarning } from "../restart-warning";
+import { useRebuildWatch } from "../rebuild-watch";
 
 export type BrowseItem = {
   id: string;
@@ -47,6 +48,13 @@ export function InstallPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState<InstallState, FormData>(installModuleAction, {});
+  const { overlay, start, stop } = useRebuildWatch();
+
+  // A successful install never returns — the process exits so the launcher can rebuild.
+  // So an error coming back means nothing is restarting: drop the overlay and show it.
+  useEffect(() => {
+    if (state.error) stop();
+  }, [state, stop]);
 
   const installable = items.filter((m) => !m.installed);
   const chosen = installable.filter((m) => selected.has(m.id));
@@ -63,6 +71,7 @@ export function InstallPicker({
 
   return (
     <SelectionContext.Provider value={{ items, selected, toggle, pending }}>
+      {overlay}
       <div className="flex flex-col gap-4">
         {children}
 
@@ -85,7 +94,12 @@ export function InstallPicker({
                     .join(", ")}.`}
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="submit" className="btn btn-primary !py-1.5 text-sm" disabled={pending}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary !py-1.5 text-sm"
+                    disabled={pending}
+                    onClick={start}
+                  >
                     {pending ? "Installing and restarting…" : "Install and restart now"}
                   </button>
                   <button

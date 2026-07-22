@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.10",
+      "date": "2026-07-22",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: installing, importing or uninstalling a module no longer leaves the page stuck on \"Installing…\". Because a module is built into the dashboard, those actions rebuild and restart JonDash - and the page that triggered them was left waiting forever with no explanation. You now get the same full-screen \"Applying your module changes…\" cover used for updates and restarts, which waits for the new server and returns you to sign-in on its own. If a restart never actually starts, it now says so and offers a reload instead of spinning indefinitely."
+    },
+    {
       "version": "1.4.0-beta.9",
       "date": "2026-07-22",
       "type": "minor",

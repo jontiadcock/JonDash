@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export type ServerWaitMode = "updating" | "restarting" | "shutdown";
+export type ServerWaitMode = "updating" | "restarting" | "shutdown" | "modules";
 
 const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
   updating: {
@@ -17,6 +17,12 @@ const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
     title: "JonDash has been shut down",
     body: "To use the dashboard again, start it on the server PC (run start-dashboard).",
   },
+  modules: {
+    title: "Applying your module changes…",
+    body:
+      "A module's code is built into the dashboard, so JonDash is rebuilding and restarting. " +
+      "This can take a minute or two.",
+  },
 };
 
 // How many consecutive healthy responses from the *new* process we want before we
@@ -25,6 +31,9 @@ const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
 const REQUIRED_OKS = 3;
 const POLL_MS = 1500;
 const SETTLE_MS = 2500;
+// If the server never even goes down, nothing is going to bring us back — surface that
+// rather than spinning forever, which is indistinguishable from the app being broken.
+const STALL_AFTER_MS = 90_000;
 
 /**
  * Full-screen "please wait" cover shown after the admin triggers an update, restart,
@@ -44,6 +53,7 @@ export function ServerWaitOverlay({
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [reconnecting, setReconnecting] = useState(false);
+  const [stalled, setStalled] = useState(false);
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -84,6 +94,9 @@ export function ServerWaitOverlay({
           }
         } else {
           oks = 0; // still the old process, or not confirmably new yet
+          // Answering happily as the SAME process long after we asked it to restart
+          // means the restart never began. Don't spin silently.
+          if (!sawDown && Date.now() - startedAt > STALL_AFTER_MS) setStalled(true);
         }
       } catch {
         sawDown = true; // connection failed — the server is down (restarting)
@@ -135,7 +148,7 @@ export function ServerWaitOverlay({
           </p>
         </div>
 
-        {!isShutdown && (
+        {!isShutdown && !stalled && (
           <>
             <p
               className="rounded-lg px-3 py-2 text-xs"
@@ -147,6 +160,21 @@ export function ServerWaitOverlay({
               {elapsed}s elapsed
             </p>
           </>
+        )}
+
+        {stalled && (
+          <div className="flex flex-col items-center gap-3">
+            <p
+              className="rounded-lg px-3 py-2 text-sm"
+              style={{ background: "var(--surface-2)", color: "var(--muted)" }}
+            >
+              The dashboard is still responding and hasn&apos;t restarted, so this probably didn&apos;t
+              start. Nothing has been broken — reload and check whether the change was applied.
+            </p>
+            <button type="button" className="btn btn-primary text-sm" onClick={() => window.location.reload()}>
+              Reload the page
+            </button>
+          </div>
         )}
       </div>
     </div>

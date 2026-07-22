@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { enableModuleAction, disableModuleAction, uninstallModuleAction } from "./actions";
 import { RestartWarning } from "./restart-warning";
+import { useRebuildWatch } from "./rebuild-watch";
 
 export type ModuleItem = {
   id: string;
@@ -23,6 +24,8 @@ export type ModuleItem = {
 export function ModulesList({ items }: { items: ModuleItem[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
+  // One watcher for the whole list — every uninstall path ends in the same rebuild.
+  const { overlay, start } = useRebuildWatch();
 
   if (items.length === 0) {
     return (
@@ -48,8 +51,15 @@ export function ModulesList({ items }: { items: ModuleItem[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {overlay}
       {items.map((m) => (
-        <ModuleCard key={m.id} m={m} selected={selected.has(m.id)} onToggle={() => toggle(m.id)} />
+        <ModuleCard
+          key={m.id}
+          m={m}
+          selected={selected.has(m.id)}
+          onToggle={() => toggle(m.id)}
+          onRebuildStart={start}
+        />
       ))}
 
       {/* Removing several modules is one rebuild + restart for the batch, matching install. */}
@@ -72,7 +82,7 @@ export function ModulesList({ items }: { items: ModuleItem[] }) {
                   {chosen.map((m) => (
                     <input key={m.id} type="hidden" name="id" value={m.id} />
                   ))}
-                  <button type="submit" className="btn btn-danger !py-1.5 text-sm">
+                  <button type="submit" className="btn btn-danger !py-1.5 text-sm" onClick={start}>
                     Uninstall {chosen.length} and restart now
                   </button>
                 </form>
@@ -110,10 +120,13 @@ function ModuleCard({
   m,
   selected,
   onToggle,
+  onRebuildStart,
 }: {
   m: ModuleItem;
   selected: boolean;
   onToggle: () => void;
+  /** Show the "applying your module changes" cover — uninstalling restarts the server. */
+  onRebuildStart: () => void;
 }) {
   const [confirmUninstall, setConfirmUninstall] = useState(false);
 
@@ -192,7 +205,11 @@ function ModuleCard({
               <div className="flex flex-wrap items-center gap-2">
                 <form action={uninstallModuleAction}>
                   <input type="hidden" name="id" value={m.id} />
-                  <button type="submit" className="btn btn-danger !py-1.5 text-sm">
+                  <button
+                    type="submit"
+                    className="btn btn-danger !py-1.5 text-sm"
+                    onClick={onRebuildStart}
+                  >
                     Uninstall and restart now
                   </button>
                 </form>
