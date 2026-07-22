@@ -35,6 +35,12 @@ by hand once, and updates work normally again afterwards:
 
 ## [1.4.0-beta.6] — 2026-07-22
 
+> ⛔ **Do not use this version — 1.4.0-beta.3 through 1.4.0-beta.6 are withdrawn.** They can leave JonDash
+> unable to start: updating deletes part of the app itself, and if that update then fails, the automatic
+> rollback cannot put it back, so the app won't start and can't repair itself. **Install 1.4.0-beta.7 or
+> later.** Your data is never at risk. If you're already stuck, a normal update *cannot* fix it — see
+> [Recovering an install that won't start](#recovering-an-install-that-wont-start) under 1.4.0-beta.7.
+
 ### Added
 - **Choose who can see each module.** A module can now be limited to **Service Groups**, exactly like a
   service tile — under Admin → Modules → *(module)* → **Who can see this module**. Leave every group
@@ -60,6 +66,9 @@ by hand once, and updates work normally again afterwards:
 
 ## [1.4.0-beta.5] — 2026-07-22
 
+> ⛔ **Do not use this version — 1.4.0-beta.3 through 1.4.0-beta.6 are withdrawn.** They can leave
+> JonDash unable to start (detail under 1.4.0-beta.6). **Install 1.4.0-beta.7 or later.**
+
 ### Added
 - **Install several modules at once.** Browse modules now has a checkbox on each module: tick the ones you
   want and install them as a batch, so you get **one rebuild and one restart** for the whole lot instead of
@@ -80,6 +89,9 @@ by hand once, and updates work normally again afterwards:
 
 ## [1.4.0-beta.4] — 2026-07-22
 
+> ⛔ **Do not use this version — 1.4.0-beta.3 through 1.4.0-beta.6 are withdrawn.** They can leave
+> JonDash unable to start (detail under 1.4.0-beta.6). **Install 1.4.0-beta.7 or later.**
+
 ### Fixed
 - **Installed modules could have their data deleted. Update if you have installed any module.** JonDash
   recorded every module as though it had shipped with the app, because the install didn't record where the
@@ -95,6 +107,9 @@ by hand once, and updates work normally again afterwards:
   (GitHub caches the list briefly), instead of simply showing nothing.
 
 ## [1.4.0-beta.3] — 2026-07-22
+
+> ⛔ **Do not use this version — 1.4.0-beta.3 through 1.4.0-beta.6 are withdrawn.** They can leave
+> JonDash unable to start (detail under 1.4.0-beta.6). **Install 1.4.0-beta.7 or later.**
 
 ### Added
 - **Modules can now actually be installed.** **Admin → Settings → Modules → Browse modules** installs a module
