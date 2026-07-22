@@ -21,24 +21,100 @@ export type ModuleItem = {
 };
 
 export function ModulesList({ items }: { items: ModuleItem[] }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+
   if (items.length === 0) {
     return (
       <p className="text-sm" style={{ color: "var(--muted)" }}>
         No modules are installed. JonDash ships without any — use <strong>Browse modules</strong> above to
-        see what a source publishes. Importing your own comes in a later update.
+        see what a source publishes, or import your own below.
       </p>
     );
   }
+
+  const removable = items.filter((m) => m.installed);
+  const chosen = removable.filter((m) => selected.has(m.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setConfirming(false); // changing the selection invalidates a pending confirmation
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {items.map((m) => (
-        <ModuleCard key={m.id} m={m} />
+        <ModuleCard key={m.id} m={m} selected={selected.has(m.id)} onToggle={() => toggle(m.id)} />
       ))}
+
+      {/* Removing several modules is one rebuild + restart for the batch, matching install. */}
+      {removable.length > 1 && (
+        <div className="card flex flex-col gap-3 p-4">
+          {chosen.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Tick several modules to uninstall them together — one rebuild and one restart for the whole
+              batch instead of one each.
+            </p>
+          ) : confirming ? (
+            <>
+              <RestartWarning
+                what={`Permanently delete ${chosen.length} modules and all of their settings and stored data: ${chosen
+                  .map((m) => m.name)
+                  .join(", ")}. This can't be undone.`}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={uninstallModuleAction}>
+                  {chosen.map((m) => (
+                    <input key={m.id} type="hidden" name="id" value={m.id} />
+                  ))}
+                  <button type="submit" className="btn btn-danger !py-1.5 text-sm">
+                    Uninstall {chosen.length} and restart now
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="btn btn-ghost !py-1.5 text-sm"
+                  onClick={() => setConfirming(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost !py-1.5 text-sm"
+                style={{ color: "var(--danger)" }}
+                onClick={() => setConfirming(true)}
+              >
+                Uninstall {chosen.length} selected
+              </button>
+              <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setSelected(new Set())}>
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function ModuleCard({ m }: { m: ModuleItem }) {
+function ModuleCard({
+  m,
+  selected,
+  onToggle,
+}: {
+  m: ModuleItem;
+  selected: boolean;
+  onToggle: () => void;
+}) {
   const [confirmUninstall, setConfirmUninstall] = useState(false);
 
   return (
@@ -46,6 +122,14 @@ function ModuleCard({ m }: { m: ModuleItem }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            {m.installed && (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={onToggle}
+                aria-label={`Select ${m.name} for bulk uninstall`}
+              />
+            )}
             {m.icon && <span className="flex-none" style={{ color: "var(--primary)" }}>{m.icon}</span>}
             <span className="font-medium">{m.name}</span>
             <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>v{m.version}</span>

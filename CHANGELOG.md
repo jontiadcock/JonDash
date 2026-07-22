@@ -11,6 +11,14 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## Beta channel (pre-release)
 
+## [1.4.0-beta.9] — 2026-07-22
+
+### Added
+- **Uninstall several modules at once.** Each installed module now has a tick box: select the ones you want
+  gone and remove them together, so you get **one rebuild and one restart** for the whole batch instead of
+  one per module. The confirmation names every module being deleted before anything happens. This completes
+  the bulk selection added in 1.4.0-beta.5, which only covered installing.
+
 ## [1.4.0-beta.8] — 2026-07-22
 
 ### Fixed

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.4.0-beta.9",
+      "date": "2026-07-22",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: uninstall several modules at once. Each installed module now has a tick box - select the ones you want gone and remove them together, so you get one rebuild and one restart for the whole batch instead of one per module, and the confirmation names every module being deleted first. This completes the bulk selection added in 1.4.0-beta.5, which only covered installing."
+    },
+    {
       "version": "1.4.0-beta.8",
       "date": "2026-07-22",
       "type": "patch",

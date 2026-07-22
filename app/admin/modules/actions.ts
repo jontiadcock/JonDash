@@ -60,12 +60,18 @@ export async function disableModuleAction(formData: FormData): Promise<void> {
  */
 export async function uninstallModuleAction(formData: FormData): Promise<void> {
   await gate();
-  const def = defFrom(formData);
-  if (!def) return;
-  await uninstallModule(def);
-  await audit("admin.module.uninstall", { detail: def.id });
+  // One or many: like install, a batch costs a SINGLE rebuild + restart rather than one
+  // per module. Removing three modules used to mean three restarts and three sign-outs.
+  const ids = formData.getAll("id").map(String).filter(Boolean);
+  const defs = ids.map((id) => getModuleDef(id)).filter((d): d is NonNullable<typeof d> => !!d);
+  if (defs.length === 0) return;
 
-  removeModuleFiles(def.id);
+  for (const def of defs) {
+    await uninstallModule(def); // purge data first, while its definition is still loadable
+    await audit("admin.module.uninstall", { detail: def.id });
+    removeModuleFiles(def.id);
+  }
+
   regenerateRegistry();
   revalidatePath("/admin/modules");
   requestRebuildAndRestart(); // exits the process; the launcher rebuilds and restarts
