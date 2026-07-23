@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.2",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Add-ons stay up to date, and you can see what they are allowed to do. A new Update everything button updates every module and helper waiting, in one restart, skipping anything that needs a decision from you and saying what it skipped. Modules gain a per-module automatic update switch, off by default - a version asking for more access than you approved is never applied automatically either way. Fixes a real gap: a module could gain a capability you were never shown, because a helper's declaration of what it can do was being silently discarded. What you approve now includes everything the module's helpers can do, highlighted as high-risk. Helpers can also be updated at all for the first time - previously a helper only changed version as a side effect of a module install, so a helper could publish a security fix no existing install would ever receive - and a shared helper no longer flip-flops between versions. Nothing changes if you do not install modules."
+    },
+    {
       "version": "1.5.2-beta.1",
       "date": "2026-07-23",
       "type": "minor",

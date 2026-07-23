@@ -52,9 +52,9 @@ not a temporary one. Country-based policy was also dropped (retired SEC-03).
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**In flight: MOD-09** (helper-named capabilities + consent roll-up — v1.5.1-beta.1, pushed) and **MOD-10**
-(helper updates, channels, opt-in auto-update — **built as v1.5.2-beta.1, not yet pushed**). Detail in
-their catalog entries.
+**Nothing is in flight.** MOD-09 and MOD-10 both shipped in **v1.5.2**. The next module-platform item is
+**MOD-11** — making helper capability checks enforcement rather than advice — worth doing before
+helper-side enforcement spreads across several helpers.
 
 Otherwise this list is only what's left to build — shipped items live in the **Shipped log** and their
 catalog entries, not here. The **modules platform is otherwise complete**: MOD-01 (v1.4.0), MOD-02 (the
@@ -287,7 +287,7 @@ a test so it can't be quietly assumed away.
 - **Do it before enforcement is widespread.** The add-ons session writes helper-side enforcement in
   `filesystem 0.0.3-beta.1`; every helper written against the advisory shape is rework later.
 
-#### MOD-10 · Helper updates, channels + opt-in auto-update — 🔨 Built, unpublished (v1.5.2-beta.1)
+#### MOD-10 · Helper updates, channels + opt-in auto-update — ✅ Shipped v1.5.2 (2026-07-23)
 Helpers were designed as an invisible implementation detail — "users never install or remove one" — but
 they are versioned, published artifacts with their own defects and their own fixes. Those two facts were
 in tension, and the gap showed up as two silent failures.
@@ -316,7 +316,7 @@ in tension, and the gap showed up as two silent failures.
   so a helper cannot break silently — that belongs in the add-ons session's publish gate.
 - 226 tests (was 207). Live manifests on both channels re-parse unchanged; nothing needs republishing.
 
-#### MOD-09 · Helper-named capabilities + consent roll-up — 🔨 Built, unpublished (v1.5.1-beta.1)
+#### MOD-09 · Helper-named capabilities + consent roll-up — ✅ Shipped v1.5.2 (2026-07-23)
 Closes the gap that made MOD-08's consent guarantee unenforceable. A helper could **provide** a capability
 but not **name** one: `sources.ts` filtered a helper's `provides` against the four core permissions, so
 `files:write` was **silently dropped**. And nothing consumed `provides` at all — `install-button.tsx` said
@@ -904,6 +904,10 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
   (batch, never automatic, permission-change approval, migrations on update), helpers with a boot phase,
   declared background work via the `scheduler` helper, read-only Admin → Helpers, and self-heal for
   official-source modules.
+
+- **v1.5.2** (2026-07-23) — **MOD-09 + MOD-10.** Helper-named capabilities and the consent roll-up (a
+  helper's declaration of what it can do was being silently discarded, so consent understated it), plus
+  helper updates, derived channels, per-module opt-in auto-update and "Update everything".
 
 **Per-release detail is in `CHANGELOG.md`** — this log is landmarks only, one line per release line.
 

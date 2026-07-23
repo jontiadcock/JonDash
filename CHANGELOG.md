@@ -9,6 +9,52 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.2] — 2026-07-23
+
+**Add-ons stay up to date, and you can see what they're allowed to do.** Coming from 1.5.0, this is both
+beta releases in one. Nothing changes unless you install modules.
+
+### Added
+- **An "Update everything" button** on Admin → Updates. Updates every module and helper with something
+  waiting, in one restart instead of one each. It skips anything needing a decision from you — a module
+  asking for more access, or a helper that would stop a module working — and tells you what it skipped and
+  why. JonDash's own update stays a separate button: a module can require a newer JonDash, so those have
+  to happen in order.
+- **Automatic updates, per module.** Each module has its own switch, off unless you turn it on. It's
+  deliberately not one setting for everything — a single switch would let any source you've added run new
+  code here whenever it liked. **A version asking for more access than you approved is never applied
+  automatically**, however this is set.
+- **Helpers appear on the Updates page**, showing their version, which modules need them, and what
+  changed. You can also pin one to a channel — normally a helper just follows the modules that use it, but
+  pinning is there for taking a fix early or stepping back off beta.
+- **Helpers can describe their own capabilities**, so the screen can say what actually happens to your
+  machine — "Read and write files in D:\Backups" — rather than a technical name. It also means a new
+  capability can arrive with a helper instead of waiting for a JonDash release.
+
+### Fixed
+- **A module could gain a capability you were never shown.** Helpers do things modules are forbidden —
+  reading and writing files, for example — and declare what they can do so you can be told before
+  installing anything that uses them. That declaration was being **silently discarded**, so the approval
+  screen listed only the module's own, milder permissions. Nothing warned anyone, because nothing failed.
+- **What you approve now includes everything the module's helpers can do**, whether or not the module
+  asked for it by name, and those entries are highlighted as high-risk.
+- **A helper fix could never reach you.** Helpers had no update path: one only changed version as a side
+  effect of installing or updating a module that used it. A helper could publish a security fix that no
+  existing install would ever receive.
+- **A shared helper no longer flip-flops between versions** depending on which module you touched last. It
+  follows the highest channel among the modules that need it, and the Helpers page says which module put
+  it there.
+- **A helper that has to break compatibility says so before it's installed**, naming the modules it will
+  stop working, and won't proceed until you've confirmed that specific consequence.
+- **Anything JonDash can't make sense of is refused outright** rather than quietly dropped — silently
+  discarding a capability is exactly how the problem above stayed invisible.
+
+### Notes
+- Known limitation, deliberately written down rather than implied: a module can call past what it declared
+  to a helper. The declared subset is enforced by the helper, not by JonDash, so it defends against
+  mistakes rather than a module determined to misbehave. Modules remain a **curated or self-built**
+  feature — only install ones you trust. Tracked for a proper fix.
+
 ## [1.5.2-beta.1] — 2026-07-23
 
 **Beta: keeping add-ons up to date — helpers included, and automatically if you want.** Nothing changes
@@ -813,6 +859,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2
 [1.5.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2-beta.1
 [1.5.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.1-beta.1
 [1.5.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0
