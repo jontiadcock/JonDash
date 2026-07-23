@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.7",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: all beta-channel choices are now in one place. Admin - Updates has a new 'Beta channels' section that lists JonDash itself and every installed module and helper, each with a switch to opt in or out of pre-release versions. It stays collapsed when everything is on stable, and tells you how many things are on beta when they are not. The per-module channel control has been removed from each module's own page, which now just states which channel it is on and links here. A helper's channel normally follows the modules that need it; the switch pins it, and turning the switch off returns it to following rather than forcing it to stable."
+    },
+    {
       "version": "1.5.3-beta.6",
       "date": "2026-07-23",
       "type": "minor",

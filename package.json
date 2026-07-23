@@ -1,6 +1,6 @@
 {
   "name": "jondash",
-  "version": "1.5.3-beta.6",
+  "version": "1.5.3-beta.7",
   "private": true,
   "scripts": {
     "dev": "next dev",

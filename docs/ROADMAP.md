@@ -1091,6 +1091,10 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   on a module, set the schedule a few minutes ahead, publish a newer version, and confirm it applies and
   restarts. Then confirm the refusals: a version that **adds a permission** must be held back and named,
   not applied.
+- **Beta channels panel** (v1.5.3-beta.7) — confirm each switch moves the right thing: JonDash's own
+  channel, a module's, and a helper's pin. For the helper, check that switching OFF returns it to
+  *following its modules* rather than forcing it to stable — if a module is still on beta the helper
+  should stay on beta.
 - **The consolidated Updates page** (v1.5.3-beta.5) — confirm the schedule saves and reads back, the
   weekly/monthly day fields appear for the right frequency, and the per-item ticks persist. Also check
   the module detail page now points at Updates rather than offering its own toggle.

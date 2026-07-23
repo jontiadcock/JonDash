@@ -9,6 +9,24 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.7] — 2026-07-23
+
+**Beta: every beta-channel choice in one place.**
+
+### Added
+- **A "Beta channels" section on Admin → Updates.** Lists JonDash itself and every installed
+  module and helper, each with a switch to opt in or out of pre-release versions. Collapsed when
+  everything is on stable; when it isn't, it says how many things are on beta — so "what am I
+  running pre-release code for?" is answerable from one screen.
+
+### Changed
+- **The per-module channel control has been removed from each module's own page.** That page now
+  states which channel the module is on and links to Updates. Previously the app's channel, each
+  module's and each helper's lived in three different places.
+- **A helper's switch pins it.** A helper normally follows the highest channel among the modules
+  that need it; turning its switch off returns it to following, rather than forcing it to stable
+  and fighting the module that moved it.
+
 ## [1.5.3-beta.6] — 2026-07-23
 
 **Beta: an encrypted backup is now encrypted all the way through.**
@@ -996,6 +1014,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.7
 [1.5.3-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.6
 [1.5.3-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.5
 [1.5.3-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.4

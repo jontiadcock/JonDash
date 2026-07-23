@@ -13,6 +13,7 @@ import { getHelperUpdateStatus } from "@/lib/helpers/updates";
 import { prisma } from "@/lib/db";
 import { readUpdateSchedule, describeSchedule } from "@/lib/updates/schedule";
 import { UpdateScheduleForm } from "./schedule-form";
+import { BetaChannels, type BetaItem } from "./beta-channels";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,33 @@ export default async function AdminUpdatesPage() {
     autoUpdate: helperAuto.get(h.id) ?? false,
   }));
 
+  // Everything with a channel, in one list: the app, each installed module, each helper.
+  const moduleRows = await prisma.module.findMany({
+    select: { id: true, name: true, channel: true },
+    orderBy: { name: "asc" },
+  });
+  const betaItems: BetaItem[] = [
+    { kind: "app", id: "app", name: "JonDash", onBeta: channel === "beta" },
+    ...moduleRows.map((m) => ({
+      kind: "module" as const,
+      id: m.id,
+      name: m.name,
+      onBeta: m.channel === "beta",
+    })),
+    ...helperStatus.helpers.map((h) => ({
+      kind: "helper" as const,
+      id: h.id,
+      name: h.name,
+      onBeta: h.channel === "beta",
+      derived: !h.pinned,
+      note: h.pinned
+        ? undefined
+        : h.channel === "beta"
+          ? `On beta because a module that needs it is.`
+          : undefined,
+    })),
+  ];
+
   // Drives the "Update everything" button: only offer it when there is actually something
   // for it to do, across BOTH add-on kinds.
   const anythingToUpdate =
@@ -91,6 +119,10 @@ export default async function AdminUpdatesPage() {
 
       <section className="card p-6">
         <UpdatesPanel version={version} channel={channel} autoInstall={autoInstall} failure={failure} />
+      </section>
+
+      <section className="card p-6">
+        <BetaChannels items={betaItems} />
       </section>
 
       <section className="card p-6">
