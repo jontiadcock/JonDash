@@ -611,6 +611,38 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-29 · Background work can't be audited — every scheduled module action is silently unlogged — OPEN.**
+  Reported by the add-ons session 2026-07-23 from Backup Manager's first scheduled run; **reproduced here
+  the same day**. `lib/audit.ts:12` calls `await headers()` inside the *same* `try` as the
+  `prisma.auditLog.create` on line 15. `headers()` throws outside a request scope, so background work
+  throws **before** the write and the `catch` on line 23 swallows it. No row is ever written and nothing
+  signals that anything went wrong. The comment on that catch — "never let audit logging break the
+  primary flow" — is achieved, at the cost of making every module's scheduled work unauditable.
+  **Verified, not inferred.** Their four checks against a real 1.5.2 install: `ctx.audit` exists in a
+  system context and `ctx.grants` contains `audit:write` (so a module's optional-chaining isn't what
+  swallows it); that `ctx.audit` writes zero rows; core's `audit()` called directly with no request in
+  scope writes zero rows; and — the control — a direct `prisma.auditLog.create` writes one immediately.
+  My own run outside a request scope: `audit()` wrote **0** rows, the direct create wrote **1**, and
+  `headers()` threw ``headers` was called outside a request scope`. Table, schema, connection and write
+  path are all healthy; the only variable is whether `headers()` ran first.
+  **No module can work around it.** `audit()` returns `Promise<void>` and swallows its own errors, so it
+  resolves cleanly whether or not anything was written — a consumer cannot detect the failure, retry, or
+  fall back.
+  **Scope:** every module's scheduled work, including `health-monitor`'s checks. Expect those audit
+  trails to contain only entries somebody triggered by clicking.
+  **Fix:** resolve the IP in its own `try/catch` defaulting to `undefined`, then do the write in a
+  separate `try` — a missing request context should cost the `ip` column, not the whole row. `userId` is
+  already optional and already null for background work, so nothing else changes and the
+  never-break-the-flow property is preserved. Also worth deciding whether such rows should read
+  **"system"** on the audit page, so "the schedule did this" is distinguishable from "we don't know who
+  did this".
+  **Why it bites now:** filesystem 0.0.3 ships GFS snapshot retention, which deletes old backups on a
+  schedule and documents that every deletion is audited individually so "what did it remove last night"
+  is answerable. That is currently false for scheduled prunes. The helper's own per-run log file still
+  records every removal, written before each deletion happens, so the answer exists — just not in the
+  audit trail, which is where anyone would look first. `HELPER.md` carries a caveat until this lands.
+  **High rather than Critical:** nothing is destroyed or exposed, but it silently defeats a security
+  control, and has presumably been true since modules first got a scheduler.
 - **BUG-27 · The verifier missed two ways a module reaches outside itself — fixed v1.5.3-beta.1.** Found 2026-07-23 by
   testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
   CSP doesn't apply.
@@ -775,6 +807,12 @@ _None currently._
   imported by `server.mjs` before Next boots.
   **Not High:** it needs the file to be corrupt, which the app's own `writeNetworkConfig` never
   produces — reachable by hand-editing or a partial disk write, not by normal use.
+  **Independently hit by the add-ons session the same day**, in the same way (a UTF-8 BOM), and their
+  run is the sharper argument for fixing it: on their machine port 3000 belonged to another agent, so
+  it only failed loudly *because that port was already taken*. Had it been free, the server would have
+  silently come up on the wrong port. Their ask is modest and right — **one warning line when the file
+  exists but cannot be parsed**, which distinguishes "no config" from "broken config" and would have
+  turned a confusing hour into an obvious one.
 - **BUG-24 · Settings changes were audited without saying what changed — fixed v1.5.3-beta.1.** Reported by the owner
   2026-07-22: editing the sign-in message logs `settings.updated` with an empty **Detail** (`—`), so the
   entry records that *a* setting changed but not **which one**, or **from what to what**. For a security
