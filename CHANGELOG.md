@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.9] — 2026-07-23
+
+### Fixed
+- **The Updates page no longer offers to move you backwards.** A module or helper whose channel
+  offered an *older* version than the one installed was listed as an available update, with a
+  tick-box beside it — so one click could take you back to an earlier release. Anything older is
+  now simply not offered.
+  This shows up on the **beta** channel after a pre-release is promoted: `0.0.5-beta.1` counts as
+  older than `0.0.5`, so once that beta becomes the stable `0.0.5`, the beta channel points at
+  something older than what you are running until it is moved forward.
+
 ## [1.5.3-beta.8] — 2026-07-23
 
 ### Changed
@@ -1023,6 +1034,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.9
 [1.5.3-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.8
 [1.5.3-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.7
 [1.5.3-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.6

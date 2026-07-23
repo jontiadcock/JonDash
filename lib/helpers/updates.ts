@@ -167,7 +167,8 @@ export async function getHelperUpdateStatus(force = false): Promise<HelperUpdate
       channel: state.channel,
       pinned: state.pinned,
       dependents,
-      updateAvailable: cmp !== 0,
+      // Same rule as modules: an older offering is not an update. See lib/modules/updates.ts.
+      updateAvailable: cmp > 0,
       blockedReason: needsNewerApp
         ? `Needs JonDash ${entry.minAppVersion} or newer — update JonDash first.`
         : undefined,

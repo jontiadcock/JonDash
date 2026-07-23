@@ -628,6 +628,19 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-31 · The Updates page offered a DOWNGRADE as an update — fixed v1.5.3-beta.9.** Reported by the
+  owner 2026-07-23 from a real install: *Health monitoring v0.0.5 → v0.0.5-beta.1*, with a tick-box
+  beside it. `lib/modules/updates.ts` set `updateAvailable: cmp !== 0`, so **any** difference counted —
+  including an offering that sorts BELOW what's installed. `lib/helpers/updates.ts` had the same line.
+  Now `cmp > 0`; `isDowngrade` still reports it so the reason can be shown.
+  **The trigger is a release-process problem, not a user mistake, and the app fix only contains it.**
+  Semver sorts a pre-release below its release, so `0.0.5-beta.1` < `0.0.5`. **Promoting a pre-release
+  to stable without advancing the beta channel leaves beta pointing at the now-older pre-release** — and
+  every install on beta is then invited to go backwards. It is the add-ons repo's equivalent of the core
+  rule that both branches end on the same commit after a promotion ([[stable-release-process]]).
+  **Still to do on the add-ons side:** after promoting `X.Y.Z-beta.N` → `X.Y.Z`, the beta manifest must
+  move to `X.Y.Z` (or beyond), never be left behind. Until it does, beta installs simply see "up to
+  date" rather than a downgrade offer — correct, but the beta channel is stale.
 - **BUG-30 · The per-module "update automatically" toggle does nothing — fixed v1.5.3-beta.5.** Found 2026-07-23 while
   scoping the same feature for helpers. Shipped in **MOD-10 (v1.5.2)** and **live in stable now**.
   The UI toggle exists (`app/admin/modules/[id]/page.tsx:116`), the flag saves

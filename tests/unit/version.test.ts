@@ -43,3 +43,38 @@ describe("version helpers", () => {
     expect(diffType("1.0.3", "1.0.3")).toBeNull();
   });
 });
+
+/**
+ * BUG-31 (2026-07-23, reported by the owner from a real install). The Updates page offered
+ * "Health monitoring v0.0.5 → v0.0.5-beta.1" with a tick-box: a DOWNGRADE presented as an
+ * update.
+ *
+ * The trigger is a release-process one, not a user mistake. Promoting a pre-release to
+ * stable leaves the beta channel still pointing at the pre-release, and semver sorts a
+ * pre-release BELOW its release — so every install on beta gets invited to go backwards
+ * the moment a beta is promoted.
+ *
+ * `updateAvailable` is now `cmp > 0`, not `cmp !== 0`. These assert the ordering that rule
+ * depends on.
+ */
+describe("a pre-release is never newer than its release (BUG-31)", () => {
+  it("0.0.5-beta.1 sorts BELOW 0.0.5", () => {
+    expect(compareVersions("0.0.5-beta.1", "0.0.5")).toBeLessThan(0);
+    expect(compareVersions("0.0.5", "0.0.5-beta.1")).toBeGreaterThan(0);
+  });
+
+  it("so it is not an available update from 0.0.5", () => {
+    // The exact comparison the Updates page makes.
+    expect(compareVersions("0.0.5-beta.1", "0.0.5") > 0).toBe(false);
+  });
+
+  it("but a genuinely newer pre-release still is", () => {
+    // The fix must not stop beta doing its job: 0.0.6-beta.1 IS ahead of 0.0.5.
+    expect(compareVersions("0.0.6-beta.1", "0.0.5")).toBeGreaterThan(0);
+    expect(compareVersions("0.0.5-beta.2", "0.0.5-beta.1")).toBeGreaterThan(0);
+  });
+
+  it("and equal versions are not an update either", () => {
+    expect(compareVersions("1.5.3-beta.8", "1.5.3-beta.8")).toBe(0);
+  });
+});
