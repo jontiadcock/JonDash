@@ -77,29 +77,16 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-1 text-lg font-semibold">Release channel</h2>
-        {/* The control moved to Admin → Updates → Beta channels, where the app's channel
-            and every other module's sit together. */}
+        {/* NO STATE HERE, deliberately (BUG-34). Once the controls moved to Admin → Updates
+            these became read-only mirrors: they couldn't be acted on but could still go
+            stale, and did — this page read "Currently on beta" while the Updates toggle for
+            the same module was off. A mirror that can't be used but can be wrong is worse
+            than no mirror. A pointer with no state in it cannot ever disagree. */}
+        <h2 className="mb-1 text-lg font-semibold">Updates</h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Currently on <strong>{state.channel}</strong>
-          {state.channel === "beta" && " — you're getting pre-release versions of this module."}. Change
-          it under <strong>Beta channels</strong> on{" "}
-          <Link href="/admin/updates" style={{ color: "var(--primary)" }}>Admin → Updates</Link>, which
-          lists everything that has a channel in one place.
+          Release channel and automatic updates for this module are managed on{" "}
+          <Link href="/admin/updates" style={{ color: "var(--primary)" }}>Admin → Updates</Link>.
         </p>
-
-        {/* The toggle itself moved to Admin → Updates, where the schedule and every other
-            update control now live. Keeping a second copy here would mean two places to
-            look and two to keep in step. */}
-        <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-          <h3 className="mb-1 font-medium">Automatic updates</h3>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Currently <strong>{state.autoUpdate ? "on" : "off"}</strong> for this module. Change it — and
-            set when automatic updates run — on{" "}
-            <Link href="/admin/updates" style={{ color: "var(--primary)" }}>Admin → Updates</Link>, which
-            now holds everything that updates.
-          </p>
-        </div>
       </section>
 
       {(fields.length > 0 || !SettingsPanel) && (

@@ -338,6 +338,10 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
   revalidatePath(`/admin/modules/${id}`);
   revalidatePath("/admin/modules");
   revalidatePath("/admin/helpers");
+  // The Beta channels panel lives here and shows this module's channel. This was the only
+  // one of its siblings not revalidating it — a write that changes what another page shows
+  // has to invalidate that page (BUG-34).
+  revalidatePath("/admin/updates");
 }
 
 /**

@@ -628,6 +628,25 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-32 · A part-applied module migration can never recover — OPEN.** Reported by the add-ons
+  session 2026-07-23 while proving Backup Manager's 0.0.1 → 0.1.0 upgrade; **confirmed here against
+  the code**. `runModuleMigrations` (`lib/modules/migrate.ts`) runs each statement through its own
+  `$executeRawUnsafe` with **no transaction**, and writes the `ModuleMigration` row only after the
+  whole file succeeds. A file whose fourth of six statements fails leaves 1–3 committed and the file
+  unrecorded — so the next attempt restarts at statement 1, hits `ALTER TABLE ADD COLUMN` for a
+  column that now exists, and fails identically. **SQLite has no `ADD COLUMN IF NOT EXISTS`, so it
+  cannot self-heal**: every retry fails the same way and the module is stuck until someone edits the
+  database by hand.
+  **Asserted, not assumed.** Their `addons/backup-manager/tests/upgrade.test.ts` deletes the
+  `ModuleMigration` row for an applied file, re-runs the runner, and expects `duplicate column` — it
+  passes on 1.5.3-beta.5.
+  **Decision: fix, don't document.** They offered to write the constraint into the authoring guide
+  instead ("keep each file to one statement; never assume a failed file left nothing behind"). That
+  makes every author remember a rule to avoid a trap the framework is setting. Wrap each file in a
+  transaction — SQLite supports transactional DDL — so a file applies atomically or not at all and a
+  retry is always safe. **Applies to every module's migrations, not just theirs.**
+  **When it lands:** tell the add-ons session so they can invert their assertion — a re-run of a
+  part-applied file should then succeed. The test stays theirs.
 - **BUG-31 · The Updates page offered a DOWNGRADE as an update — fixed v1.5.3-beta.9.** Reported by the
   owner 2026-07-23 from a real install: *Health monitoring v0.0.5 → v0.0.5-beta.1*, with a tick-box
   beside it. `lib/modules/updates.ts` set `updateAvailable: cmp !== 0`, so **any** difference counted —
@@ -874,6 +893,43 @@ _None currently._
   2026-07-20; fixed + shipped 2026-07-21 (v1.3.7-beta.1).
 
 ### 🟡 Medium
+
+- **BUG-34 · The module settings page mirrors channel/auto-update state and goes stale — fixed v1.5.3-beta.14.**
+  Reported by the add-ons session 2026-07-23 with a screenshot: Admin → Modules → Backup Manager read
+  *"Currently on beta"* while Admin → Updates → Beta channels showed its toggle **off**, in the same
+  session. The Updates page was self-consistent (its header count matched its toggles), so the module
+  page is the wrong one.
+  **Verified here, and it is NOT two sources of truth:** `channelOf` (`lib/modules/registry.ts`) is
+  `row?.channel === "beta" ? "beta" : "stable"` — the identical comparison the Updates page makes on
+  the identical column, with no cache in either reader. Root cause unconfirmed (client router cache is
+  the best guess); deliberately not chased, because the surface is being deleted.
+  **Decision: REMOVE both cards, don't fix the display.** Since the controls moved to Admin → Updates,
+  Release channel and Automatic updates on the module page are read-only mirrors that can't be acted
+  on but can still go stale — strictly worse than no mirror. Replace with one stateless line:
+  *"Release channel and automatic updates for this module are managed on Admin → Updates."* The core
+  code already carries this argument in a comment above the Automatic updates block; the Release
+  channel mirror was left behind doing exactly what that comment warned against.
+  **Two real defects go with it:** `setModuleChannelAction` (`app/admin/modules/actions.ts`) is the only
+  one of its siblings that does **not** `revalidatePath("/admin/updates")` — add it regardless of the
+  removal; and `app/admin/modules/[id]/page.tsx:85` emits a double full stop (`"…of this module."` +
+  a literal `.`).
+  **Fixed in v1.5.3-beta.14** as decided: both cards removed and replaced by a stateless pointer;
+  `revalidatePath("/admin/updates")` added to `setModuleChannelAction`; the double full stop went with
+  the card. Verified with the module **on beta** in the database — the page claims nothing about its
+  channel, while Admin → Updates shows "Leave beta" and counts it. Root cause never confirmed and
+  deliberately not chased: the surface was deleted.
+- **BUG-33 · A module's own tests have no supported way to reach the database — OPEN.** Reported by
+  the add-ons session 2026-07-23; **confirmed**. `vitest.config.ts` supplies `globalSetup` and
+  `DATABASE_URL: file:./vitest.db` but its `include` is `tests/**` only, so a module's own tests are
+  never discovered. **`vitest.mod.mts` does not exist in this repo at all** — they built that
+  scaffolding themselves, and without `globalSetup`/`DATABASE_URL` anything importing `@/lib/db`
+  there runs against the real `dev.db`. They worked around it by copying the test into `tests/`.
+  **Decision: module tests SHOULD reach the database** — the data layer is usually the interesting
+  thing about a module, so a harness that can't touch it isn't much of a harness. Core ships a
+  supported module-test config with `globalSetup` and a throwaway `DATABASE_URL`. Their guard that
+  refuses to run against `dev.db` stays; it is what caught this.
+  Related standing friction already recorded in [[capture-errors-and-timesavers]]: modules can't be
+  typechecked in the add-ons repo either, so authors copy into `modules/<id>/` to run anything.
 
 - **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — fixed v1.5.3-beta.6.**
   `readNetworkConfigResult()` now separates "file absent" (defaulting is legitimate) from "file present

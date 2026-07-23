@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.14",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: a module's own settings page no longer shows its release channel and automatic-update state. Those controls moved to Admin - Updates a few releases ago, leaving the module page displaying copies it could not change - and the copies could fall out of step, so a module could read 'Currently on beta' while the switch for it on the Updates page was off. The page now carries a single line pointing at Admin - Updates, which cannot disagree with anything. Changing a module's channel also refreshes the Updates page properly, which it was missing before."
+    },
+    {
       "version": "1.5.3-beta.13",
       "date": "2026-07-23",
       "type": "patch",

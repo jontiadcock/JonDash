@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.14] — 2026-07-23
+
+### Fixed
+- **A module's settings page no longer shows its release channel and automatic-update state.**
+  Those controls moved to Admin → Updates a few releases ago, leaving this page displaying copies it
+  couldn't change — and the copies could fall out of step, so a module could read *"Currently on
+  beta"* while the switch for it on the Updates page was off. The page now carries one line pointing
+  at Admin → Updates, which can't disagree with anything.
+- **Changing a module's channel now refreshes the Updates page.** It was the only setting of its kind
+  that didn't.
+
 ## [1.5.3-beta.13] — 2026-07-23
 
 ### Changed
@@ -1087,6 +1098,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.14]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.14
 [1.5.3-beta.13]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.13
 [1.5.3-beta.12]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.12
 [1.5.3-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.11
