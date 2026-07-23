@@ -71,14 +71,17 @@ catalog entries, not here. The **modules platform is otherwise complete**: MOD-0
 8. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-9. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+9. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+   the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
+   (added 2026-07-24) — move it freely
+10. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-10. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+11. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-11. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-12. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+12. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+13. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-13. 🌅 **OPS-03 — VHD appliance**
+14. 🌅 **OPS-03 — VHD appliance**
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
 comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
@@ -607,6 +610,43 @@ well-behaved, not the UI defending itself.
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
 
+#### CORE-05 · "Buy me a coffee" banner + a support page — ⏳ Planned
+Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
+a support page that is deliberately a bit cute and funny. Someone who goes on to support gets a second,
+sillier thank-you page.
+
+**The routes are the joke, and they are exact.** Locked by the owner — do not tidy, shorten or
+"correct" the spelling later:
+- `/help-meeeee` — the support page. **Five `e`s.** The owner first wrote `help-meeee` (four) and then
+  said *"I want the address of the page that you enter to specifically be help-meeeee"*; the second,
+  emphasised spelling wins. **Confirm before building** — it is one character and it is the whole gag.
+- `/you-are-a-bloody-legend` — the thank-you page, reached after supporting.
+
+**Tone:** cute and funny, and still recognisably JonDash. The app is otherwise dry and
+infrastructural — a self-hosted dashboard that guards someone's services — so the humour lives on these
+two pages and in the banner copy, not in the admin UI around them.
+
+**Design constraints that matter more than the styling:**
+- **The banner must never nag.** Dismissible, and once dismissed it stays dismissed — per user, stored
+  the same way other per-user UI state is. A self-hosted personal-use app that pesters its owner for
+  money is worse than no banner at all. Consider showing it only after the instance has been in use for
+  a while, rather than to someone who just finished setup.
+- **Nothing is gated behind it, ever.** No feature, no nag-removal-for-payers, no "supporter" tier. The
+  licence is personal-use and free; this asks, it does not sell.
+- **`/you-are-a-bloody-legend` cannot verify that anyone actually paid** — and should not pretend to.
+  A payment provider only confirms a payment via a webhook, which a self-hosted instance behind
+  somebody's home router generally cannot receive. So treat it as the **return URL** the provider sends
+  people back to: a thank-you, reachable by anyone who types it, storing nothing and asserting nothing.
+  Do not build an entitlement on top of it.
+- **No phoning home.** The banner must not fetch anything external to decide whether to render, and the
+  pages must not embed a third-party script or tracker. Clicking through to the payment provider is
+  user-initiated and fine; anything before that click is not.
+- **Both pages are public-ish by nature** — they sit behind the normal sign-in like everything else, but
+  keep them free of instance detail (no hostnames, no service names, nothing from the dashboard).
+
+**Open, for the owner:** which payment provider (Ko-fi / Buy Me a Coffee / GitHub Sponsors / plain
+PayPal), and whether the banner appears on the dashboard, in the admin area, or both.
+
 #### CORE-04 · Full UI rework — ⏳ scope TBD
 Owner decision 2026-07-23. **The look changes significantly; the functionality does not.** Buttons,
 controls and flows stay as they are — this is a visual pass, not a re-architecture, and nothing here
@@ -986,6 +1026,25 @@ _None currently._
 
 ### 🟡 Medium
 
+- **BUG-40 · A module's Tailwind classes aren't generated, so its UI renders half-styled — OPEN.**
+  Found here 2026-07-24 while shooting README screenshots: the health-monitor detail page's stat row is
+  `grid-cols-2 sm:grid-cols-5`, but it rendered as two columns at every width. The class
+  `sm:grid-cols-5` was **absent from the built CSS**.
+  **Cause:** Tailwind v4 scans the project for class names but **skips anything matched by `.gitignore`** —
+  and `modules/` and `helpers/` are both ignored on purpose (they hold installed add-on code, not app
+  code). So any utility a module uses that the core app doesn't *also* use somewhere is silently never
+  generated. Most module UIs mostly work only because their common classes (`flex`, `gap-4`,
+  `grid-cols-2`…) happen to be used by core too; a module's less common ones vanish.
+  **Consequence:** every installed module — official or third-party — can render with part of its layout
+  missing, and there is nothing in the module's own code or the verifier that would warn the author. Not a
+  crash, not a security issue: purely visual, and confined to modules.
+  **Attempted the obvious fix and it does NOT work:** Tailwind's documented `@source "../modules"` escape
+  hatch still honours `.gitignore` in v4.3.3, so naming the folders in `globals.css` generated nothing
+  (verified with a scratch build; reverted). A real fix needs the class list to come from a **non-ignored**
+  path — e.g. the prebuild registry generator (`scripts/gen-module-registry.mjs`, which already walks every
+  installed module) also emitting the classes it finds into a committed file that `globals.css` reads, or a
+  `@source` pointing at such a generated manifest. **Affects how modules should be authored and built, so
+  the add-ons session needs to know once a direction is chosen.**
 - **BUG-39 · The verifier reads a COMMENTED-OUT `helpers:` line as a real declaration — OPEN, not reproduced.**
   Reported by the add-ons session 2026-07-22; still open, and re-surfaced by the 2026-07-23 deep clean when
   the note in `PROJECT_MEMORY.md` was found stale. `parseDeclaredHelpers` (`lib/modules/verify.ts`) parses
