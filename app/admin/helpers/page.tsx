@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { listHelpersForAdmin } from "@/lib/helpers/registry";
+import { HelperChannelForm } from "./channel-form";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function AdminHelpersPage() {
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {inUse.map(({ def, installed, installedVersion, dependents }) => (
+          {inUse.map(({ def, installed, installedVersion, dependents, channel }) => (
             <div key={def.id} className="card flex flex-col gap-3 p-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{def.name}</span>
@@ -46,6 +47,14 @@ export default async function AdminHelpersPage() {
                 )}
               </div>
               <p className="text-sm" style={{ color: "var(--muted)" }}>{def.description}</p>
+
+              <HelperChannelForm
+                helperId={def.id}
+                channel={channel.channel}
+                pinned={channel.pinned}
+                derived={channel.derived}
+                betaDependents={channel.betaDependents}
+              />
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Used by</p>

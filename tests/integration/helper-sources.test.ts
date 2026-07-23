@@ -132,6 +132,33 @@ describe("helpers are first-party only", () => {
     ]);
   });
 
+  /**
+   * MOD-10. `breakingFrom` is how a helper says "I broke compatibility at this version" —
+   * the only way JonDash can name which modules an update stops working. A malformed value
+   * would silently disable that warning, so it refuses the helper rather than being
+   * dropped, exactly like `provides`.
+   */
+  it("accepts a helper that declares where it broke compatibility", async () => {
+    mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, breakingFrom: "2.0.0" }] }));
+    const m = await fetchSourceManifest(OFFICIAL, "beta");
+    expect(m.helpers[0].breakingFrom).toBe("2.0.0");
+  });
+
+  it("treats absent breakingFrom as 'never broke', not as an error", async () => {
+    mockManifest(manifest({ helpers: [HELPER_ENTRY] }));
+    const m = await fetchSourceManifest(OFFICIAL, "beta");
+    expect(m.helpers[0].breakingFrom).toBeUndefined();
+    expect(m.helpers).toHaveLength(1);
+  });
+
+  it("REFUSES a helper whose breakingFrom isn't a version", async () => {
+    for (const bad of ["latest", "", "2.0", 2, null]) {
+      mockManifest(manifest({ helpers: [{ ...HELPER_ENTRY, breakingFrom: bad }] }));
+      const m = await fetchSourceManifest(OFFICIAL, "beta");
+      expect(m.helpers, JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
   it("still accepts a helper that provides nothing (the scheduler's shape)", async () => {
     // `scheduler` ships `provides: []` on both live channels — this asserts the published
     // manifests keep parsing unchanged across the schema change.

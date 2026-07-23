@@ -148,6 +148,67 @@ describe("module framework", () => {
     const netOnly = buildModuleContext(def, ["network:outbound"], null);
     expect(netOnly.net).toBeDefined();
     expect(netOnly.email).toBeUndefined();
+  });
+
+  /**
+   * MOD-10. Core capabilities are enforced by field PRESENCE — `ctx.fetch` is simply
+   * absent unless granted. A helper's API can't work that way: a module imports it
+   * directly from `@/helpers/<id>/api`, so there is no field to withhold, and the
+   * verifier's check is one binary gate on the whole helper rather than per capability.
+   *
+   * Without `ctx.can`, a module could declare only `filesystem:read` and call every write
+   * method with nothing able to notice. It gives the declared subset meaning — but it is
+   * ADVISORY, not a boundary; see the "KNOWN LIMIT" test below for why, and MOD-11 for the
+   * shape that would make it real.
+   */
+  it("exposes the caller's grants so a helper can enforce them", async () => {
+    const def = sampleDef();
+    const ctx = buildModuleContext(
+      { ...def, permissions: ["audit:write", "filesystem:read"] },
+      ["audit:write", "filesystem:read"],
+      null,
+    );
+
+    expect(ctx.can("filesystem:read")).toBe(true);
+    expect(ctx.can("audit:write")).toBe(true);
+    // The whole point: declared read, did NOT declare write.
+    expect(ctx.can("filesystem:write")).toBe(false);
+    expect(ctx.can("filesystem:delete")).toBe(false);
+    expect([...ctx.grants].sort()).toEqual(["audit:write", "filesystem:read"]);
+  });
+
+  it("a module cannot widen its own grants by mutating the array", async () => {
+    // The module receives this object. If it could push onto `grants`, it would decide
+    // what a helper is about to check it against.
+    const ctx = buildModuleContext(sampleDef(), ["filesystem:read"], null);
+    expect(() => (ctx.grants as string[]).push("filesystem:write")).toThrow();
+    expect(ctx.can("filesystem:write")).toBe(false);
+  });
+
+  /**
+   * ...but it is ADVISORY, and this test exists so nobody later mistakes it for a boundary.
+   *
+   * The module is what hands the context to a helper, so it can hand a lookalike instead.
+   * Freezing `grants` stops mutation and does nothing about substitution. Asserted rather
+   * than merely commented, because a reviewer seeing `ctx.can()` will assume enforcement —
+   * `ctx.fetch` being absent IS enforcement, and this is not the same thing.
+   *
+   * If this test ever starts failing, the boundary became real (MOD-11) and the docs,
+   * `MODULES-AUTHORING.md` and the helper guidance all need updating together.
+   */
+  it("KNOWN LIMIT: a forged context defeats can() — advisory, not enforcement", async () => {
+    const real = buildModuleContext(sampleDef(), ["filesystem:read"], null);
+    expect(real.can("filesystem:write")).toBe(false);
+
+    // Exactly what a determined module would do before calling a helper.
+    const forged: typeof real = { ...real, can: () => true, grants: ["filesystem:write"], moduleId: "someone-else" };
+    expect(forged.can("filesystem:write")).toBe(true); // the check is bypassed
+    expect(forged.moduleId).toBe("someone-else"); // and audit attribution with it
+    expect(Object.isFrozen(real.grants)).toBe(true); // freezing was never the defence
+  });
+
+  it("still gates each core capability independently", async () => {
+    const def = sampleDef();
     const mailOnly = buildModuleContext(def, ["email:send"], null);
     expect(mailOnly.email).toBeDefined();
     expect(mailOnly.fetch).toBeUndefined();

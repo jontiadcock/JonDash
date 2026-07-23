@@ -52,8 +52,9 @@ not a temporary one. Country-based policy was also dropped (retired SEC-03).
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**In flight: MOD-09** — helper-named capabilities + the consent roll-up, **built as v1.5.1-beta.1, not yet
-pushed**. Detail in its catalog entry.
+**In flight: MOD-09** (helper-named capabilities + consent roll-up — v1.5.1-beta.1, pushed) and **MOD-10**
+(helper updates, channels, opt-in auto-update — **built as v1.5.2-beta.1, not yet pushed**). Detail in
+their catalog entries.
 
 Otherwise this list is only what's left to build — shipped items live in the **Shipped log** and their
 catalog entries, not here. The **modules platform is otherwise complete**: MOD-01 (v1.4.0), MOD-02 (the
@@ -65,14 +66,16 @@ catalog entries, not here. The **modules platform is otherwise complete**: MOD-0
 4. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
 5. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
 6. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-7. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+7. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
+   advice; worth doing before helper-side enforcement spreads
+8. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-8. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+9. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-9. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-10. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+10. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+11. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-11. 🌅 **OPS-03 — VHD appliance**
+12. 🌅 **OPS-03 — VHD appliance**
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
 comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
@@ -262,6 +265,56 @@ of the base app**, and **permission-gated** at install. Author-facing contract:
 - **P4 — MOD-02 Health monitoring** ✅ as the first real module (built in the add-ons repo, not here).
 - **P5 —** hardened sandboxing/signing for untrusted third-party modules: **not happening** (retired
   MOD-06, 2026-07-22). Modules remain curated / self-built, gated by the verifier + consent.
+
+#### MOD-11 · Hand helper APIs through the context, so capability checks are enforcement — ⏳
+`ctx.can()` (MOD-10) lets a helper refuse an operation its caller never declared, and it is
+**advisory only**. The module is what passes the context to the helper, so it can pass a lookalike:
+`helperApi({ ...ctx, can: () => true })` defeats the check entirely, and freezing `grants` does nothing
+because a spread builds a new object. `moduleId` goes the same way, taking a helper's audit attribution
+with it. Raised by the add-ons session 2026-07-23 **after building against it** — verified, and pinned by
+a test so it can't be quietly assumed away.
+- **The fix is a shape this framework already uses.** Core hands the helper's API over as a field on the
+  context, present only when the module declared the helper and was granted its capabilities — exactly
+  like `ctx.fetch`. The module then never constructs the object the helper sees, enforcement is field
+  presence again, and the verifier's binary import gate stops being load-bearing.
+- **A cheaper sound option, if the full shape is too much:** core issues an unforgeable per-context grant
+  token; the helper passes it back to a core function which answers from the DB rather than from the
+  passed object. Smaller, but adds a second mechanism where the first already works.
+- **Not urgent, and say why:** modules are curated or self-built (a permanent locked decision), the
+  verifier still refuses the import unless the helper is declared, and helper operations stay inside
+  admin-approved roots. This closes a gap between what a check *reads* as and what it *is*, which matters
+  most for the next person reviewing it.
+- **Do it before enforcement is widespread.** The add-ons session writes helper-side enforcement in
+  `filesystem 0.0.3-beta.1`; every helper written against the advisory shape is rework later.
+
+#### MOD-10 · Helper updates, channels + opt-in auto-update — 🔨 Built, unpublished (v1.5.2-beta.1)
+Helpers were designed as an invisible implementation detail — "users never install or remove one" — but
+they are versioned, published artifacts with their own defects and their own fixes. Those two facts were
+in tension, and the gap showed up as two silent failures.
+- **A helper fix could reach nobody.** `lib/modules/updates.ts` never mentioned helpers, and
+  `reconcileHelpers` only heals *absent* ones, so a stale-but-present helper was never touched. A helper
+  could publish a security fix that no existing install would ever receive.
+- **A shared helper flip-flopped.** `ensureHelpersFor` took the *calling module's* channel, so with two
+  dependents on different channels the version swapped with whichever module was touched last.
+- **Now:** helpers have a `channel` (**derived — highest among dependents**, so beta wins and the
+  flip-flop stops; safe only because a helper never breaks its API, so a newer one always satisfies an
+  older consumer), their own section on **Admin → Updates**, and an optional **admin pin** that overrides
+  the derived value. The Helpers page says *why* it's on that channel.
+- **Opt-in automatic module updates, PER MODULE** (`Module.autoUpdate`, off by default). Deliberately not
+  one global switch: a single tick would hand every source — including any public repo added by URL — a
+  standing channel to run new code. **An update that ADDS a permission is never auto-applied**, whatever
+  the setting; consent is not something a preference can waive. This narrows the 1.5.0 rule from "modules
+  are never updated automatically" to "never, unless you asked for it, for that module".
+- **"Update everything"** — all add-ons in one rebuild and restart. Scoped to add-ons on purpose: a module
+  can require a newer app version, so the app would have to go first and restart, and a failed app update
+  that rolled back would leave add-ons updated against an app that no longer exists.
+- **Compatibility (the honest part).** The charter's "a helper never breaks its API" was a *promise with
+  nothing enforcing it*, and adding an update path makes helpers move often — turning a latent risk live.
+  So: a module may declare `helpers: [{ id, minVersion }]` (additive; bare ids still work), a helper may
+  declare `breakingFrom`, and an update that would break a dependent **names the modules and refuses
+  until confirmed**. Still missing, and worth doing: a publish-time diff of `api.ts`'s exported surface,
+  so a helper cannot break silently — that belongs in the add-ons session's publish gate.
+- 226 tests (was 207). Live manifests on both channels re-parse unchanged; nothing needs republishing.
 
 #### MOD-09 · Helper-named capabilities + consent roll-up — 🔨 Built, unpublished (v1.5.1-beta.1)
 Closes the gap that made MOD-08's consent guarantee unenforceable. A helper could **provide** a capability
@@ -536,6 +589,25 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-27 · The verifier misses two ways a module reaches outside itself — OPEN.** Found 2026-07-23 by
+  testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
+  CSP doesn't apply.
+  - **`globalThis.fetch(...)` and destructuring** (`const { fetch: f } = globalThis`) are **not caught**,
+    so a module can make outbound requests without declaring `network:outbound` — the permission the
+    admin approves it against. The rule only matches a bare `fetch(` call.
+  - **`await import("node:fs")` with a LITERAL string is not caught.** The banned-construct rule targets
+    *computed* `import()`, and the filesystem rule matches static import syntax — a literal dynamic
+    import falls between them. Filesystem access is supposed to be refused outright for modules; this is
+    the ban that makes the whole helper model necessary, so it's the more serious of the two.
+  - **Not affected:** `XMLHttpRequest`, `WebSocket` and `navigator.sendBeacon` are allowed by the
+    verifier but blocked at runtime by `connect-src 'self'` (`proxy.ts:36`) — those are browser-side and
+    CSP covers them. Verified rather than assumed.
+  - **Fix:** match `fetch` when reached via `globalThis`/`global`/destructuring, and treat a *literal*
+    `import()` of a banned module exactly like a static import of it. Add a regression test per bypass —
+    the existing tests assert the constructs that ARE caught, which is why these survived.
+  - **Honest limit, unchanged:** this is defence in depth, not a sandbox. `const F = g["fet"+"ch"]`
+    still gets through and always will. The bar is "catches accidents and undeclared capability", not
+    "resists a determined author" — but the two above are ordinary code, not obfuscation.
 - **BUG-26 · Renaming or moving the install folder permanently breaks it (`Failed to load external
   module`) — OPEN.** Reported by the owner 2026-07-22, from two directions and now confirmed: copying
   `JonDash-Stable` in Explorer **hangs on `sharp-20c6a5da84e2135f`** every time; and after
@@ -848,10 +920,15 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   re-fetching it for an official-source module, and reporting rather than fetching for an imported one.
 - **Module update path, end to end** (v1.5.0) — batch update, the added-permission approval gate, and a
   module's new migrations running on update.
-- **Helper capability consent** (MOD-09, v1.5.1-beta.1) — **no helper publishes a capability yet**, so the
-  roll-up is currently unexercisable in the UI: `scheduler` provides nothing, which is exactly why the gap
-  went unnoticed. Test it the day the `filesystem` helper lands — install a module that declares it and
-  confirm the browse screen lists the helper's capability, in the helper's own words, in red.
+- **Helper capability consent** (MOD-09, v1.5.1-beta.1) — the add-ons session has now published a
+  `filesystem` helper that declares capabilities, so this is finally exercisable: install a module that
+  declares it and confirm the browse screen lists the capability, in the helper's own words, in red.
+- **Helper updates, channel derivation and pinning** (MOD-10, v1.5.2-beta.1) — the logic is covered by
+  tests, but **no screen has been driven by a person**. Check: the Helpers page states which module put a
+  helper on beta; pinning and un-pinning; a helper update actually applying; and "Update everything"
+  reporting what it skipped rather than silently doing less than its name claims.
+- **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
+  it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
 
 ---
 

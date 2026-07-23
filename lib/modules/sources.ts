@@ -76,6 +76,16 @@ export type SourceHelperEntry = {
    * config-aware sentence comes from the helper itself once installed.
    */
   provides: SourceHelperCapability[];
+  /**
+   * The version at which this helper last BROKE compatibility with its consumers
+   * (MOD-10). Helpers promise never to break their API — the exception is a security fix
+   * that cannot be made additively. When that happens, saying so here is what lets JonDash
+   * name the modules that will stop working, instead of them failing silently after an
+   * update nobody connected to the cause.
+   *
+   * Absent (the normal case) means no break has ever occurred.
+   */
+  breakingFrom?: string;
   path: string;
   tag: string;
   notes?: string;
@@ -304,6 +314,15 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
     }
   }
 
+  // A malformed breakingFrom would silently disable the "which modules will this break?"
+  // warning, so it is dropped only when absent — a present-but-invalid value refuses the
+  // helper, same rule as `provides`.
+  let breakingFrom: string | undefined;
+  if (e.breakingFrom !== undefined) {
+    if (typeof e.breakingFrom !== "string" || !SEMVER_RE.test(e.breakingFrom.trim())) return null;
+    breakingFrom = e.breakingFrom.trim();
+  }
+
   return {
     id,
     name: typeof e.name === "string" && e.name.trim() ? e.name.trim().slice(0, 100) : id,
@@ -314,6 +333,7 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
         ? e.minAppVersion.trim()
         : "0.0.0",
     provides,
+    ...(breakingFrom ? { breakingFrom } : {}),
     path,
     tag,
   };

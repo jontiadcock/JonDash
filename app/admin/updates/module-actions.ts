@@ -53,6 +53,38 @@ export async function updateModulesAction(
   const consented = new Set(formData.getAll("consent").map(String));
   if (ids.length === 0) return { error: "Select at least one module to update." };
 
+  const { updated, failures } = await applyModuleUpdates(ids, consented);
+
+  if (updated.length === 0) {
+    return { error: failures.join(" · ") || "Nothing was updated." };
+  }
+  if (failures.length > 0) {
+    await audit("admin.module.update.partial", { detail: failures.join(" · ") });
+  }
+
+  clearModuleUpdateCache();
+  regenerateRegistry();
+  markModuleInstalling(updated); // a bad update is rolled back by the launcher
+  revalidatePath("/admin/updates");
+  revalidatePath("/admin/modules");
+  requestRebuildAndRestart(); // exits; the launcher rebuilds and restarts
+  return { ok: true };
+}
+
+/**
+ * Apply module updates and report what happened — WITHOUT rebuilding.
+ *
+ * Split out so "Update everything" can update modules and helpers in a single rebuild
+ * rather than duplicating this logic. Every gate here (blocked, added permissions,
+ * minAppVersion, missing helper) applies identically whichever entry point is used —
+ * "update everything" is a convenience, never a way past a decision the admin owes.
+ *
+ * The caller owns the rebuild, the cache clear and the audit summary.
+ */
+export async function applyModuleUpdates(
+  ids: string[],
+  consented: Set<string>,
+): Promise<{ updated: string[]; failures: string[] }> {
   const status = await getModuleUpdateStatus(true); // never act on a stale view
   const appVersion = getAppVersion();
   const updated: string[] = [];
@@ -126,18 +158,5 @@ export async function updateModulesAction(
     }
   }
 
-  if (updated.length === 0) {
-    return { error: failures.join(" · ") || "Nothing was updated." };
-  }
-  if (failures.length > 0) {
-    await audit("admin.module.update.partial", { detail: failures.join(" · ") });
-  }
-
-  clearModuleUpdateCache();
-  regenerateRegistry();
-  markModuleInstalling(updated); // a bad update is rolled back by the launcher
-  revalidatePath("/admin/updates");
-  revalidatePath("/admin/modules");
-  requestRebuildAndRestart(); // exits; the launcher rebuilds and restarts
-  return { ok: true };
+  return { updated, failures };
 }

@@ -189,6 +189,27 @@ const mod: ModuleDefinition = {
 
 - **The namespace must be a helper you declare.** `filesystem:write` requires `helpers: ["filesystem"]` —
   derived from the name, so a helper can introduce a capability without a JonDash release.
+
+#### Stating which helper version you need (1.5.2+)
+
+`helpers` accepts a bare id, or an object naming the oldest version you work with:
+
+```ts
+helpers: ["scheduler"]                              // no floor stated
+helpers: [{ id: "scheduler", minVersion: "0.0.3" }] // needs 0.0.3 or newer
+```
+
+Both forms work everywhere and bare ids are not deprecated. Stating a floor buys you two things:
+
+- If the installed helper is **older** than you need, that's reported instead of your module
+  misbehaving for reasons nobody can trace.
+- A helper promises never to break its API, but a security fix can't always be made additively. When one
+  has to, the helper declares `breakingFrom` and JonDash names every module built against something
+  older — **including any module that stated no floor**, since silence isn't evidence of compatibility.
+  If you state a floor, you get told precisely; if you don't, you get told conservatively.
+
+**Your module is expected to keep up with the current helper.** The floor says what you need, not what
+you're pinned to — JonDash never holds a helper back for you.
 - **You cannot invent one.** The helper defines what it provides; declaring `filesystem:teleport` fails
   because no helper offers it.
 - **Assume the admin sees everything your helpers can do**, not just what you declared. Consent lists every

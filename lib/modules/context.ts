@@ -22,11 +22,21 @@ export function buildModuleContext(
   granted: DeclaredPermission[],
   user: ModuleContext["user"],
 ): ModuleContext {
-  const has = (p: DeclaredPermission) => granted.includes(p);
+  // De-duped and frozen so a module can't widen its grants by pushing onto the array.
+  // NOTE this stops mutation, not substitution: the module hands this object to a helper
+  // and can hand a lookalike instead (`{...ctx, can: () => true}`), which a spread builds
+  // fresh regardless of what is frozen here. See ModuleContext.grants — advisory, not a
+  // boundary, and MOD-11 for the shape that would be one.
+  const grants: readonly DeclaredPermission[] = Object.freeze([...new Set(granted)]);
+  const has = (p: DeclaredPermission) => grants.includes(p);
 
   const ctx: ModuleContext = {
     moduleId: def.id,
     user,
+    // Helper APIs are imported directly rather than handed over on this object, so a
+    // helper has nothing to check a caller against unless we tell it (MOD-10).
+    grants,
+    can: has,
     settings: moduleSettingsApi(def),
     store: moduleStoreApi(def.id),
   };

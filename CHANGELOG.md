@@ -9,6 +9,41 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.2-beta.1] — 2026-07-23
+
+**Beta: keeping add-ons up to date — helpers included, and automatically if you want.** Nothing changes
+unless you install modules.
+
+### Added
+- **An "Update everything" button.** Updates every module and helper with something waiting, in one
+  restart instead of one each. It skips anything that needs a decision from you — a module asking for
+  more access, or a helper that would stop a module working — and tells you exactly what it skipped and
+  why. JonDash's own update stays a separate button on purpose: a module can require a newer JonDash, so
+  those have to happen in order.
+- **Automatic updates, per module.** Each module has its own switch, off unless you turn it on. It's
+  deliberately not one setting for everything: a single switch would let any source you've added run new
+  code here whenever it liked, so you opt in to the modules you actually trust. **A version asking for
+  more access than you approved is never applied automatically** — it waits for you either way.
+- **Helpers appear on the Updates page.** Each shows its version, which modules need it, and what
+  changed.
+- **You can pin a helper to a channel.** Normally a helper follows the modules that use it and you never
+  think about it. Pinning is there for the times you want a fix early, or want to step back off beta,
+  without moving every module that depends on it.
+
+### Fixed
+- **A helper fix could never reach you.** Helpers had no update path at all: one only changed version as
+  a side effect of installing or updating a module that used it. A helper could publish a security fix
+  that no existing install would ever receive, because nothing ever went looking. They're now updated
+  like anything else.
+- **A shared helper no longer flip-flops between versions.** With two modules using the same helper on
+  different channels, whichever module you touched last decided the helper's version — so it swapped back
+  and forth as you worked, with nothing showing why. A helper now follows the highest channel among the
+  modules that need it, and the Helpers page says which module put it there.
+- **A helper that has to break compatibility now says so before it's installed.** Helpers promise not to
+  break the modules built on them, but a security fix can't always be made politely. When that happens
+  the update names the modules it will stop working, and won't proceed until you've confirmed that
+  specific consequence.
+
 ## [1.5.1-beta.1] — 2026-07-23
 
 **Beta: a module's helpers now show up on the screen where you approve it.** Nothing changes unless you
@@ -778,6 +813,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2-beta.1
 [1.5.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.1-beta.1
 [1.5.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.0
 [1.4.0]: https://github.com/jontiadcock/JonDash/releases/tag/v1.4.0

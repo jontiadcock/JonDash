@@ -196,6 +196,11 @@ model Module {
   // Per-module release channel ("stable" | "beta") — deliberately separate from the
   // app's own update channel, so a user can opt ONE module into beta releases.
   channel            String   @default("stable")
+  // Opt-in automatic updates, PER MODULE and off by default. Deliberately not a single
+  // global switch: one tick would hand every source — including any public repo added by
+  // URL — a standing channel to run new code here. You opt in to the modules you trust.
+  // An update that ADDS a permission is never auto-applied; it waits for approval.
+  autoUpdate         Boolean  @default(false)
   grantedPermissions String   @default("[]")
   migratedVersion    String?
   // Service Groups this module is limited to. EMPTY = visible to every signed-in user
@@ -278,6 +283,17 @@ model Helper {
   /// Capabilities it provides, as a JSON array of permission keys (may be empty).
   providesJson String  @default("[]")
   migratedVersion String?
+  /// The channel this helper is currently ON. Normally DERIVED, not chosen: a helper
+  /// follows the highest channel among the modules that depend on it, so if any dependent
+  /// is on beta the helper is too. That is only safe because a helper never breaks its own
+  /// API, so a newer helper always satisfies an older consumer — and it replaces the old
+  /// last-write-wins behaviour, where the version flipped depending on which module was
+  /// touched most recently.
+  channel     String   @default("stable")
+  /// An explicit admin pin that overrides the derived channel ("stable" | "beta"), for
+  /// taking a fix early or backing one out. Null = derived. Kept separate from `channel`
+  /// so removing the pin restores the derived value rather than freezing the last one.
+  channelPin  String?
   installedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

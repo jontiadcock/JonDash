@@ -180,10 +180,29 @@ export function parseDeclaredPermissions(moduleSource: string): DeclaredPermissi
 export function parseDeclaredHelpers(moduleSource: string): string[] {
   const m = /\bhelpers\s*:\s*\[([\s\S]*?)\]/.exec(moduleSource);
   if (!m) return [];
+  const body = m[1];
   const out: string[] = [];
-  const re = /["']([a-z0-9][a-z0-9-]{0,63})["']/g;
+
+  // Two accepted forms (MOD-10): a bare id, or `{ id: "x", minVersion: "1.2.3" }`.
+  //
+  // The object form is parsed FIRST and its span removed, so the rest can be read as bare
+  // strings. Scanning for any quoted slug across the whole body would be wrong in both
+  // directions: `{ "id": "scheduler" }` would yield a phantom helper called "id", and it
+  // only avoided picking up `"0.0.3"` by the accident that a version contains dots and the
+  // slug pattern doesn't allow them. Relying on that is how a parser quietly starts
+  // declaring dependencies nobody wrote.
+  // The key may be written `id:` or `"id":` — both are valid TS. Missing the quoted form
+  // doesn't just skip the entry, it leaks it to the bare scan below, which then reads the
+  // KEY as a helper id and reports a missing helper called "id".
+  let rest = body;
+  const objRe = /\{[^{}]*["']?id["']?\s*:\s*["']([a-z0-9][a-z0-9-]{0,63})["'][^{}]*\}/g;
   let hit: RegExpExecArray | null;
-  while ((hit = re.exec(m[1]))) out.push(hit[1]);
+  while ((hit = objRe.exec(body))) out.push(hit[1]);
+  rest = body.replace(objRe, " ");
+
+  const bareRe = /["']([a-z0-9][a-z0-9-]{0,63})["']/g;
+  while ((hit = bareRe.exec(rest))) out.push(hit[1]);
+
   return [...new Set(out)];
 }
 

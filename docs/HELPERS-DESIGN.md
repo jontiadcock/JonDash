@@ -4,6 +4,16 @@
 > roll-up in 1.5.1**. This is the design of record; where it and the code disagree, the code wins and this
 > is a bug.
 >
+> **1.5.2 gave helpers an update path and a channel.** A helper could previously only change version as a
+> side effect of a module install, so a published fix reached nobody unless a module happened to update
+> too — and a shared helper's version flip-flopped with whichever module was touched last. Helpers now
+> have their own section on Admin → Updates, a channel **derived** from the highest among their dependents
+> (with an optional admin pin), and a compatibility contract: a module may state
+> `helpers: [{ id, minVersion }]`, a helper may declare `breakingFrom`, and an update that would break a
+> dependent names it and refuses until confirmed. **Rule 5's "never breaks its API" is still a promise
+> with nothing enforcing it** — the missing piece is a publish-time diff of `api.ts`'s exported surface,
+> which belongs in the add-ons publish gate.
+>
 > **1.5.1 closed the gap that made rule 4 unenforceable.** A helper could *provide* a capability but not
 > *name* one: `provides` was filtered against the four core permissions, so anything else was silently
 > dropped and never reached a consent screen. A capability is now `{id, label}` with `id` namespaced to the

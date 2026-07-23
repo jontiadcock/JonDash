@@ -6,7 +6,7 @@ import { moduleSettingsApi } from "@/lib/modules/store";
 import { prisma } from "@/lib/db";
 import { moduleGroupIds } from "@/lib/modules/visibility";
 import { buildModuleContext } from "@/lib/modules/context";
-import { setModuleChannelAction } from "../actions";
+import { setModuleChannelAction, setModuleAutoUpdateAction } from "../actions";
 import { ModuleSettingsForm, type SettingFieldView } from "./ui";
 import { ModuleGroupsForm } from "./groups-form";
 
@@ -98,6 +98,29 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
             Enable the module first — the channel applies to its updates.
           </p>
         )}
+
+        <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+          <h3 className="mb-1 font-medium">Automatic updates</h3>
+          <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+            Off by default. With this on, new versions of <strong>this module</strong> are applied without
+            asking. It stays a per-module choice on purpose — a single switch for everything would let any
+            source you&apos;ve added run new code here whenever it liked.
+          </p>
+          <form action={setModuleAutoUpdateAction} className="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="moduleId" value={def.id} />
+            <input type="hidden" name="autoUpdate" value={state.autoUpdate ? "off" : "on"} />
+            <span className="text-sm">
+              Currently <strong>{state.autoUpdate ? "on" : "off"}</strong>
+            </span>
+            <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={!state.installed}>
+              {state.autoUpdate ? "Turn off automatic updates" : "Update this module automatically"}
+            </button>
+          </form>
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            A version asking for <strong>more access</strong> than you approved is never applied
+            automatically — it waits for you, however this is set.
+          </p>
+        </div>
       </section>
 
       {(fields.length > 0 || !SettingsPanel) && (

@@ -151,6 +151,43 @@ export type ModuleContext = {
   /** The current signed-in user (in a request context), or null. */
   user: { id: string; email: string; role: "ADMIN" | "USER" } | null;
 
+  /**
+   * Everything this module was actually granted, and a predicate over it (MOD-10).
+   *
+   * **Why this exists, when the fields below already gate core capabilities.** A core
+   * permission is enforced *structurally*: `ctx.fetch` is simply absent unless
+   * `network:outbound` was granted, so there is nothing to check and nothing to forget.
+   * A HELPER's API is different — a module imports it directly from `@/helpers/<id>/api`,
+   * so no field can be withheld. The verifier gates that import on the module declaring
+   * the helper, but that is one binary gate on the whole helper, not per capability.
+   *
+   * Without this, a module could declare only `filesystem:read` and then call every write
+   * method on the helper, with nothing able to notice. `can()` lets a helper refuse an
+   * operation whose capability its caller never declared.
+   *
+   * Helpers: check `ctx.can(...)` at the top of every privileged call. Core cannot do it
+   * for you, because core never sees the call.
+   *
+   * ⚠ **ADVISORY, NOT A SECURITY BOUNDARY — and it reads like one, so this matters.**
+   * The MODULE is what hands this object to the helper, and JavaScript cannot stop it
+   * handing over a lookalike: `helperApi({ ...ctx, can: () => true })` defeats the check
+   * completely. Freezing `grants` does not help — a spread builds a NEW object rather than
+   * mutating the frozen one. `moduleId` is forgeable the same way, so a helper's audit
+   * attribution can be misdirected too.
+   *
+   * This is consistent with the framework's stated posture (guardrails for curated
+   * modules, not a hard sandbox) and it stops honest mistakes, which is most of the value.
+   * But `ctx.fetch` being absent is enforcement, and this is not — do not describe it as
+   * though it were. Raised by the add-ons session, 2026-07-23, after they built against it.
+   *
+   * The shape that WOULD be a boundary already exists in this framework: core hands the
+   * helper's API over as a field on the context, present only when granted, exactly like
+   * `ctx.fetch` — so the module never constructs the object the helper sees. Tracked as
+   * MOD-11; deliberately not a 1.5.2 change.
+   */
+  grants: readonly DeclaredPermission[];
+  can: (permission: DeclaredPermission) => boolean;
+
   settings: ModuleSettingsApi;
   store: ModuleStoreApi;
 
@@ -161,6 +198,23 @@ export type ModuleContext = {
   email?: ModuleEmailApi; // "email:send"
   audit?: (action: string, detail?: string) => Promise<void>; // "audit:write"
 };
+
+/** A helper a module needs, stating the oldest version it was built against (MOD-10). */
+export type ModuleHelperNeed = {
+  id: string;
+  /** Oldest helper version this module works with. Omit if it has no floor. */
+  minVersion?: string;
+};
+
+/** The plain id of a declared helper, whichever form was used. */
+export function helperNeedId(h: string | ModuleHelperNeed): string {
+  return typeof h === "string" ? h : h.id;
+}
+
+/** Just the ids of a module's declared helpers — what most callers want. */
+export function helperIdsOf(helpers: (string | ModuleHelperNeed)[] | undefined): string[] {
+  return (helpers ?? []).map(helperNeedId);
+}
 
 /** A unit of periodic work a module declares; run by the scheduler helper. */
 export type ModuleSchedule = {
@@ -194,12 +248,25 @@ export type ModuleDefinition = {
   permissions: DeclaredPermission[];
 
   /**
-   * Helper ids this module needs (MOD-08). Declaring one lets the module import
+   * Helpers this module needs (MOD-08). Declaring one lets the module import
    * `@/helpers/<id>/api` — the verifier refuses that import otherwise — and lets it
    * declare the permissions that helper provides. The manifest entry must match exactly,
    * the same rule permissions follow.
+   *
+   * A bare id says "I need this helper". The object form (MOD-10) additionally states the
+   * oldest helper version this module was built against:
+   *
+   * ```ts
+   * helpers: ["scheduler"]                                  // no floor stated
+   * helpers: [{ id: "scheduler", minVersion: "0.0.3" }]      // needs 0.0.3+
+   * ```
+   *
+   * Stating a floor is optional and additive — every existing module uses the bare form.
+   * It buys two things: an installed helper that is too OLD is reported instead of the
+   * module silently misbehaving, and when a helper does have to break compatibility for a
+   * security fix, JonDash can name exactly which modules that breaks.
    */
-  helpers?: string[];
+  helpers?: (string | ModuleHelperNeed)[];
 
   /**
    * Periodic work, DECLARED rather than started by the module (MOD-08). The scheduler

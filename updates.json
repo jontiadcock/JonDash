@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.2-beta.1",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: keeping add-ons up to date. A new Update everything button updates every module and helper with something waiting in one restart, skipping anything that needs a decision from you and saying what it skipped. Modules gain a per-module automatic update switch, off by default and deliberately not one setting for everything - a version asking for more access than you approved is never applied automatically either way. Helpers now appear on the Updates page and can be updated at all: previously a helper only changed version as a side effect of a module install, so a helper could publish a security fix no existing install would ever receive. A shared helper no longer flip-flops between versions depending on which module you touched last, and a helper that has to break compatibility names the modules it will stop working before it is installed. Nothing changes if you do not install modules."
+    },
+    {
       "version": "1.5.1-beta.1",
       "date": "2026-07-23",
       "type": "patch",

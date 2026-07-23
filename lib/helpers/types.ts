@@ -57,6 +57,21 @@ export type HelperDefinition = {
    *  (a scheduler is not dangerous; a filesystem helper is). */
   provides?: HelperCapability[];
 
+  /**
+   * Optional: the helper's own configuration, for `describe(config)` to render consent
+   * wording that names real specifics — "Read and write files in D:\Backups" rather than
+   * "the folders you allow" (MOD-10).
+   *
+   * Core cannot read this itself: a helper's config lives in its own `hlp_<id>_*` tables,
+   * which core deliberately doesn't reach into. So the helper hands over just the part
+   * consent needs, and nothing else.
+   *
+   * Called on admin screens only, best-effort and bounded. Throwing or hanging here must
+   * never take a consent screen down — it falls back to generic wording, which is honest
+   * rather than absent.
+   */
+  readConfig?: () => Promise<Record<string, unknown>>;
+
   /** Path (relative to the helper folder) to `NNN_name.sql` migrations for its own
    *  `hlp_<id>_*` tables. */
   migrations?: string;

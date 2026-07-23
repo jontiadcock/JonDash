@@ -4,6 +4,7 @@ import { getAllModules } from "@/lib/modules/registry";
 import { readProvenance } from "@/lib/modules/provenance";
 import { isOfficialSource, type ModuleChannel } from "@/lib/modules/sources";
 import { helperFilesExist, ensureHelpersFor } from "./install";
+import { helperIdsOf } from "@/lib/modules/types";
 
 /**
  * Detect — and for first-party modules, repair — a module whose declared helper isn't
@@ -51,7 +52,7 @@ export async function reconcileHelpers(): Promise<HelperGap[]> {
 
   for (const def of getAllModules()) {
     if (!enabled.has(def.id)) continue; // a disabled module isn't doing anything anyway
-    const declared = def.helpers ?? [];
+    const declared = helperIdsOf(def.helpers);
     if (declared.length === 0) continue;
 
     const absent = declared.filter((h) => !helperFilesExist(h));

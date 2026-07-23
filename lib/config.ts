@@ -12,12 +12,23 @@ import { randomBytes } from "node:crypto";
  * a local data file. An ENCRYPTION_KEY environment variable, if present, always
  * takes precedence (useful for advanced/hosted setups).
  */
-// Resolved lazily (per call) so it honours JONDASH_DATA_DIR — used to isolate the
-// data directory in tests, and available for advanced/relocated installs.
-function dataDir(): string {
+/**
+ * Where JonDash keeps its own state, and where the master encryption key lives.
+ *
+ * Resolved lazily (per call) so both honour `JONDASH_DATA_DIR` — used to isolate the data
+ * directory in tests, and available for advanced/relocated installs.
+ *
+ * **Exported deliberately (MOD-10).** A helper that touches the filesystem has to know
+ * where the key and database actually are in order to step over them, and the alternative
+ * is every such helper re-deriving this one line. That rule drifting is not a cosmetic
+ * problem: if a helper's copy goes stale, the failure mode is a backup that silently
+ * includes `secrets.json` — the key that makes every TOTP secret and encrypted setting
+ * readable. One definition, imported, so it cannot drift.
+ */
+export function dataDir(): string {
   return process.env.JONDASH_DATA_DIR || path.join(process.cwd(), ".data");
 }
-function secretsPath(): string {
+export function secretsPath(): string {
   return path.join(dataDir(), "secrets.json");
 }
 

@@ -25,7 +25,7 @@ export default async function AdminModulesPage() {
   const failed = readFailedModule(); // a module the launcher had to remove to boot
   // Wording for capabilities the installed HELPERS provide, so a module that gets its
   // privilege by proxy still says so on screen.
-  const helperLabels = helperCapabilityLabels();
+  const helperLabels = await helperCapabilityLabels();
 
   const items: ModuleItem[] = states.map(({ def, enabled, installed }) => ({
     id: def.id,

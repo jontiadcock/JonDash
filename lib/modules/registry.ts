@@ -34,6 +34,8 @@ export type ModuleState = {
   channel: ModuleChannel;
   /** Whether a Module row exists (installed/known to the DB) at all. */
   installed: boolean;
+  /** Opt-in automatic updates for THIS module (MOD-10). Off unless deliberately set. */
+  autoUpdate: boolean;
 };
 
 function channelOf(row: { channel: string } | null | undefined): ModuleChannel {
@@ -51,6 +53,7 @@ export async function getEnabledModules(): Promise<ModuleState[]> {
       enabled: true,
       granted: parseGrants(row.grantedPermissions),
       channel: channelOf(row),
+      autoUpdate: row?.autoUpdate === true,
       installed: true,
     };
   });
@@ -66,6 +69,7 @@ export async function getModuleState(id: string): Promise<ModuleState | null> {
     enabled: !!row?.enabled,
     granted: row ? parseGrants(row.grantedPermissions) : [],
     channel: channelOf(row),
+      autoUpdate: row?.autoUpdate === true,
     installed: !!row,
   };
 }
@@ -81,6 +85,7 @@ export async function listModulesForAdmin(): Promise<ModuleState[]> {
       enabled: !!row?.enabled,
       granted: row ? parseGrants(row.grantedPermissions) : [],
       channel: channelOf(row),
+      autoUpdate: row?.autoUpdate === true,
       installed: !!row,
     };
   });

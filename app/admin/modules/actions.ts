@@ -32,6 +32,7 @@ import {
 } from "@/lib/modules/rebuild";
 import { setModuleGroups } from "@/lib/modules/visibility";
 import { ensureHelpersFor, pruneUnusedHelpers } from "@/lib/helpers/install";
+import { syncAllHelperChannels } from "@/lib/helpers/channel";
 import { readChannel } from "@/lib/update-channel";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
@@ -331,8 +332,31 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
   if (!getModuleDef(id)) return;
   await prisma.module.updateMany({ where: { id }, data: { channel } });
   await audit("admin.module.channel", { detail: `${id} -> ${channel}` });
+  // A helper follows the highest channel among its dependents, so moving a module can
+  // move a helper with it (MOD-10). Re-derive now rather than waiting for the next boot.
+  await syncAllHelperChannels().catch(() => {});
   revalidatePath(`/admin/modules/${id}`);
   revalidatePath("/admin/modules");
+  revalidatePath("/admin/helpers");
+}
+
+/**
+ * Opt ONE module into automatic updates (MOD-10). Off by default.
+ *
+ * Deliberately per module rather than a single global switch: one tick would give every
+ * source — including any public repo added by URL — a standing channel to run new code
+ * here. An update that ADDS a permission is never applied automatically whatever this
+ * says; consent is not something a preference can waive.
+ */
+export async function setModuleAutoUpdateAction(formData: FormData): Promise<void> {
+  await gate();
+  const id = String(formData.get("moduleId") ?? "");
+  const on = String(formData.get("autoUpdate") ?? "") === "on";
+  if (!getModuleDef(id)) return;
+  await prisma.module.updateMany({ where: { id }, data: { autoUpdate: on } });
+  await audit("admin.module.autoupdate", { detail: `${id} ${on ? "enabled" : "disabled"}` });
+  revalidatePath(`/admin/modules/${id}`);
+  revalidatePath("/admin/updates");
 }
 
 export type ModuleSettingsState = { ok?: boolean; error?: string };

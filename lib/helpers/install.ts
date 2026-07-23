@@ -15,6 +15,8 @@ import { ALLOWED_EXTENSIONS, LIMITS } from "@/lib/modules/verify";
 import { getAllModules } from "@/lib/modules/registry";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
+import { installChannelFor } from "./channel";
+import { helperIdsOf } from "@/lib/modules/types";
 
 /**
  * Helper installation (MOD-08).
@@ -162,15 +164,25 @@ export async function ensureHelpersFor(
   const wanted = [...new Set(moduleHelperIds)];
   if (wanted.length === 0) return { installed: [], missing: [] };
 
-  const manifest = await fetchSourceManifest(DEFAULT_SOURCE_URL, channel).catch(() => null);
-  const published = new Map((manifest?.helpers ?? []).map((h) => [h.id, h]));
+  // A helper is shared, so the channel isn't simply this module's (MOD-10). If another
+  // dependent is already on beta, or an admin pinned it, dropping back to stable would
+  // strip an API that other module relies on. Resolve per helper, then fetch each
+  // channel's manifest once.
+  const channelFor = new Map<string, ModuleChannel>();
+  for (const id of wanted) channelFor.set(id, await installChannelFor(id, channel));
+
+  const manifests = new Map<ModuleChannel, Awaited<ReturnType<typeof fetchSourceManifest>> | null>();
+  for (const ch of new Set(channelFor.values())) {
+    manifests.set(ch, await fetchSourceManifest(DEFAULT_SOURCE_URL, ch).catch(() => null));
+  }
 
   const installed: SourceHelperEntry[] = [];
   const missing: string[] = [];
   const rows = new Map((await prisma.helper.findMany()).map((r) => [r.id, r]));
 
   for (const id of wanted) {
-    const entry = published.get(id);
+    const useChannel = channelFor.get(id) ?? channel;
+    const entry = (manifests.get(useChannel)?.helpers ?? []).find((h) => h.id === id);
     if (!entry) {
       missing.push(id);
       continue;
@@ -183,7 +195,10 @@ export async function ensureHelpersFor(
     }
     // Already present at this version and on disk? Leave it alone.
     if (helperFilesExist(id) && rows.get(id)?.version === entry.version) continue;
-    await installHelper(entry, channel);
+    await installHelper(entry, useChannel);
+    // Record the channel it actually landed on, so the Helpers page and the update check
+    // agree without recomputing. No-ops when the row doesn't exist yet (written at boot).
+    await prisma.helper.update({ where: { id }, data: { channel: useChannel } }).catch(() => {});
     installed.push(entry);
   }
   return { installed, missing };
@@ -202,7 +217,7 @@ export function pruneUnusedHelpers(removingModuleIds: string[] = []): string[] {
   const needed = new Set<string>();
   for (const m of getAllModules()) {
     if (removing.has(m.id)) continue;
-    for (const h of m.helpers ?? []) needed.add(h);
+    for (const h of helperIdsOf(m.helpers)) needed.add(h);
   }
 
   let present: string[];

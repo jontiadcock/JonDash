@@ -8,6 +8,8 @@ import { describePermission } from "@/lib/modules/types";
 import { helperCapabilityLabels } from "@/lib/helpers/registry";
 import { UpdatesPanel } from "../settings/updates-panel";
 import { ModuleUpdatesPanel, type ModuleUpdateView } from "./module-updates-panel";
+import { HelperUpdatesPanel, type HelperUpdateView } from "./helper-updates-panel";
+import { getHelperUpdateStatus } from "@/lib/helpers/updates";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,20 @@ export default async function AdminUpdatesPage() {
   }));
   // A new version may add a helper-provided capability; resolve its wording from the
   // installed helpers so the approval prompt names the effect, not the permission key.
-  const helperLabels = helperCapabilityLabels();
+  const helperLabels = await helperCapabilityLabels();
+  const helperStatus = await getHelperUpdateStatus().catch(() => ({
+    helpers: [] as Awaited<ReturnType<typeof getHelperUpdateStatus>>["helpers"],
+    errors: [] as { source: string; message: string }[],
+    checkedAt: 0,
+  }));
+  const helperViews: HelperUpdateView[] = helperStatus.helpers.map((h) => ({ ...h }));
+
+  // Drives the "Update everything" button: only offer it when there is actually something
+  // for it to do, across BOTH add-on kinds.
+  const anythingToUpdate =
+    moduleStatus.modules.some((m) => m.updateAvailable && !m.blockedReason && !m.isDowngrade) ||
+    helperStatus.helpers.some((h) => h.updateAvailable && !h.blockedReason && !h.isDowngrade);
+
   const moduleViews: ModuleUpdateView[] = moduleStatus.modules.map((m) => ({
     id: m.id,
     name: m.name,
@@ -64,6 +79,14 @@ export default async function AdminUpdatesPage() {
           Installing and removing modules lives in{" "}
           <Link href="/admin/modules" style={{ color: "var(--primary)" }}>Admin → Modules</Link>.
         </p>
+      </section>
+
+      <section className="card p-6">
+        <HelperUpdatesPanel
+          helpers={helperViews}
+          errors={helperStatus.errors}
+          anythingToUpdate={anythingToUpdate}
+        />
       </section>
     </div>
   );
