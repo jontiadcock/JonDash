@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.17",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: a helper that has been removed no longer appears under Updates. Uninstalling the last module that needed a helper removes that helper, but JonDash keeps a record of it so reinstalling the module brings its data back rather than starting from nothing. The Updates page was reading that record and still listing the helper - with a working beta switch and the ability to offer it updates - while the Helpers page correctly showed it as gone. Updates now goes by what is actually installed."
+    },
+    {
       "version": "1.5.3-beta.16",
       "date": "2026-07-23",
       "type": "patch",

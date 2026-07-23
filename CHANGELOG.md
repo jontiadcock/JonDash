@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.17] — 2026-07-23
+
+### Fixed
+- **A removed helper still appeared under Updates.** Uninstalling the last module that needed a
+  helper removes that helper, but JonDash keeps a record of it so reinstalling the module brings
+  its data back rather than starting from nothing. The Updates page was reading that record and
+  still listing the helper — with a working beta switch, and able to offer it updates — while the
+  Helpers page correctly showed it as gone. Updates now goes by what is actually installed.
+
 ## [1.5.3-beta.16] — 2026-07-23
 
 ### Fixed
@@ -1122,6 +1131,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.17]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.17
 [1.5.3-beta.16]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.16
 [1.5.3-beta.15]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.15
 [1.5.3-beta.14]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.14

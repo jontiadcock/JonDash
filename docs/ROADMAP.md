@@ -628,6 +628,23 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-38 · An uninstalled helper still appeared on the Updates page — fixed v1.5.3-beta.17.**
+  Reported by the owner 2026-07-23 after uninstalling Backup Manager: the `filesystem` helper was
+  gone from Admin → Helpers but still listed under Admin → Updates → Beta channels, with a working
+  switch. **The uninstall itself was correct** — `pruneUnusedHelpers` removed the helper's files and
+  dropped it from the generated registry, verified on the owner's install (`helpers/` held only
+  `scheduler`). What remained was its **database row**, kept deliberately so reinstalling the module
+  restores the helper's data rather than starting it from nothing.
+  **The fault was two readers disagreeing about what "installed" means:**
+  `listHelpersForAdmin` iterates the REGISTRY and looks rows up (correct, hid it);
+  `getHelperUpdateStatus` iterated **all rows** (included the orphan). So a helper whose files were
+  deleted kept a channel switch and could be offered an update — and "update" would have installed
+  something the admin had removed.
+  **Fix:** gate `getHelperUpdateStatus` on the registry. Reproduced the owner's exact state first
+  (two rows, one installed helper) and confirmed only `scheduler` is now listed. Three regression
+  tests, including one asserting `pruneUnusedHelpers` still never deletes rows — if that changed, a
+  reinstall would silently lose the helper's history.
+  **Not an add-ons issue:** helper install and prune are owned by core.
 - **BUG-37 · A write that changed a cached answer didn't invalidate the cache — fixed v1.5.3-beta.16.**
   Reported by the owner as *"I am not able to slide the beta sliders for the helpers"* — and the
   slider was not the problem. Their audit log showed **five successful writes from five frustrated
