@@ -589,7 +589,7 @@ _None currently._
 
 ### 🟠 High
 
-- **BUG-27 · The verifier misses two ways a module reaches outside itself — OPEN.** Found 2026-07-23 by
+- **BUG-27 · The verifier missed two ways a module reaches outside itself — fixed v1.5.3-beta.1.** Found 2026-07-23 by
   testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
   CSP doesn't apply.
   - **`globalThis.fetch(...)` and destructuring** (`const { fetch: f } = globalThis`) are **not caught**,
@@ -608,8 +608,10 @@ _None currently._
   - **Honest limit, unchanged:** this is defence in depth, not a sandbox. `const F = g["fet"+"ch"]`
     still gets through and always will. The bar is "catches accidents and undeclared capability", not
     "resists a determined author" — but the two above are ordinary code, not obfuscation.
-- **BUG-26 · Renaming or moving the install folder permanently breaks it (`Failed to load external
-  module`) — OPEN.** Reported by the owner 2026-07-22, from two directions and now confirmed: copying
+- **BUG-26 · Renaming or moving the install folder permanently broke it — fixed v1.5.3-beta.1.**
+  The launcher now records the path a build was made at (`.data/built-path`) beside the version marker
+  and rebuilds when it changes. Previously nothing triggered a rebuild, so a moved install stayed broken
+  across every restart. Original detail: Reported by the owner 2026-07-22, from two directions and now confirmed: copying
   `JonDash-Stable` in Explorer **hangs on `sharp-20c6a5da84e2135f`** every time; and after
   moving/renaming an install, every page returns **Internal Server Error** with
   `Failed to load external module @prisma/client-2c3a283f134fdcb6: Cannot find module …`. Moving the
@@ -662,9 +664,11 @@ _None currently._
   readable without the passphrase — not merely that decryption succeeds.
   **Tell the user, when fixed:** every encrypted backup they have already taken exposes its icons. Those
   should be re-exported and the old copies destroyed, wherever they were stored.
-- **BUG-23 · Every full-screen overlay is trapped inside the content column — `position: fixed` is broken
-  app-wide inside admin pages — OPEN.** Reported by the owner 2026-07-22 ("when installing/updating a
-  module I want this to take up the entire screen, not just the window on the right") with a screenshot of
+- **BUG-23 · Every full-screen overlay was trapped inside the content column — fixed v1.5.3-beta.1.**
+  `ServerWaitOverlay` and `ConfirmDialog` are now portalled into `document.body`, which escapes ancestor
+  transforms permanently rather than depending on layout CSS staying benign. Original detail:
+  Reported by the owner 2026-07-22 ("when installing/updating a module I want this to take up the entire
+  screen, not just the window on the right") with a screenshot of
   *Applying your module changes…* filling only the right-hand pane while the sidebar, header and the
   "1 module update is available" banner stay visible and clickable.
   **Cause — found, and it is not the overlay's fault.** `ServerWaitOverlay` already asks for
@@ -689,7 +693,7 @@ _None currently._
   components away from the component that broke.
   **While in there:** the overlay should also be a real modal — the sidebar and banner are still
   clickable during a rebuild, which flatly contradicts "Please don't refresh or close this tab".
-- **BUG-21 · "Send test email" hangs forever on a Microsoft 365 (OAuth2) connector — OPEN.**
+- **BUG-21 · "Send test email" hung forever on a Microsoft 365 (OAuth2) connector — fixed v1.5.3-beta.1.**
   Reported by the owner 2026-07-22 against their real M365 account. The settings **save** fine, but
   pressing **Send test email** leaves the button on "Sending…" indefinitely: no success, no error, no
   timeout. High because email is a shipped feature (OPS-02 pt 1) whose *only* validation path is this
@@ -734,7 +738,22 @@ _None currently._
 
 ### 🟡 Medium
 
-- **BUG-24 · Settings changes are audited without saying what changed — OPEN.** Reported by the owner
+- **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — OPEN.**
+  Found 2026-07-23 while building a disposable install to test BUG-26/BUG-07. A hand-written
+  `.data/network.json` saved as **UTF-8 with a BOM** made `JSON.parse` throw, and `readNetworkConfig`
+  (`lib/tls/network-config.mjs:42-59`) catches *every* failure and returns `DEFAULTS` — `mode:"off"`,
+  `httpPort:3000`. The server came up on 3000 instead of the configured port with **no warning in the
+  console, the logs, or the admin UI**; the only clue was the banner URL.
+  **Why it matters beyond a wrong port:** for anyone on `letsencrypt` or `byo`, the same fallback
+  silently drops **TLS** — an install that was HTTPS starts answering unencrypted. A config the admin
+  cannot parse should fail loudly, not downgrade quietly.
+  **Fix:** strip a leading BOM before parsing, and distinguish "file absent" (which may legitimately
+  default) from "file present but invalid" — the latter should log a clear error, and when the stored
+  mode was TLS, refuse to start rather than serve plaintext. Must stay dependency-free: the module is
+  imported by `server.mjs` before Next boots.
+  **Not High:** it needs the file to be corrupt, which the app's own `writeNetworkConfig` never
+  produces — reachable by hand-editing or a partial disk write, not by normal use.
+- **BUG-24 · Settings changes were audited without saying what changed — fixed v1.5.3-beta.1.** Reported by the owner
   2026-07-22: editing the sign-in message logs `settings.updated` with an empty **Detail** (`—`), so the
   entry records that *a* setting changed but not **which one**, or **from what to what**. For a security
   product that's most of the value of the entry — "who changed the idle timeout, and to what" is exactly
@@ -751,7 +770,7 @@ _None currently._
   into the audit log — which is readable by anyone holding the **delegable** `audit.view` capability and
   is carried in backups. Log key **names** always, and values only for non-secret settings (old → new is
   ideal where it's short). That trap is the reason this is worth doing carefully rather than quickly.
-- **BUG-22 · Can't import your own module — the Import button isn't visible — OPEN.**
+- **BUG-22 · The module Import button was invisible until a file was chosen — fixed v1.5.3-beta.1.**
   Reported by the owner 2026-07-22 with a screenshot: **Admin → Modules → Import your own module** shows a
   bare "Choose File / No file chosen" control and the hint "Choose a file to continue", and no button to
   act with. **Cause (from the code, not yet confirmed against the running app):** the button is
@@ -801,7 +820,7 @@ _None currently._
   "isn't published", including the official `template`. A sideloaded package has no manifest and so no
   channel of its own; it now uses **the admin's own update channel**, so someone on stable is not silently
   given beta helper code. Reported by the addons session 2026-07-22.
-- **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
+- **BUG-07 · Launcher had no "already running" guard — fixed v1.5.3-beta.1.** Nothing stops `start-dashboard.bat` being run
   a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
   self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already
   running. **Fix:** a single-instance guard at launch — e.g. a `.data/launcher.lock` (PID + staleness

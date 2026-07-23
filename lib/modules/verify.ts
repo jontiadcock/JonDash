@@ -65,10 +65,32 @@ const ALLOWED_CORE_IMPORTS = ["@/lib/modules/types", "@/lib/modules/api"];
  * though the framework itself shells out for ICMP — that's exactly why `ctx.net.ping`
  * exists: the hardening lives once in trusted core code.
  */
+/**
+ * Match a module specifier however it is reached (BUG-27).
+ *
+ * There are three ways to pull in a module and the rules used to list only two —
+ * `from "node:fs"` and `require("node:fs")`. A **literal** `await import("node:fs")` fell
+ * between the banned-construct rule (which targets *computed* `import()`) and the
+ * filesystem rule (which only knew static syntax), so the one capability modules are
+ * refused outright was reachable with ordinary, unobfuscated code.
+ *
+ * Built once so the next rule added gets all three forms for free rather than being
+ * written twice and forgotten once.
+ *
+ * @param spec regex source for the specifier, e.g. `(?:node:)?fs(?:/promises)?`
+ */
+function moduleSpecifier(spec: string): RegExp {
+  return new RegExp(
+    `\\bfrom\\s+["']${spec}["']` + // import x from "spec"
+      `|\\brequire\\(\\s*["']${spec}["']\\s*\\)` + // require("spec")
+      `|\\bimport\\(\\s*["']${spec}["']\\s*\\)`, // await import("spec")
+  );
+}
+
 const BANNED: { rule: string; re: RegExp; detail: string }[] = [
   {
     rule: "banned-construct",
-    re: /\bfrom\s+["']node:child_process["']|\brequire\(\s*["'](?:node:)?child_process["']\s*\)|\bfrom\s+["']child_process["']/,
+    re: moduleSpecifier("(?:node:)?child_process"),
     detail: "spawns OS processes (use ctx.net.ping for ICMP; anything else must be asked for)",
   },
   {
@@ -92,7 +114,7 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
   },
   {
     rule: "filesystem",
-    re: /\bfrom\s+["'](?:node:)?fs(?:\/promises)?["']|\brequire\(\s*["'](?:node:)?fs(?:\/promises)?["']\s*\)/,
+    re: moduleSpecifier("(?:node:)?fs(?:/promises)?"),
     detail: "direct filesystem access — a module's data belongs in ctx.db / ctx.store",
   },
   {
@@ -114,17 +136,33 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
  */
 const CAPABILITY_IMPORTS: { re: RegExp; permission: ModulePermission; detail: string }[] = [
   {
-    re: /\bfrom\s+["']node:(?:net|dns|tls|http|https|dgram)(?:\/promises)?["']/,
+    re: moduleSpecifier("node:(?:net|dns|tls|http|https|dgram)(?:/promises)?"),
     permission: "network:outbound",
     detail: "opens raw network connections (TCP/DNS/TLS/HTTP)",
   },
   {
+    // The lookbehind excludes `.fetch(` on purpose: `ctx.fetch(...)` is the sanctioned
+    // path and is already gated by the context not having the field.
     re: /(?<![.\w$])fetch\s*\(/,
     permission: "network:outbound",
     detail: "calls the global fetch()",
   },
   {
-    re: /\bfrom\s+["']node:crypto["']/,
+    // ...but that lookbehind also let `globalThis.fetch(...)` through, which is the same
+    // capability by a longer name (BUG-27). Named globals only — `ctx.fetch` must stay
+    // allowed, so this can't simply match any `.fetch(`.
+    re: /\b(?:globalThis|global|window|self)\s*\.\s*fetch\s*\(/,
+    permission: "network:outbound",
+    detail: "calls fetch() via globalThis",
+  },
+  {
+    // ...and destructuring it off a global, e.g. `const { fetch: f } = globalThis`.
+    re: /\{[^}]*\bfetch\b[^}]*\}\s*=\s*(?:globalThis|global|window|self)\b/,
+    permission: "network:outbound",
+    detail: "destructures fetch() off a global object",
+  },
+  {
+    re: moduleSpecifier("node:crypto"),
     permission: "crypto:use",
     detail: "uses node crypto",
   },

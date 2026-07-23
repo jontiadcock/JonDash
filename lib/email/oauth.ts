@@ -1,5 +1,9 @@
 import "server-only";
 
+/** Bound on the token endpoint. Generous enough for a slow tenant, short enough that a
+ *  dead endpoint reports rather than hangs (BUG-21). */
+const TOKEN_TIMEOUT_MS = 15_000;
+
 /**
  * OAuth2 (XOAUTH2) for sending mail via Google and Microsoft. The admin registers
  * their own OAuth app (we can't ship a shared client for a self-hosted app),
@@ -70,10 +74,22 @@ async function tokenRequest(provider: OAuthProvider, params: Record<string, stri
   error_description?: string;
 }> {
   const p = OAUTH_PROVIDERS[provider];
+  // BUG-21: this had no timeout, so a token endpoint that never answers hung forever —
+  // and because the caller catches and reports errors, a HANG was the one failure mode
+  // that produced no message at all. "Send test email" sat on "Sending…" indefinitely.
   const res = await fetch(p.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params),
+    signal: AbortSignal.timeout(TOKEN_TIMEOUT_MS),
+  }).catch((e: unknown) => {
+    const why =
+      e instanceof Error && e.name === "TimeoutError"
+        ? `the ${provider} sign-in service didn't respond within ${TOKEN_TIMEOUT_MS / 1000}s`
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    throw new Error(`Couldn't reach ${provider} to authorise sending — ${why}.`);
   });
   const json = (await res.json().catch(() => ({}))) as {
     access_token?: string;

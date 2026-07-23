@@ -9,6 +9,36 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.1] — 2026-07-23
+
+**Beta: a batch of fixes, several security-related.** No new features.
+
+### Fixed
+- **Moving or renaming the JonDash folder no longer breaks it permanently.** A build records
+  where it was made, so relocating the folder rebuilds on the next start instead of leaving an
+  install that fails on every page and never recovers, however many times you restart it.
+- **Starting JonDash twice is now refused.** A second copy would fight the first over the same
+  database and settings; it tells you one is already running and does nothing.
+- **Two ways a module could reach outside itself without asking.** A module could make outbound
+  network requests, or read and write files, using ordinary code that slipped past the safety
+  checks — bypassing the permissions you approve it against. Filesystem access is supposed to be
+  refused to modules outright, so that one mattered most.
+- **"Send test email" no longer hangs forever.** Nothing in the mail path had a time limit, so a
+  blocked port or a mailbox with SMTP AUTH switched off left the button spinning with no result
+  at all. It now fails within seconds, says which step failed — connecting, signing in, or
+  sending — and names the usual culprits, including that **Microsoft 365 disables SMTP AUTH per
+  mailbox by default** even when you're using OAuth2.
+- **Full-screen messages cover the screen again.** The "updating", "restarting", "shutting down"
+  and "applying module changes" screens were being confined to the middle column, leaving the
+  rest of the page visible and clickable at exactly the moments they exist to say *don't touch
+  anything*. Confirmation dialogs had the same problem.
+- **Importing your own module: the button is always there.** It used to appear only after you
+  picked a file, so the panel looked broken. It's now shown from the start, greyed out until you
+  choose a `.zip`, and the file picker matches the rest of the app.
+- **The audit log says what changed.** Saving settings recorded only that *something* was
+  updated — not which setting, or its new value. It now names both. Values of settings stored
+  encrypted are recorded as hidden, never written into the log.
+
 ## [1.5.2] — 2026-07-23
 
 **Add-ons stay up to date, and you can see what they're allowed to do.** Coming from 1.5.0, this is both
@@ -859,6 +889,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.1
 [1.5.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2
 [1.5.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2-beta.1
 [1.5.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.1-beta.1

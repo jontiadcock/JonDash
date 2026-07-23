@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.1",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: a batch of fixes, several security-related. Moving or renaming the JonDash folder no longer breaks the install permanently - it rebuilds instead of failing on every page forever. Starting JonDash twice is refused rather than letting two copies fight over the same database. Two ways a module could reach the network or the filesystem without declaring it have been closed - filesystem access is meant to be refused to modules outright, so that one mattered most. Send test email no longer hangs forever: it fails within seconds, says which step failed, and names the usual causes including that Microsoft 365 disables SMTP AUTH per mailbox by default. Full-screen updating and restarting messages cover the whole screen again instead of just the middle column. The module import button is always visible rather than appearing only after you pick a file. And the audit log now records which setting changed and its new value, with encrypted settings recorded as hidden."
+    },
+    {
       "version": "1.5.2",
       "date": "2026-07-23",
       "type": "minor",

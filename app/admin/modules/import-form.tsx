@@ -34,37 +34,41 @@ export function ImportModuleForm() {
         </p>
       </div>
       <form action={action} className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div>
+          <label className="label" htmlFor="module-package">
+            Module package <span style={{ color: "var(--muted)" }}>(.zip)</span>
+          </label>
           <input
+            id="module-package"
             type="file"
             name="package"
             accept=".zip,application/zip"
             required
-            className="text-sm"
-            style={{ color: "var(--muted)" }}
+            className="input"
             onChange={(e) => setChosen(e.target.files?.[0]?.name ?? null)}
           />
+        </div>
+
+        {/* The restart warning is the one thing that stays conditional — there's nothing to
+            warn about until a file is chosen. The BUTTON is always rendered: hiding a card's
+            primary action reads as a broken page, which is exactly how this was reported.
+            Disabled says "not yet"; absent says "something is wrong here". */}
+        {chosen && <RestartWarning what={`Check and install “${chosen}”.`} />}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="submit"
+            className="btn btn-ghost !py-1.5 text-sm"
+            disabled={pending || !chosen}
+            onClick={start}
+          >
+            {pending ? "Checking and restarting…" : "Import and restart now"}
+          </button>
           {!chosen && (
             <span className="text-xs" style={{ color: "var(--muted)" }}>
-              Choose a file to continue
+              Choose a .zip file first.
             </span>
           )}
         </div>
-        {chosen && (
-          <>
-            <RestartWarning what={`Check and install “${chosen}”.`} />
-            <div>
-              <button
-                type="submit"
-                className="btn btn-ghost !py-1.5 text-sm"
-                disabled={pending}
-                onClick={start}
-              >
-                {pending ? "Checking and restarting…" : "Import and restart now"}
-              </button>
-            </div>
-          </>
-        )}
       </form>
       {state.error && (
         <p className="text-sm" style={{ color: "var(--danger)" }}>

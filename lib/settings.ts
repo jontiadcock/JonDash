@@ -169,13 +169,54 @@ export async function applySettingsForm(
   formData: FormData,
   allowedKeys: SettingKey[],
 ): Promise<Record<string, string>> {
+  return (await applySettingsFormDetailed(formData, allowedKeys)).errors;
+}
+
+/**
+ * As `applySettingsForm`, but also reports WHAT it wrote, for the audit entry (BUG-24).
+ *
+ * Every settings save used to be logged as a bare `settings.updated` with no detail, so the
+ * log recorded that *a* setting changed but never which, or to what — for a security
+ * product that is most of the value of the entry. The single-value toggles beside them
+ * (`settings.auto-update`, `settings.update-channel`) always logged theirs, which is why
+ * the gap survived review: the file looked like it did the right thing.
+ *
+ * **`changed` deliberately carries no VALUES for secret settings.** `writeSetting`
+ * encrypts anything the registry marks `secret`, so putting submitted values in the audit
+ * detail would write them back out in plaintext — into a log readable by anyone holding
+ * the *delegable* `audit.view` capability, and carried in every backup. Key names always;
+ * values only where the registry says the setting isn't secret.
+ */
+export async function applySettingsFormDetailed(
+  formData: FormData,
+  allowedKeys: SettingKey[],
+): Promise<{ errors: Record<string, string>; changed: string[] }> {
   const errors: Record<string, string> = {};
+  const changed: string[] = [];
   for (const key of allowedKeys) {
     if (!formData.has(key)) continue;
-    const err = await writeSetting(key, String(formData.get(key) ?? ""));
-    if (err) errors[key] = err;
+    const raw = String(formData.get(key) ?? "");
+    const err = await writeSetting(key, raw);
+    if (err) {
+      errors[key] = err;
+      continue;
+    }
+    const def = SETTINGS[key];
+    changed.push(def?.secret ? `${key}=<hidden>` : `${key}=${summariseValue(raw)}`);
   }
-  return errors;
+  return { errors, changed };
+}
+
+/** A settings value shortened for the audit log — readable, bounded, control-chars out. */
+function summariseValue(raw: string): string {
+  const clean = Array.from(raw.trim())
+    .filter((ch) => {
+      const c = ch.codePointAt(0)!;
+      return c >= 32 && c !== 127;
+    })
+    .join("");
+  if (clean === "") return "(empty)";
+  return clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
 }
 
 /** Validate + persist one setting from raw string input. Returns an error message or null. */

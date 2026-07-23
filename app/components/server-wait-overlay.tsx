@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type ServerWaitMode = "updating" | "restarting" | "shutdown" | "modules";
 
@@ -116,7 +117,19 @@ export function ServerWaitOverlay({
   const copy = COPY[mode];
   const isShutdown = mode === "shutdown";
 
-  return (
+  // Portalled into document.body (BUG-23). `fixed` is only viewport-relative while NO
+  // ancestor has a transform — and every admin page is wrapped in `.page-fade`, whose
+  // keyframes animate transform with `animation-fill-mode: both`, so the final transform is
+  // retained forever. That made this cover the content column instead of the page, during
+  // the exact moments it exists to say "don't touch anything".
+  //
+  // Guarded on `document` rather than a mounted-state flag: this only ever renders after a
+  // client action (an update/restart the admin triggered), so the server render is always
+  // null anyway, and `useEffect(() => setState(true))` is a cascading render the React
+  // Compiler lint correctly refuses.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
       style={{ background: "var(--background)" }}
@@ -177,6 +190,7 @@ export function ServerWaitOverlay({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

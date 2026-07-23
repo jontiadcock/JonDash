@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
-import { applySettingsForm, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
+import { applySettingsFormDetailed, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 
 /** Admin: revoke any single session by id. */
 export async function revokeSessionAction(formData: FormData): Promise<void> {
@@ -29,10 +29,12 @@ export async function saveSessionSettingsAction(
   await assertSameOrigin();
   const admin = await requirePermission("sessions.manage");
 
-  const errors = await applySettingsForm(formData, settingKeysByGroup("sessions"));
+  const { errors, changed } = await applySettingsFormDetailed(formData, settingKeysByGroup("sessions"));
   if (Object.keys(errors).length > 0) return { errors };
 
-  await audit("settings.session.updated", { userId: admin.id });
+  // Name WHICH settings changed, not just that some did (BUG-24). Secret values
+  // are redacted by applySettingsFormDetailed, never by this call site.
+  await audit("settings.session.updated", { userId: admin.id, detail: changed.join(", ") || "no change" });
   revalidatePath("/admin/sessions");
   return { success: "Session settings saved." };
 }
