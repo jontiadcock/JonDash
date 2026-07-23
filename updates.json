@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.4",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the audit log now says when JonDash itself did something. Completing the previous release, work that runs on a schedule has no signed-in user, so it was leaving the User column empty - which reads as 'we don't know who did this' when the real answer is 'nothing did, it was the schedule'. In a security log those need telling apart. Scheduled entries are now marked System, and the User filter has a 'System (scheduled)' option so you can ask what ran overnight without anyone touching it. Existing entries are all recorded as user actions, which is accurate: before the previous release, scheduled work could not write to the audit log at all."
+    },
+    {
       "version": "1.5.3-beta.3",
       "date": "2026-07-23",
       "type": "patch",

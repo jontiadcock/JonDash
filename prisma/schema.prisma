@@ -159,11 +159,23 @@ model AuditLog {
   action    String
   ip        String?
   detail    String?
+  // Who drove this: "request" (somebody acting in the browser) or "system" (scheduled or
+  // background work, which has no request and therefore no IP). Without it, a background
+  // row is indistinguishable from one where the actor is genuinely unknown — both render
+  // blank. Deliberately NOT inferred from "no user and no IP": IP comes from
+  // x-forwarded-for/x-real-ip, so on a deployment that doesn't set those, a real user's
+  // action would be mislabelled "system", and an audit log asserting the wrong actor is
+  // worse than one admitting it doesn't know.
+  //
+  // Existing rows backfill to "request", which is provably correct: before BUG-29 was
+  // fixed, audit() could not write a row outside a request scope at all.
+  source    String   @default("request")
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
   @@index([action])
+  @@index([source])
 }
 
 // Typed key/value configuration store. Scope is "global" (ownerId ""), or later

@@ -648,14 +648,18 @@ _None currently._
   column, not the row, and the never-break-the-flow property is preserved. Four regression tests run
   outside a request scope — the actual failing condition — and **three of them fail against the old
   implementation**, which is what makes them worth having.
-  **Their "system" question is NOT done, deliberately.** The audit page renders
-  `user?.email ?? "—"` and `ip ?? "—"`, so a scheduled row now shows "— —", indistinguishable from
-  "we don't know who". Tempting inference: no user *and* no ip means background — and it would work
-  today (of 196 rows on a real install, **0** lack an ip, so every request-scope row has one). It is
-  still the wrong fix: `ip` comes from `x-forwarded-for`/`x-real-ip`, and on any deployment that
-  doesn't set them a **real user action would be labelled "System"**. An audit log asserting the wrong
-  actor is worse than one admitting it doesn't know. Do it with an explicit `source` column and a
-  migration, or not at all.
+  **Their "system" question — done in v1.5.3-beta.4, the harder way.** A scheduled row was rendering
+  `— —`, indistinguishable from "we don't know who". The tempting inference (no user *and* no ip means
+  background) would have worked today — of 196 rows on a real install, **0** lack an ip — but it was
+  the wrong fix: `ip` comes from `x-forwarded-for`/`x-real-ip`, so on a deployment that doesn't set
+  them a **real user action would be labelled "System"**, and an audit log asserting the wrong actor is
+  worse than one admitting it doesn't know. Built instead as an explicit `AuditLog.source`
+  (`"request"` | `"system"`) + migration, set from the only authoritative signal — whether a request
+  was in scope — at the one place that knows. The page shows a **System** chip, and the User filter
+  gained **System (scheduled)** so "what ran overnight" is answerable. Existing rows backfill to
+  `request`, which is provably correct rather than assumed: the pre-fix `audit()` could not write
+  outside a request scope at all. Verified live that a request-scoped row **with no ip** stays blank
+  rather than being relabelled — the exact case the inference would have got wrong.
 - **BUG-27 · The verifier missed two ways a module reaches outside itself — fixed v1.5.3-beta.1.** Found 2026-07-23 by
   testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
   CSP doesn't apply.

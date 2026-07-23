@@ -9,6 +9,20 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.4] — 2026-07-23
+
+**Beta: the audit log now says when JonDash itself did something.**
+
+### Added
+- **Scheduled actions are labelled "System" in the audit log, and can be filtered to.**
+  Completes the previous release. Work that runs on a timer has no signed-in user, so it was
+  showing an empty **User** column — which reads as *we don't know who did this*, when the real
+  answer is *nothing did, it was the schedule*. Those two need to be told apart in a security
+  log. Scheduled entries now show a **System** marker, and the User filter has a
+  **System (scheduled)** option for answering "what ran overnight without anyone touching it".
+  Existing entries are all recorded as user actions, which is accurate — before the previous
+  release, scheduled work could not write to the log at all.
+
 ## [1.5.3-beta.3] — 2026-07-23
 
 **Beta: scheduled work is recorded in the audit log again.**
@@ -933,6 +947,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.4
 [1.5.3-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.3
 [1.5.3-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.2
 [1.5.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.1
