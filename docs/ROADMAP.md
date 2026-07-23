@@ -722,7 +722,7 @@ _None currently._
   Semver sorts a pre-release below its release, so `0.0.5-beta.1` < `0.0.5`. **Promoting a pre-release
   to stable without advancing the beta channel leaves beta pointing at the now-older pre-release** — and
   every install on beta is then invited to go backwards. It is the add-ons repo's equivalent of the core
-  rule that both branches end on the same commit after a promotion ([[stable-release-process]]).
+  rule that both branches end on the same commit after a promotion.
   **Still to do on the add-ons side:** after promoting `X.Y.Z-beta.N` → `X.Y.Z`, the beta manifest must
   move to `X.Y.Z` (or beyond), never be left behind. Until it does, beta installs simply see "up to
   date" rather than a downgrade offer — correct, but the beta channel is stale.
@@ -994,7 +994,7 @@ _None currently._
   thing about a module, so a harness that can't touch it isn't much of a harness. Core ships a
   supported module-test config with `globalSetup` and a throwaway `DATABASE_URL`. Their guard that
   refuses to run against `dev.db` stays; it is what caught this.
-  Related standing friction already recorded in [[capture-errors-and-timesavers]]: modules can't be
+  Related standing friction: modules can't be
   typechecked in the add-ons repo either, so authors copy into `modules/<id>/` to run anything.
 
 - **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — fixed v1.5.3-beta.6.**
@@ -1219,8 +1219,11 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   tests, but **no screen has been driven by a person**. Check: the Helpers page states which module put a
   helper on beta; pinning and un-pinning; a helper update actually applying; and "Update everything"
   reporting what it skipped rather than silently doing less than its name claims.
-- **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
-  it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **Automatic updates, per item** (MOD-10, reshaped in v1.5.3-beta.11) — the per-module *"Update
+  automatically"* tick this used to describe **no longer exists**; it is now the master **Automatic
+  updates** switch plus an *exclude* switch per item. Turn the master on, leave one module included,
+  publish a newer version, confirm it applies. Then publish one that **adds a permission** and confirm it
+  is held back and reported.
 - **The Available updates list, POPULATED** (v1.5.3-beta.12) — **the rows were never exercised.**
   Verified only that the page returns 200, the section is wired and the empty state renders; a
   populated row, the checkboxes, the Core/add-on mutual exclusion and both button labels are all
@@ -1233,9 +1236,10 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   included and its helper excluded, both with updates available: the helper should update anyway and
   the run should say why.
 - **Automatic updates, end to end** (BUG-30, v1.5.3-beta.5) — the schedule logic is well covered by
-  tests but **no update has ever actually been applied by the scheduler**. Tick *Update automatically*
-  on a module, set the schedule a few minutes ahead, publish a newer version, and confirm it applies and
-  restarts. Then confirm the refusals: a version that **adds a permission** must be held back and named,
+  tests but **no update has ever actually been applied by the scheduler**. Turn **Automatic updates** on
+  (leaving the module included rather than excluded — the per-module tick this originally described was
+  replaced in v1.5.3-beta.11), set the schedule a few minutes ahead, publish a newer version, and confirm
+  it applies and restarts. Then confirm the refusals: a version that **adds a permission** must be held back and named,
   not applied.
 - **Beta channels panel** (v1.5.3-beta.7) — confirm each switch moves the right thing: JonDash's own
   channel, a module's, and a helper's pin. For the helper, check that switching OFF returns it to

@@ -100,15 +100,20 @@ Three ways to add one:
   import the result.
 
 Modules **update independently of JonDash** under **Admin → Updates**, on their own stable/beta channel.
-They are **not** updated automatically unless you tick **Update automatically** on that module — it is
-off by default and set per module, never as one global switch, because a single tick would give every
-source you have added a standing channel to run new code here. Modules from the official source repair
-themselves if a file they need goes missing; anything imported or from elsewhere is reported instead —
-JonDash won't fetch code on its behalf.
+Nothing updates itself unless you turn **Automatic updates** on; it is **off by default**, and worth
+understanding before you do, because with it on a module from *any* source you have added updates itself
+unless you exclude it. Each of JonDash, every module and every helper then gets its own switch to exclude
+it. Modules from the official source repair themselves if a file they need goes missing; anything imported
+or from elsewhere is reported instead — JonDash won't fetch code on its behalf.
 
-**Admin → Updates is the one page for everything that updates**: JonDash itself and its channel, the
-schedule automatic updates run on (daily, weekly or monthly, at a time you pick), and every module and
-helper with its version, channel and its own **Update automatically** tick.
+**Admin → Updates is the one page for everything that updates**, in four parts: which version you are
+running · **Available updates** (one list grouped Core, Modules, Helpers — tick what you want, or update
+all) · **Automatic updates** (the master switch, when it runs, and what is excluded) · **Beta channels**
+(a switch each for JonDash, every module and every helper).
+
+A helper normally follows the modules that need it, so its switch **pins** it; excluding a helper from
+automatic updates still lets it be updated when a module that needs it updates, because a module updated
+against a helper it can't use is simply broken.
 
 Whatever the schedule says, an update is **never** applied automatically when it asks for more access
 than you approved, is blocked, would go backwards a version, or would stop another module working. Those
