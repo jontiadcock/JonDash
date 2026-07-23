@@ -2,7 +2,6 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { AutoUpdateToggle } from "./auto-update-toggle";
 import { updateModulesAction, checkModuleUpdatesAction, type ModuleUpdateState } from "./module-actions";
 import { RestartWarning } from "../modules/restart-warning";
 import { useRebuildWatch } from "../modules/rebuild-watch";
@@ -62,8 +61,9 @@ export function ModuleUpdatesPanel({ modules, errors }: { modules: ModuleUpdateV
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">Modules</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Updates for your installed modules. <strong>Modules are never updated automatically</strong> —
-            even when JonDash updates itself — so nothing about them changes unless you choose it here.
+            Updates for your installed modules. Whether they update themselves is set under{" "}
+            <strong>Automatic updates</strong> above; anything not covered there changes only when you
+            choose it here.
           </p>
         </div>
         <form action={checkModuleUpdatesAction} className="flex-none">
@@ -130,21 +130,6 @@ export function ModuleUpdatesPanel({ modules, errors }: { modules: ModuleUpdateV
                   )}
                 </span>
               </label>
-
-              {/* OUTSIDE the label on purpose: nested inside it, clicking this would also
-                  toggle the row's selection checkbox. */}
-              <div className="mt-2">
-                <AutoUpdateToggle
-                  kind="module"
-                  id={m.id}
-                  on={m.autoUpdate}
-                  disabledReason={
-                    m.permissionWarningsAdded.length > 0
-                      ? "This version asks for more access — approve it yourself first."
-                      : undefined
-                  }
-                />
-              </div>
 
               {/* The one place an update is deliberately not one click. */}
               {m.permissionWarningsAdded.length > 0 && (

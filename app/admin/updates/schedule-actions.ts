@@ -7,6 +7,8 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { applySettingsFormDetailed, settingKeysByGroup } from "@/lib/settings";
 import { writeChannel, isChannel } from "@/lib/update-channel";
+import { writeAutoInstall } from "@/lib/update-prefs";
+import { writeSetting } from "@/lib/settings";
 import { resolveHelperChannel } from "@/lib/helpers/channel";
 
 export type ScheduleState = { ok?: boolean; error?: string };
@@ -70,6 +72,47 @@ export async function setHelperAutoUpdateAction(formData: FormData): Promise<voi
 // The MODULE equivalent deliberately isn't here: `setModuleAutoUpdateAction` already exists
 // in app/admin/modules/actions.ts and the toggle reuses it. Two actions writing the same
 // column would mean two audit strings and two places to keep a rule in step.
+
+/** The master switch for automatic updates. */
+export async function setAutoUpdateEnabledAction(formData: FormData): Promise<void> {
+  const admin = await gate();
+  const on = String(formData.get("enabled") ?? "") === "on";
+  await writeSetting("updates.autoEnabled", on ? "1" : "0");
+  await audit("settings.updates.auto", { userId: admin.id, detail: on ? "on" : "off" });
+  revalidatePath("/admin/updates");
+}
+
+/**
+ * Exclude one thing from automatic updates, or include it again.
+ *
+ * A helper excluded here is still updated when a module that needs it updates — excluding
+ * it opts it out of being updated for its own sake, not out of being a working dependency.
+ */
+export async function setAutoUpdateExcludedAction(formData: FormData): Promise<void> {
+  const admin = await gate();
+  const kind = String(formData.get("kind") ?? "");
+  const id = String(formData.get("id") ?? "");
+  const excluded = String(formData.get("excluded") ?? "") === "on";
+  if (!id) return;
+
+  if (kind === "app") {
+    // JonDash's own auto-install is a .data file the LAUNCHER reads before the app runs,
+    // so it can't live in the database like the others.
+    writeAutoInstall(!excluded);
+  } else if (kind === "module") {
+    await prisma.module.updateMany({ where: { id }, data: { autoUpdateExcluded: excluded } });
+  } else if (kind === "helper") {
+    await prisma.helper.updateMany({ where: { id }, data: { autoUpdateExcluded: excluded } });
+  } else {
+    return;
+  }
+
+  await audit("settings.updates.auto.exclude", {
+    userId: admin.id,
+    detail: `${kind}:${id}=${excluded ? "excluded" : "included"}`,
+  });
+  revalidatePath("/admin/updates");
+}
 
 /** Move JonDash itself between the stable and beta channels. */
 export async function setAppChannelAction(formData: FormData): Promise<void> {

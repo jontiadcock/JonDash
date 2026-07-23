@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.11",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: automatic updates are now one switch with exclusions. Turn Automatic updates on and JonDash, your modules and their helpers all stay current on your schedule; each one then gets its own switch to exclude it. It replaces the previous per-item opt-in, and is off by default - with it on, a module from any source you have added updates itself unless you exclude it. A helper excluded from automatic updates is still brought up to date when a module that needs it updates, since a module updated against a helper it cannot use is simply broken. Updates that ask for more access than you approved, are blocked, or would go backwards still wait for you."
+    },
+    {
       "version": "1.5.3-beta.10",
       "date": "2026-07-23",
       "type": "patch",

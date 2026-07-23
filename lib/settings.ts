@@ -71,6 +71,18 @@ export const SETTINGS = {
   // When opted-in automatic updates run. Applying one means a rebuild and a restart,
   // which signs everyone out — so this is never "whenever an update appears", it's a
   // window the admin picks. Nothing runs unless something is individually opted in.
+  // The master switch. Off by default: turning it on gives every source you have added a
+  // standing channel to run new code here, so it must be a deliberate act. Individual
+  // modules and helpers can then be excluded.
+  "updates.autoEnabled": {
+    label: "Update automatically",
+    help: "Keep JonDash, your modules and their helpers up to date on the schedule below. You can exclude individual ones.",
+    kind: "int",
+    default: 0,
+    schema: z.coerce.number().int().min(0).max(1),
+    group: "updates",
+  } as SettingDef<number>,
+
   "updates.frequency": {
     label: "Check for updates",
     help: "How often to look for updates to anything you've opted in to automatic updates for.",
@@ -163,18 +175,20 @@ export async function getAuditRetentionDays(): Promise<number> {
 }
 /** Raw schedule settings for automatic updates; `lib/updates/schedule.ts` normalises them. */
 export async function getUpdateScheduleSettings(): Promise<{
+  autoEnabled: boolean;
   frequency: string;
   timeOfDay: string;
   dayOfWeek: number;
   dayOfMonth: number;
 }> {
-  const [frequency, timeOfDay, dayOfWeek, dayOfMonth] = await Promise.all([
+  const [autoEnabled, frequency, timeOfDay, dayOfWeek, dayOfMonth] = await Promise.all([
+    readValue("updates.autoEnabled"),
     readValue("updates.frequency"),
     readValue("updates.timeOfDay"),
     readValue("updates.dayOfWeek"),
     readValue("updates.dayOfMonth"),
   ]);
-  return { frequency, timeOfDay, dayOfWeek, dayOfMonth };
+  return { autoEnabled: autoEnabled === 1, frequency, timeOfDay, dayOfWeek, dayOfMonth };
 }
 
 // ---- Admin UI helpers ----

@@ -1099,6 +1099,10 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   reporting what it skipped rather than silently doing less than its name claims.
 - **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
   it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **The helper-dependency rule** (v1.5.3-beta.11) — **no test covers this yet.** A helper excluded from
+  automatic updates must still be updated when a module that needs it updates. Verify with a module
+  included and its helper excluded, both with updates available: the helper should update anyway and
+  the run should say why.
 - **Automatic updates, end to end** (BUG-30, v1.5.3-beta.5) — the schedule logic is well covered by
   tests but **no update has ever actually been applied by the scheduler**. Tick *Update automatically*
   on a module, set the schedule a few minutes ahead, publish a newer version, and confirm it applies and

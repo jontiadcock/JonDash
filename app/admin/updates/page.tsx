@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { readUpdateSchedule, describeSchedule } from "@/lib/updates/schedule";
 import { UpdateScheduleForm } from "./schedule-form";
 import { BetaChannels, type BetaItem } from "./beta-channels";
+import { AutoUpdatePanel, type AutoItem } from "./auto-update-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +49,6 @@ export default async function AdminUpdatesPage() {
   ]);
   const moduleAuto = new Map(moduleFlags.map((m) => [m.id, m.autoUpdate]));
   const helperAuto = new Map(helperFlags.map((h) => [h.id, h.autoUpdate]));
-  const optedInCount =
-    moduleFlags.filter((m) => m.autoUpdate).length + helperFlags.filter((h) => h.autoUpdate).length;
 
   const helperViews: HelperUpdateView[] = helperStatus.helpers.map((h) => ({
     ...h,
@@ -61,6 +60,37 @@ export default async function AdminUpdatesPage() {
     select: { id: true, name: true, channel: true },
     orderBy: { name: "asc" },
   });
+  const moduleExcluded = await prisma.module.findMany({
+    select: { id: true, name: true, autoUpdateExcluded: true },
+    orderBy: { name: "asc" },
+  });
+  const helperExcluded = new Map(
+    (await prisma.helper.findMany({ select: { id: true, autoUpdateExcluded: true } })).map((h) => [
+      h.id,
+      h.autoUpdateExcluded,
+    ]),
+  );
+  const autoItems: AutoItem[] = [
+    { kind: "app", id: "app", name: "JonDash", excluded: !readAutoInstall() },
+    ...moduleExcluded.map((m) => ({
+      kind: "module" as const,
+      id: m.id,
+      name: m.name,
+      excluded: m.autoUpdateExcluded,
+    })),
+    ...helperStatus.helpers.map((h) => ({
+      kind: "helper" as const,
+      id: h.id,
+      name: h.name,
+      excluded: helperExcluded.get(h.id) ?? false,
+      // A helper is dragged along by any module being updated that needs it.
+      pulledIn: h.dependents.length > 0,
+    })),
+  ];
+
+  // How many things automatic updates actually covers, now the master switch decides it.
+  const optedInCount = schedule.autoEnabled ? autoItems.filter((i) => !i.excluded).length : 0;
+
   const betaItems: BetaItem[] = [
     { kind: "app", id: "app", name: "JonDash", onBeta: channel === "beta" },
     ...moduleRows.map((m) => ({
@@ -123,6 +153,14 @@ export default async function AdminUpdatesPage() {
 
       <section className="card p-6">
         <BetaChannels items={betaItems} />
+      </section>
+
+      <section className="card p-6">
+        <AutoUpdatePanel
+          enabled={schedule.autoEnabled}
+          items={autoItems}
+          scheduleSummary={describeSchedule(schedule)}
+        />
       </section>
 
       <section className="card p-6">

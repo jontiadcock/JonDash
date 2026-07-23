@@ -8,6 +8,8 @@ import { installHelper } from "@/lib/helpers/install";
 import { getHelperUpdateStatus } from "@/lib/helpers/updates";
 import { resolveHelperChannel } from "@/lib/helpers/channel";
 import { getModuleUpdateStatus } from "@/lib/modules/updates";
+import { dependentsOf } from "@/lib/helpers/registry";
+import { readUpdateSchedule } from "./schedule";
 
 /**
  * Scheduled automatic updates for modules and helpers (BUG-30).
@@ -39,13 +41,9 @@ export type AutoUpdateOutcome = {
   failures: string[];
 };
 
-/** True when anything is opted in at all — lets the scheduler skip the network entirely. */
+/** True when automatic updates are on at all — lets the scheduler skip the network entirely. */
 export async function anythingOptedIn(): Promise<boolean> {
-  const [m, h] = await Promise.all([
-    prisma.module.count({ where: { autoUpdate: true } }),
-    prisma.helper.count({ where: { autoUpdate: true } }),
-  ]);
-  return m + h > 0;
+  return (await readUpdateSchedule()).autoEnabled;
 }
 
 /**
@@ -56,12 +54,33 @@ export async function anythingOptedIn(): Promise<boolean> {
 export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   const out: AutoUpdateOutcome = { applied: [], held: [], failures: [] };
 
-  const [optedModules, optedHelpers] = await Promise.all([
-    prisma.module.findMany({ where: { autoUpdate: true }, select: { id: true } }),
-    prisma.helper.findMany({ where: { autoUpdate: true }, select: { id: true } }),
+  // Master switch first: nothing runs automatically while it is off.
+  if (!(await readUpdateSchedule()).autoEnabled) return out;
+
+  // Everything is included unless individually excluded.
+  const [modules, helpers] = await Promise.all([
+    prisma.module.findMany({ select: { id: true, autoUpdateExcluded: true } }),
+    prisma.helper.findMany({ select: { id: true, autoUpdateExcluded: true } }),
   ]);
-  const wantModule = new Set(optedModules.map((m) => m.id));
-  const wantHelper = new Set(optedHelpers.map((h) => h.id));
+  const wantModule = new Set(modules.filter((m) => !m.autoUpdateExcluded).map((m) => m.id));
+  const wantHelper = new Set(helpers.filter((h) => !h.autoUpdateExcluded).map((h) => h.id));
+
+  // A helper an updating module depends on is brought along even when excluded. Excluding a
+  // helper opts it out of being updated FOR ITS OWN SAKE — not out of being a working
+  // dependency, and a module updated against a helper it can't use is simply broken.
+  if (wantModule.size > 0) {
+    const needed = await prisma.helper.findMany({
+      where: { autoUpdateExcluded: true },
+      select: { id: true },
+    });
+    for (const h of needed) {
+      if (dependentsOf(h.id).some((d) => wantModule.has(d.id))) {
+        wantHelper.add(h.id);
+        out.held.push(`${h.id}: updated anyway — a module being updated needs it`);
+      }
+    }
+  }
+
   if (wantModule.size === 0 && wantHelper.size === 0) return out;
 
   const appVersion = getAppVersion();

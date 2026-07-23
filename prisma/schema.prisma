@@ -213,6 +213,11 @@ model Module {
   // URL — a standing channel to run new code here. You opt in to the modules you trust.
   // An update that ADDS a permission is never auto-applied; it waits for approval.
   autoUpdate         Boolean  @default(false)
+  /// Excluded from automatic updates while the master switch is ON. The model inverted in
+  /// v1.5.3-beta.11: `updates.autoEnabled` turns automatic updates on for everything, and
+  /// this opts an individual module back out. `autoUpdate` above is the superseded per-item
+  /// opt-in, kept so an existing choice isn't silently reinterpreted as its opposite.
+  autoUpdateExcluded Boolean  @default(false)
   grantedPermissions String   @default("[]")
   migratedVersion    String?
   // Service Groups this module is limited to. EMPTY = visible to every signed-in user
@@ -312,6 +317,10 @@ model Helper {
   /// not a smaller one. An update that ADDS a capability, is blocked, would break a
   /// dependent module, or is a downgrade is never applied automatically.
   autoUpdate  Boolean  @default(false)
+  /// Excluded from automatic updates while the master switch is on. NOTE: a helper needed
+  /// by a module that is updating is still brought up to date — excluding it opts it out of
+  /// being updated *for its own sake*, not out of being a working dependency.
+  autoUpdateExcluded Boolean @default(false)
   installedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

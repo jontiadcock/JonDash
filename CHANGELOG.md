@@ -9,6 +9,21 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.11] — 2026-07-23
+
+### Changed
+- **Automatic updates are now one switch with exclusions.** Turn **Automatic updates** on and
+  JonDash, your modules and their helpers all stay current on your schedule; each then gets its own
+  switch to exclude it. This replaces the per-item opt-in from beta.5.
+  It is **off by default**, and worth understanding before turning it on: with it on, a module from
+  **any** source you have added updates itself unless you exclude it.
+- **A helper excluded from automatic updates is still updated when a module that needs it updates.**
+  Excluding a helper opts it out of being updated for its own sake, not out of being a working
+  dependency — a module updated against a helper it can't use is simply broken.
+
+Unchanged: an update that asks for more access than you approved, is blocked, goes backwards, or
+would stop another module working still waits for you, whatever the switches say.
+
 ## [1.5.3-beta.10] — 2026-07-23
 
 ### Changed
@@ -1043,6 +1058,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.11
 [1.5.3-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.10
 [1.5.3-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.9
 [1.5.3-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.8

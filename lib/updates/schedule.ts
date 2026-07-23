@@ -16,6 +16,8 @@ import { getUpdateScheduleSettings } from "@/lib/settings";
 export type UpdateFrequency = "daily" | "weekly" | "monthly";
 
 export type UpdateSchedule = {
+  /** The master switch. Nothing runs automatically while this is off. */
+  autoEnabled: boolean;
   frequency: UpdateFrequency;
   hour: number;
   minute: number;
@@ -24,12 +26,13 @@ export type UpdateSchedule = {
 };
 
 export async function readUpdateSchedule(): Promise<UpdateSchedule> {
-  const { frequency, timeOfDay, dayOfWeek, dayOfMonth } = await getUpdateScheduleSettings();
+  const { autoEnabled, frequency, timeOfDay, dayOfWeek, dayOfMonth } = await getUpdateScheduleSettings();
 
   // The stored value is validated on save, but a hand-edited database shouldn't be able to
   // make the scheduler throw on every tick — fall back rather than fail.
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(timeOfDay));
   return {
+    autoEnabled,
     frequency: (["daily", "weekly", "monthly"] as const).includes(frequency as UpdateFrequency)
       ? (frequency as UpdateFrequency)
       : "weekly",

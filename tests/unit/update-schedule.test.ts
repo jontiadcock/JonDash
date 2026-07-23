@@ -8,7 +8,7 @@ import { nextRunAfter, isRunDue, describeSchedule, type UpdateSchedule } from "@
  * "there was nothing to update", which is the trap MOD-10 already fell into once.
  */
 
-const base: UpdateSchedule = { frequency: "daily", hour: 3, minute: 0, dayOfWeek: 0, dayOfMonth: 1 };
+const base: UpdateSchedule = { autoEnabled: true, frequency: "daily", hour: 3, minute: 0, dayOfWeek: 0, dayOfMonth: 1 };
 const at = (s: string) => new Date(s);
 
 describe("nextRunAfter", () => {
