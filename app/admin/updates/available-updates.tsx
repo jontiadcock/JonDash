@@ -55,11 +55,21 @@ export function AvailableUpdates({
   const [coreError, setCoreError] = useState<string | null>(null);
   async function applyCore() {
     setCoreError(null);
+    // Cover the page BEFORE the request. Updating JonDash replaces the build and restarts,
+    // so the JS this page is running disappears with it — without the overlay to notice the
+    // restart and reload, the browser keeps calling Server Action ids that no longer exist
+    // ("Failed to find Server Action"), and the page just sits there looking hung. That is
+    // exactly what happened on the beta.14 → beta.15 update.
+    start("updating");
     try {
       const res = await fetch("/api/update/apply", { method: "POST" });
-      if (!res.ok) setCoreError(`Update failed (${res.status}).`);
+      if (!res.ok) {
+        stop();
+        setCoreError(`Update failed (${res.status}).`);
+      }
     } catch {
-      setCoreError("Could not reach the server to start the update.");
+      // A dropped connection here is expected — the server is going down to rebuild — so
+      // the overlay stays up and waits for the new one rather than reporting an error.
     }
   }
 

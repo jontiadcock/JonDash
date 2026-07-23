@@ -9,6 +9,19 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.16] — 2026-07-23
+
+### Fixed
+- **The beta switches for helpers looked dead.** They were writing the change correctly, but the
+  page kept showing the old value for up to three minutes, so clicking appeared to do nothing.
+  Now updates immediately.
+- **The same fault in two more places, neither reported.** Switching **JonDash's own** channel, or a
+  **module's**, also left the page showing the pre-change answer for up to three minutes. Both fixed.
+- **Updating JonDash showed no "updating" screen.** The full-screen cover had been lost, so the page
+  never reloaded onto the new version — it sat there looking hung while the update had actually
+  finished. The cover is back, and a dropped connection mid-update is treated as expected rather than
+  an error.
+
 ## [1.5.3-beta.15] — 2026-07-23
 
 ### Fixed
@@ -1109,6 +1122,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.16]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.16
 [1.5.3-beta.15]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.15
 [1.5.3-beta.14]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.14
 [1.5.3-beta.13]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.13

@@ -29,6 +29,18 @@ export type UpdateStatus = {
 let cache: { at: number; status: UpdateStatus } | null = null;
 const CACHE_MS = 3 * 60 * 1000;
 
+/**
+ * Drop the cached update check.
+ *
+ * Must be called whenever something changes WHICH release applies — switching channel is
+ * the one that matters, since the cached status was read from the other channel's manifest.
+ * Without it the Updates page keeps offering the old channel's release for up to three
+ * minutes and the channel switch looks like it did nothing (the same shape as BUG-35).
+ */
+export function clearUpdateStatusCache(): void {
+  cache = null;
+}
+
 function localVersion(): string {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(REPO_DIR, "package.json"), "utf8"));

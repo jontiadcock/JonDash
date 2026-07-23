@@ -628,6 +628,39 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-37 · A write that changed a cached answer didn't invalidate the cache — fixed v1.5.3-beta.16.**
+  Reported by the owner as *"I am not able to slide the beta sliders for the helpers"* — and the
+  slider was not the problem. Their audit log showed **five successful writes from five frustrated
+  clicks**, and the helper ended on `channel=stable pin=stable`. The write always landed; the page
+  never changed.
+  **Cause:** `getHelperUpdateStatus()` caches for 3 minutes and the Beta channels panel reads a
+  helper's channel from it. `setHelperChannelPinAction` never called `invalidateHelperUpdateCache()`
+  — which the older action it replaced *did*. The row redrew in its old position and **survived a full
+  page reload**, because the cache is in-process, not per-request. Modules were unaffected: their rows
+  come straight from Prisma. That is exactly why only the helper switches looked dead.
+  **Two more instances found by auditing the class rather than the symptom**, neither reported:
+  `setAppChannelAction` never cleared the app update cache (and `lib/update.ts` had **no invalidator at
+  all** — `clearUpdateStatusCache` is new), so switching JonDash's channel kept offering the other
+  channel's release; and `setModuleChannelAction` never called `clearModuleUpdateCache()`.
+  **Reproduced and fixed in a browser**, not by reading: logged in properly, clicked the slider,
+  watched the database change while the page didn't, then watched the row flip to "Join beta" the
+  moment the invalidation was added.
+  **Regression test is source-level on purpose** — the failure is "an action forgot a call", which no
+  behavioural test of that action can catch. It asserts each action invalidates what it must, and that
+  every cache still exposes a way to clear it.
+- **BUG-36 · A stale `module-installing` marker makes recovery remove the WRONG module — OPEN.**
+  Found 2026-07-23 while reading the owner's install after the beta.15 update: `.data/module-installing`
+  was present on a healthy instance. `markModuleInstalling` (`lib/modules/rebuild.ts:45`) writes it
+  before a rebuild, and **nothing clears it on success** — only `scripts/module-recover.mjs` clears it,
+  and that runs only when a build FAILS.
+  So after any successful module install the marker persists indefinitely naming a module that is fine.
+  The next *unrelated* build failure — a bad app update, a broken helper — then hands recovery that
+  stale name, and it removes that module's source and regenerates the registry without it. **It deletes
+  a working module to fix a failure it had nothing to do with**, which is worse than not recovering.
+  **Fix:** clear the marker on a successful build, next to where `built-version`/`built-path` are
+  written in `start-dashboard.bat`. Cheap, and it makes the marker mean "a rebuild is in flight" rather
+  than "a rebuild happened once".
+  **Not yet reproduced** — inferred from the code path plus a marker observed on a healthy install.
 - **BUG-35 · The Beta channels switch did nothing on a derived helper — fixed v1.5.3-beta.15.**
   Reported by the owner 2026-07-23 ("I am not able to change the slider on the 2 helpers"), from a
   screenshot showing Scheduler and Files-and-folders unresponsive. **Mine, introduced with the Beta

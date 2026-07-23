@@ -8,6 +8,8 @@ import { prisma } from "@/lib/db";
 import { getModuleDef } from "@/lib/modules/registry";
 import { enableModule, disableModule, uninstallModule } from "@/lib/modules/manage";
 import { moduleSettingsApi } from "@/lib/modules/store";
+import { invalidateHelperUpdateCache } from "@/lib/helpers/updates";
+import { clearModuleUpdateCache } from "@/lib/modules/updates";
 import {
   addSource,
   removeSource,
@@ -335,6 +337,12 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
   // A helper follows the highest channel among its dependents, so moving a module can
   // move a helper with it (MOD-10). Re-derive now rather than waiting for the next boot.
   await syncAllHelperChannels().catch(() => {});
+  // BOTH caches. The module's own available update now comes from the other channel's
+  // manifest, and moving a module re-derives its helpers' channels — leaving either cached
+  // means the page shows the pre-change answer for up to three minutes and the switch looks
+  // like it did nothing.
+  clearModuleUpdateCache();
+  invalidateHelperUpdateCache();
   revalidatePath(`/admin/modules/${id}`);
   revalidatePath("/admin/modules");
   revalidatePath("/admin/helpers");

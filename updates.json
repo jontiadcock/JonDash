@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.16",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "important",
+      "summary": "Beta: the beta switches for helpers now visibly work, and updating JonDash shows the updating screen again. The helper switches were writing the change correctly but the page kept showing the old value for up to three minutes, so they looked dead - the same fault was also making a channel change to JonDash itself, or to a module, appear to do nothing for the same window. All three now refresh immediately. Separately, updating JonDash stopped showing the full-screen 'updating' cover, so the page never reloaded onto the new version and sat there looking hung while the update had in fact finished; the cover is back."
+    },
+    {
       "version": "1.5.3-beta.15",
       "date": "2026-07-23",
       "type": "patch",

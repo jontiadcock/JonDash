@@ -7,9 +7,11 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { applySettingsFormDetailed, settingKeysByGroup } from "@/lib/settings";
 import { writeChannel, isChannel } from "@/lib/update-channel";
+import { clearUpdateStatusCache } from "@/lib/update";
 import { writeAutoInstall } from "@/lib/update-prefs";
 import { writeSetting } from "@/lib/settings";
 import { resolveHelperChannel } from "@/lib/helpers/channel";
+import { invalidateHelperUpdateCache } from "@/lib/helpers/updates";
 
 export type ScheduleState = { ok?: boolean; error?: string };
 
@@ -120,6 +122,9 @@ export async function setAppChannelAction(formData: FormData): Promise<void> {
   const raw = String(formData.get("channel") ?? "");
   if (!isChannel(raw)) return;
   writeChannel(raw);
+  // The cached status was read from the OTHER channel's manifest — keeping it would offer
+  // the wrong release for up to three minutes and make the switch look inert.
+  clearUpdateStatusCache();
   await audit("settings.update-channel", { userId: admin.id, detail: raw });
   revalidatePath("/admin/updates");
 }
@@ -161,6 +166,14 @@ export async function setHelperChannelPinAction(formData: FormData): Promise<voi
     userId: admin.id,
     detail: `${id}=${pin ?? "derived"} (now ${state.channel})`,
   });
+
+  // MUST invalidate, or the write is invisible. getHelperUpdateStatus() caches for three
+  // minutes, and the Beta channels panel reads a helper's channel from that cache — so
+  // without this the row redraws in its old position, survives a full page reload (the
+  // cache is in-process, not per-request), and the switch looks broken while the database
+  // has already changed. Modules were unaffected because their rows are read straight from
+  // Prisma, which is why only the helper switches appeared dead.
+  invalidateHelperUpdateCache();
   revalidatePath("/admin/updates");
   revalidatePath("/admin/helpers");
 }
