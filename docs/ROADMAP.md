@@ -952,6 +952,23 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   reporting what it skipped rather than silently doing less than its name claims.
 - **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
   it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **Send test email** (BUG-21/OPS-13, v1.5.3-beta.1) — needs a real mailbox, so it could not be proven
+  here. Confirm it now **fails within ~15s with a reason** instead of hanging, on both SMTP and the 365
+  OAuth connector, and that a *working* connector still sends.
+- **Confirm dialogs, everywhere** (BUG-23, v1.5.3-beta.1) — the overlay now portals to `document.body`,
+  which touches **every confirm dialog in the app**, not just the update one. Worth clicking through
+  delete/disable user, revoke session, and delete module to confirm each still opens, closes, and
+  actually performs the action.
+- **Full-screen update / restart overlay** (BUG-23) — confirm it covers the whole screen rather than the
+  right-hand column, during a real module install and a restart.
+- **Module import button** (BUG-22) — confirm it is visible before a file is chosen, disabled until one
+  is picked, and that importing still works.
+- **Audit detail on settings saves** (BUG-24) — change the sign-in message and confirm the audit entry
+  now names the setting and its new value. Same for a Sessions and an Audit-retention change, since all
+  three actions were rewritten.
+
+Cleared by live testing on a disposable install (2026-07-23), so **not** listed above: moved/renamed
+install rebuilding (BUG-26) and the double-launch refusal (BUG-07).
 
 ---
 
