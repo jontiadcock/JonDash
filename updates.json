@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.10",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: the Helpers page is now about the helper, not its updates. The version line, beta-channel note and 'Pin to stable' button have moved to the Beta channels panel on Admin - Updates, which already lists every helper alongside JonDash and your modules. The Helpers page keeps what it is for: what each helper does, which modules use it, and what permission it implies - plus a Settings area reserved for helpers that offer settings. None do yet."
+    },
+    {
       "version": "1.5.3-beta.9",
       "date": "2026-07-23",
       "type": "patch",

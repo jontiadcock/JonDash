@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.10] — 2026-07-23
+
+### Changed
+- **The Helpers page is about the helper, not its updates.** The version line, beta-channel note
+  and "Pin to stable" button have moved to the **Beta channels** panel on Admin → Updates, which
+  already lists every helper alongside JonDash and your modules. The page keeps what it is for:
+  what each helper does, which modules use it, and what permission it implies — plus a **Settings**
+  area reserved for helpers that offer settings. None do yet.
+
 ## [1.5.3-beta.9] — 2026-07-23
 
 ### Fixed
@@ -1034,6 +1043,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.10
 [1.5.3-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.9
 [1.5.3-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.8
 [1.5.3-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.7

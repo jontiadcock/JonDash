@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { listHelpersForAdmin } from "@/lib/helpers/registry";
-import { HelperChannelForm } from "./channel-form";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +23,8 @@ export default async function AdminHelpersPage() {
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Shared capabilities that modules rely on — a scheduler for background work, and similar. They come
           with JonDash, are used only when a module asks for one, and can&apos;t be added or removed by hand.
+          Their versions and beta channels live on{" "}
+          <Link href="/admin/updates" style={{ color: "var(--primary)" }}>Admin → Updates</Link>.
         </p>
       </section>
 
@@ -35,7 +36,7 @@ export default async function AdminHelpersPage() {
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {inUse.map(({ def, installed, installedVersion, dependents, channel }) => (
+          {inUse.map(({ def, installed, installedVersion, dependents }) => (
             <div key={def.id} className="card flex flex-col gap-3 p-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{def.name}</span>
@@ -48,13 +49,15 @@ export default async function AdminHelpersPage() {
               </div>
               <p className="text-sm" style={{ color: "var(--muted)" }}>{def.description}</p>
 
-              <HelperChannelForm
-                helperId={def.id}
-                channel={channel.channel}
-                pinned={channel.pinned}
-                derived={channel.derived}
-                betaDependents={channel.betaDependents}
-              />
+              {/* Channel and update controls moved to Admin → Updates (Beta channels), so
+                  this page can be about the helper itself. Reserved for helper settings
+                  once the contract carries them — no helper declares any yet. */}
+              <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Settings</p>
+                <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                  This helper has no settings.
+                </p>
+              </div>
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Used by</p>
