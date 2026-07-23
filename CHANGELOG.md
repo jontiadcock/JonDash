@@ -9,6 +9,38 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.2] — 2026-07-23
+
+**Beta: sending mail through a relay, and mail errors that tell you what went wrong.**
+
+### Added
+- **"Mail relay (no authentication)" as an authentication option.** Some mail servers authorise
+  you by IP address rather than a sign-in — an internal smarthost, or Microsoft 365 direct send
+  through an inbound connector. There was no way to describe one: JonDash insisted on an account
+  and offered credentials to a server that wasn't asking for any. Choosing this mode connects
+  without offering credentials at all, and no longer demands a username.
+- **An option to accept a mail server's certificate when it isn't trusted.** For an internal relay
+  using a private or self-signed certificate. It is **off by default**, applies only to outgoing
+  mail (never to updates or module installs), warns plainly while it is on, is written into the
+  audit log when you enable it, and every test result says *certificate NOT verified* so it can't
+  be quietly forgotten. Installing the relay's certificate authority on the machine is still the
+  better option.
+
+### Fixed
+- **Mail failures now say what they tried to connect to.** The test button uses your *saved*
+  settings, not what's currently on screen — so an error like "unable to get local issuer
+  certificate" gave no way to tell whether it had even used the host you were looking at. Every
+  result now names the host, port, TLS mode and how it authenticated.
+- **Mail errors are explained instead of quoted.** Newly recognised: a TLS certificate that can't
+  be traced to a trusted authority, a self-signed or expired certificate, a certificate issued for
+  a different hostname, a server that offers no authentication at all (which now points at relay
+  mode), and a relay that accepts the connection but refuses the recipient.
+- **"Use TLS on connect" being wrong for the port is now named as the cause.** Ticking it for port
+  25 or 587 produced a raw OpenSSL message about a "wrong version number", which reads as a bug in
+  JonDash rather than a checkbox in the wrong position.
+- **Multi-line mail explanations are no longer squashed onto one line.** The guidance attached to
+  each error was being collapsed by the browser, so only the raw error was readable.
+
 ## [1.5.3-beta.1] — 2026-07-23
 
 **Beta: a batch of fixes, several security-related.** No new features.
@@ -889,6 +921,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.2
 [1.5.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.1
 [1.5.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2
 [1.5.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2-beta.1

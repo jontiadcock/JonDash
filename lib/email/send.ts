@@ -41,13 +41,56 @@ async function buildTransport(cfg: EmailConfig) {
   }
 
   if (!cfg.host) throw new Error("SMTP host is required.");
+
+  // Opt-in escape hatch for an internal relay with a private or self-signed certificate.
+  // Scoped to THIS transport only — never NODE_TLS_REJECT_UNAUTHORIZED, which would
+  // disable certificate checking for every outbound connection the app makes, including
+  // update downloads and module installs.
+  const tls = cfg.allowUntrustedCert ? { tls: { rejectUnauthorized: false } } : {};
+
+  // An IP-authorised relay has no account to sign in with. Send NO auth rather than
+  // offering an empty credential — a server that advertises no AUTH and one that
+  // rejects a bad password fail in different ways, and conflating them is what makes
+  // this hard to diagnose.
+  if (cfg.mode === "relay") {
+    return nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      ...tls,
+      ...TIMEOUTS,
+    });
+  }
+
   return nodemailer.createTransport({
     host: cfg.host,
     port: cfg.port,
     secure: cfg.secure,
     auth: cfg.user ? { user: cfg.user, pass: cfg.password } : undefined,
+    ...tls,
     ...TIMEOUTS,
   });
+}
+
+/**
+ * What the attempt was actually aimed at.
+ *
+ * Every failure below is reported with this prefix. The button uses the SAVED
+ * configuration, not what's on screen, so "unable to get local issuer certificate"
+ * with no target is unactionable — you cannot tell whether it even tried the host
+ * you are looking at. Naming the target is what makes a stale save obvious.
+ */
+export function describeTarget(cfg: EmailConfig): string {
+  if (cfg.mode === "oauth2") {
+    const meta = isOAuthProvider(cfg.provider) ? OAUTH_PROVIDERS[cfg.provider] : null;
+    return meta ? `${meta.smtpHost}:${meta.smtpPort} (OAuth2 as ${cfg.user || "?"})` : "the OAuth provider";
+  }
+  const tls = cfg.secure ? "TLS on connect" : "STARTTLS if offered";
+  const as = cfg.mode === "relay" ? "no authentication" : `as ${cfg.user || "no username"}`;
+  // Surfaced in every result so a weakened connection can't be quietly forgotten about
+  // months after someone ticked the box to get past one error.
+  const trust = cfg.allowUntrustedCert ? ", certificate NOT verified" : "";
+  return `${cfg.host || "(no host set)"}:${cfg.port} (${tls}, ${as}${trust})`;
 }
 
 function fromHeader(cfg: EmailConfig): string {
@@ -87,8 +130,26 @@ export async function sendMail(msg: {
  * OAuth consent, tenant policy, blocked ports, revoked refresh tokens. The provider's own
  * error codes are the reliable signal, so they're mapped to the thing to go and change.
  */
-function explainMailError(err: string): string {
+export function explainMailError(err: string): string {
   const e = err.toLowerCase();
+
+  // TLS mismatches. These are the errors that read as "the app is broken" because the
+  // message never mentions mail, a host, or the setting that caused them.
+  if (e.includes("wrong version number")) {
+    return `${err}\n\nThat looks like "Use TLS on connect" being on for a port that expects plain SMTP first. Ports 25 and 587 want it OFF (they upgrade with STARTTLS); only port 465 wants it ON.`;
+  }
+  if (e.includes("unable to get local issuer certificate") || e.includes("unable to verify the first certificate")) {
+    return `${err}\n\nThe server's TLS certificate could not be traced to a trusted authority. Usually one of: the host is an internal relay using a private or self-signed certificate; something on the network is intercepting SMTP and re-signing it; or the server didn't send its intermediate certificate. Check the SMTP host is the one you expect — this test uses the SAVED settings, so an older host may still be stored.`;
+  }
+  if (e.includes("self signed certificate") || e.includes("self-signed certificate")) {
+    return `${err}\n\nThe mail server is using a self-signed certificate. That's common for an internal relay, but JonDash won't trust it silently — install the relay's certificate authority on this machine, or point at a host with a publicly trusted certificate.`;
+  }
+  if (e.includes("altnames") || e.includes("hostname/ip does not match")) {
+    return `${err}\n\nThe certificate is valid but was issued for a different hostname. Use the name the certificate was issued for, not an IP address or an alias.`;
+  }
+  if (e.includes("certificate has expired")) {
+    return `${err}\n\nThe mail server's certificate has expired — that's a problem at the server, not here.`;
+  }
 
   if (e.includes("timeout") || e.includes("etimedout") || e.includes("greeting")) {
     return `${err}\n\nThe mail server didn't answer in time. Outbound SMTP (usually port 587 or 465) is often blocked on home and office connections — check that first.`;
@@ -104,14 +165,25 @@ function explainMailError(err: string): string {
   if (e.includes("smtpauth") || e.includes("smtp auth") || e.includes("disabled")) {
     return `${err}\n\nMicrosoft 365 disables SMTP AUTH per mailbox by default — it has to be enabled for this account even when using OAuth2.`;
   }
+  // Sending credentials to a server that offers no AUTH at all — i.e. an IP-authorised
+  // relay configured as if it were a mailbox. There is a mode for that.
+  if (e.includes("no supported authentication") || e.includes("does not support auth")) {
+    return `${err}\n\nThat server isn't offering authentication at all. If it's a relay that authorises by IP address, set Authentication to "Mail relay (no authentication)" — it will then connect without offering credentials.`;
+  }
   if (e.includes("535") || e.includes("authentication") || e.includes("invalid_grant")) {
     return `${err}\n\nThe sign-in was rejected. For an app password, check it hasn't been revoked; for OAuth2, reconnect — a refresh token can be withdrawn without warning.`;
+  }
+  // Relay refusing the RECIPIENT rather than the sender — the usual wall after a relay
+  // connects successfully, and it reads as a generic failure without saying so.
+  if (e.includes("5.7.64") || e.includes("relay access denied") || e.includes("unable to relay")) {
+    return `${err}\n\nThe server accepted the connection but refused to relay to that recipient. On Microsoft 365 direct send you can only reach addresses in your own tenant; sending anywhere else needs an inbound connector that authorises this IP for relay.`;
   }
   return err;
 }
 
 export async function sendTestEmail(to: string): Promise<SendResult> {
   const cfg = await readEmailConfig();
+  const target = describeTarget(cfg);
 
   // Separate "can't connect or sign in" from "connected but the send was rejected" — two
   // entirely different fixes, and the test button exists precisely to tell them apart.
@@ -120,7 +192,7 @@ export async function sendTestEmail(to: string): Promise<SendResult> {
     await transport.verify();
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: explainMailError(raw) };
+    return { ok: false, error: `Connecting to ${target} failed.\n\n${explainMailError(raw)}` };
   }
 
   const res = await sendMail({
@@ -130,5 +202,7 @@ export async function sendTestEmail(to: string): Promise<SendResult> {
       "This is a test email from your JonDash dashboard.\n\n" +
       "If you received it, outgoing email is configured correctly.",
   });
-  return res.ok ? res : { ok: false, error: explainMailError(res.error) };
+  return res.ok
+    ? res
+    : { ok: false, error: `Connected to ${target}, but the send failed.\n\n${explainMailError(res.error)}` };
 }

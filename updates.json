@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.2",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: JonDash can now send through a mail relay that authorises you by IP address instead of a sign-in - an internal smarthost, or Microsoft 365 direct send. Choose 'Mail relay (no authentication)' under Email; it connects without offering credentials and no longer insists on an account. There is also a new option to accept a relay's certificate when it isn't trusted, for an internal server using a private or self-signed one - off by default, limited to outgoing mail, recorded in the audit log, and shown in every test result so it can't be forgotten. Mail errors are much more useful too: every result now names the host, port and TLS mode it actually used - the test button uses your SAVED settings, so a failure no longer leaves you guessing whether it even tried the server on screen - and errors are explained rather than quoted, including untrusted, self-signed, expired and wrong-hostname certificates, a server that offers no authentication, a relay that refuses the recipient, and the common mistake of ticking 'Use TLS on connect' for a port that expects plain SMTP first."
+    },
+    {
       "version": "1.5.3-beta.1",
       "date": "2026-07-23",
       "type": "patch",

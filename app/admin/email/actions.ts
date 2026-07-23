@@ -16,13 +16,14 @@ export type EmailState = { error?: string; ok?: boolean; testOk?: boolean; testR
 
 const emailSchema = z.object({
   enabled: z.boolean(),
-  mode: z.enum(["password", "oauth2"]),
+  mode: z.enum(["password", "oauth2", "relay"]),
   fromName: z.string().trim().max(120),
   fromAddress: z.string().trim().max(254),
   user: z.string().trim().max(254),
   host: z.string().trim().max(255),
   port: z.coerce.number().int().min(1).max(65535),
   secure: z.boolean(),
+  allowUntrustedCert: z.boolean(),
   provider: z.enum(["google", "microsoft", ""]),
 });
 
@@ -39,6 +40,7 @@ export async function saveEmailConfigAction(_prev: EmailState, formData: FormDat
     host: String(formData.get("host") ?? ""),
     port: String(formData.get("port") ?? "587"),
     secure: formData.get("secure") === "on",
+    allowUntrustedCert: formData.get("allowUntrustedCert") === "on",
     provider: String(formData.get("provider") ?? ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -56,7 +58,12 @@ export async function saveEmailConfigAction(_prev: EmailState, formData: FormDat
   if (clientSecret) patch.oauthClientSecret = clientSecret;
 
   await writeEmailConfig(patch);
-  await audit("admin.email.config.update", { userId: admin.id, detail: `mode=${parsed.data.mode}` });
+  // Turning off certificate verification is a deliberate security downgrade, so the log
+  // has to say so — "mode=password" alone would hide the one change worth reviewing.
+  const detail =
+    `mode=${parsed.data.mode}, host=${parsed.data.host || "(none)"}:${parsed.data.port}` +
+    (parsed.data.allowUntrustedCert ? ", certificate verification DISABLED" : "");
+  await audit("admin.email.config.update", { userId: admin.id, detail });
   revalidatePath("/admin/email");
   return { ok: true };
 }

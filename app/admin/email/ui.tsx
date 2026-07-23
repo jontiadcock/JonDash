@@ -11,13 +11,14 @@ import { PROVIDER_PRESETS } from "@/lib/email/constants";
 
 type ConfigView = {
   enabled: boolean;
-  mode: "password" | "oauth2";
+  mode: "password" | "oauth2" | "relay";
   fromName: string;
   fromAddress: string;
   user: string;
   host: string;
   port: number;
   secure: boolean;
+  allowUntrustedCert: boolean;
   provider: "google" | "microsoft" | "";
   oauthClientId: string;
   hasPassword: boolean;
@@ -41,6 +42,7 @@ export function EmailSettings({
   const [host, setHost] = useState(config.host);
   const [port, setPort] = useState(String(config.port));
   const [secure, setSecure] = useState(config.secure);
+  const [allowUntrusted, setAllowUntrusted] = useState(config.allowUntrustedCert);
   const [provider, setProvider] = useState<ConfigView["provider"]>(config.provider);
 
   function applyPreset(key: string) {
@@ -71,11 +73,21 @@ export function EmailSettings({
             >
               <option value="password">SMTP username + app password</option>
               <option value="oauth2">OAuth2 (Google / Microsoft)</option>
+              <option value="relay">Mail relay (no authentication)</option>
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="user">Account email address</label>
+            <label className="label" htmlFor="user">
+              Account email address{" "}
+              {mode === "relay" && <span style={{ color: "var(--muted)" }}>(not needed)</span>}
+            </label>
             <input id="user" name="user" type="email" defaultValue={config.user} placeholder="you@example.com" className="input" />
+            {mode === "relay" && (
+              <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                A relay has no account to sign in with. Leave this blank — set the{" "}
+                <strong>From address</strong> below instead, which is what the relay will send as.
+              </p>
+            )}
           </div>
         </div>
 
@@ -92,9 +104,13 @@ export function EmailSettings({
           </div>
         </div>
 
-        {/* Password mode — always rendered (hidden when inactive) so values round-trip. */}
-        <div style={{ display: mode === "password" ? undefined : "none" }} className="flex flex-col gap-4">
-          <div>
+        {/* SMTP details — used by BOTH password and relay mode. Always rendered (hidden
+            when inactive) so values round-trip instead of being cleared on save. */}
+        <div
+          style={{ display: mode === "password" || mode === "relay" ? undefined : "none" }}
+          className="flex flex-col gap-4"
+        >
+          <div style={{ display: mode === "password" ? undefined : "none" }}>
             <label className="label" htmlFor="preset">Provider preset</label>
             <select id="preset" defaultValue="" onChange={(e) => applyPreset(e.target.value)} className="input">
               <option value="">Choose to auto-fill host/port…</option>
@@ -107,6 +123,19 @@ export function EmailSettings({
               account&apos;s security settings; needs 2-step verification enabled).
             </p>
           </div>
+          {mode === "relay" && (
+            <div className="rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)" }}>
+              <p>
+                JonDash will connect <strong>without offering any credentials</strong>. Use this for a
+                relay that authorises by source IP — an internal smarthost, or Microsoft 365 direct
+                send via an inbound connector.
+              </p>
+              <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+                Relays normally listen on <strong>port 25</strong> with the TLS box <strong>off</strong>
+                {" "}(it still upgrades with STARTTLS when the server offers it).
+              </p>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <label className="label" htmlFor="host">SMTP host</label>
@@ -121,7 +150,40 @@ export function EmailSettings({
             <input type="checkbox" name="secure" checked={secure} onChange={(e) => setSecure(e.target.checked)} className="h-4 w-4" />
             <span className="text-sm">Use TLS on connect (port 465). Leave off for STARTTLS (port 587).</span>
           </label>
+
           <div>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                name="allowUntrustedCert"
+                checked={allowUntrusted}
+                onChange={(e) => setAllowUntrusted(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <span className="text-sm">
+                Accept this server&apos;s certificate even if it isn&apos;t trusted
+              </span>
+            </label>
+            {allowUntrusted ? (
+              <p
+                className="mt-2 rounded-lg p-3 text-xs"
+                style={{ background: "var(--bg-danger, #fef2f2)", color: "var(--text-danger, #b91c1c)" }}
+              >
+                <strong>Certificate checking is off for outgoing mail.</strong> JonDash can no longer
+                prove it is talking to the right server, so anything able to intercept this connection
+                could read your messages{" "}
+                {mode === "password" && <>and the password sent with them</>}. Only leave this on for a
+                relay you control on a network you trust — and prefer installing that relay&apos;s
+                certificate authority on this machine instead.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                Only needed for an internal relay using a private or self-signed certificate. Leave off
+                for any public provider.
+              </p>
+            )}
+          </div>
+          <div style={{ display: mode === "password" ? undefined : "none" }}>
             <label className="label" htmlFor="password">App password</label>
             <input
               id="password"
@@ -225,7 +287,16 @@ function TestEmailForm({ defaultTo }: { defaultTo: string }) {
       </p>
       {state.error && <p className="form-error">{state.error}</p>}
       {state.testResult && (
-        <p className="text-sm" style={{ color: state.testOk ? "var(--primary)" : "var(--destructive, #dc2626)" }}>
+        // `whiteSpace: pre-wrap` is load-bearing: every explanation in explainMailError is
+        // "<raw error>\n\n<what to do about it>", and HTML collapses that into one run-on
+        // line — which is how a diagnostic message ends up looking like a bare error code.
+        <p
+          className="text-sm"
+          style={{
+            color: state.testOk ? "var(--primary)" : "var(--destructive, #dc2626)",
+            whiteSpace: "pre-wrap",
+          }}
+        >
           {state.testResult}
         </p>
       )}

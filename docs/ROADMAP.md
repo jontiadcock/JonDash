@@ -554,6 +554,28 @@ refresh tokens) "failed" is not actionable. Scope:
 - **Then re-test the real M365 account** (the owner's; needs their tenant) — the point is a truthful
   error, not merely a fast one.
 
+**Largely delivered across v1.5.3-beta.1 (timeouts, step separation, provider traps) and
+v1.5.3-beta.2 (the diagnosis half).** What the real-account test on 2026-07-23 exposed, and what
+beta.2 fixed:
+- **The failure never said what it connected to.** The test button uses the *saved* config, not the
+  form — so `unable to get local issuer certificate` gave no way to tell whether it had even used the
+  host on screen. It now reports host, port, TLS mode and how it authenticated, on success and
+  failure. The owner's audit log showed a stale `:80` host saved a day earlier, which is exactly the
+  case this makes visible.
+- **New explanations:** untrusted / self-signed / expired / wrong-hostname certificates; a server
+  offering no AUTH; a relay refusing the recipient; and `wrong version number`, which is only ever
+  "Use TLS on connect" ticked for a port that expects plain SMTP first.
+- **The explanations were invisible anyway** — each is `error\n\nwhat to do`, and HTML collapsed it to
+  one line, so even the beta.1 guidance never reached the admin. `white-space: pre-wrap`.
+- **Relay support (new).** An IP-authorised relay advertises no AUTH; JonDash required an account and
+  offered credentials regardless. New `relay` mode sends none. Plus an opt-in, off-by-default
+  `allowUntrustedCert` for a private-CA smarthost — scoped to the mail transport only (never the
+  global TLS switch), audited on enable, and echoed in every result so it can't be forgotten.
+
+**Still open here:** the UI has no ceiling of its own — a hung Server Action still presents as a
+spinning button. The transport timeouts bound it in practice, but that's the server being
+well-behaved, not the UI defending itself.
+
 ### CORE — Core app & UX
 
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
@@ -952,9 +974,16 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   reporting what it skipped rather than silently doing less than its name claims.
 - **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
   it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
-- **Send test email** (BUG-21/OPS-13, v1.5.3-beta.1) — needs a real mailbox, so it could not be proven
-  here. Confirm it now **fails within ~15s with a reason** instead of hanging, on both SMTP and the 365
-  OAuth connector, and that a *working* connector still sends.
+- **Send a real email through the relay** (v1.5.3-beta.2) — the connection is proven (`verify()` succeeds
+  against the owner's M365 endpoint with no credentials) but **nothing has actually been delivered**: no
+  mail was sent during testing. Confirm a test email arrives. If it fails with `550 5.7.64`, that's the
+  inbound connector not authorising this IP to relay to external recipients, not JonDash.
+- **Send test email — failure paths** (BUG-21/OPS-13, v1.5.3-beta.1) — confirm it **fails within ~15s with
+  a reason** instead of hanging, on both SMTP and the 365 OAuth connector, and that a *working* connector
+  still sends.
+- **The untrusted-certificate option** (v1.5.3-beta.2) — only meaningful against a relay with a private or
+  self-signed certificate, which wasn't available to test. Confirm ticking it lets such a relay connect,
+  that the red warning shows while it's on, and that the audit entry records it.
 - **Confirm dialogs, everywhere** (BUG-23, v1.5.3-beta.1) — the overlay now portals to `document.body`,
   which touches **every confirm dialog in the app**, not just the update one. Worth clicking through
   delete/disable user, revoke session, and delete module to confirm each still opens, closes, and
