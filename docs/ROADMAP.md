@@ -68,14 +68,17 @@ catalog entries, not here. The **modules platform is otherwise complete**: MOD-0
 6. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
 7. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-8. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+8. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+   **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
+   2026-07-24) — move it freely
+9. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-9. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+10. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-10. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-11. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+11. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+12. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-12. 🌅 **OPS-03 — VHD appliance**
+13. 🌅 **OPS-03 — VHD appliance**
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
 comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
@@ -533,6 +536,29 @@ The "next 2 things for a beta," built on a proper launcher **supervisor** (which
   point** — OPS-10 adds the pre-update snapshot + restore. Keep the snapshot lightweight (exclude
   `node_modules`/`.next`/user data, which regenerate or are preserved). Ties into OPS-04 (self-heal)
   and the auto-update flow. **A launcher change carries brick-risk — plan + review before building.**
+
+#### OPS-14 · Tell a beta user when their channel is BEHIND stable — ⏳
+Proposed by the add-ons session 2026-07-24, and accepted: **core can see this where the publisher cannot.**
+Core knows the installed version and can read both channels' manifests; the publisher only sees their own
+repo. A beta user whose installed version sorts *below* the stable release is in a state no publisher
+intends, and today nothing says so.
+
+**This gap is one core created.** Before v1.5.3-beta.9 an older offering was listed as an available update,
+so the situation at least announced itself — badly, as a downgrade with a tick-box (BUG-31). Refusing to
+offer it was right, but the replacement is **silence**: the Updates page now reads "up to date" while the
+install sits behind stable with no way forward on its own channel. That is exactly what happened to the
+add-ons channel for four of five entries, and only a manual manifest diff caught it.
+
+**Scope:** for anything on beta, compare the installed version against the **stable** manifest entry as
+well as its own. Where stable sorts higher, say so plainly — *"stable has 0.0.5; you're on 0.0.5-beta.1,
+which is older. Switch this to stable to move forward."* Applies to JonDash itself, modules and helpers
+alike. It is a **diagnostic, not an update offer** — it must not reintroduce BUG-31 by presenting a
+cross-channel move as an update, since switching channel is a decision.
+
+**Cost:** one extra manifest fetch per source for the other channel. `getModuleUpdateStatus` and
+`getHelperUpdateStatus` already fetch per channel and cache for 3 minutes, so this fits the existing shape;
+`lib/update.ts` would need the same for the app itself. **Whatever writes this must invalidate those caches
+on a channel change — see BUG-37**, which was precisely that mistake.
 
 #### OPS-13 · Email: bounded, diagnosable connection testing — ⏳ (exposed by BUG-21)
 BUG-21 is the hang; this is the reason a hang was possible to ship and impossible to act on. Fixing the
