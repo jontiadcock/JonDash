@@ -5,6 +5,7 @@ import path from "node:path";
 import { redact } from "@/scripts/log.mjs";
 import {
   readNetworkConfig,
+  readNetworkConfigResult,
   writeNetworkConfig,
   DEFAULTS,
 } from "@/lib/tls/network-config.mjs";
@@ -102,5 +103,47 @@ describe("validateByoCert", () => {
     fs.writeFileSync(k, "not a key");
     expect(validateByoCert(c, k).ok).toBe(false);
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+/**
+ * BUG-28. A network.json that EXISTS but can't be parsed used to be indistinguishable
+ * from no file at all: both returned DEFAULTS, so the server came up on plain HTTP port
+ * 3000 with no warning. For an install configured for HTTPS that is a silent downgrade to
+ * unencrypted, which is why server.mjs now refuses to start on `error` rather than guessing.
+ */
+describe("unreadable network.json is reported, not swallowed", () => {
+  it("no file at all is NOT an error — defaulting is legitimate there", () => {
+    fs.rmSync(NET, { force: true });
+    const r = readNetworkConfigResult();
+    expect(r.error).toBeNull();
+    expect(r.config).toEqual(DEFAULTS);
+  });
+
+  it("a file that won't parse reports why", () => {
+    fs.mkdirSync(path.dirname(NET), { recursive: true });
+    fs.writeFileSync(NET, "{ this is not json");
+    const r = readNetworkConfigResult();
+    expect(r.error).toBeTruthy();
+    // Still returns something usable so callers that only display config don't crash…
+    expect(r.config).toEqual(DEFAULTS);
+    // …but the error is what stops the server booting on the wrong port.
+    expect(readNetworkConfig()).toEqual(DEFAULTS);
+  });
+
+  it("tolerates a UTF-8 BOM instead of silently reverting to port 3000", () => {
+    // The actual trigger, twice in one day, on two different machines: almost any Windows
+    // editor adds one, it is invisible, and JSON.parse throws on it.
+    fs.writeFileSync(NET, "﻿" + JSON.stringify({ mode: "off", httpPort: 8443 }));
+    const r = readNetworkConfigResult();
+    expect(r.error).toBeNull();
+    expect(r.config.httpPort).toBe(8443);
+  });
+
+  it("a TLS config survives the round trip", () => {
+    fs.writeFileSync(NET, JSON.stringify({ mode: "letsencrypt", httpsPort: 443, domain: "d.example.com" }));
+    const r = readNetworkConfigResult();
+    expect(r.error).toBeNull();
+    expect(r.config.mode).toBe("letsencrypt");
   });
 });

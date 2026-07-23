@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.6",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "important",
+      "summary": "Beta: an encrypted backup is now encrypted all the way through. Until now only the settings inside it were protected - every uploaded icon sat in the file as a plain image anyone could open without the passphrase, which for most people is a list of the services they run. Everything is now inside the encryption. Existing backups still restore, but they were affected, so replace any you are relying on. Backups also now include your module data - each module's configuration, stored records and dashboard layout - so restoring no longer leaves your modules installed but empty. The download is now a .dashbk file rather than a .zip; older .zip backups still restore. And if JonDash cannot read its network settings file it now says so and stops, instead of silently starting on plain HTTP port 3000 - which on an HTTPS install meant quietly serving unencrypted."
+    },
+    {
       "version": "1.5.3-beta.5",
       "date": "2026-07-23",
       "type": "minor",

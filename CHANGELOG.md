@@ -9,6 +9,28 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.6] — 2026-07-23
+
+**Beta: an encrypted backup is now encrypted all the way through.**
+
+### Fixed
+- **An "encrypted" backup left every icon readable in the clear.** Only the settings inside were
+  protected; each uploaded icon sat in the file as a plain image anyone could open without the
+  passphrase — for most people, a list of the services they run. These are the files people put on
+  cloud drives and USB sticks *because* they are encrypted. Everything is now inside the
+  encryption. **Existing encrypted backups were affected — replace any you are relying on.** They
+  still restore.
+- **A network settings file JonDash can't read no longer silently starts it on plain HTTP.** It
+  fell back to port 3000 with no warning anywhere, which on an install set up for HTTPS meant
+  quietly serving unencrypted. It now says what is wrong and stops. A file saved with a UTF-8 BOM
+  — the usual cause — is now read normally instead of being rejected.
+
+### Added
+- **Backups include your module data** — each module's configuration, stored records and dashboard
+  layout. Restoring no longer leaves modules installed but empty. A module's own database tables
+  are not included; they belong to the module version installed at restore time.
+- **The download is a `.dashbk` file** rather than a `.zip`. Older `.zip` backups still restore.
+
 ## [1.5.3-beta.5] — 2026-07-23
 
 **Beta: automatic updates actually work, and everything that updates is on one page.**
@@ -974,6 +996,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.6
 [1.5.3-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.5
 [1.5.3-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.4
 [1.5.3-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.3

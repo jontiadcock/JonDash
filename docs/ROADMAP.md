@@ -758,7 +758,12 @@ _None currently._
   **Also document it:** `README.md` says what to back up but never says how to move or duplicate an
   install — copy everything **except** `node_modules` and `.next` (the launcher regenerates both), or
   export a backup and restore into a fresh install.
-- **BUG-25 · An "encrypted" backup leaves every icon readable in the clear — OPEN.** Reported by the
+- **BUG-25 · An "encrypted" backup leaves every icon readable in the clear — fixed v1.5.3-beta.6.**
+  Fixed by format **v4**: with a passphrase the archive is a single `backup.json` and the icons live
+  inside its ciphertext, so no entry can be opened without the passphrase. Not "encrypt the important
+  part" — a container that seals only its payload grows a new leak each time it gains content, which is
+  how this appeared. Unencrypted backups keep the v3 layout (`icons/` entries), and v2/v3 archives still
+  restore. **Existing encrypted backups were affected and should be replaced.** Original detail: Reported by the
   owner 2026-07-22, who opened an encrypted backup ZIP and viewed `icons/<hash>.png` straight out of it
   with no passphrase. **They are right, and the framing is the point:** the promise of an encrypted
   backup is that the backup is encrypted, not that most of it is. People store these off-site — cloud
@@ -857,7 +862,11 @@ _None currently._
 
 ### 🟡 Medium
 
-- **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — OPEN.**
+- **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — fixed v1.5.3-beta.6.**
+  `readNetworkConfigResult()` now separates "file absent" (defaulting is legitimate) from "file present
+  but unusable", strips a leading BOM, and `server.mjs` refuses to start on the latter rather than
+  guessing — an unreadable file can't tell us whether TLS was configured, and guessing "no TLS" is the
+  unsafe direction. Original detail:
   Found 2026-07-23 while building a disposable install to test BUG-26/BUG-07. A hand-written
   `.data/network.json` saved as **UTF-8 with a BOM** made `JSON.parse` throw, and `readNetworkConfig`
   (`lib/tls/network-config.mjs:42-59`) catches *every* failure and returns `DEFAULTS` — `mode:"off"`,

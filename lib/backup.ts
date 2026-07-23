@@ -37,6 +37,7 @@ export const BACKUP_CATEGORIES = [
   "settings",
   "config",
   "icons",
+  "modules",
   "audit",
 ] as const;
 export type BackupCategory = (typeof BACKUP_CATEGORIES)[number];
@@ -48,10 +49,14 @@ export const CATEGORY_LABELS: Record<BackupCategory, string> = {
   settings: "Settings",
   config: "Server configuration (network, HTTPS, updates)",
   icons: "Icons",
+  modules: "Module data (settings, stored records, dashboard layout)",
   audit: "Audit log",
 };
 
-const FORMAT_VERSION = 3; // v3 = full ZIP; v2 (ZIP) still restorable; v1 (JSON) dropped
+// v4 = icons sealed inside the encrypted payload (BUG-25); v3/v2 ZIPs still restorable;
+// v1 (single JSON) dropped. The version only rises for ENCRYPTED backups — an unencrypted
+// one is byte-identical to v3, so nothing that can already read v3 loses the ability.
+const FORMAT_VERSION = 4;
 const MIN_RESTORABLE_VERSION = 2;
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 32 } as const;
 const BACKUP_JSON = "backup.json";
@@ -91,6 +96,41 @@ type BackupData = {
   settings?: SettingExport[];
   config?: ConfigExport[];
   encryptionKey?: string; // secrets.json text — encrypted backups only (BUG-04 fix)
+  /**
+   * Icon images, carried INSIDE the encrypted payload (format v4, BUG-25 fix).
+   *
+   * Only present in an encrypted backup. Until v4 icons were written to the ZIP as raw
+   * bytes whatever the passphrase, so an "encrypted" archive handed over every uploaded
+   * image — in practice an inventory of which services the owner runs. An unencrypted
+   * backup still stores them as ordinary `icons/` entries: there is nothing to protect,
+   * and leaving them browsable is useful.
+   */
+  icons?: { filename: string; dataBase64: string }[];
+  /**
+   * Installed modules and everything they own (owner ask, 2026-07-23).
+   *
+   * Backing up the app but not the modules meant restoring left a dashboard whose modules
+   * had forgotten their configuration and their stored data — the module was still
+   * installed, and empty.
+   *
+   * `records` is the generic per-module store; `layouts` is each user's widget
+   * arrangement. Deliberately NOT included: the module's own `mod_<id>_*` SQL tables. Those
+   * are created by the module's migrations, whose schema belongs to the module version
+   * installed at restore time — writing rows from a different version back into them is how
+   * you corrupt a module rather than restore it. Recorded as a known limit, not an
+   * oversight; see docs/ROADMAP.md.
+   */
+  modules?: {
+    id: string;
+    version: string;
+    enabled: boolean;
+    source: string;
+    channel: string;
+    autoUpdate: boolean;
+    grantedPermissions: string;
+    records: { key: string; valueJson: string; secret: boolean }[];
+    layouts: { userId: string; width: number; height: number; sortOrder: number }[];
+  }[];
   audit?: { action: string; userId: string | null; ip: string | null; detail: string | null; createdAt: string }[];
 };
 
@@ -209,6 +249,35 @@ export async function buildBackupData(includeSensitive: boolean): Promise<Backup
     if (keyText) data.encryptionKey = keyText;
   }
 
+  // Installed modules and what they own. A restore that brought back the app but left
+  // every module unconfigured and empty isn't a restore.
+  const modules = await prisma.module.findMany({ orderBy: { id: "asc" } });
+  if (modules.length) {
+    const [records, layouts] = await Promise.all([
+      prisma.moduleRecord.findMany({ orderBy: [{ moduleId: "asc" }, { key: "asc" }] }),
+      prisma.moduleLayout.findMany({ orderBy: [{ moduleId: "asc" }, { sortOrder: "asc" }] }),
+    ]);
+    data.modules = modules.map((m) => ({
+      id: m.id,
+      version: m.version,
+      enabled: m.enabled,
+      source: m.source,
+      channel: m.channel,
+      autoUpdate: m.autoUpdate,
+      grantedPermissions: m.grantedPermissions,
+      records: records
+        .filter((r) => r.moduleId === m.id)
+        // A module record marked `secret` is encrypted at rest with the install's key, so
+        // it only travels in an ENCRYPTED backup — which is the only kind that carries the
+        // key needed to read it back (BUG-04). Otherwise it restores as undecryptable junk.
+        .filter((r) => includeSensitive || !r.secret)
+        .map((r) => ({ key: r.key, valueJson: r.valueJson, secret: r.secret })),
+      layouts: layouts
+        .filter((l) => l.moduleId === m.id)
+        .map((l) => ({ userId: l.userId, width: l.width, height: l.height, sortOrder: l.sortOrder })),
+    }));
+  }
+
   const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: "asc" } });
   if (logs.length) {
     data.audit = logs.map((a) => ({
@@ -232,6 +301,7 @@ function includesFor(data: BackupData, hasIcons: boolean): BackupCategory[] {
   if (data.settings?.length) out.push("settings");
   if (data.config?.length) out.push("config");
   if (hasIcons) out.push("icons");
+  if (data.modules?.length) out.push("modules");
   if (data.audit?.length) out.push("audit");
   return out;
 }
@@ -297,20 +367,39 @@ function buildEnvelopeJson(
   return JSON.stringify(env);
 }
 
-/** Serialize a full backup to a ZIP archive (backup.json + icons/). */
+/**
+ * Serialize a full backup to a ZIP archive.
+ *
+ * Encrypted (v4): ONE entry, `backup.json`, and everything is inside its ciphertext —
+ * icons included. Not "encrypt the important part": a container that seals only its main
+ * payload grows a new plaintext leak every time it gains content, which is exactly how
+ * BUG-25 happened. Icons were added *beside* the envelope by an earlier fix and the
+ * encryption boundary silently didn't move with them.
+ *
+ * Unencrypted (v3 layout): `backup.json` + `icons/<file>`, unchanged.
+ */
 export async function serializeBackup(passphrase: string | null): Promise<Uint8Array> {
   const data = await buildBackupData(!!passphrase);
-  const icons = await collectBackupIcons();
+  const icons = (await collectBackupIcons()).filter((i) => isValidIconFilename(i.filename));
   const includes = includesFor(data, icons.length > 0);
 
-  const files: Record<string, Uint8Array> = {
-    [BACKUP_JSON]: strToU8(buildEnvelopeJson(data, includes, passphrase)),
-  };
-  for (const icon of icons) {
-    if (isValidIconFilename(icon.filename)) {
-      files[ICON_PREFIX + icon.filename] = new Uint8Array(icon.data);
-    }
+  if (passphrase) {
+    // Fold the icons into the payload BEFORE it is encrypted, so the archive has no
+    // entry a reader could open without the passphrase.
+    const sealed: BackupData = {
+      ...data,
+      icons: icons.map((i) => ({ filename: i.filename, dataBase64: i.data.toString("base64") })),
+    };
+    return zipSync(
+      { [BACKUP_JSON]: strToU8(buildEnvelopeJson(sealed, includes, passphrase)) },
+      { level: 6 },
+    );
   }
+
+  const files: Record<string, Uint8Array> = {
+    [BACKUP_JSON]: strToU8(buildEnvelopeJson(data, includes, null)),
+  };
+  for (const icon of icons) files[ICON_PREFIX + icon.filename] = new Uint8Array(icon.data);
   return zipSync(files, { level: 6 });
 }
 
@@ -392,6 +481,15 @@ export function parseBackup(
   const { data, includes } = parseEnvelope(strFromU8(jsonBytes), passphrase);
 
   const iconFiles: IconFile[] = [];
+
+  // v4 encrypted: icons live inside the decrypted payload. Older archives (and every
+  // unencrypted one) keep them as ZIP entries, so both are read here — a format change
+  // that stopped old backups restoring would be a worse bug than the one it fixed.
+  for (const icon of data.icons ?? []) {
+    if (isValidIconFilename(icon.filename)) {
+      iconFiles.push({ filename: icon.filename, data: Buffer.from(icon.dataBase64, "base64") });
+    }
+  }
   for (const [name, content] of Object.entries(entries)) {
     if (!name.startsWith(ICON_PREFIX)) continue;
     const filename = name.slice(ICON_PREFIX.length);
@@ -521,6 +619,42 @@ export async function applyRestore(
         await tx.setting.create({
           data: { scope: s.scope, ownerId: s.ownerId, key: s.key, valueJson: s.valueJson, secret: s.secret },
         });
+      }
+    }
+
+    if (restore("modules") && data.modules) {
+      // Rows only — the module's FILES are not in the backup. Restoring onto an install
+      // that doesn't have a module installed leaves its settings waiting for it, which is
+      // the useful behaviour: install the module and its configuration is already there.
+      await tx.moduleRecord.deleteMany({});
+      await tx.moduleLayout.deleteMany({});
+
+      const validUserIds = new Set((await tx.user.findMany({ select: { id: true } })).map((u) => u.id));
+      for (const m of data.modules) {
+        // Update, never create: a Module row asserts that code is installed on disk. Making
+        // one for a module whose files are absent invents an install that isn't there, and
+        // the registry is generated at build time so it would not appear anyway.
+        await tx.module.updateMany({
+          where: { id: m.id },
+          data: {
+            enabled: m.enabled,
+            channel: m.channel,
+            autoUpdate: m.autoUpdate,
+            grantedPermissions: m.grantedPermissions,
+          },
+        });
+        for (const r of m.records) {
+          await tx.moduleRecord.create({
+            data: { moduleId: m.id, key: r.key, valueJson: r.valueJson, secret: r.secret },
+          });
+        }
+        for (const l of m.layouts) {
+          // A layout belongs to a user; drop it if that user didn't come back.
+          if (!validUserIds.has(l.userId)) continue;
+          await tx.moduleLayout.create({
+            data: { moduleId: m.id, userId: l.userId, width: l.width, height: l.height, sortOrder: l.sortOrder },
+          });
+        }
       }
     }
 

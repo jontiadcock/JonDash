@@ -125,7 +125,7 @@ describe("full server backup", () => {
     expect([zip[0], zip[1], zip[2], zip[3]]).toEqual([0x50, 0x4b, 0x03, 0x04]); // PK\x03\x04
 
     const env = envOf(zip);
-    expect(env.formatVersion).toBe(3);
+    expect(env.formatVersion).toBe(4); // v4 = icons sealed inside the ciphertext (BUG-25)
     expect(env.encrypted).toBe(false);
     expect(env.includes).toEqual(expect.arrayContaining(["users", "roles", "access-roles", "settings"]));
     // No sensitive material.
@@ -313,4 +313,140 @@ describe("full server backup", () => {
       await deleteIcon(ICON);
     }
   });
+});
+
+
+/**
+ * BUG-25. An "encrypted" backup used to write icons/<hash>.png into the ZIP as raw bytes
+ * whatever the passphrase, so anyone who opened the file got every uploaded image — in
+ * practice an inventory of which services the owner runs. The promise of an encrypted
+ * backup is that the backup is encrypted, not that most of it is.
+ */
+describe("an encrypted backup is encrypted ALL THE WAY THROUGH", () => {
+  const ICON_B = "b".repeat(32) + ".png";
+  const BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+
+  it("leaves nothing readable in the archive without the passphrase", async () => {
+    await writeNamedIcon(ICON_B, BYTES);
+    // collectBackupIcons only gathers icons a Link actually references.
+    const role = await prisma.serviceRole.create({
+      data: { name: `R${Date.now()}${Math.random()}`, links: { create: [{ title: "I", url: "https://i.example", sortOrder: 0, iconPath: ICON_B }] } },
+    });
+    try {
+      const entries = unzipSync(await serializeBackup(PASS));
+      // The ONLY entry is the sealed envelope. Not "the important part is encrypted" —
+      // a container that seals only its payload grows a new leak every time it gains
+      // content, which is exactly how this bug appeared.
+      expect(Object.keys(entries)).toEqual(["backup.json"]);
+      const env = JSON.parse(strFromU8(entries["backup.json"]!));
+      expect(env.encrypted).toBe(true);
+      expect(env.data).toBeUndefined();
+      expect(typeof env.ciphertext).toBe("string");
+    } finally {
+      await prisma.serviceRole.deleteMany({ where: { id: role.id } });
+      await deleteIcon(ICON_B);
+    }
+  });
+
+  it("still round-trips the icons for someone who HAS the passphrase", async () => {
+    await writeNamedIcon(ICON_B, BYTES);
+    // collectBackupIcons only gathers icons a Link actually references.
+    const role = await prisma.serviceRole.create({
+      data: { name: `R${Date.now()}${Math.random()}`, links: { create: [{ title: "I", url: "https://i.example", sortOrder: 0, iconPath: ICON_B }] } },
+    });
+    try {
+      const { includes, iconFiles } = parseBackup(await serializeBackup(PASS), PASS);
+      expect(includes).toContain("icons");
+      const got = iconFiles.find((f) => f.filename === ICON_B);
+      expect(got).toBeTruthy();
+      expect(Buffer.from(got!.data).equals(BYTES)).toBe(true);
+    } finally {
+      await prisma.serviceRole.deleteMany({ where: { id: role.id } });
+      await deleteIcon(ICON_B);
+    }
+  });
+
+  it("an UNencrypted backup still stores icons as ordinary entries", async () => {
+    // Nothing to protect there, and browsable is useful — this also keeps an unencrypted
+    // v4 archive byte-compatible with what a v3 reader expects.
+    await writeNamedIcon(ICON_B, BYTES);
+    // collectBackupIcons only gathers icons a Link actually references.
+    const role = await prisma.serviceRole.create({
+      data: { name: `R${Date.now()}${Math.random()}`, links: { create: [{ title: "I", url: "https://i.example", sortOrder: 0, iconPath: ICON_B }] } },
+    });
+    try {
+      const entries = unzipSync(await serializeBackup(null));
+      expect(Object.keys(entries).some((k) => k.startsWith("icons/"))).toBe(true);
+    } finally {
+      await prisma.serviceRole.deleteMany({ where: { id: role.id } });
+      await deleteIcon(ICON_B);
+    }
+  });
+});
+
+describe("module data is backed up (owner ask, 2026-07-23)", () => {
+  // Self-contained: resetDb does not clear Module, so each test creates and removes its
+  // own row rather than leaking one into every other test's category count.
+  async function withModule(fn: () => Promise<void>) {
+    await prisma.module.create({
+      data: { id: "demo-mod", name: "Demo", version: "1.0.0", enabled: true, source: "bundled", channel: "beta", autoUpdate: true },
+    });
+    try {
+      await fn();
+    } finally {
+      await prisma.moduleRecord.deleteMany({ where: { moduleId: "demo-mod" } });
+      await prisma.module.deleteMany({ where: { id: "demo-mod" } });
+    }
+  }
+
+  it("carries a module's settings and stored records", async () => {
+    await withModule(async () => {
+      await prisma.moduleRecord.create({
+        data: { moduleId: "demo-mod", key: "greeting", valueJson: JSON.stringify("hello") },
+      });
+      const { data, includes } = parseBackup(await serializeBackup(PASS), PASS);
+      expect(includes).toContain("modules");
+      const m = data.modules?.find((x) => x.id === "demo-mod");
+      expect(m?.channel).toBe("beta");
+      expect(m?.autoUpdate).toBe(true);
+      expect(m?.records).toEqual([{ key: "greeting", valueJson: JSON.stringify("hello"), secret: false }]);
+    });
+  });
+
+  it("keeps a module's SECRET records out of an UNencrypted backup", async () => {
+    // They're encrypted with the install's key, which only an encrypted backup carries
+    // (BUG-04). Exporting them without it restores undecryptable junk.
+    await withModule(async () => {
+      await prisma.moduleRecord.create({
+        data: { moduleId: "demo-mod", key: "apiKey", valueJson: "ENCRYPTED-BLOB", secret: true },
+      });
+      const plain = parseBackup(await serializeBackup(null), null);
+      expect(plain.data.modules?.[0]?.records.map((r) => r.key) ?? []).not.toContain("apiKey");
+
+      const sealed = parseBackup(await serializeBackup(PASS), PASS);
+      expect(sealed.data.modules?.[0]?.records.map((r) => r.key) ?? []).toContain("apiKey");
+    });
+  });
+
+  it("restores records but never invents a Module row for code that isn't installed", async () => {
+    const parsed = await withModuleParsed();
+    await prisma.moduleRecord.deleteMany({});
+    await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
+    // The module's FILES aren't in a backup, so a row would assert an install that
+    // doesn't exist. Records are kept, waiting for the module to be installed.
+    expect(await prisma.module.count({ where: { id: "ghost-mod" } })).toBe(0);
+    expect(await prisma.moduleRecord.count({ where: { moduleId: "ghost-mod" } })).toBe(1);
+  });
+
+  async function withModuleParsed() {
+    await prisma.module.create({
+      data: { id: "ghost-mod", name: "Ghost", version: "1.0.0", enabled: true, source: "bundled" },
+    });
+    await prisma.moduleRecord.create({
+      data: { moduleId: "ghost-mod", key: "k", valueJson: "1" },
+    });
+    const parsed = parseBackup(await serializeBackup(PASS), PASS);
+    await prisma.module.deleteMany({ where: { id: "ghost-mod" } });
+    return parsed;
+  }
 });
