@@ -5,7 +5,9 @@ import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { compareVersions } from "@/lib/version";
-import { getAppVersion } from "@/lib/update";
+import { revalidatePath } from "next/cache";
+import { getAppVersion, getUpdateStatus } from "@/lib/update";
+import { getModuleUpdateStatus } from "@/lib/modules/updates";
 import { fetchSourceManifest, DEFAULT_SOURCE_URL } from "@/lib/modules/sources";
 import { installHelper } from "@/lib/helpers/install";
 import { getHelperUpdateStatus, invalidateHelperUpdateCache } from "@/lib/helpers/updates";
@@ -15,6 +17,18 @@ import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } fr
 import { applyModuleUpdates } from "./module-actions";
 
 export type SelectionState = { ok?: boolean; error?: string };
+
+/** Force a fresh check of all three — core, modules and helpers — in one click. */
+export async function checkAllUpdatesAction(): Promise<void> {
+  await assertSameOrigin();
+  await requirePermission("settings.manage");
+  await Promise.allSettled([
+    getUpdateStatus(true),
+    getModuleUpdateStatus(true),
+    getHelperUpdateStatus(true),
+  ]);
+  revalidatePath("/admin/updates");
+}
 
 /**
  * Apply a selection of module and helper updates in ONE rebuild and ONE restart.

@@ -21,7 +21,6 @@ export default async function AdminUpdatesPage() {
   await requirePermission("settings.manage");
   const version = getAppVersion();
   const channel = readChannel();
-  const autoInstall = readAutoInstall();
   const failure = readUpdateFailure();
 
   // Best-effort: an unreachable module source must never take the app's own panel down.
@@ -115,9 +114,6 @@ export default async function AdminUpdatesPage() {
     });
   }
 
-  // How many things automatic updates actually covers, now the master switch decides it.
-  const optedInCount = schedule.autoEnabled ? autoItems.filter((i) => !i.excluded).length : 0;
-
   const betaItems: BetaItem[] = [
     { kind: "app", id: "app", name: "JonDash", onBeta: channel === "beta" },
     ...moduleRows.map((m) => ({
@@ -151,32 +147,11 @@ export default async function AdminUpdatesPage() {
       </section>
 
       <section className="card p-6">
-        <UpdatesPanel version={version} channel={channel} autoInstall={autoInstall} failure={failure} />
+        <UpdatesPanel version={version} channel={channel} failure={failure} />
       </section>
 
-      <section className="card p-6">
-        <BetaChannels items={betaItems} />
-      </section>
-
-      <section className="card p-6">
-        <AutoUpdatePanel
-          enabled={schedule.autoEnabled}
-          items={autoItems}
-          scheduleSummary={describeSchedule(schedule)}
-        />
-      </section>
-
-      <section className="card p-6">
-        <UpdateScheduleForm
-          frequency={schedule.frequency}
-          timeOfDay={`${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`}
-          dayOfWeek={schedule.dayOfWeek}
-          dayOfMonth={schedule.dayOfMonth}
-          optedInCount={optedInCount}
-          summary={describeSchedule(schedule)}
-        />
-      </section>
-
+      {/* Order follows what you'd do: what have I got → what can I update → should it do
+          it for me → which channels am I on. */}
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Available updates</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
@@ -189,6 +164,26 @@ export default async function AdminUpdatesPage() {
           Installing and removing modules lives in{" "}
           <Link href="/admin/modules" style={{ color: "var(--primary)" }}>Admin → Modules</Link>.
         </p>
+      </section>
+
+      <section className="card p-6">
+        <AutoUpdatePanel
+          enabled={schedule.autoEnabled}
+          items={autoItems}
+          scheduleSummary={describeSchedule(schedule)}
+          scheduleForm={
+            <UpdateScheduleForm
+              frequency={schedule.frequency}
+              timeOfDay={`${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`}
+              dayOfWeek={schedule.dayOfWeek}
+              dayOfMonth={schedule.dayOfMonth}
+            />
+          }
+        />
+      </section>
+
+      <section className="card p-6">
+        <BetaChannels items={betaItems} />
       </section>
     </div>
   );

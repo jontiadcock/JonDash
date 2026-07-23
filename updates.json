@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.13",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: tidies up the Updates page. Several things had ended up in two places at once - notably two separate cards both titled Automatic updates, and an automatic-install tickbox that did the same job as the Automatic updates switch. The page is now four sections in the order you would work through them: which version you are running, what is available to update, whether it should update itself, and which beta channels you are on. The update schedule now sits inside the Automatic updates section and only appears once you turn the switch on, since it means nothing while it is off. Checking for updates and installing them now happen in one place instead of two."
+    },
+    {
       "version": "1.5.3-beta.12",
       "date": "2026-07-23",
       "type": "minor",

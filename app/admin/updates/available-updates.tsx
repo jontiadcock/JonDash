@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { updateSelectedAction, type SelectionState } from "./selection-actions";
+import { updateSelectedAction, checkAllUpdatesAction, type SelectionState } from "./selection-actions";
 import { RestartWarning } from "../modules/restart-warning";
 import { useRebuildWatch } from "../modules/rebuild-watch";
 
@@ -99,9 +99,16 @@ export function AvailableUpdates({
   const effective = chosen.length > 0 ? chosen : selectable.filter((it) => it.kind !== "core");
   const label = chosen.length > 0 ? `Update selected (${chosen.length})` : "Update all";
 
+  const checkNow = (
+    <form action={checkAllUpdatesAction}>
+      <button type="submit" className="btn btn-ghost !py-1.5 text-sm">Check now</button>
+    </form>
+  );
+
   if (items.length === 0) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
+        {checkNow}
         {errors.map((e, i) => (
           <p key={i} className="text-sm" style={{ color: "var(--danger)" }}>
             <strong>{e.source}:</strong> {e.message}
@@ -115,6 +122,7 @@ export function AvailableUpdates({
   return (
     <div className="flex flex-col gap-4">
       {overlay}
+      {checkNow}
 
       {errors.map((e, i) => (
         <p key={i} className="text-sm" style={{ color: "var(--danger)" }}>

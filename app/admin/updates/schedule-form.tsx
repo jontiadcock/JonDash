@@ -17,15 +17,11 @@ export function UpdateScheduleForm({
   timeOfDay,
   dayOfWeek,
   dayOfMonth,
-  optedInCount,
-  summary,
 }: {
   frequency: string;
   timeOfDay: string;
   dayOfWeek: number;
   dayOfMonth: number;
-  optedInCount: number;
-  summary: string;
 }) {
   const [state, action, pending] = useActionState<ScheduleState, FormData>(
     saveUpdateScheduleAction,
@@ -35,23 +31,11 @@ export function UpdateScheduleForm({
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-lg font-medium">Automatic updates</h2>
-        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-          {optedInCount === 0 ? (
-            <>
-              Nothing is set to update automatically yet. Tick <strong>Update automatically</strong> on a
-              module or helper below, and it will be updated on this schedule.
-            </>
-          ) : (
-            <>
-              {summary} — {optedInCount} {optedInCount === 1 ? "item is" : "items are"} set to update
-              automatically. Applying an update restarts the dashboard and signs everyone out, so pick a
-              quiet time.
-            </>
-          )}
-        </p>
-      </div>
+      {/* No heading here: this renders INSIDE the Automatic updates panel, which already
+          has one. Two cards both titled "Automatic updates" is what this replaced. */}
+      <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+        When it runs
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div>

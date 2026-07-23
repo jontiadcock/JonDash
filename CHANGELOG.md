@@ -9,6 +9,20 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.13] — 2026-07-23
+
+### Changed
+- **Tidied up the Updates page.** Several things had ended up in two places at once — most
+  obviously **two separate cards both titled "Automatic updates"**, and an "Automatically install
+  updates when available" tickbox doing the same job as the Automatic updates switch.
+- **The page is now four sections, in the order you'd work through them:** which version you're
+  running · what's available to update · whether it should update itself · which beta channels
+  you're on.
+- **The schedule now sits inside Automatic updates**, and only appears once the switch is on — it
+  means nothing while it's off.
+- **Checking for updates and installing them happen in one place**, rather than a "Check for
+  updates" button at the top and a separate list below.
+
 ## [1.5.3-beta.12] — 2026-07-23
 
 ### Changed
@@ -1073,6 +1087,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.13]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.13
 [1.5.3-beta.12]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.12
 [1.5.3-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.11
 [1.5.3-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.10

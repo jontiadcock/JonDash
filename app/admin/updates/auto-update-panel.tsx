@@ -23,10 +23,14 @@ export function AutoUpdatePanel({
   enabled,
   items,
   scheduleSummary,
+  scheduleForm,
 }: {
   enabled: boolean;
   items: AutoItem[];
   scheduleSummary: string;
+  /** The schedule, rendered here only once the switch is on — it means nothing while off.
+      An ELEMENT, not a render function: a function can't cross the RSC boundary. */
+  scheduleForm: React.ReactNode;
 }) {
   const excluded = items.filter((i) => i.excluded).length;
 
@@ -53,7 +57,16 @@ export function AutoUpdatePanel({
       </p>
 
       {enabled && (
+        <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+          {scheduleForm}
+        </div>
+      )}
+
+      {enabled && (
         <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+            Exclude anything you would rather update yourself
+          </p>
           {items.map((it) => (
             <form
               key={`${it.kind}:${it.id}`}
