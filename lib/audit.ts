@@ -3,15 +3,32 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { getAuditRetentionDays } from "@/lib/settings";
 
-/** Append a security-relevant event to the audit log (best-effort). */
+/**
+ * Append a security-relevant event to the audit log (best-effort).
+ *
+ * The two steps are deliberately in SEPARATE try blocks (BUG-29). `headers()` throws
+ * outside a request scope — which is every scheduled or background action, including a
+ * module's timed work — and while it shared a `try` with the write, that throw happened
+ * *before* the write and the catch swallowed it. No row, no error, no signal: background
+ * work was silently unauditable, and a caller couldn't tell because this returns
+ * `Promise<void>` and eats its own failures.
+ *
+ * The request context is optional ENRICHMENT. Losing it must cost the `ip` column, never
+ * the row.
+ */
 export async function audit(
   action: string,
   opts: { userId?: string | null; detail?: string } = {},
 ): Promise<void> {
+  let ip: string | undefined;
   try {
     const h = await headers();
-    const ip =
-      h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? undefined;
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? undefined;
+  } catch {
+    // No request in scope: background work. Leave ip undefined and still record the event.
+  }
+
+  try {
     await prisma.auditLog.create({
       data: {
         action,

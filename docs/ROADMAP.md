@@ -611,7 +611,7 @@ _None currently._
 
 ### 🟠 High
 
-- **BUG-29 · Background work can't be audited — every scheduled module action is silently unlogged — OPEN.**
+- **BUG-29 · Background work can't be audited — every scheduled module action is silently unlogged — fixed v1.5.3-beta.3.**
   Reported by the add-ons session 2026-07-23 from Backup Manager's first scheduled run; **reproduced here
   the same day**. `lib/audit.ts:12` calls `await headers()` inside the *same* `try` as the
   `prisma.auditLog.create` on line 15. `headers()` throws outside a request scope, so background work
@@ -643,6 +643,19 @@ _None currently._
   audit trail, which is where anyone would look first. `HELPER.md` carries a caveat until this lands.
   **High rather than Critical:** nothing is destroyed or exposed, but it silently defeats a security
   control, and has presumably been true since modules first got a scheduler.
+  **Fixed as proposed** (v1.5.3-beta.3): the IP is resolved in its own `try/catch` defaulting to
+  `undefined`, then the write happens in a separate `try`. A missing request context now costs the `ip`
+  column, not the row, and the never-break-the-flow property is preserved. Four regression tests run
+  outside a request scope — the actual failing condition — and **three of them fail against the old
+  implementation**, which is what makes them worth having.
+  **Their "system" question is NOT done, deliberately.** The audit page renders
+  `user?.email ?? "—"` and `ip ?? "—"`, so a scheduled row now shows "— —", indistinguishable from
+  "we don't know who". Tempting inference: no user *and* no ip means background — and it would work
+  today (of 196 rows on a real install, **0** lack an ip, so every request-scope row has one). It is
+  still the wrong fix: `ip` comes from `x-forwarded-for`/`x-real-ip`, and on any deployment that
+  doesn't set them a **real user action would be labelled "System"**. An audit log asserting the wrong
+  actor is worse than one admitting it doesn't know. Do it with an explicit `source` column and a
+  migration, or not at all.
 - **BUG-27 · The verifier missed two ways a module reaches outside itself — fixed v1.5.3-beta.1.** Found 2026-07-23 by
   testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
   CSP doesn't apply.

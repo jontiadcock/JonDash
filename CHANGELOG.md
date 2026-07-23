@@ -9,6 +9,18 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.3] — 2026-07-23
+
+**Beta: scheduled work is recorded in the audit log again.**
+
+### Fixed
+- **Anything JonDash did on a schedule was missing from the audit log — silently.** Only actions
+  someone triggered by clicking were ever recorded. Work that ran on a timer — a module tidying up
+  old backups overnight, a health check, any scheduled task — was written to the log, failed to
+  save, and reported nothing. The log looked complete, so there was no reason to suspect the gap.
+  Scheduled actions are now recorded like any other. They show no IP address, because there is no
+  browser involved — but the event itself is kept.
+
 ## [1.5.3-beta.2] — 2026-07-23
 
 **Beta: sending mail through a relay, and mail errors that tell you what went wrong.**
@@ -921,6 +933,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.3
 [1.5.3-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.2
 [1.5.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.1
 [1.5.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2

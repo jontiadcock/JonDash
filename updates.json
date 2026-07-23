@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.3",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: anything JonDash did on a schedule was missing from the audit log, silently. Only actions someone triggered by clicking were ever recorded - work that ran on a timer, such as a module tidying up old backups overnight or a health check, tried to save an entry, failed, and reported nothing. The log looked complete, so there was no reason to suspect the gap. Scheduled actions are now recorded like any other; they show no IP address, because no browser is involved, but the event itself is kept. Reported by the add-ons session after a module's first scheduled run."
+    },
+    {
       "version": "1.5.3-beta.2",
       "date": "2026-07-23",
       "type": "minor",
