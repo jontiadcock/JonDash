@@ -22,4 +22,15 @@ export async function register() {
     // Never fatal. A broken helper layer must not take the dashboard down with it.
     console.error("[instrumentation] helper boot failed:", e);
   }
+
+  // Scheduled automatic updates for modules and helpers (BUG-30). Same reasoning as the
+  // helper scheduler above: an update window of 03:00 is worthless if the timer only
+  // starts when somebody opens a page. Separate try — a failure here must not stop
+  // helpers booting, or vice versa.
+  try {
+    const { startUpdateScheduler } = await import("@/lib/updates/scheduler");
+    startUpdateScheduler();
+  } catch (e) {
+    console.error("[instrumentation] update scheduler failed to start:", e);
+  }
 }

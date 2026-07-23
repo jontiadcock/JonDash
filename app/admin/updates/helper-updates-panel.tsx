@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { AutoUpdateToggle } from "./auto-update-toggle";
 import {
   updateHelpersAction,
   updateEverythingAction,
@@ -22,6 +23,8 @@ export type HelperUpdateView = {
   isDowngrade: boolean;
   breaksModules: string[];
   notes?: string;
+  /** Opted in to automatic updates (BUG-30). */
+  autoUpdate: boolean;
 };
 
 /**
@@ -166,6 +169,19 @@ export function HelperUpdatesPanel({
                   {!h.updateAvailable && !h.blockedReason && (
                     <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Up to date.</p>
                   )}
+
+                  <div className="mt-2">
+                    <AutoUpdateToggle
+                      kind="helper"
+                      id={h.id}
+                      on={h.autoUpdate}
+                      disabledReason={
+                        h.breaksModules.length > 0
+                          ? `Would stop ${h.breaksModules.join(", ")} working — update it yourself.`
+                          : undefined
+                      }
+                    />
+                  </div>
                 </div>
 
                 {selected.has(h.id) && <input type="hidden" name="helperId" value={h.id} />}

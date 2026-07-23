@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import { AutoUpdateToggle } from "./auto-update-toggle";
 import { updateModulesAction, checkModuleUpdatesAction, type ModuleUpdateState } from "./module-actions";
 import { RestartWarning } from "../modules/restart-warning";
 import { useRebuildWatch } from "../modules/rebuild-watch";
@@ -19,6 +20,8 @@ export type ModuleUpdateView = {
   permissionWarningsAdded: string[];
   permissionsRemovedCount: number;
   notes?: string;
+  /** Opted in to automatic updates (BUG-30). */
+  autoUpdate: boolean;
 };
 
 /**
@@ -127,6 +130,21 @@ export function ModuleUpdatesPanel({ modules, errors }: { modules: ModuleUpdateV
                   )}
                 </span>
               </label>
+
+              {/* OUTSIDE the label on purpose: nested inside it, clicking this would also
+                  toggle the row's selection checkbox. */}
+              <div className="mt-2">
+                <AutoUpdateToggle
+                  kind="module"
+                  id={m.id}
+                  on={m.autoUpdate}
+                  disabledReason={
+                    m.permissionWarningsAdded.length > 0
+                      ? "This version asks for more access — approve it yourself first."
+                      : undefined
+                  }
+                />
+              </div>
 
               {/* The one place an update is deliberately not one click. */}
               {m.permissionWarningsAdded.length > 0 && (

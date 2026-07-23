@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.5",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: automatic updates actually work now, and everything that updates is on one page. The per-module 'update automatically' toggle shipped in v1.5.2 saved your choice and reported it as on, but nothing ever acted on it - no module was ever updated automatically. That is fixed, and helpers can now be opted in the same way. You choose when it runs: daily, weekly or monthly, at a time you pick, on a day of the week or day of the month. Admin - Updates is now the single page for all of it: JonDash itself and its channel, the schedule, and every module and helper with its version, channel and its own 'update automatically' tick - previously these were spread across four different screens. An update is still never applied automatically if it asks for more access than you approved, is blocked, goes backwards a version, or would stop another module working; those wait for you, and each run records what it held back and why."
+    },
+    {
       "version": "1.5.3-beta.4",
       "date": "2026-07-23",
       "type": "minor",

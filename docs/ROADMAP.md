@@ -581,6 +581,23 @@ well-behaved, not the UI defending itself.
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
 
+#### CORE-04 · Full UI rework — ⏳ scope TBD
+Owner decision 2026-07-23. **The look changes significantly; the functionality does not.** Buttons,
+controls and flows stay as they are — this is a visual pass, not a re-architecture, and nothing here
+should become a reason to move or remove a control someone already relies on.
+
+**Not yet scoped.** Deliberately left open: agree the direction before any of it is built, because a
+half-applied restyle across ~20 admin pages is worse than either the old look or the new one.
+
+Worth carrying into it when it is scoped:
+- **Mobile/responsive is already an ongoing commitment** (moved from CORE-03) — fold it in rather than
+  treating it as separate work afterwards.
+- **Consolidation beats restyling.** The Updates page work (2026-07-23) showed the real problem wasn't
+  how a control looked but that update settings lived in four places. Look for the same pattern
+  elsewhere before repainting.
+- **Test with data present.** Every UI regression found so far — the trapped overlays (BUG-23), the
+  invisible import button (BUG-22), the render-prop 500 — passed a clean build and an empty state.
+
 #### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ✅ Shipped v1.3.3-beta.1, released in v1.4.0
 Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
 **Shipped v1.3.3-beta.1:** desktop left sidebar (`app/admin/admin-sidebar.tsx`) titled "Settings" with
@@ -611,6 +628,37 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-30 · The per-module "update automatically" toggle does nothing — fixed v1.5.3-beta.5.** Found 2026-07-23 while
+  scoping the same feature for helpers. Shipped in **MOD-10 (v1.5.2)** and **live in stable now**.
+  The UI toggle exists (`app/admin/modules/[id]/page.tsx:116`), the flag saves
+  (`app/admin/modules/actions.ts:356`), `lib/modules/registry.ts` reads it back, and the page reports
+  **"Currently on"** — but `planAutoUpdates()` in `lib/modules/auto-update.ts` **has no callers**.
+  Nothing imports that module at all; it is dead code, and no test references it. A module opted in to
+  automatic updates is never updated automatically.
+  **Why it's High, not Medium:** it isn't a missing feature, it's a **false assurance about updates**.
+  Someone who ticks it reasonably believes fixes — including security fixes to a module's own code —
+  land without them. Nothing anywhere contradicts that. Silence is indistinguishable from "nothing to
+  update".
+  **The gap is only the trigger.** The planning logic is written and its refusals are right: an update
+  that ADDS a permission is never auto-applied, nor is a blocked one or a downgrade. What is missing is
+  anything that calls it and applies the result — and that's a real decision, not an oversight to patch
+  blindly: applying an update means a rebuild and a restart, which signs everyone out, so it can't
+  happen mid-request. Startup is the natural point (the launcher rebuilds and restarts there anyway).
+  **Fixed in v1.5.3-beta.5**, with the helper equivalent, sharing one runner. `lib/updates/auto-run.ts`
+  plans and applies for modules and helpers together (helpers first — a module's new version may need
+  the newer helper, never the reverse); `lib/updates/scheduler.ts` starts at boot from
+  `instrumentation.ts` and ticks every 15 minutes. Owner chose a schedule over apply-on-detect:
+  **daily/weekly/monthly, at a chosen time, on a chosen weekday or day of month.**
+  **Two bugs the tests caught before it shipped**, both silent in production: (1) deriving a synthetic
+  "first window" when no last-run existed made a *fresh install* immediately overdue, so configuring at
+  09:00 with an 03:00 schedule rebuilt and restarted the box mid-setup — now it seeds a baseline and
+  fires at the next window; (2) `setMonth()` overflows when the current day doesn't exist in the target
+  month, so from Jan 30 a monthly schedule produced "Feb 30" → **March 2, skipping February entirely**.
+  Day-of-month is capped at 28 for the same reason.
+  **Also consolidated the UI** (owner ask): update settings previously lived in four places — the app's
+  channel and auto-update on **Settings**, module/helper updates on **Updates**, and per-module
+  auto-update on **each module's own page**. All now on Admin → Updates. The module detail page keeps a
+  read-only statement of the current value and links there.
 - **BUG-29 · Background work can't be audited — every scheduled module action is silently unlogged — fixed v1.5.3-beta.3.**
   Reported by the add-ons session 2026-07-23 from Backup Manager's first scheduled run; **reproduced here
   the same day**. `lib/audit.ts:12` calls `await headers()` inside the *same* `try` as the
@@ -1029,6 +1077,14 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   reporting what it skipped rather than silently doing less than its name claims.
 - **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
   it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **Automatic updates, end to end** (BUG-30, v1.5.3-beta.5) — the schedule logic is well covered by
+  tests but **no update has ever actually been applied by the scheduler**. Tick *Update automatically*
+  on a module, set the schedule a few minutes ahead, publish a newer version, and confirm it applies and
+  restarts. Then confirm the refusals: a version that **adds a permission** must be held back and named,
+  not applied.
+- **The consolidated Updates page** (v1.5.3-beta.5) — confirm the schedule saves and reads back, the
+  weekly/monthly day fields appear for the right frequency, and the per-item ticks persist. Also check
+  the module detail page now points at Updates rather than offering its own toggle.
 - **Send a real email through the relay** (v1.5.3-beta.2) — the connection is proven (`verify()` succeeds
   against the owner's M365 endpoint with no credentials) but **nothing has actually been delivered**: no
   mail was sent during testing. Confirm a test email arrives. If it fails with `550 5.7.64`, that's the

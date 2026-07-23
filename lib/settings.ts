@@ -13,7 +13,7 @@ type FieldKind = "string" | "int";
 
 // Which admin page a setting is surfaced on. "general" = the Settings page
 // (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
-export type SettingGroup = "general" | "sessions" | "audit";
+export type SettingGroup = "general" | "sessions" | "audit" | "updates";
 
 type SettingDef<T> = {
   label: string;
@@ -67,6 +67,47 @@ export const SETTINGS = {
     schema: z.coerce.number().int().min(0).max(3650),
     group: "audit",
   } as SettingDef<number>,
+
+  // When opted-in automatic updates run. Applying one means a rebuild and a restart,
+  // which signs everyone out — so this is never "whenever an update appears", it's a
+  // window the admin picks. Nothing runs unless something is individually opted in.
+  "updates.frequency": {
+    label: "Check for updates",
+    help: "How often to look for updates to anything you've opted in to automatic updates for.",
+    kind: "string",
+    default: "weekly",
+    schema: z.enum(["daily", "weekly", "monthly"]),
+    group: "updates",
+  } as SettingDef<string>,
+
+  "updates.timeOfDay": {
+    label: "At what time",
+    help: "24-hour local time, e.g. 03:00. Pick a quiet hour — applying an update restarts the dashboard and signs everyone out.",
+    kind: "string",
+    default: "03:00",
+    schema: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Use HH:MM, e.g. 03:00."),
+    group: "updates",
+  } as SettingDef<string>,
+
+  "updates.dayOfWeek": {
+    label: "Day of the week",
+    help: "Used when checking weekly. 0 = Sunday through 6 = Saturday.",
+    kind: "int",
+    default: 0,
+    schema: z.coerce.number().int().min(0).max(6),
+    group: "updates",
+  } as SettingDef<number>,
+
+  // Capped at 28 on purpose: 29–31 would silently skip February, and an update schedule
+  // that quietly does nothing for a month is worse than one that runs slightly early.
+  "updates.dayOfMonth": {
+    label: "Day of the month",
+    help: "Used when checking monthly. 1–28, so it never skips a short month.",
+    kind: "int",
+    default: 1,
+    schema: z.coerce.number().int().min(1).max(28),
+    group: "updates",
+  } as SettingDef<number>,
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;
@@ -119,6 +160,21 @@ export async function getIdleTimeoutMs(): Promise<number> {
 }
 export async function getAuditRetentionDays(): Promise<number> {
   return readValue("audit.retentionDays");
+}
+/** Raw schedule settings for automatic updates; `lib/updates/schedule.ts` normalises them. */
+export async function getUpdateScheduleSettings(): Promise<{
+  frequency: string;
+  timeOfDay: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
+}> {
+  const [frequency, timeOfDay, dayOfWeek, dayOfMonth] = await Promise.all([
+    readValue("updates.frequency"),
+    readValue("updates.timeOfDay"),
+    readValue("updates.dayOfWeek"),
+    readValue("updates.dayOfMonth"),
+  ]);
+  return { frequency, timeOfDay, dayOfWeek, dayOfMonth };
 }
 
 // ---- Admin UI helpers ----

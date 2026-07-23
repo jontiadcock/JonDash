@@ -9,6 +9,33 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.5] — 2026-07-23
+
+**Beta: automatic updates actually work, and everything that updates is on one page.**
+
+### Fixed
+- **"Update this module automatically" did nothing.** Shipped in v1.5.2, it saved your choice and
+  the page reported it as on — but nothing ever acted on it, so no module was ever updated
+  automatically. There was no way to tell: an update that never happened looks exactly like
+  having nothing to update.
+
+### Added
+- **Helpers can be set to update automatically too**, the same per-item way as modules.
+- **You choose when it runs** — daily, weekly or monthly, at a time you pick, on a day of the week
+  or a day of the month. Applying an update restarts the dashboard and signs everyone out, so it
+  happens in a window you set rather than the moment a new version appears.
+- **Admin → Updates is now the single page for everything that updates** — JonDash itself and its
+  channel, the schedule, and every module and helper with its version, channel and its own
+  **Update automatically** tick. These were previously spread across four screens: the Settings
+  page, the Updates page, and each module's own page.
+
+### Unchanged, deliberately
+- An update is **never** applied automatically if it asks for more access than you approved, is
+  blocked, goes backwards a version, or would stop another module working. Those wait for you, and
+  every run records what it held back and why.
+- Opting in stays **per module and per helper**. There is no single switch, because one tick would
+  give every source you have added a standing channel to run new code on your machine.
+
 ## [1.5.3-beta.4] — 2026-07-23
 
 **Beta: the audit log now says when JonDash itself did something.**
@@ -947,6 +974,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.5
 [1.5.3-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.4
 [1.5.3-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.3
 [1.5.3-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.2

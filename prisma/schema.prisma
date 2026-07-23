@@ -306,6 +306,12 @@ model Helper {
   /// taking a fix early or backing one out. Null = derived. Kept separate from `channel`
   /// so removing the pin restores the derived value rather than freezing the last one.
   channelPin  String?
+  /// Opt-in automatic updates, PER HELPER and off by default — the same bargain as
+  /// `Module.autoUpdate`. A helper does the privileged work modules are forbidden, so
+  /// letting one update itself unattended is a bigger trust decision than for a module,
+  /// not a smaller one. An update that ADDS a capability, is blocked, would break a
+  /// dependent module, or is a downgrade is never applied automatically.
+  autoUpdate  Boolean  @default(false)
   installedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

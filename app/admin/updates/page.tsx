@@ -10,6 +10,9 @@ import { UpdatesPanel } from "../settings/updates-panel";
 import { ModuleUpdatesPanel, type ModuleUpdateView } from "./module-updates-panel";
 import { HelperUpdatesPanel, type HelperUpdateView } from "./helper-updates-panel";
 import { getHelperUpdateStatus } from "@/lib/helpers/updates";
+import { prisma } from "@/lib/db";
+import { readUpdateSchedule, describeSchedule } from "@/lib/updates/schedule";
+import { UpdateScheduleForm } from "./schedule-form";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +37,23 @@ export default async function AdminUpdatesPage() {
     errors: [] as { source: string; message: string }[],
     checkedAt: 0,
   }));
-  const helperViews: HelperUpdateView[] = helperStatus.helpers.map((h) => ({ ...h }));
+  // Opt-in flags live on the rows, not in the update status (which describes what's
+  // AVAILABLE, not what you've chosen). Read them here and merge, so one page can answer
+  // both "is there an update" and "will it apply itself".
+  const [moduleFlags, helperFlags, schedule] = await Promise.all([
+    prisma.module.findMany({ select: { id: true, autoUpdate: true } }),
+    prisma.helper.findMany({ select: { id: true, autoUpdate: true } }),
+    readUpdateSchedule(),
+  ]);
+  const moduleAuto = new Map(moduleFlags.map((m) => [m.id, m.autoUpdate]));
+  const helperAuto = new Map(helperFlags.map((h) => [h.id, h.autoUpdate]));
+  const optedInCount =
+    moduleFlags.filter((m) => m.autoUpdate).length + helperFlags.filter((h) => h.autoUpdate).length;
+
+  const helperViews: HelperUpdateView[] = helperStatus.helpers.map((h) => ({
+    ...h,
+    autoUpdate: helperAuto.get(h.id) ?? false,
+  }));
 
   // Drives the "Update everything" button: only offer it when there is actually something
   // for it to do, across BOTH add-on kinds.
@@ -57,6 +76,7 @@ export default async function AdminUpdatesPage() {
     permissionWarningsAdded: m.permissionsAdded.map((p) => describePermission(p, helperLabels).text),
     permissionsRemovedCount: m.permissionsRemoved.length,
     notes: m.notes,
+    autoUpdate: moduleAuto.get(m.id) ?? false,
   }));
 
   return (
@@ -64,13 +84,24 @@ export default async function AdminUpdatesPage() {
       <section>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">Updates</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Choose your update channel and check for a new version on demand. Module updates are managed
-          separately below.
+          Everything that updates — JonDash itself, your modules and the helpers they rely on — is on
+          this page, along with when automatic updates run.
         </p>
       </section>
 
       <section className="card p-6">
         <UpdatesPanel version={version} channel={channel} autoInstall={autoInstall} failure={failure} />
+      </section>
+
+      <section className="card p-6">
+        <UpdateScheduleForm
+          frequency={schedule.frequency}
+          timeOfDay={`${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`}
+          dayOfWeek={schedule.dayOfWeek}
+          dayOfMonth={schedule.dayOfMonth}
+          optedInCount={optedInCount}
+          summary={describeSchedule(schedule)}
+        />
       </section>
 
       <section className="card p-6">

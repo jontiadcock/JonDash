@@ -99,10 +99,20 @@ Three ways to add one:
   [docs/MODULES-AUTHORING.md](docs/MODULES-AUTHORING.md) into any AI agent, describe what you want, and
   import the result.
 
-Modules **update independently of JonDash** under **Admin → Updates**, on their own stable/beta channel,
-and are never updated automatically. Modules from the official source repair themselves if a file they
-need goes missing; anything imported or from elsewhere is reported instead — JonDash won't fetch code on
-its behalf.
+Modules **update independently of JonDash** under **Admin → Updates**, on their own stable/beta channel.
+They are **not** updated automatically unless you tick **Update automatically** on that module — it is
+off by default and set per module, never as one global switch, because a single tick would give every
+source you have added a standing channel to run new code here. Modules from the official source repair
+themselves if a file they need goes missing; anything imported or from elsewhere is reported instead —
+JonDash won't fetch code on its behalf.
+
+**Admin → Updates is the one page for everything that updates**: JonDash itself and its channel, the
+schedule automatic updates run on (daily, weekly or monthly, at a time you pick), and every module and
+helper with its version, channel and its own **Update automatically** tick.
+
+Whatever the schedule says, an update is **never** applied automatically when it asks for more access
+than you approved, is blocked, would go backwards a version, or would stop another module working. Those
+wait for you, and the run records what it held back and why.
 
 **Helpers** are shared components that give modules a capability they can't have alone (for example,
 background work that starts with the server). They come **only from the official source**, arrive
