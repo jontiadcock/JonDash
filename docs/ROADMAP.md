@@ -960,6 +960,26 @@ _None currently._
 
 ### 🟡 Medium
 
+- **BUG-39 · The verifier reads a COMMENTED-OUT `helpers:` line as a real declaration — OPEN, not reproduced.**
+  Reported by the add-ons session 2026-07-22; still open, and re-surfaced by the 2026-07-23 deep clean when
+  the note in `PROJECT_MEMORY.md` was found stale. `parseDeclaredHelpers` (`lib/modules/verify.ts`) parses
+  the raw source and **nothing in it strips comments** — it was rewritten for MOD-10 (object form parsed
+  first, its span removed) but comment handling was never added. So an author who leaves
+  `// helpers: ["scheduler"]` as a worked example has that read as a declaration.
+  **Consequence:** the module silently acquires a dependency it never uses, and the helper is installed for
+  it. Worse if the commented helper isn't published on that channel — `resolveHelpersOrRollBack` then
+  **refuses the install and rolls the module back**, so a comment makes a working module uninstallable.
+  **Not Critical, and not a security hole.** A comment can only make a module *over*-declare, which is the
+  safe direction: over-declaration is shown to the admin for consent. The dangerous direction is
+  under-declaring, which this cannot cause.
+  **Same class as two already fixed:** the old rule that matched the word "eval" in a README, and the
+  template 0.0.6 incident where a commented-out `helpers` example created a real dependency. **Any regex
+  over source is a regex over comments and strings too.**
+  **To fix:** reproduce first with a fixture whose `helpers:` is commented out, asserting
+  `verifyModuleFiles().declaredHelpers` is empty — if it doesn't reproduce, close this. If it does, strip
+  comments before parsing, reusing the stripper `verify.ts` already has for the banned-construct rules —
+  but **keep module specifiers**, because blanking every string literal broke the `import fs from "fs"`
+  rule once before. **Then check `parseDeclaredPermissions` for the identical hole.**
 - **BUG-34 · The module settings page mirrors channel/auto-update state and goes stale — fixed v1.5.3-beta.14.**
   Reported by the add-ons session 2026-07-23 with a screenshot: Admin → Modules → Backup Manager read
   *"Currently on beta"* while Admin → Updates → Beta channels showed its toggle **off**, in the same
