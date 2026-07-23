@@ -2,10 +2,8 @@
 
 import { useActionState, useState } from "react";
 import {
-  saveUpdateChannelAction,
   saveAutoInstallAction,
   dismissUpdateFailureAction,
-  type ChannelState,
   type AutoInstallState,
 } from "./actions";
 import { ServerWaitOverlay } from "@/app/components/server-wait-overlay";
@@ -28,7 +26,6 @@ const TYPE_LABEL: Record<string, string> = {
   patch: "Security / bug-fix",
 };
 
-const initial: ChannelState = {};
 
 export function UpdatesPanel({
   version,
@@ -41,9 +38,8 @@ export function UpdatesPanel({
   autoInstall: boolean;
   failure: UpdateFailure | null;
 }) {
-  const [chanState, chanAction, chanPending] = useActionState(saveUpdateChannelAction, initial);
-  // After a save the server prop is stale until reload, so prefer the just-saved value.
-  const currentChannel = chanState.channel ?? channel;
+  // The channel is now CHANGED in the Beta channels panel; this component only reports it.
+  const currentChannel = channel;
 
   const [autoState, autoAction] = useActionState<AutoInstallState, FormData>(saveAutoInstallAction, {});
 
@@ -118,30 +114,13 @@ export function UpdatesPanel({
         </div>
       )}
 
-      <form action={chanAction} className="flex flex-col gap-2">
-        <label className="label" htmlFor="channel">Update channel</label>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select
-            id="channel"
-            name="channel"
-            key={currentChannel}
-            defaultValue={currentChannel}
-            className="input sm:max-w-xs"
-          >
-            <option value="stable">Stable — tested releases (recommended)</option>
-            <option value="beta">Beta — pre-release builds, early access</option>
-          </select>
-          <button type="submit" className="btn btn-primary" disabled={chanPending}>
-            {chanPending ? "Saving…" : "Save channel"}
-          </button>
-          {chanState.ok && <span className="text-sm" style={{ color: "var(--primary)" }}>Saved.</span>}
-          {chanState.error && <span className="form-error">{chanState.error}</span>}
-        </div>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Beta receives pre-release builds early and may be less stable. Takes effect on the next
-          update check. Currently on the <strong>{currentChannel}</strong> channel.
-        </p>
-      </form>
+      {/* The channel SELECTOR moved to the Beta channels panel below, where JonDash sits
+          alongside every module and helper. Two controls for one setting is two things to
+          keep in step. The current channel is still stated here, since it belongs with the
+          version and update status. */}
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        On the <strong>{currentChannel}</strong> channel. Change it under <strong>Beta channels</strong> below.
+      </p>
 
       <form action={autoAction} className="flex flex-col gap-1">
         <label className="flex items-center gap-3">

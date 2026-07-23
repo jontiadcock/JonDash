@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.8] — 2026-07-23
+
+### Changed
+- **Removed the duplicate update-channel dropdown.** JonDash's channel now has a switch in the
+  **Beta channels** panel alongside every module and helper, so the separate selector at the top of
+  the Updates page was a second control for the same setting. The panel above still shows your
+  installed version, update status and the automatic-install option, and now states which channel
+  you are on with a pointer to the switch.
+
 ## [1.5.3-beta.7] — 2026-07-23
 
 **Beta: every beta-channel choice in one place.**
@@ -1014,6 +1023,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.8
 [1.5.3-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.7
 [1.5.3-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.6
 [1.5.3-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.5

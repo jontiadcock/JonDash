@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.8",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: removes the duplicate update-channel selector. JonDash's channel now has a switch in the Beta channels panel alongside every module and helper, so the separate dropdown at the top of the Updates page was a second control for the same setting. That dropdown is gone; the panel above it still shows your installed version, update status and the automatic-install option, and now states which channel you are on with a pointer to the switch."
+    },
+    {
       "version": "1.5.3-beta.7",
       "date": "2026-07-23",
       "type": "minor",
