@@ -138,9 +138,20 @@ export async function setHelperChannelPinAction(formData: FormData): Promise<voi
   const raw = String(formData.get("channel") ?? "");
   if (!id) return;
 
-  const pin = raw === "beta" ? "beta" : null; // switching off returns it to derived
   const existing = await prisma.helper.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return;
+
+  // The switch sets an explicit PIN to the channel you asked for — it does not just clear
+  // the pin. Clearing was the original behaviour and made the switch do nothing on a helper
+  // that is on beta by DERIVATION: the pin went away, the channel re-derived from a module
+  // still on beta, and it landed back where it started. `channel = pin ?? derived`, so
+  // overriding the derivation requires a pin, not the absence of one.
+  //
+  // Asking for the value it would derive anyway clears the pin instead, so it goes back to
+  // following its modules rather than being frozen at a value that happens to match today.
+  const target: "beta" | "stable" = raw === "beta" ? "beta" : "stable";
+  const before = await resolveHelperChannel(id);
+  const pin = target === before.derived ? null : target;
 
   await prisma.helper.update({ where: { id }, data: { channelPin: pin } });
   const state = await resolveHelperChannel(id);

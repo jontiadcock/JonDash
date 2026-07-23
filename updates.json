@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.15",
+      "date": "2026-07-23",
+      "type": "patch",
+      "criticality": "important",
+      "summary": "Beta: fixes the beta switches for helpers, which did nothing. A helper normally follows the modules that need it, so one on beta only because a module is could not be switched off - the switch cleared the override, the channel was worked out again from the module still on beta, and it landed back where it started, redrawing unchanged. The switch now sets the channel you asked for, and only returns a helper to following its modules when you ask for the channel it would have chosen anyway. Rows also now say when a helper is pinned and no longer following."
+    },
+    {
       "version": "1.5.3-beta.14",
       "date": "2026-07-23",
       "type": "patch",

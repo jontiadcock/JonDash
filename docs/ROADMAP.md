@@ -628,6 +628,22 @@ _None currently._
 
 ### 🟠 High
 
+- **BUG-35 · The Beta channels switch did nothing on a derived helper — fixed v1.5.3-beta.15.**
+  Reported by the owner 2026-07-23 ("I am not able to change the slider on the 2 helpers"), from a
+  screenshot showing Scheduler and Files-and-folders unresponsive. **Mine, introduced with the Beta
+  channels panel in beta.7.**
+  A helper's channel is `pin ?? derived` (`lib/helpers/channel.ts`), where `derived` is beta if any
+  module that needs it is on beta. `setHelperChannelPinAction` mapped "switch off" to **clearing the
+  pin** — so on a helper that was on beta by derivation, the pin went away, the channel re-derived
+  from a module still on beta, and it landed back where it started. The switch redrew unchanged.
+  **Overriding a derivation needs a pin, not the absence of one.**
+  **Fix:** the switch sets an explicit pin to the requested channel, and clears the pin only when the
+  request equals the derived value — so it returns to *following* rather than being frozen at a value
+  that happens to match today. Rows now state when a helper is pinned.
+  **Verified against a real database**, not just the mapping: module on beta → switch off gives
+  `channel=stable, pinned=true`; switch on gives `channel=beta, pinned=false`. Five regression tests,
+  including the property the bug broke — every flip must change the resulting channel, since a control
+  that can redraw unchanged is indistinguishable from a broken one.
 - **BUG-32 · A part-applied module migration can never recover — OPEN.** Reported by the add-ons
   session 2026-07-23 while proving Backup Manager's 0.0.1 → 0.1.0 upgrade; **confirmed here against
   the code**. `runModuleMigrations` (`lib/modules/migrate.ts`) runs each statement through its own

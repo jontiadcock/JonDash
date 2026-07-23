@@ -129,9 +129,9 @@ export default async function AdminUpdatesPage() {
       onBeta: h.channel === "beta",
       derived: !h.pinned,
       note: h.pinned
-        ? undefined
+        ? `Pinned to ${h.channel} — it won't follow the modules that need it until you switch it back.`
         : h.channel === "beta"
-          ? `On beta because a module that needs it is.`
+          ? "On beta because a module that needs it is."
           : undefined,
     })),
   ];

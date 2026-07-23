@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.15] — 2026-07-23
+
+### Fixed
+- **The beta switches for helpers did nothing.** A helper normally follows the modules that need it,
+  so one sitting on beta *only because a module is* couldn't be switched off: the switch cleared the
+  override, the channel was worked out again from the module still on beta, and it landed back where
+  it started — redrawing in the same position with nothing changed.
+  The switch now sets the channel you asked for, and only returns a helper to following its modules
+  when you ask for the channel it would have chosen anyway.
+- **Rows now say when a helper is pinned** and no longer following the modules that need it.
+
 ## [1.5.3-beta.14] — 2026-07-23
 
 ### Fixed
@@ -1098,6 +1109,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.15]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.15
 [1.5.3-beta.14]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.14
 [1.5.3-beta.13]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.13
 [1.5.3-beta.12]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.12
