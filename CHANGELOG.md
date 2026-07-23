@@ -9,6 +9,21 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3-beta.12] — 2026-07-23
+
+### Changed
+- **One list of everything you can update.** The separate Modules and Helpers update panels are
+  replaced by a single **Available updates** list, grouped **Core**, then **Modules**, then
+  **Helpers**. Each row has a checkbox and shows the name, the version you have and the one on
+  offer, and how important the release is *when the source says so*. JonDash's own releases carry
+  that; module and helper manifests don't yet, so nothing is shown for them rather than a made-up
+  default.
+- **Tick what you want and press Update selected** — or leave everything unticked and press
+  **Update all**.
+- **JonDash's own update is applied on its own.** It restarts through the launcher rather than
+  in-process, so running it in the same click as modules and helpers could leave an update half
+  applied. Selecting Core clears any add-on selection, and the page says why.
+
 ## [1.5.3-beta.11] — 2026-07-23
 
 ### Changed
@@ -1058,6 +1073,7 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.12]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.12
 [1.5.3-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.11
 [1.5.3-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.10
 [1.5.3-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.9

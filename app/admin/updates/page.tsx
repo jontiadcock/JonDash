@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
-import { getAppVersion } from "@/lib/update";
+import { getAppVersion, getUpdateStatus } from "@/lib/update";
 import { readChannel } from "@/lib/update-channel";
 import { readAutoInstall, readUpdateFailure } from "@/lib/update-prefs";
 import { getModuleUpdateStatus } from "@/lib/modules/updates";
 import { describePermission } from "@/lib/modules/types";
 import { helperCapabilityLabels } from "@/lib/helpers/registry";
 import { UpdatesPanel } from "../settings/updates-panel";
-import { ModuleUpdatesPanel, type ModuleUpdateView } from "./module-updates-panel";
-import { HelperUpdatesPanel, type HelperUpdateView } from "./helper-updates-panel";
+import { AvailableUpdates, type AvailableItem } from "./available-updates";
 import { getHelperUpdateStatus } from "@/lib/helpers/updates";
 import { prisma } from "@/lib/db";
 import { readUpdateSchedule, describeSchedule } from "@/lib/updates/schedule";
@@ -42,18 +41,7 @@ export default async function AdminUpdatesPage() {
   // Opt-in flags live on the rows, not in the update status (which describes what's
   // AVAILABLE, not what you've chosen). Read them here and merge, so one page can answer
   // both "is there an update" and "will it apply itself".
-  const [moduleFlags, helperFlags, schedule] = await Promise.all([
-    prisma.module.findMany({ select: { id: true, autoUpdate: true } }),
-    prisma.helper.findMany({ select: { id: true, autoUpdate: true } }),
-    readUpdateSchedule(),
-  ]);
-  const moduleAuto = new Map(moduleFlags.map((m) => [m.id, m.autoUpdate]));
-  const helperAuto = new Map(helperFlags.map((h) => [h.id, h.autoUpdate]));
-
-  const helperViews: HelperUpdateView[] = helperStatus.helpers.map((h) => ({
-    ...h,
-    autoUpdate: helperAuto.get(h.id) ?? false,
-  }));
+  const schedule = await readUpdateSchedule();
 
   // Everything with a channel, in one list: the app, each installed module, each helper.
   const moduleRows = await prisma.module.findMany({
@@ -88,6 +76,45 @@ export default async function AdminUpdatesPage() {
     })),
   ];
 
+  // One list of everything with an update available, grouped Core / Modules / Helpers.
+  const appStatus = await getUpdateStatus().catch(() => null);
+  const available: AvailableItem[] = [];
+  if (appStatus?.updateAvailable && appStatus.latest) {
+    available.push({
+      kind: "core",
+      id: "app",
+      name: "JonDash",
+      from: version,
+      to: appStatus.latest,
+      // Only core declares one today; add-on manifests may gain the field later.
+      criticality: appStatus.release?.criticality,
+    });
+  }
+  for (const m of moduleStatus.modules) {
+    if (!m.updateAvailable || !m.latestVersion) continue;
+    available.push({
+      kind: "module",
+      id: m.id,
+      name: m.name,
+      from: m.installedVersion,
+      to: m.latestVersion,
+      blockedReason: m.blockedReason,
+      permissionWarnings: m.permissionsAdded.map((p) => describePermission(p, helperLabels).text),
+    });
+  }
+  for (const h of helperStatus.helpers) {
+    if (!h.updateAvailable || !h.latestVersion) continue;
+    available.push({
+      kind: "helper",
+      id: h.id,
+      name: h.name,
+      from: h.installedVersion,
+      to: h.latestVersion,
+      blockedReason: h.blockedReason,
+      breaksModules: h.breaksModules,
+    });
+  }
+
   // How many things automatic updates actually covers, now the master switch decides it.
   const optedInCount = schedule.autoEnabled ? autoItems.filter((i) => !i.excluded).length : 0;
 
@@ -112,30 +139,6 @@ export default async function AdminUpdatesPage() {
           : undefined,
     })),
   ];
-
-  // Drives the "Update everything" button: only offer it when there is actually something
-  // for it to do, across BOTH add-on kinds.
-  const anythingToUpdate =
-    moduleStatus.modules.some((m) => m.updateAvailable && !m.blockedReason && !m.isDowngrade) ||
-    helperStatus.helpers.some((h) => h.updateAvailable && !h.blockedReason && !h.isDowngrade);
-
-  const moduleViews: ModuleUpdateView[] = moduleStatus.modules.map((m) => ({
-    id: m.id,
-    name: m.name,
-    installedVersion: m.installedVersion,
-    latestVersion: m.latestVersion,
-    channel: m.channel,
-    sourceName: m.sourceName,
-    updateAvailable: m.updateAvailable,
-    blockedReason: m.blockedReason,
-    isDowngrade: m.isDowngrade,
-    // Resolved to plain language here, so the admin approves a described capability
-    // rather than a permission key.
-    permissionWarningsAdded: m.permissionsAdded.map((p) => describePermission(p, helperLabels).text),
-    permissionsRemovedCount: m.permissionsRemoved.length,
-    notes: m.notes,
-    autoUpdate: moduleAuto.get(m.id) ?? false,
-  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -175,19 +178,17 @@ export default async function AdminUpdatesPage() {
       </section>
 
       <section className="card p-6">
-        <ModuleUpdatesPanel modules={moduleViews} errors={moduleStatus.errors} />
+        <h2 className="mb-1 text-lg font-semibold">Available updates</h2>
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+          Everything with a newer version, in one list. Tick what you want and use{" "}
+          <strong>Update selected</strong>, or leave everything unticked and use{" "}
+          <strong>Update all</strong>.
+        </p>
+        <AvailableUpdates items={available} errors={[...moduleStatus.errors, ...helperStatus.errors]} />
         <p className="mt-4 text-xs" style={{ color: "var(--muted)" }}>
           Installing and removing modules lives in{" "}
           <Link href="/admin/modules" style={{ color: "var(--primary)" }}>Admin → Modules</Link>.
         </p>
-      </section>
-
-      <section className="card p-6">
-        <HelperUpdatesPanel
-          helpers={helperViews}
-          errors={helperStatus.errors}
-          anythingToUpdate={anythingToUpdate}
-        />
       </section>
     </div>
   );

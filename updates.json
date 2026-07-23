@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3-beta.12",
+      "date": "2026-07-23",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: one list of everything you can update. The separate Modules and Helpers update panels are replaced by a single Available updates list, grouped Core, then Modules, then Helpers. Each row has a checkbox and shows the name, the version you have and the one on offer, and how important the release is when the source says - JonDash's own releases do; module and helper manifests do not carry that yet, so nothing is shown for them rather than a made-up default. Tick what you want and press Update selected, or leave everything unticked and press Update all. JonDash's own update is applied on its own, because it restarts through the launcher rather than in-process, and running both from one click could leave an update half applied."
+    },
+    {
       "version": "1.5.3-beta.11",
       "date": "2026-07-23",
       "type": "minor",

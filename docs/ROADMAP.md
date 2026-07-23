@@ -1099,6 +1099,13 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   reporting what it skipped rather than silently doing less than its name claims.
 - **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
   it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **The Available updates list, POPULATED** (v1.5.3-beta.12) — **the rows were never exercised.**
+  Verified only that the page returns 200, the section is wired and the empty state renders; a
+  populated row, the checkboxes, the Core/add-on mutual exclusion and both button labels are all
+  unproven. Attempts to seed one locally failed on fixture problems (bundled modules have no update
+  source; the 3-minute status cache; the forged-session/`SERVER_BOOT_TIME` redirect), not on product
+  behaviour — but that is not evidence either way. **Check this before anything else:** an available
+  module update should render name, `old → new`, a checkbox, and Update all / Update selected.
 - **The helper-dependency rule** (v1.5.3-beta.11) — **no test covers this yet.** A helper excluded from
   automatic updates must still be updated when a module that needs it updates. Verify with a module
   included and its helper excluded, both with updates available: the helper should update anyway and
