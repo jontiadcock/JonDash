@@ -1334,6 +1334,12 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 - **v1.5.2** (2026-07-23) — **MOD-09 + MOD-10.** Helper-named capabilities and the consent roll-up (a
   helper's declaration of what it can do was being silently discarded, so consent understated it), plus
   helper updates, derived channels, per-module opt-in auto-update and "Update everything".
+- **v1.5.4** (2026-07-24) — **module-system reliability.** BUG-40 (a module's own Tailwind classes are
+  generated — Tailwind skipped the gitignored `modules/`), BUG-32 (each migration file runs in a
+  transaction, so a part-applied file can recover), BUG-39 (a commented-out declaration is no longer read
+  as real), BUG-36 (the install marker is cleared on boot, so a later unrelated failure can't remove a
+  healthy module), BUG-33 (`npm run test:modules` gives module tests a throwaway DB — and works from a
+  downloaded release, fixed in beta.2).
 - **v1.5.3** (2026-07-24) — **update-system rework** (BUG-30 + the beta.1–17 line). Automatic updates that
   actually run — off by default, with a schedule and per-item exclusions, never applying a version that
   adds access, goes backwards, or breaks a dependency; **Admin → Updates consolidated into one four-part
@@ -1348,6 +1354,21 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 ---
 
 ## Testing required — confirm before trusting
+
+**From v1.6.0-beta.1 (2026-07-24) — owner-requested UX, all need a live pass:**
+- **The compact update banner** — with a real update waiting, confirm the count is right (core + modules +
+  helpers), the colour/word match the criticality (red *Important* / amber *Recommended* / green with no
+  word when only modules-helpers are waiting), and clicking it opens Updates. There is deliberately no
+  "Update now" on the banner any more.
+- **The account menu on both headers** — My account and Sign out open from the person icon, Sign out asks
+  to confirm, and it's comfortable on a phone (portrait and landscape). Check the admin header isn't too
+  dense on a small screen (logo · Menu · Dashboard · account).
+- **An update keeps you signed in** — apply a real update and confirm you land on "Update successful" still
+  signed in. Then confirm a **restart** still signs everyone out, and that a **module install** (which
+  rebuilds) also still signs out. This is auth behaviour: worth checking with a second, non-admin user
+  signed in at the same time.
+- **The updating/restarting overlay** — confirm it comes back promptly once the server is actually up, on a
+  real update AND a restart, and that a module rebuild still returns to sign-in.
 
 Shipped but never exercised by a person. Cleared only when the user confirms. Step-by-step notes live
 privately in `PROJECT_MEMORY.md § Testing notes`, never here.
