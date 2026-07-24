@@ -83,8 +83,8 @@ catalog entries, not here. The **modules platform is otherwise complete**: MOD-0
     to add it later
 14. 🌅 **OPS-03 — VHD appliance**
 
-_(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
-comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
+_(Known bugs are tracked in the **Bugs / known issues** section, by severity. **No open bugs remain** as of
+1.5.4-beta.1 — the last five were fixed 2026-07-24, so SEC-04 is unblocked.)_
 
 ### Retired IDs — never reused
 
@@ -731,7 +731,12 @@ _None currently._
   **Regression test is source-level on purpose** — the failure is "an action forgot a call", which no
   behavioural test of that action can catch. It asserts each action invalidates what it must, and that
   every cache still exposes a way to clear it.
-- **BUG-36 · A stale `module-installing` marker makes recovery remove the WRONG module — OPEN.**
+- **BUG-36 · A stale `module-installing` marker makes recovery remove the WRONG module — fixed v1.5.4-beta.1.**
+  **Fixed:** the marker is cleared on successful boot (`instrumentation.ts` calls `clearModuleInstalling`)
+  and by the launcher on a good build / healthy start (`start-dashboard.bat`) — so it means "a rebuild is
+  in flight", not "one happened once". The launcher clear also self-heals installs that already carry a
+  stale marker. Regression test on the mark/clear pair; end-to-end verified in a testbed (a planted marker
+  is gone after boot).
   Found 2026-07-23 while reading the owner's install after the beta.15 update: `.data/module-installing`
   was present on a healthy instance. `markModuleInstalling` (`lib/modules/rebuild.ts:45`) writes it
   before a rebuild, and **nothing clears it on success** — only `scripts/module-recover.mjs` clears it,
@@ -760,7 +765,14 @@ _None currently._
   `channel=stable, pinned=true`; switch on gives `channel=beta, pinned=false`. Five regression tests,
   including the property the bug broke — every flip must change the resulting channel, since a control
   that can redraw unchanged is indistinguishable from a broken one.
-- **BUG-32 · A part-applied module migration can never recover — OPEN.** Reported by the add-ons
+- **BUG-32 · A part-applied module migration can never recover — fixed v1.5.4-beta.1.** (Was deferred at
+  the owner's request; un-deferred and fixed 2026-07-24.) **Fixed:** each migration file's statements run
+  in one `prisma.$transaction`, with the `ModuleMigration` record written in the same transaction — a
+  mid-file failure rolls back the whole file and leaves nothing recorded, so a retry starts clean. Core
+  regression test asserts the rollback. **The add-ons session must now INVERT the part-applied assertion in
+  `addons/backup-manager/tests/upgrade.test.ts`** (a re-run should succeed, not throw) — prompt sent via
+  the owner.
+  Reported by the add-ons
   session 2026-07-23 while proving Backup Manager's 0.0.1 → 0.1.0 upgrade; **confirmed here against
   the code**. `runModuleMigrations` (`lib/modules/migrate.ts`) runs each statement through its own
   `$executeRawUnsafe` with **no transaction**, and writes the `ModuleMigration` row only after the
@@ -1026,7 +1038,14 @@ _None currently._
 
 ### 🟡 Medium
 
-- **BUG-40 · A module's Tailwind classes aren't generated, so its UI renders half-styled — OPEN.**
+- **BUG-40 · A module's Tailwind classes aren't generated, so its UI renders half-styled — fixed v1.5.4-beta.1.**
+  **Fixed:** the prebuild registry generator (`scripts/gen-module-registry.mjs`) mirrors every class token
+  from installed module/helper source into `lib/modules/tailwind-classes.generated.html` (a non-ignored
+  path, empty in a stock checkout), and `app/globals.css` `@source`s it. HTML with a real `class="…"`
+  attribute was necessary — Tailwind's JS extractor drops variant-prefixed (`sm:`) and arbitrary-value
+  (`[99px]`) tokens from a bare string, and auto-scan of `lib/` isn't enough under `@tailwindcss/postcss`,
+  so the explicit `@source` is required. Verified end-to-end: a real `next build` with health-monitor
+  installed now emits `sm:grid-cols-5`.
   Found here 2026-07-24 while shooting README screenshots: the health-monitor detail page's stat row is
   `grid-cols-2 sm:grid-cols-5`, but it rendered as two columns at every width. The class
   `sm:grid-cols-5` was **absent from the built CSS**.
@@ -1045,7 +1064,11 @@ _None currently._
   installed module) also emitting the classes it finds into a committed file that `globals.css` reads, or a
   `@source` pointing at such a generated manifest. **Affects how modules should be authored and built, so
   the add-ons session needs to know once a direction is chosen.**
-- **BUG-39 · The verifier reads a COMMENTED-OUT `helpers:` line as a real declaration — OPEN, not reproduced.**
+- **BUG-39 · The verifier reads a COMMENTED-OUT `helpers:` line as a real declaration — fixed v1.5.4-beta.1.**
+  **Reproduced and fixed:** `parseDeclaredHelpers` and `parseDeclaredPermissions` now run the source through
+  the existing `stripNoise` (which keeps module-specifier-shaped strings, so real slugs survive) before
+  matching — a commented example is gone before parsing. Both holes closed together, with regression tests
+  for helpers and permissions.
   Reported by the add-ons session 2026-07-22; still open, and re-surfaced by the 2026-07-23 deep clean when
   the note in `PROJECT_MEMORY.md` was found stale. `parseDeclaredHelpers` (`lib/modules/verify.ts`) parses
   the raw source and **nothing in it strips comments** — it was rewritten for MOD-10 (object form parsed
@@ -1089,7 +1112,13 @@ _None currently._
   the card. Verified with the module **on beta** in the database — the page claims nothing about its
   channel, while Admin → Updates shows "Leave beta" and counts it. Root cause never confirmed and
   deliberately not chased: the surface was deleted.
-- **BUG-33 · A module's own tests have no supported way to reach the database — OPEN.** Reported by
+- **BUG-33 · A module's own tests have no supported way to reach the database — fixed v1.5.4-beta.1.** (Was
+  deferred at the owner's request; un-deferred and fixed 2026-07-24.) **Fixed:** core ships `vitest.mod.mts`
+  + `npm run test:modules`, including `modules/**/tests` and `helpers/**/tests` with the same throwaway
+  migrated DB (`globalSetup` + `DATABASE_URL: file:./vitest.db`) the core suite uses; `passWithNoTests`
+  keeps a stock checkout green. Verified a module test reaches the DB. The add-ons session's own
+  `vitest.mod.mts` can now be dropped in favour of core's; their dev.db guard stays.
+  Reported by
   the add-ons session 2026-07-23; **confirmed**. `vitest.config.ts` supplies `globalSetup` and
   `DATABASE_URL: file:./vitest.db` but its `include` is `tests/**` only, so a module's own tests are
   never discovered. **`vitest.mod.mts` does not exist in this repo at all** — they built that
