@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.4-beta.2] — 2026-07-24
+
+### Fixed
+- **`npm run test:modules` failed on a downloaded release** — a follow-up to the BUG-33 fix in beta.1. The
+  module-test config ships in the download, but its `globalSetup` and `server-only` stub lived under
+  `tests/`, which is deliberately excluded from the archive to keep it lean — so a module author testing
+  against a downloaded release hit a missing-file error. Those two files moved to `test-support/` (which
+  ships); a `git clone` was unaffected either way. Nothing about installing or running modules changes.
+
 ## [1.5.4-beta.1] — 2026-07-24
 
 Five fixes, all in the module system — installing, building and testing add-ons. Nothing changes

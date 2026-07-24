@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.4-beta.2",
+      "date": "2026-07-24",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes `npm run test:modules` on a downloaded release (a follow-up to 1.5.4-beta.1). The module-test config ships in the download, but the two support files it needs lived in the tests folder, which is stripped from the download to keep it lean — so a module author testing their module against a downloaded release got a missing-file error. Those two files moved to a folder that ships. This only affects building and testing your own modules from a downloaded release; a git clone was always fine, and nothing about installing or running modules changes."
+    },
+    {
       "version": "1.5.4-beta.1",
       "date": "2026-07-24",
       "type": "patch",

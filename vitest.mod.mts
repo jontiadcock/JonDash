@@ -14,12 +14,17 @@ const root = process.cwd();
  *
  * Run with `npm run test:modules` (or point a module's own harness at it). `passWithNoTests`
  * keeps a stock checkout — where `modules/` is empty — green.
+ *
+ * The globalSetup + server-only stub live in `test-support/`, NOT `tests/`, on purpose: `tests/`
+ * is `export-ignore`d from the downloadable archive, and this config SHIPS — a module author
+ * running `test:modules` against a downloaded release must still find both files. Keep them in
+ * `test-support/` (which ships); moving them under `tests/` breaks the download (BUG-33 follow-up).
  */
 export default defineConfig({
   test: {
     environment: "node",
     include: ["modules/**/tests/**/*.test.ts", "helpers/**/tests/**/*.test.ts"],
-    globalSetup: ["./tests/global-setup.ts"],
+    globalSetup: ["./test-support/global-setup.ts"],
     passWithNoTests: true,
     // One shared SQLite DB, reset between cases — run serially.
     fileParallelism: false,
@@ -37,7 +42,7 @@ export default defineConfig({
       "@": root,
       // `server-only` throws outside a React Server Component; stub it so module code that
       // imports core server libraries can be unit-tested directly.
-      "server-only": path.resolve(root, "tests/stubs/server-only.ts"),
+      "server-only": path.resolve(root, "test-support/server-only.ts"),
     },
   },
 });

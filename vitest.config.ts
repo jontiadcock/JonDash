@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-    globalSetup: ["./tests/global-setup.ts"],
+    globalSetup: ["./test-support/global-setup.ts"],
     // Tests share one SQLite DB and reset between cases, so run serially.
     fileParallelism: false,
     env: {
@@ -22,7 +22,7 @@ export default defineConfig({
       "@": root,
       // `server-only` throws when imported outside a React Server Component;
       // stub it so we can unit-test the server libraries directly.
-      "server-only": path.resolve(root, "tests/stubs/server-only.ts"),
+      "server-only": path.resolve(root, "test-support/server-only.ts"),
     },
   },
 });
