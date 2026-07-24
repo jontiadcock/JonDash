@@ -9,6 +9,47 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3] — 2026-07-24
+
+**One page for everything that updates — and updates that can finally run on their own.** Coming from
+1.5.2, this is the whole 1.5.3 beta line in one. Nothing changes about how your dashboard or your
+services work.
+
+### Added
+- **Automatic updates that actually run.** Turn them on and JonDash keeps itself, your modules and their
+  helpers current on a schedule you choose (daily, weekly or monthly, at a set time). It's **off by
+  default** — and whatever the schedule says, an update is never applied on its own when it asks for more
+  access than you approved, would move a version backwards, or would stop another module working. Those
+  wait for you, and the run records what it held back and why.
+- **Admin → Updates is now the single page for everything that updates**, in four sections in the order
+  you work through them: the version you're running; **Available updates** — one list grouped Core, then
+  Modules, then Helpers, with a checkbox per item showing the name, the version you have and the one on
+  offer, and how important it is when the source says so (tick what you want, or update all);
+  **Automatic updates** — the master switch, when it runs, and anything you've excluded; and **Beta
+  channels** — a switch each for JonDash, every module and every helper.
+- **Portable, fully-encrypted backups.** A backup can now be a single encrypted `.dashbk` file that also
+  carries your service icons and any installed module's own data, so a restore or a move to another
+  machine brings the whole instance back.
+
+### Fixed
+- **Automatic updates did nothing before.** The per-module "update automatically" tick from 1.5.2 saved
+  your choice and never acted on it; that path now genuinely applies updates, and a run that has to hold
+  something back says so.
+- **A downgrade is never offered as an update.**
+- **Encrypted backups no longer expose service icons** outside the encryption, and an unreadable network
+  configuration no longer quietly falls back to the default port.
+- **Background and scheduled work is now in the audit log**, marked **System**, so nothing happens
+  unattributed.
+- **A run of Updates-page fixes from testing:** stale copies of a module's channel and auto-update state
+  removed from its own page, the beta switches for helpers now work, channel changes refresh immediately
+  instead of looking dead for a few minutes, and a helper that's been removed no longer lingers on the
+  page.
+- **Mail relays that authorise by IP** (no username or password) are now supported.
+
+### Notes
+- The manual update path and every existing page behave exactly as before; only the new
+  automatic/scheduled path is added, and it stays off until you turn it on.
+
 ## [1.5.3-beta.17] — 2026-07-23
 
 ### Fixed

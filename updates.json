@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.3",
+      "date": "2026-07-24",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "One page for everything that updates, and updates that can run on their own. Admin - Updates is now a single page in four parts: the version you are running, one Available updates list (Core, then Modules, then Helpers, each with a checkbox and the versions on offer), an Automatic updates master switch with a schedule and per-item exclusions, and the Beta channels switches. Automatic updates are new and off by default - when on, JonDash keeps itself, your modules and their helpers current on the schedule you set, but never applies a version that asks for more access than you approved, moves backwards, or would stop another module working, and it records what it held back. Backups can now be a single encrypted .dashbk file that also carries your service icons and each module's own data, so a restore or a move brings the whole instance back. Also: scheduled and background work is now recorded in the audit log as System, a downgrade is never offered as an update, encrypted backups no longer expose icons, an unreadable network config no longer falls back to the default port, and mail relays that authorise by IP are supported. Nothing changes unless you use these."
+    },
+    {
       "version": "1.5.3-beta.17",
       "date": "2026-07-23",
       "type": "patch",
