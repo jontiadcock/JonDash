@@ -26,12 +26,12 @@ const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
   },
 };
 
-// How many consecutive healthy responses from the *new* process we want before we
-// call it back, plus a short settle delay — so remote clients don't reconnect the
-// instant the port opens (which can briefly fail) but once it's reliably reachable.
-const REQUIRED_OKS = 3;
-const POLL_MS = 1500;
-const SETTLE_MS = 2500;
+// Reconnect as soon as the NEW process is reliably answering — poll briskly and require just
+// two consecutive healthy responses (so a port that briefly opens then fails doesn't count)
+// with a tiny settle. The wait is then only the real downtime, not a fixed pause on top.
+const REQUIRED_OKS = 2;
+const POLL_MS = 800;
+const SETTLE_MS = 400;
 // If the server never even goes down, nothing is going to bring us back — surface that
 // rather than spinning forever, which is indistinguishable from the app being broken.
 const STALL_AFTER_MS = 90_000;
@@ -73,7 +73,10 @@ export function ServerWaitOverlay({
     const done = () => {
       if (cancelled) return;
       cancelled = true;
-      window.location.href = "/login";
+      // An update keeps everyone signed in (lib/boot SESSION_EPOCH), so land on the success
+      // screen still authenticated. A restart or module rebuild ended every session — the
+      // only place to go is the sign-in page.
+      window.location.href = mode === "updating" ? "/update-complete" : "/login";
     };
 
     async function poll() {
@@ -157,7 +160,11 @@ export function ServerWaitOverlay({
         <div className="flex flex-col gap-2">
           <h1 className="text-xl font-semibold tracking-tight">{copy.title}</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {reconnecting ? "Reconnecting — taking you back to sign in…" : copy.body}
+            {reconnecting
+              ? mode === "updating"
+                ? "Update applied — reconnecting…"
+                : "Reconnecting — taking you back to sign in…"
+              : copy.body}
           </p>
         </div>
 

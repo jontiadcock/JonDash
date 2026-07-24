@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { PageTransition } from "@/app/components/page-transition";
-import { logoutAction } from "./actions";
+import { UserMenu } from "@/app/components/user-menu";
 
 export default async function AppLayout({
   children,
@@ -28,22 +28,12 @@ export default async function AppLayout({
             <span className="truncate">JonDash</span>
           </Link>
           <div className="flex flex-none items-center gap-2 sm:gap-3">
-            <Link href="/account" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
-              Account
-            </Link>
             {canAccessAdmin && (
               <Link href="/admin" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
                 Admin
               </Link>
             )}
-            <span className="hidden text-sm sm:inline" style={{ color: "var(--muted)" }}>
-              {user.email}
-            </span>
-            <form action={logoutAction}>
-              <button type="submit" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
-                Sign out
-              </button>
-            </form>
+            <UserMenu email={user.email} />
           </div>
         </div>
       </header>

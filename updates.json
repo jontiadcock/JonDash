@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.6.0-beta.1",
+      "date": "2026-07-24",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: a friendlier update and account experience. The 'updates available' notice is now a single compact banner coloured by how important the most urgent update is - green, amber or red - counting JonDash, modules and helpers together; click it to open the Updates page where the detail and controls live. The account buttons on every header collapse into one small account menu (My account and Sign out, with your email inside), which is far tidier on a phone and now reachable from the admin area too; signing out asks you to confirm first. Best of all, updating JonDash now KEEPS YOU SIGNED IN and lands on an 'Update successful' screen instead of bouncing you to the login page - a restart still signs everyone out, as before. The updating screen also reconnects as soon as the server is actually back."
+    },
+    {
       "version": "1.5.4",
       "date": "2026-07-24",
       "type": "patch",

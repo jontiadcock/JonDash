@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireAdminArea } from "@/lib/auth/guards";
-import { logoutAction } from "@/app/(app)/actions";
 import { UpdateBanner } from "./update-banner";
 import { AdminNav } from "./admin-nav";
 import { AdminSidebar } from "./admin-sidebar";
 import { PageTransition } from "@/app/components/page-transition";
+import { UserMenu } from "@/app/components/user-menu";
 import { getAppVersion } from "@/lib/update";
 
 export default async function AdminLayout({
@@ -76,14 +76,7 @@ export default async function AdminLayout({
               <span className="sm:hidden">Dashboard</span>
               <span className="hidden sm:inline">My dashboard</span>
             </Link>
-            <span className="hidden text-sm sm:inline" style={{ color: "var(--muted)" }}>
-              {admin.email}
-            </span>
-            <form action={logoutAction}>
-              <button type="submit" className="btn btn-ghost !py-1.5 !px-2.5 text-sm sm:!px-3">
-                Sign out
-              </button>
-            </form>
+            <UserMenu email={admin.email} />
           </div>
         </div>
       </header>

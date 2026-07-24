@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getUpdateStatus } from "@/lib/update";
 import { countModuleUpdates } from "@/lib/modules/updates";
+import { getHelperUpdateStatus } from "@/lib/helpers/updates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,5 +19,14 @@ export async function GET(req: Request) {
   // than left to go looking. Reported alongside the app's own status so the existing
   // banner can surface it — including when the app itself is up to date.
   const moduleUpdates = await countModuleUpdates();
-  return NextResponse.json({ ...status, moduleUpdates });
+  // Helpers too, so the banner's "X updates available" is the true total across all three
+  // groups the Updates page lists (Core / Modules / Helpers). Best-effort — never fatal.
+  let helperUpdates = 0;
+  try {
+    const hs = await getHelperUpdateStatus();
+    helperUpdates = hs.helpers.filter((h) => h.updateAvailable).length;
+  } catch {
+    /* awareness is best-effort */
+  }
+  return NextResponse.json({ ...status, moduleUpdates, helperUpdates });
 }

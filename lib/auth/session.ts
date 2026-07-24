@@ -5,15 +5,15 @@ import { prisma } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/crypto";
 import { isSecureRequest } from "@/lib/request";
 import { getSessionLifetimeMs, getIdleTimeoutMs } from "@/lib/settings";
-import { SERVER_BOOT_TIME } from "@/lib/boot";
+import { SESSION_EPOCH } from "@/lib/boot";
 
 // Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
 const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
 
-// SERVER_BOOT_TIME (lib/boot) is when this process started. Any session created
-// before it is from an earlier run, so restarting the server invalidates every
-// existing session and users must sign in again.
-// Fixed name (works over http and https). The Secure flag is set automatically
+// SESSION_EPOCH (lib/boot) is the "sign everyone out" cutoff. It advances on a normal
+// restart (so a restart, or a folder copied elsewhere, invalidates every existing session)
+// but is REUSED across an in-place update, so an update keeps everyone signed in.
+// Fixed cookie name (works over http and https). The Secure flag is set automatically
 // when the request is HTTPS, so no configuration is needed.
 export const SESSION_COOKIE = "dashboard_session";
 
@@ -65,8 +65,9 @@ export async function getSessionUser(): Promise<User | null> {
 
   if (!session) return null;
 
-  // A server restart signs everyone out: reject sessions created before this run.
-  if (session.createdAt.getTime() < SERVER_BOOT_TIME) {
+  // A restart signs everyone out: reject sessions created before this epoch. (An update
+  // reuses the previous epoch, so sessions created before it survive — see lib/boot.)
+  if (session.createdAt.getTime() < SESSION_EPOCH) {
     await prisma.session.deleteMany({ where: { id: session.id } }).catch(() => {});
     return null;
   }
