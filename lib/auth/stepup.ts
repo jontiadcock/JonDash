@@ -1,7 +1,7 @@
 import "server-only";
 import { getCurrentSession, markCurrentSessionTotpVerified } from "@/lib/auth/session";
 import { getCurrentUser } from "@/lib/auth/guards";
-import { verifyTotpEncrypted } from "@/lib/auth/totp";
+import { consumeTotpForUser } from "@/lib/auth/totp";
 
 // A major destructive action needs proof of TOTP within this window. If the user
 // verified TOTP more recently (login or a prior step-up), no re-entry is asked.
@@ -41,7 +41,7 @@ export async function verifyStepUp(opts: {
   if (!/^\d{6}$/.test(code)) {
     return { ok: false, error: "Enter the 6-digit code from your authenticator app." };
   }
-  if (!verifyTotpEncrypted(code, user.totpSecretEnc)) {
+  if (!(await consumeTotpForUser(user, code))) {
     return { ok: false, error: "That authenticator code is incorrect." };
   }
 

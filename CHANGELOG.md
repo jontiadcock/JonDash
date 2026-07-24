@@ -9,6 +9,33 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.6.1-beta.1] — 2026-07-24
+
+**Security hardening.** Nothing changes in how you use JonDash day to day — these close weaknesses found
+in an independent security review. Access control itself was tested and found sound: the sign-in page
+could not be bypassed.
+
+### Changed
+- **Signing in no longer reveals which email addresses have an account.** An unrecognised address used to
+  fail noticeably faster than a wrong password, and a locked account announced itself by name — together
+  that let someone test whether an address was registered here. Every failed sign-in now does the same
+  amount of work and gives the same message. *Side effect worth knowing:* if your account is temporarily
+  locked after repeated wrong passwords, the page now just says the sign-in failed rather than explaining
+  the lock. A notification for the account holder is coming separately.
+- **Updated Next.js and its bundled libraries**, clearing three high-severity advisories in image
+  handling and CSS processing. `npm audit` now reports no vulnerabilities.
+- **The front page is never cached.** It could previously be served from a copy made at build time, so it
+  reflected whoever the app knew about then rather than right now.
+- **A six-digit authenticator code can now only be used once.** Codes stay valid for up to a minute or so,
+  and during that time the same code could sign you in more than once. Each code is now retired the moment
+  it's accepted — at sign-in, at step-up, during first-run setup, when finishing an invite, when
+  regenerating recovery codes, and when moving to a new authenticator app.
+- **Sessions now sign out after 2 hours of inactivity.** This previously shipped switched off, so a
+  session lasted its full 7-day life no matter how long it sat untouched. **This applies to existing
+  installs too**, not only new ones — if you'd rather keep the old behaviour, set *Idle timeout* to 0 under
+  Admin → Settings → Sessions.
+- **JonDash no longer advertises which framework it runs on** in every response.
+
 ## [1.6.0] — 2026-07-24
 
 **A friendlier update and account experience.** Coming from 1.5.4, this is the 1.6.0 beta line in one.

@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { verifyPassword } from "@/lib/auth/password";
-import { verifyTotpEncrypted } from "@/lib/auth/totp";
+import { verifyPassword, verifyDecoyPassword } from "@/lib/auth/password";
+import { consumeTotpForUser } from "@/lib/auth/totp";
 import { consumeBackupCode, backupCodeStatus } from "@/lib/auth/backup-codes";
 import { createSession } from "@/lib/auth/session";
 import { setPreAuth, getPreAuthUserId, clearPreAuth } from "@/lib/auth/preauth";
@@ -40,10 +40,19 @@ export async function loginPasswordAction(
   if (!emailParsed.success || !password) return generic;
 
   const user = await prisma.user.findUnique({ where: { email: emailParsed.data } });
-  if (!user || !user.passwordHash || user.status !== "ACTIVE") return generic;
+  if (!user || !user.passwordHash || user.status !== "ACTIVE") {
+    // Spend the same argon2 work we would have spent on a real hash, so an
+    // unregistered address doesn't answer faster than a wrong password.
+    return await verifyDecoyPassword(password).then(() => generic);
+  }
 
   if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-    return { error: "Account temporarily locked due to failed attempts. Try again later." };
+    // Deliberately the generic message: naming the lock would confirm the
+    // address is registered to anyone who can type it. We also don't verify
+    // the password while locked — that's the point of the lock — so burn the
+    // decoy to keep this path the same length as every other failure.
+    // The account holder learns about the lock by email (BUG-43), not here.
+    return await verifyDecoyPassword(password).then(() => generic);
   }
 
   const ok = await verifyPassword(user.passwordHash, password);
@@ -97,7 +106,10 @@ export async function loginTotpAction(
     redirect("/login");
   }
 
-  if (!verifyTotpEncrypted(codeParsed.data, user.totpSecretEnc)) {
+  // Consumes the code as well as checking it: the same digits stay valid for the
+  // rest of their step, and a code that already signed someone in must not do it
+  // again (BUG-51).
+  if (!(await consumeTotpForUser(user, codeParsed.data))) {
     await audit("login.totp.fail", { userId: user.id });
     return { error: "Incorrect code. Please try again." };
   }

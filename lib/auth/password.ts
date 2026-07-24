@@ -1,4 +1,5 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
 import { hash, verify } from "@node-rs/argon2";
 
 // OWASP-recommended argon2id parameters (memory-hard).
@@ -18,6 +19,28 @@ export async function verifyPassword(storedHash: string, password: string): Prom
   } catch {
     return false;
   }
+}
+
+/**
+ * Constant-work stand-in for a real verify, for sign-in paths that have no hash
+ * to check against.
+ *
+ * When an address doesn't exist — or the account isn't eligible to sign in — there
+ * is nothing to verify, so the request would return without doing any argon2 work.
+ * "No such account" then answers measurably faster than "wrong password", and that
+ * gap alone is enough to test whether an address is registered. Burning the same
+ * memory-hard work against a decoy closes it.
+ *
+ * The decoy is hashed once per process, on first use, from a value nobody knows;
+ * it exists only to be expensive. Always resolves false so callers can return it
+ * directly.
+ */
+let decoyHash: Promise<string> | null = null;
+
+export async function verifyDecoyPassword(password: string): Promise<false> {
+  decoyHash ??= hashPassword(randomBytes(32).toString("hex"));
+  await verifyPassword(await decoyHash, password);
+  return false;
 }
 
 /**

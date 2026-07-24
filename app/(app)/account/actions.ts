@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guards";
 import { getCurrentSession } from "@/lib/auth/session";
-import { verifyTotpEncrypted } from "@/lib/auth/totp";
+import { consumeTotpForUser } from "@/lib/auth/totp";
 import { verifyPassword, hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import { generateBackupCodes } from "@/lib/auth/backup-codes";
 import { assertSameOrigin } from "@/lib/security/csrf";
@@ -29,7 +29,7 @@ export async function regenerateBackupCodesAction(
   }
 
   const code = String(formData.get("code") ?? "").replace(/\s/g, "");
-  if (!/^\d{6}$/.test(code) || !verifyTotpEncrypted(code, user.totpSecretEnc)) {
+  if (!/^\d{6}$/.test(code) || !(await consumeTotpForUser(user, code))) {
     return { error: "That authenticator code is incorrect." };
   }
 

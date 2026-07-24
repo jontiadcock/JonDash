@@ -47,9 +47,13 @@ export const SETTINGS = {
 
   "session.idleTimeoutMinutes": {
     label: "Idle timeout (minutes)",
-    help: "Sign out sessions inactive for this long. 0 disables; otherwise at least 5.",
+    help: "Sign out sessions inactive for this long. Defaults to 120 (2 hours). Set 0 to disable — but then a session lasts its full 7-day lifetime however long it sits unused.",
     kind: "int",
-    default: 0,
+    // Non-zero by default: with 0, an untouched session survived the whole 7-day
+    // absolute lifetime, and a server restart was the only thing that reliably
+    // ended it — which 1.6.0 narrowed further by keeping sessions across an
+    // in-place update. 0 remains available as an explicit opt-out.
+    default: 120,
     schema: z.coerce
       .number()
       .int()

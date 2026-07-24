@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { hashToken } from "@/lib/crypto";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
-import { verifyTotpEncrypted } from "@/lib/auth/totp";
+import { consumeTotpForUser } from "@/lib/auth/totp";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { redirect } from "next/navigation";
@@ -54,7 +54,7 @@ export async function finalizeSetupAction(
   if (password !== confirm) return { error: "Passwords do not match." };
   if (!codeParsed.success) return { error: "Enter the 6-digit code from your authenticator app." };
 
-  if (!verifyTotpEncrypted(codeParsed.data, user.totpSecretEnc)) {
+  if (!(await consumeTotpForUser(user, codeParsed.data))) {
     return { error: "That code is incorrect. Scan the QR code and try the current code." };
   }
 

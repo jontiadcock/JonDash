@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.6.1-beta.1",
+      "date": "2026-07-24",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: security hardening from an independent review - nothing changes in how you use JonDash day to day, and access control itself was tested and found sound (the sign-in page could not be bypassed). Signing in no longer reveals which email addresses have an account: an unrecognised address used to fail noticeably faster than a wrong password, and a locked account announced itself by name, which together let someone test whether an address was registered here. Every failed sign-in now does the same work and gives the same message - so if your account is temporarily locked, the page now just says the sign-in failed rather than explaining the lock. Next.js and its bundled libraries were updated, clearing three high-severity advisories in image handling and CSS processing. The front page is never served from a build-time copy any more, so it always reflects who is actually signed in. A six-digit authenticator code can now only be used once - codes stay valid for up to a minute or so, and during that time the same one could sign you in more than once; each code is now retired the moment it is accepted, everywhere a code is asked for. Sessions now sign out after 2 hours of inactivity, which previously shipped switched off so a session lasted its full 7-day life however long it sat untouched - THIS APPLIES TO EXISTING INSTALLS TOO, so set Idle timeout to 0 under Admin > Settings > Sessions if you would rather keep the old behaviour. And JonDash no longer advertises which framework it runs on in every response."
+    },
+    {
       "version": "1.6.0",
       "date": "2026-07-24",
       "type": "minor",

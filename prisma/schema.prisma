@@ -34,6 +34,12 @@ model User {
   totpSecretEnc String?
   mfaEnabled    Boolean @default(false)
 
+  // Highest TOTP timestep already accepted for this user (floor(epoch / 30)).
+  // A code stays mathematically valid for its whole step plus the drift window,
+  // so without this the same six digits authenticate repeatedly until they age
+  // out. Every accepted code must advance this. Null = none consumed yet.
+  totpLastStep Int?
+
   // One-time setup token (stored hashed) handed to the user by the admin.
   setupTokenHash      String?   @unique
   setupTokenExpiresAt DateTime?

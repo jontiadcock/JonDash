@@ -7,7 +7,7 @@ import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import {
   generateTotpSecret,
   encryptTotpSecret,
-  verifyTotpEncrypted,
+  consumeTotpForUser,
 } from "@/lib/auth/totp";
 import { createSession } from "@/lib/auth/session";
 import { assertSameOrigin } from "@/lib/security/csrf";
@@ -83,7 +83,7 @@ export async function welcomeConfirmAction(
   const codeParsed = totpCodeSchema.safeParse(formData.get("code"));
   if (!codeParsed.success) return { error: "Enter the 6-digit code from your authenticator app." };
 
-  if (!verifyTotpEncrypted(codeParsed.data, admin.totpSecretEnc)) {
+  if (!(await consumeTotpForUser(admin, codeParsed.data))) {
     return { error: "That code is incorrect. Scan the QR code and try the current code." };
   }
 

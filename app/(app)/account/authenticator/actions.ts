@@ -7,7 +7,7 @@ import {
   generateTotpSecret,
   buildTotpEnrolment,
   verifyTotp,
-  verifyTotpEncrypted,
+  consumeTotpForUser,
   encryptTotpSecret,
 } from "@/lib/auth/totp";
 import { consumeBackupCode } from "@/lib/auth/backup-codes";
@@ -45,7 +45,7 @@ export async function authorizeReenrollAction(
   // Authorise: current authenticator code, else consume a one-time backup code.
   let authorised = false;
   if (user.totpSecretEnc && /^\d{6}$/.test(authCode)) {
-    authorised = verifyTotpEncrypted(authCode, user.totpSecretEnc);
+    authorised = await consumeTotpForUser(user, authCode);
   }
   if (!authorised) {
     authorised = await consumeBackupCode(user.id, authCode);

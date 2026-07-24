@@ -20,7 +20,8 @@ describe("settings store", () => {
   it("returns sensible defaults when unset", async () => {
     expect(await getLoginMessage()).toBe("");
     expect(await getSessionLifetimeMs()).toBe(7 * 24 * 60 * 60 * 1000);
-    expect(await getIdleTimeoutMs()).toBe(0);
+    // BUG-52: this was 0 (disabled) until 1.6.1-beta.1. Idle timeout now ships on.
+    expect(await getIdleTimeoutMs()).toBe(120 * 60 * 1000);
     expect(await getAuditRetentionDays()).toBe(90);
   });
 
