@@ -1118,6 +1118,10 @@ _None currently._
   migrated DB (`globalSetup` + `DATABASE_URL: file:./vitest.db`) the core suite uses; `passWithNoTests`
   keeps a stock checkout green. Verified a module test reaches the DB. The add-ons session's own
   `vitest.mod.mts` can now be dropped in favour of core's; their dev.db guard stays.
+  **Follow-up — v1.5.4-beta.2:** the add-ons session found the harness failed on a *downloaded release* —
+  `vitest.mod.mts` ships but its `globalSetup` + `server-only` stub lived under the export-ignored `tests/`.
+  Moved both to `test-support/` (which ships) and repointed both vitest configs; verified via `git archive`
+  that the download now carries them and `tests/` stays excluded.
   Reported by
   the add-ons session 2026-07-23; **confirmed**. `vitest.config.ts` supplies `globalSetup` and
   `DATABASE_URL: file:./vitest.db` but its `include` is `tests/**` only, so a module's own tests are
