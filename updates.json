@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.4",
+      "date": "2026-07-24",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Module-system reliability fixes, coming from 1.5.3 — all about installing, building and testing add-ons; nothing changes for the base app or your services. A module's own styling no longer comes out half-applied (Tailwind skipped the folders installed modules live in, so a class only a module used could be missing and collapse its layout). A module database migration that fails part-way can now recover, because each file runs as one transaction that rolls back cleanly. A commented-out example line in a module is no longer read as a real declaration. A finished module install can no longer leave a marker that a later, unrelated build failure acts on to remove a healthy module. And there is now a supported way to test your own module against a database - `npm run test:modules` - working from a downloaded release or a git clone."
+    },
+    {
       "version": "1.5.4-beta.2",
       "date": "2026-07-24",
       "type": "patch",

@@ -9,6 +9,32 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.4] — 2026-07-24
+
+**Module-system reliability fixes.** Coming from 1.5.3, this is the whole 1.5.4 beta line in one.
+Everything here is about installing, building and testing add-ons — nothing changes for the base app or
+your services.
+
+### Fixed
+- **A module's own styling no longer comes out half-applied.** Tailwind doesn't scan the folders installed
+  modules and helpers live in, so any layout class a module used that the base app didn't *also* use was
+  never generated — a module's stat grid, for one, collapsed to fewer columns than intended. A module's
+  classes are now generated.
+- **A module database migration that fails part-way can recover.** Each migration file runs as a single
+  transaction, so a failed statement rolls back the whole file and the next attempt starts clean instead of
+  wedging on a half-applied change.
+- **A commented-out example in a module is no longer read as a real declaration.** A `// helpers: [...]` or
+  `// permissions: [...]` line left as a worked example won't install a helper, roll the module back, or
+  overstate what you're asked to approve.
+- **A finished module install can't later cause a healthy module to be removed.** The "install in progress"
+  marker is cleared once the app is running again, so an unrelated later build failure can't act on a stale
+  one.
+
+### Added (for module authors)
+- **A supported way to test a module against a database** — `npm run test:modules` runs tests under
+  `modules/…/tests` and `helpers/…/tests` against a throwaway migrated database, and works from a downloaded
+  release as well as a `git clone`.
+
 ## [1.5.4-beta.2] — 2026-07-24
 
 ### Fixed
