@@ -150,7 +150,7 @@ rather than opening a public issue.
 | -------- | ------------ |
 | [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) | A tour of every part of the interface |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in every release, both channels |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Build queue, feature catalog, known bugs |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Build queue and feature catalog — what's planned and what shipped |
 | [docs/MODULES-AUTHORING.md](docs/MODULES-AUTHORING.md) | Module contract, permissions, testing, AI prompt |
 | [docs/HELPERS-DESIGN.md](docs/HELPERS-DESIGN.md) | What helpers are and the rules they follow |
 | [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md) | Security review and test report |

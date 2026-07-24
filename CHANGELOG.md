@@ -1139,6 +1139,15 @@ by hand once, and updates work normally again afterwards:
   packages are still pruned after building). A fully self-contained build will be revisited
   separately once the underlying bundler issue is resolved.
 
+## [1.1.5] — 2026-07-19
+
+**Withdrawn — superseded by 1.1.6. Don't run this version.**
+
+### Changed
+- Attempted a fully self-contained (standalone) build to shrink the install further. It failed at
+  runtime — the image (`sharp`) and password (`argon2`) native libraries wouldn't load, breaking
+  sign-in and the two-factor pages — and was reverted the same day in 1.1.6.
+
 ## [1.1.4] — 2026-07-19
 
 ### Changed
