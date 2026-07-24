@@ -19,10 +19,27 @@ import { createServer as createHttpsServer } from "node:https";
 import fs from "node:fs";
 import next from "next";
 import { appendLog } from "./scripts/log.mjs";
-import { readNetworkConfig, writeTlsStatus } from "./lib/tls/network-config.mjs";
+import { readNetworkConfigResult, writeTlsStatus, NETWORK_FILE } from "./lib/tls/network-config.mjs";
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
-const cfg = readNetworkConfig();
+// BUG-28: a network.json that EXISTS but can't be parsed used to fall through to plain
+// HTTP on port 3000, silently. We can't tell from an unreadable file whether HTTPS was
+// configured, and guessing "no TLS" is the unsafe direction — so refuse to start and say
+// exactly what to fix, rather than quietly serving an HTTPS install unencrypted.
+const netResult = readNetworkConfigResult();
+if (netResult.error) {
+  console.error(
+    `\n  Cannot start: your network settings file could not be read.\n` +
+      `    File:  ${NETWORK_FILE}\n` +
+      `    Error: ${netResult.error}\n\n` +
+      `  JonDash will not start on plain HTTP by guessing, in case this install was set up\n` +
+      `  for HTTPS. Fix the file, or delete it to start on http://localhost:3000.\n` +
+      `  (A file saved with a UTF-8 BOM is the usual cause — re-save it as plain UTF-8.)\n`,
+  );
+  appendLog("start", "blocked", `unreadable network.json: ${netResult.error}`);
+  process.exit(1);
+}
+const cfg = netResult.config;
 
 const app = next({ dev: false });
 const handle = app.getRequestHandler();

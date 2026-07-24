@@ -13,7 +13,7 @@ type FieldKind = "string" | "int";
 
 // Which admin page a setting is surfaced on. "general" = the Settings page
 // (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
-export type SettingGroup = "general" | "sessions" | "audit";
+export type SettingGroup = "general" | "sessions" | "audit" | "updates";
 
 type SettingDef<T> = {
   label: string;
@@ -66,6 +66,59 @@ export const SETTINGS = {
     default: 90,
     schema: z.coerce.number().int().min(0).max(3650),
     group: "audit",
+  } as SettingDef<number>,
+
+  // When opted-in automatic updates run. Applying one means a rebuild and a restart,
+  // which signs everyone out — so this is never "whenever an update appears", it's a
+  // window the admin picks. Nothing runs unless something is individually opted in.
+  // The master switch. Off by default: turning it on gives every source you have added a
+  // standing channel to run new code here, so it must be a deliberate act. Individual
+  // modules and helpers can then be excluded.
+  "updates.autoEnabled": {
+    label: "Update automatically",
+    help: "Keep JonDash, your modules and their helpers up to date on the schedule below. You can exclude individual ones.",
+    kind: "int",
+    default: 0,
+    schema: z.coerce.number().int().min(0).max(1),
+    group: "updates",
+  } as SettingDef<number>,
+
+  "updates.frequency": {
+    label: "Check for updates",
+    help: "How often to look for updates to anything you've opted in to automatic updates for.",
+    kind: "string",
+    default: "weekly",
+    schema: z.enum(["daily", "weekly", "monthly"]),
+    group: "updates",
+  } as SettingDef<string>,
+
+  "updates.timeOfDay": {
+    label: "At what time",
+    help: "24-hour local time, e.g. 03:00. Pick a quiet hour — applying an update restarts the dashboard and signs everyone out.",
+    kind: "string",
+    default: "03:00",
+    schema: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Use HH:MM, e.g. 03:00."),
+    group: "updates",
+  } as SettingDef<string>,
+
+  "updates.dayOfWeek": {
+    label: "Day of the week",
+    help: "Used when checking weekly. 0 = Sunday through 6 = Saturday.",
+    kind: "int",
+    default: 0,
+    schema: z.coerce.number().int().min(0).max(6),
+    group: "updates",
+  } as SettingDef<number>,
+
+  // Capped at 28 on purpose: 29–31 would silently skip February, and an update schedule
+  // that quietly does nothing for a month is worse than one that runs slightly early.
+  "updates.dayOfMonth": {
+    label: "Day of the month",
+    help: "Used when checking monthly. 1–28, so it never skips a short month.",
+    kind: "int",
+    default: 1,
+    schema: z.coerce.number().int().min(1).max(28),
+    group: "updates",
   } as SettingDef<number>,
 } as const;
 
@@ -120,6 +173,23 @@ export async function getIdleTimeoutMs(): Promise<number> {
 export async function getAuditRetentionDays(): Promise<number> {
   return readValue("audit.retentionDays");
 }
+/** Raw schedule settings for automatic updates; `lib/updates/schedule.ts` normalises them. */
+export async function getUpdateScheduleSettings(): Promise<{
+  autoEnabled: boolean;
+  frequency: string;
+  timeOfDay: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
+}> {
+  const [autoEnabled, frequency, timeOfDay, dayOfWeek, dayOfMonth] = await Promise.all([
+    readValue("updates.autoEnabled"),
+    readValue("updates.frequency"),
+    readValue("updates.timeOfDay"),
+    readValue("updates.dayOfWeek"),
+    readValue("updates.dayOfMonth"),
+  ]);
+  return { autoEnabled: autoEnabled === 1, frequency, timeOfDay, dayOfWeek, dayOfMonth };
+}
 
 // ---- Admin UI helpers ----
 
@@ -169,13 +239,54 @@ export async function applySettingsForm(
   formData: FormData,
   allowedKeys: SettingKey[],
 ): Promise<Record<string, string>> {
+  return (await applySettingsFormDetailed(formData, allowedKeys)).errors;
+}
+
+/**
+ * As `applySettingsForm`, but also reports WHAT it wrote, for the audit entry (BUG-24).
+ *
+ * Every settings save used to be logged as a bare `settings.updated` with no detail, so the
+ * log recorded that *a* setting changed but never which, or to what — for a security
+ * product that is most of the value of the entry. The single-value toggles beside them
+ * (`settings.auto-update`, `settings.update-channel`) always logged theirs, which is why
+ * the gap survived review: the file looked like it did the right thing.
+ *
+ * **`changed` deliberately carries no VALUES for secret settings.** `writeSetting`
+ * encrypts anything the registry marks `secret`, so putting submitted values in the audit
+ * detail would write them back out in plaintext — into a log readable by anyone holding
+ * the *delegable* `audit.view` capability, and carried in every backup. Key names always;
+ * values only where the registry says the setting isn't secret.
+ */
+export async function applySettingsFormDetailed(
+  formData: FormData,
+  allowedKeys: SettingKey[],
+): Promise<{ errors: Record<string, string>; changed: string[] }> {
   const errors: Record<string, string> = {};
+  const changed: string[] = [];
   for (const key of allowedKeys) {
     if (!formData.has(key)) continue;
-    const err = await writeSetting(key, String(formData.get(key) ?? ""));
-    if (err) errors[key] = err;
+    const raw = String(formData.get(key) ?? "");
+    const err = await writeSetting(key, raw);
+    if (err) {
+      errors[key] = err;
+      continue;
+    }
+    const def = SETTINGS[key];
+    changed.push(def?.secret ? `${key}=<hidden>` : `${key}=${summariseValue(raw)}`);
   }
-  return errors;
+  return { errors, changed };
+}
+
+/** A settings value shortened for the audit log — readable, bounded, control-chars out. */
+function summariseValue(raw: string): string {
+  const clean = Array.from(raw.trim())
+    .filter((ch) => {
+      const c = ch.codePointAt(0)!;
+      return c >= 32 && c !== 127;
+    })
+    .join("");
+  if (clean === "") return "(empty)";
+  return clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
 }
 
 /** Validate + persist one setting from raw string input. Returns an error message or null. */

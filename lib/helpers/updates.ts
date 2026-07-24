@@ -9,6 +9,7 @@ import {
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 import { getAllModules } from "@/lib/modules/registry";
+import { getAllHelpers } from "./registry";
 import { resolveHelperChannel } from "./channel";
 import { helperIdsOf } from "@/lib/modules/types";
 
@@ -83,7 +84,13 @@ function declaredNeed(moduleHelpers: unknown, helperId: string): string | null {
 export async function getHelperUpdateStatus(force = false): Promise<HelperUpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
 
-  const rows = await prisma.helper.findMany();
+  // Only helpers that are ACTUALLY INSTALLED. A row outlives its files on purpose:
+  // uninstalling the last module that needed a helper prunes the helper's files but keeps
+  // its row so reinstalling brings the data back. Reading rows alone therefore reports
+  // helpers that are gone — they kept a channel switch and could be offered updates on the
+  // Updates page while the Helpers page (which reads the registry) correctly hid them.
+  const installedIds = new Set(getAllHelpers().map((h) => h.id));
+  const rows = (await prisma.helper.findMany()).filter((r) => installedIds.has(r.id));
   const errors: { source: string; message: string }[] = [];
   const helpers: HelperUpdate[] = [];
 
@@ -167,7 +174,8 @@ export async function getHelperUpdateStatus(force = false): Promise<HelperUpdate
       channel: state.channel,
       pinned: state.pinned,
       dependents,
-      updateAvailable: cmp !== 0,
+      // Same rule as modules: an older offering is not an update. See lib/modules/updates.ts.
+      updateAvailable: cmp > 0,
       blockedReason: needsNewerApp
         ? `Needs JonDash ${entry.minAppVersion} or newer — update JonDash first.`
         : undefined,

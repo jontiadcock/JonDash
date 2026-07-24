@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
-import { applySettingsForm, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
+import { applySettingsFormDetailed, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 import { writeChannel, isChannel } from "@/lib/update-channel";
 import { writeAutoInstall, clearUpdateFailure } from "@/lib/update-prefs";
 
@@ -63,10 +63,12 @@ export async function updateSettingsAction(
   await assertSameOrigin();
   const admin = await requirePermission("settings.manage");
 
-  const errors = await applySettingsForm(formData, settingKeysByGroup("general"));
+  const { errors, changed } = await applySettingsFormDetailed(formData, settingKeysByGroup("general"));
   if (Object.keys(errors).length > 0) return { errors };
 
-  await audit("settings.updated", { userId: admin.id });
+  // Name WHICH settings changed, not just that some did (BUG-24). Secret values
+  // are redacted by applySettingsFormDetailed, never by this call site.
+  await audit("settings.updated", { userId: admin.id, detail: changed.join(", ") || "no change" });
   revalidatePath("/admin/settings");
   return { success: "Settings saved." };
 }

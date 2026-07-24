@@ -27,9 +27,13 @@ export default async function AdminAuditPage({
   const userFilter = sp.userId?.trim() || "";
   const page = Math.max(1, Number(sp.page) || 1);
 
+  // "Who" is a user id, except for the one actor that isn't a user: the scheduler.
+  // Answering "what ran overnight without anyone touching it" is the main reason to
+  // record `source` at all, so it needs to be filterable, not just visible.
+  const SYSTEM = "__system";
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
-    ...(userFilter ? { userId: userFilter } : {}),
+    ...(userFilter === SYSTEM ? { source: "system" } : userFilter ? { userId: userFilter } : {}),
   };
 
   const [total, events, actions, users] = await Promise.all([
@@ -79,6 +83,7 @@ export default async function AdminAuditPage({
           <label className="label" htmlFor="userId">User</label>
           <select id="userId" name="userId" defaultValue={userFilter} className="input">
             <option value="">All users</option>
+            <option value={SYSTEM}>System (scheduled)</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.email}</option>
             ))}
@@ -109,7 +114,22 @@ export default async function AdminAuditPage({
                     {formatWhen(e.createdAt)}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">{e.action}</td>
-                  <td className="px-5 py-3">{e.user?.email ?? "—"}</td>
+                  <td className="px-5 py-3">
+                    {e.user?.email ??
+                      (e.source === "system" ? (
+                        // "The schedule did this" must not look like "we don't know who did
+                        // this" — those are very different answers in a security log.
+                        <span
+                          className="rounded px-1.5 py-0.5 text-xs font-medium"
+                          style={{ background: "var(--surface-2)", color: "var(--muted)" }}
+                          title="Ran on a schedule — no signed-in user"
+                        >
+                          System
+                        </span>
+                      ) : (
+                        "—"
+                      ))}
+                  </td>
                   <td className="px-5 py-3 font-mono text-xs">{e.ip ?? "—"}</td>
                   <td className="px-5 py-3" style={{ color: "var(--muted)" }}>{e.detail ?? "—"}</td>
                 </tr>

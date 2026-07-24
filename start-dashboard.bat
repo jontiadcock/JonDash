@@ -12,9 +12,52 @@ REM script so any change to the launcher itself takes effect cleanly.
 REM ----------------------------------------------------------------------------
 if "%~1"=="_run" goto run
 
+call :already_running
+if errorlevel 1 exit /b 1
+
 call :check_for_updates
 cmd /c ""%~f0" _run first"
 exit /b %errorlevel%
+
+REM ----------------------------------------------------------------------------
+REM Refuse to start a SECOND copy (BUG-07). Two instances share one SQLite file and
+REM one .data folder, so the second one fights the first over the database, the
+REM update markers and the rebuild signals — and the symptom is confusing rather
+REM than obvious, because whichever bound the port first still answers.
+REM
+REM Deliberately only on the FIRST pass: the supervisor relaunches this script via
+REM `_run` for its own restart/update/rebuild cycles, and blocking those would break
+REM every one of them. That path skips this check entirely (it jumps to :run above).
+REM ----------------------------------------------------------------------------
+:already_running
+REM EVERY "carry on and start" path must use exit /b 0, never goto :eof. goto :eof returns
+REM whatever errorlevel was last set - and the port-is-FREE case reaches it via findstr
+REM failing, i.e. errorlevel 1, which the caller reads as "blocked". That mistake would
+REM have refused to start on every healthy install. Caught before it shipped; keep it that
+REM way if this block is ever edited.
+where node >nul 2>nul || exit /b 0
+set "JD_PORT="
+for /f "usebackq tokens=* delims=" %%p in (`node "scripts\print-url.mjs" --port 2^>nul`) do set "JD_PORT=%%p"
+if not defined JD_PORT exit /b 0
+REM Anything already LISTENING on our port is either JonDash or something that would
+REM stop it binding regardless — both are worth stopping for and explaining.
+REM Two simple patterns rather than one clever one: `/c:` quoting inside a piped .bat line
+REM is fragile, and this form was verified against a really-listening port.
+netstat -ano | findstr ":%JD_PORT% " | findstr "LISTENING" >nul 2>nul
+if errorlevel 1 exit /b 0
+echo.
+echo   ============================================================
+echo     JonDash looks like it is ALREADY RUNNING on port %JD_PORT%.
+echo.
+echo     Starting a second copy would make both fight over the same
+echo     database and settings. Nothing has been started.
+echo.
+echo     Use the window that is already open, or close it first.
+echo   ============================================================
+echo.
+call :log start blocked "another process is already listening on port %JD_PORT%"
+pause
+exit /b 1
 
 :check_for_updates
 where node >nul 2>nul || goto :eof
@@ -70,11 +113,21 @@ set "APPVER=0.0.0"
 for /f "usebackq tokens=* delims=" %%v in (`node -e "process.stdout.write(require('./package.json').version)"`) do set "APPVER=%%v"
 set "BUILTVER="
 if exist ".data\built-version" set /p BUILTVER=<".data\built-version"
+REM Where the build was made. A build BAKES ABSOLUTE PATHS into itself: Turbopack writes
+REM absolute symlinks into .next\node_modules for the native packages (sharp, argon2,
+REM @prisma/client). Rename or move the folder and every page 500s with "Failed to load
+REM external module" — and because the checks below only look at the VERSION, nothing ever
+REM triggers a rebuild, so it stays broken across every restart with no way to tell why.
+set "BUILTPATH="
+if exist ".data\built-path" set /p BUILTPATH=<".data\built-path"
 
 set "NEEDBUILD="
 if not exist "node_modules" set "NEEDBUILD=1"
 if not exist ".next" set "NEEDBUILD=1"
 if not "%APPVER%"=="%BUILTVER%" set "NEEDBUILD=1"
+REM Rebuild when the install has moved. Missing marker (an install predating this check)
+REM is NOT treated as moved — that would rebuild every existing install once for nothing.
+if defined BUILTPATH if /i not "%CD%"=="%BUILTPATH%" set "NEEDBUILD=1"
 
 if defined NEEDBUILD (
   call :log build start "building v%APPVER% (need-build: fresh/missing/version-change)"
@@ -105,6 +158,9 @@ if defined NEEDBUILD (
 
   if not exist ".data" mkdir ".data" >nul 2>nul
   > ".data\built-version" echo %APPVER%
+  REM Record WHERE this build was made, so moving or renaming the folder rebuilds instead
+  REM of leaving an install that can never start (see the check above).
+  > ".data\built-path" echo %CD%
   REM A good build was reached: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
   if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul

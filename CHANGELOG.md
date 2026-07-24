@@ -9,6 +9,319 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.3] — 2026-07-24
+
+**One page for everything that updates — and updates that can finally run on their own.** Coming from
+1.5.2, this is the whole 1.5.3 beta line in one. Nothing changes about how your dashboard or your
+services work.
+
+### Added
+- **Automatic updates that actually run.** Turn them on and JonDash keeps itself, your modules and their
+  helpers current on a schedule you choose (daily, weekly or monthly, at a set time). It's **off by
+  default** — and whatever the schedule says, an update is never applied on its own when it asks for more
+  access than you approved, would move a version backwards, or would stop another module working. Those
+  wait for you, and the run records what it held back and why.
+- **Admin → Updates is now the single page for everything that updates**, in four sections in the order
+  you work through them: the version you're running; **Available updates** — one list grouped Core, then
+  Modules, then Helpers, with a checkbox per item showing the name, the version you have and the one on
+  offer, and how important it is when the source says so (tick what you want, or update all);
+  **Automatic updates** — the master switch, when it runs, and anything you've excluded; and **Beta
+  channels** — a switch each for JonDash, every module and every helper.
+- **Portable, fully-encrypted backups.** A backup can now be a single encrypted `.dashbk` file that also
+  carries your service icons and any installed module's own data, so a restore or a move to another
+  machine brings the whole instance back.
+
+### Fixed
+- **Automatic updates did nothing before.** The per-module "update automatically" tick from 1.5.2 saved
+  your choice and never acted on it; that path now genuinely applies updates, and a run that has to hold
+  something back says so.
+- **A downgrade is never offered as an update.**
+- **Encrypted backups no longer expose service icons** outside the encryption, and an unreadable network
+  configuration no longer quietly falls back to the default port.
+- **Background and scheduled work is now in the audit log**, marked **System**, so nothing happens
+  unattributed.
+- **A run of Updates-page fixes from testing:** stale copies of a module's channel and auto-update state
+  removed from its own page, the beta switches for helpers now work, channel changes refresh immediately
+  instead of looking dead for a few minutes, and a helper that's been removed no longer lingers on the
+  page.
+- **Mail relays that authorise by IP** (no username or password) are now supported.
+
+### Notes
+- The manual update path and every existing page behave exactly as before; only the new
+  automatic/scheduled path is added, and it stays off until you turn it on.
+
+## [1.5.3-beta.17] — 2026-07-23
+
+### Fixed
+- **A removed helper still appeared under Updates.** Uninstalling the last module that needed a
+  helper removes that helper, but JonDash keeps a record of it so reinstalling the module brings
+  its data back rather than starting from nothing. The Updates page was reading that record and
+  still listing the helper — with a working beta switch, and able to offer it updates — while the
+  Helpers page correctly showed it as gone. Updates now goes by what is actually installed.
+
+## [1.5.3-beta.16] — 2026-07-23
+
+### Fixed
+- **The beta switches for helpers looked dead.** They were writing the change correctly, but the
+  page kept showing the old value for up to three minutes, so clicking appeared to do nothing.
+  Now updates immediately.
+- **The same fault in two more places, neither reported.** Switching **JonDash's own** channel, or a
+  **module's**, also left the page showing the pre-change answer for up to three minutes. Both fixed.
+- **Updating JonDash showed no "updating" screen.** The full-screen cover had been lost, so the page
+  never reloaded onto the new version — it sat there looking hung while the update had actually
+  finished. The cover is back, and a dropped connection mid-update is treated as expected rather than
+  an error.
+
+## [1.5.3-beta.15] — 2026-07-23
+
+### Fixed
+- **The beta switches for helpers did nothing.** A helper normally follows the modules that need it,
+  so one sitting on beta *only because a module is* couldn't be switched off: the switch cleared the
+  override, the channel was worked out again from the module still on beta, and it landed back where
+  it started — redrawing in the same position with nothing changed.
+  The switch now sets the channel you asked for, and only returns a helper to following its modules
+  when you ask for the channel it would have chosen anyway.
+- **Rows now say when a helper is pinned** and no longer following the modules that need it.
+
+## [1.5.3-beta.14] — 2026-07-23
+
+### Fixed
+- **A module's settings page no longer shows its release channel and automatic-update state.**
+  Those controls moved to Admin → Updates a few releases ago, leaving this page displaying copies it
+  couldn't change — and the copies could fall out of step, so a module could read *"Currently on
+  beta"* while the switch for it on the Updates page was off. The page now carries one line pointing
+  at Admin → Updates, which can't disagree with anything.
+- **Changing a module's channel now refreshes the Updates page.** It was the only setting of its kind
+  that didn't.
+
+## [1.5.3-beta.13] — 2026-07-23
+
+### Changed
+- **Tidied up the Updates page.** Several things had ended up in two places at once — most
+  obviously **two separate cards both titled "Automatic updates"**, and an "Automatically install
+  updates when available" tickbox doing the same job as the Automatic updates switch.
+- **The page is now four sections, in the order you'd work through them:** which version you're
+  running · what's available to update · whether it should update itself · which beta channels
+  you're on.
+- **The schedule now sits inside Automatic updates**, and only appears once the switch is on — it
+  means nothing while it's off.
+- **Checking for updates and installing them happen in one place**, rather than a "Check for
+  updates" button at the top and a separate list below.
+
+## [1.5.3-beta.12] — 2026-07-23
+
+### Changed
+- **One list of everything you can update.** The separate Modules and Helpers update panels are
+  replaced by a single **Available updates** list, grouped **Core**, then **Modules**, then
+  **Helpers**. Each row has a checkbox and shows the name, the version you have and the one on
+  offer, and how important the release is *when the source says so*. JonDash's own releases carry
+  that; module and helper manifests don't yet, so nothing is shown for them rather than a made-up
+  default.
+- **Tick what you want and press Update selected** — or leave everything unticked and press
+  **Update all**.
+- **JonDash's own update is applied on its own.** It restarts through the launcher rather than
+  in-process, so running it in the same click as modules and helpers could leave an update half
+  applied. Selecting Core clears any add-on selection, and the page says why.
+
+## [1.5.3-beta.11] — 2026-07-23
+
+### Changed
+- **Automatic updates are now one switch with exclusions.** Turn **Automatic updates** on and
+  JonDash, your modules and their helpers all stay current on your schedule; each then gets its own
+  switch to exclude it. This replaces the per-item opt-in from beta.5.
+  It is **off by default**, and worth understanding before turning it on: with it on, a module from
+  **any** source you have added updates itself unless you exclude it.
+- **A helper excluded from automatic updates is still updated when a module that needs it updates.**
+  Excluding a helper opts it out of being updated for its own sake, not out of being a working
+  dependency — a module updated against a helper it can't use is simply broken.
+
+Unchanged: an update that asks for more access than you approved, is blocked, goes backwards, or
+would stop another module working still waits for you, whatever the switches say.
+
+## [1.5.3-beta.10] — 2026-07-23
+
+### Changed
+- **The Helpers page is about the helper, not its updates.** The version line, beta-channel note
+  and "Pin to stable" button have moved to the **Beta channels** panel on Admin → Updates, which
+  already lists every helper alongside JonDash and your modules. The page keeps what it is for:
+  what each helper does, which modules use it, and what permission it implies — plus a **Settings**
+  area reserved for helpers that offer settings. None do yet.
+
+## [1.5.3-beta.9] — 2026-07-23
+
+### Fixed
+- **The Updates page no longer offers to move you backwards.** A module or helper whose channel
+  offered an *older* version than the one installed was listed as an available update, with a
+  tick-box beside it — so one click could take you back to an earlier release. Anything older is
+  now simply not offered.
+  This shows up on the **beta** channel after a pre-release is promoted: `0.0.5-beta.1` counts as
+  older than `0.0.5`, so once that beta becomes the stable `0.0.5`, the beta channel points at
+  something older than what you are running until it is moved forward.
+
+## [1.5.3-beta.8] — 2026-07-23
+
+### Changed
+- **Removed the duplicate update-channel dropdown.** JonDash's channel now has a switch in the
+  **Beta channels** panel alongside every module and helper, so the separate selector at the top of
+  the Updates page was a second control for the same setting. The panel above still shows your
+  installed version, update status and the automatic-install option, and now states which channel
+  you are on with a pointer to the switch.
+
+## [1.5.3-beta.7] — 2026-07-23
+
+**Beta: every beta-channel choice in one place.**
+
+### Added
+- **A "Beta channels" section on Admin → Updates.** Lists JonDash itself and every installed
+  module and helper, each with a switch to opt in or out of pre-release versions. Collapsed when
+  everything is on stable; when it isn't, it says how many things are on beta — so "what am I
+  running pre-release code for?" is answerable from one screen.
+
+### Changed
+- **The per-module channel control has been removed from each module's own page.** That page now
+  states which channel the module is on and links to Updates. Previously the app's channel, each
+  module's and each helper's lived in three different places.
+- **A helper's switch pins it.** A helper normally follows the highest channel among the modules
+  that need it; turning its switch off returns it to following, rather than forcing it to stable
+  and fighting the module that moved it.
+
+## [1.5.3-beta.6] — 2026-07-23
+
+**Beta: an encrypted backup is now encrypted all the way through.**
+
+### Fixed
+- **An "encrypted" backup left every icon readable in the clear.** Only the settings inside were
+  protected; each uploaded icon sat in the file as a plain image anyone could open without the
+  passphrase — for most people, a list of the services they run. These are the files people put on
+  cloud drives and USB sticks *because* they are encrypted. Everything is now inside the
+  encryption. **Existing encrypted backups were affected — replace any you are relying on.** They
+  still restore.
+- **A network settings file JonDash can't read no longer silently starts it on plain HTTP.** It
+  fell back to port 3000 with no warning anywhere, which on an install set up for HTTPS meant
+  quietly serving unencrypted. It now says what is wrong and stops. A file saved with a UTF-8 BOM
+  — the usual cause — is now read normally instead of being rejected.
+
+### Added
+- **Backups include your module data** — each module's configuration, stored records and dashboard
+  layout. Restoring no longer leaves modules installed but empty. A module's own database tables
+  are not included; they belong to the module version installed at restore time.
+- **The download is a `.dashbk` file** rather than a `.zip`. Older `.zip` backups still restore.
+
+## [1.5.3-beta.5] — 2026-07-23
+
+**Beta: automatic updates actually work, and everything that updates is on one page.**
+
+### Fixed
+- **"Update this module automatically" did nothing.** Shipped in v1.5.2, it saved your choice and
+  the page reported it as on — but nothing ever acted on it, so no module was ever updated
+  automatically. There was no way to tell: an update that never happened looks exactly like
+  having nothing to update.
+
+### Added
+- **Helpers can be set to update automatically too**, the same per-item way as modules.
+- **You choose when it runs** — daily, weekly or monthly, at a time you pick, on a day of the week
+  or a day of the month. Applying an update restarts the dashboard and signs everyone out, so it
+  happens in a window you set rather than the moment a new version appears.
+- **Admin → Updates is now the single page for everything that updates** — JonDash itself and its
+  channel, the schedule, and every module and helper with its version, channel and its own
+  **Update automatically** tick. These were previously spread across four screens: the Settings
+  page, the Updates page, and each module's own page.
+
+### Unchanged, deliberately
+- An update is **never** applied automatically if it asks for more access than you approved, is
+  blocked, goes backwards a version, or would stop another module working. Those wait for you, and
+  every run records what it held back and why.
+- Opting in stays **per module and per helper**. There is no single switch, because one tick would
+  give every source you have added a standing channel to run new code on your machine.
+
+## [1.5.3-beta.4] — 2026-07-23
+
+**Beta: the audit log now says when JonDash itself did something.**
+
+### Added
+- **Scheduled actions are labelled "System" in the audit log, and can be filtered to.**
+  Completes the previous release. Work that runs on a timer has no signed-in user, so it was
+  showing an empty **User** column — which reads as *we don't know who did this*, when the real
+  answer is *nothing did, it was the schedule*. Those two need to be told apart in a security
+  log. Scheduled entries now show a **System** marker, and the User filter has a
+  **System (scheduled)** option for answering "what ran overnight without anyone touching it".
+  Existing entries are all recorded as user actions, which is accurate — before the previous
+  release, scheduled work could not write to the log at all.
+
+## [1.5.3-beta.3] — 2026-07-23
+
+**Beta: scheduled work is recorded in the audit log again.**
+
+### Fixed
+- **Anything JonDash did on a schedule was missing from the audit log — silently.** Only actions
+  someone triggered by clicking were ever recorded. Work that ran on a timer — a module tidying up
+  old backups overnight, a health check, any scheduled task — was written to the log, failed to
+  save, and reported nothing. The log looked complete, so there was no reason to suspect the gap.
+  Scheduled actions are now recorded like any other. They show no IP address, because there is no
+  browser involved — but the event itself is kept.
+
+## [1.5.3-beta.2] — 2026-07-23
+
+**Beta: sending mail through a relay, and mail errors that tell you what went wrong.**
+
+### Added
+- **"Mail relay (no authentication)" as an authentication option.** Some mail servers authorise
+  you by IP address rather than a sign-in — an internal smarthost, or Microsoft 365 direct send
+  through an inbound connector. There was no way to describe one: JonDash insisted on an account
+  and offered credentials to a server that wasn't asking for any. Choosing this mode connects
+  without offering credentials at all, and no longer demands a username.
+- **An option to accept a mail server's certificate when it isn't trusted.** For an internal relay
+  using a private or self-signed certificate. It is **off by default**, applies only to outgoing
+  mail (never to updates or module installs), warns plainly while it is on, is written into the
+  audit log when you enable it, and every test result says *certificate NOT verified* so it can't
+  be quietly forgotten. Installing the relay's certificate authority on the machine is still the
+  better option.
+
+### Fixed
+- **Mail failures now say what they tried to connect to.** The test button uses your *saved*
+  settings, not what's currently on screen — so an error like "unable to get local issuer
+  certificate" gave no way to tell whether it had even used the host you were looking at. Every
+  result now names the host, port, TLS mode and how it authenticated.
+- **Mail errors are explained instead of quoted.** Newly recognised: a TLS certificate that can't
+  be traced to a trusted authority, a self-signed or expired certificate, a certificate issued for
+  a different hostname, a server that offers no authentication at all (which now points at relay
+  mode), and a relay that accepts the connection but refuses the recipient.
+- **"Use TLS on connect" being wrong for the port is now named as the cause.** Ticking it for port
+  25 or 587 produced a raw OpenSSL message about a "wrong version number", which reads as a bug in
+  JonDash rather than a checkbox in the wrong position.
+- **Multi-line mail explanations are no longer squashed onto one line.** The guidance attached to
+  each error was being collapsed by the browser, so only the raw error was readable.
+
+## [1.5.3-beta.1] — 2026-07-23
+
+**Beta: a batch of fixes, several security-related.** No new features.
+
+### Fixed
+- **Moving or renaming the JonDash folder no longer breaks it permanently.** A build records
+  where it was made, so relocating the folder rebuilds on the next start instead of leaving an
+  install that fails on every page and never recovers, however many times you restart it.
+- **Starting JonDash twice is now refused.** A second copy would fight the first over the same
+  database and settings; it tells you one is already running and does nothing.
+- **Two ways a module could reach outside itself without asking.** A module could make outbound
+  network requests, or read and write files, using ordinary code that slipped past the safety
+  checks — bypassing the permissions you approve it against. Filesystem access is supposed to be
+  refused to modules outright, so that one mattered most.
+- **"Send test email" no longer hangs forever.** Nothing in the mail path had a time limit, so a
+  blocked port or a mailbox with SMTP AUTH switched off left the button spinning with no result
+  at all. It now fails within seconds, says which step failed — connecting, signing in, or
+  sending — and names the usual culprits, including that **Microsoft 365 disables SMTP AUTH per
+  mailbox by default** even when you're using OAuth2.
+- **Full-screen messages cover the screen again.** The "updating", "restarting", "shutting down"
+  and "applying module changes" screens were being confined to the middle column, leaving the
+  rest of the page visible and clickable at exactly the moments they exist to say *don't touch
+  anything*. Confirmation dialogs had the same problem.
+- **Importing your own module: the button is always there.** It used to appear only after you
+  picked a file, so the panel looked broken. It's now shown from the start, greyed out until you
+  choose a `.zip`, and the file picker matches the rest of the app.
+- **The audit log says what changed.** Saving settings recorded only that *something* was
+  updated — not which setting, or its new value. It now names both. Values of settings stored
+  encrypted are recorded as hidden, never written into the log.
+
 ## [1.5.2] — 2026-07-23
 
 **Add-ons stay up to date, and you can see what they're allowed to do.** Coming from 1.5.0, this is both
@@ -859,6 +1172,23 @@ by hand once, and updates work normally again afterwards:
 - Secure by default: hashed passwords, encrypted 2FA secrets, hardened headers, audit logging.
 - One-click Windows launcher with automatic first-run setup.
 
+[1.5.3-beta.17]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.17
+[1.5.3-beta.16]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.16
+[1.5.3-beta.15]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.15
+[1.5.3-beta.14]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.14
+[1.5.3-beta.13]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.13
+[1.5.3-beta.12]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.12
+[1.5.3-beta.11]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.11
+[1.5.3-beta.10]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.10
+[1.5.3-beta.9]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.9
+[1.5.3-beta.8]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.8
+[1.5.3-beta.7]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.7
+[1.5.3-beta.6]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.6
+[1.5.3-beta.5]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.5
+[1.5.3-beta.4]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.4
+[1.5.3-beta.3]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.3
+[1.5.3-beta.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.2
+[1.5.3-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.3-beta.1
 [1.5.2]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2
 [1.5.2-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.2-beta.1
 [1.5.1-beta.1]: https://github.com/jontiadcock/JonDash/releases/tag/v1.5.1-beta.1

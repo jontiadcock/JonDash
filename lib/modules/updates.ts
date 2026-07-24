@@ -188,7 +188,14 @@ export async function getModuleUpdateStatus(force = false): Promise<ModuleUpdate
       sourceName: source.name,
       sourceUrl: source.url,
       tag: entry.tag,
-      updateAvailable: cmp !== 0 && !blockedReason,
+      // An OLDER offering is not an update and must never be presented as one. This used
+      // to be `cmp !== 0`, so when a channel's newest release sorted below what's
+      // installed the Updates page offered a downgrade with a tick-box beside it. The
+      // usual cause isn't a mistake by the person looking at it: promoting a pre-release
+      // to stable leaves the beta channel still pointing at the now-older pre-release
+      // (0.0.5-beta.1 sorts BELOW 0.0.5), so every install on beta is invited to go
+      // backwards. `isDowngrade` still reports it so the reason can be shown.
+      updateAvailable: cmp > 0 && !blockedReason,
       blockedReason,
       isDowngrade: cmp < 0,
       permissionsAdded: declared.filter((p) => !granted.includes(p)),

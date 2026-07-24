@@ -68,14 +68,20 @@ catalog entries, not here. The **modules platform is otherwise complete**: MOD-0
 6. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
 7. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-8. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+8. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+   **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
+   2026-07-24) — move it freely
+9. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+   the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
+   (added 2026-07-24) — move it freely
+10. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-9. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+11. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-10. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-11. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+12. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+13. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-12. 🌅 **OPS-03 — VHD appliance**
+14. 🌅 **OPS-03 — VHD appliance**
 
 _(Known bugs are tracked in the **Bugs / known issues** section, by severity. **Fixing the open High bugs
 comes before starting SEC-04** — four of them landed on 2026-07-22 from live use.)_
@@ -534,6 +540,29 @@ The "next 2 things for a beta," built on a proper launcher **supervisor** (which
   `node_modules`/`.next`/user data, which regenerate or are preserved). Ties into OPS-04 (self-heal)
   and the auto-update flow. **A launcher change carries brick-risk — plan + review before building.**
 
+#### OPS-14 · Tell a beta user when their channel is BEHIND stable — ⏳
+Proposed by the add-ons session 2026-07-24, and accepted: **core can see this where the publisher cannot.**
+Core knows the installed version and can read both channels' manifests; the publisher only sees their own
+repo. A beta user whose installed version sorts *below* the stable release is in a state no publisher
+intends, and today nothing says so.
+
+**This gap is one core created.** Before v1.5.3-beta.9 an older offering was listed as an available update,
+so the situation at least announced itself — badly, as a downgrade with a tick-box (BUG-31). Refusing to
+offer it was right, but the replacement is **silence**: the Updates page now reads "up to date" while the
+install sits behind stable with no way forward on its own channel. That is exactly what happened to the
+add-ons channel for four of five entries, and only a manual manifest diff caught it.
+
+**Scope:** for anything on beta, compare the installed version against the **stable** manifest entry as
+well as its own. Where stable sorts higher, say so plainly — *"stable has 0.0.5; you're on 0.0.5-beta.1,
+which is older. Switch this to stable to move forward."* Applies to JonDash itself, modules and helpers
+alike. It is a **diagnostic, not an update offer** — it must not reintroduce BUG-31 by presenting a
+cross-channel move as an update, since switching channel is a decision.
+
+**Cost:** one extra manifest fetch per source for the other channel. `getModuleUpdateStatus` and
+`getHelperUpdateStatus` already fetch per channel and cache for 3 minutes, so this fits the existing shape;
+`lib/update.ts` would need the same for the app itself. **Whatever writes this must invalidate those caches
+on a channel change — see BUG-37**, which was precisely that mistake.
+
 #### OPS-13 · Email: bounded, diagnosable connection testing — ⏳ (exposed by BUG-21)
 BUG-21 is the hang; this is the reason a hang was possible to ship and impossible to act on. Fixing the
 timeouts stops the button spinning forever, but the admin is then told only *that* it failed — for an
@@ -554,10 +583,86 @@ refresh tokens) "failed" is not actionable. Scope:
 - **Then re-test the real M365 account** (the owner's; needs their tenant) — the point is a truthful
   error, not merely a fast one.
 
+**Largely delivered across v1.5.3-beta.1 (timeouts, step separation, provider traps) and
+v1.5.3-beta.2 (the diagnosis half).** What the real-account test on 2026-07-23 exposed, and what
+beta.2 fixed:
+- **The failure never said what it connected to.** The test button uses the *saved* config, not the
+  form — so `unable to get local issuer certificate` gave no way to tell whether it had even used the
+  host on screen. It now reports host, port, TLS mode and how it authenticated, on success and
+  failure. The owner's audit log showed a stale `:80` host saved a day earlier, which is exactly the
+  case this makes visible.
+- **New explanations:** untrusted / self-signed / expired / wrong-hostname certificates; a server
+  offering no AUTH; a relay refusing the recipient; and `wrong version number`, which is only ever
+  "Use TLS on connect" ticked for a port that expects plain SMTP first.
+- **The explanations were invisible anyway** — each is `error\n\nwhat to do`, and HTML collapsed it to
+  one line, so even the beta.1 guidance never reached the admin. `white-space: pre-wrap`.
+- **Relay support (new).** An IP-authorised relay advertises no AUTH; JonDash required an account and
+  offered credentials regardless. New `relay` mode sends none. Plus an opt-in, off-by-default
+  `allowUntrustedCert` for a private-CA smarthost — scoped to the mail transport only (never the
+  global TLS switch), audited on enable, and echoed in every result so it can't be forgotten.
+
+**Still open here:** the UI has no ceiling of its own — a hung Server Action still presents as a
+spinning button. The transport timeouts bound it in practice, but that's the server being
+well-behaved, not the UI defending itself.
+
 ### CORE — Core app & UX
 
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
+
+#### CORE-05 · "Buy me a coffee" banner + a support page — ⏳ Planned
+Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
+a support page that is deliberately a bit cute and funny. Someone who goes on to support gets a second,
+sillier thank-you page.
+
+**The routes are the joke, and they are exact.** Locked by the owner — do not tidy, shorten or
+"correct" the spelling later:
+- `/help-meeeee` — the support page. **Five `e`s.** The owner first wrote `help-meeee` (four) and then
+  said *"I want the address of the page that you enter to specifically be help-meeeee"*; the second,
+  emphasised spelling wins. **Confirm before building** — it is one character and it is the whole gag.
+- `/you-are-a-bloody-legend` — the thank-you page, reached after supporting.
+
+**Tone:** cute and funny, and still recognisably JonDash. The app is otherwise dry and
+infrastructural — a self-hosted dashboard that guards someone's services — so the humour lives on these
+two pages and in the banner copy, not in the admin UI around them.
+
+**Design constraints that matter more than the styling:**
+- **The banner must never nag.** Dismissible, and once dismissed it stays dismissed — per user, stored
+  the same way other per-user UI state is. A self-hosted personal-use app that pesters its owner for
+  money is worse than no banner at all. Consider showing it only after the instance has been in use for
+  a while, rather than to someone who just finished setup.
+- **Nothing is gated behind it, ever.** No feature, no nag-removal-for-payers, no "supporter" tier. The
+  licence is personal-use and free; this asks, it does not sell.
+- **`/you-are-a-bloody-legend` cannot verify that anyone actually paid** — and should not pretend to.
+  A payment provider only confirms a payment via a webhook, which a self-hosted instance behind
+  somebody's home router generally cannot receive. So treat it as the **return URL** the provider sends
+  people back to: a thank-you, reachable by anyone who types it, storing nothing and asserting nothing.
+  Do not build an entitlement on top of it.
+- **No phoning home.** The banner must not fetch anything external to decide whether to render, and the
+  pages must not embed a third-party script or tracker. Clicking through to the payment provider is
+  user-initiated and fine; anything before that click is not.
+- **Both pages are public-ish by nature** — they sit behind the normal sign-in like everything else, but
+  keep them free of instance detail (no hostnames, no service names, nothing from the dashboard).
+
+**Open, for the owner:** which payment provider (Ko-fi / Buy Me a Coffee / GitHub Sponsors / plain
+PayPal), and whether the banner appears on the dashboard, in the admin area, or both.
+
+#### CORE-04 · Full UI rework — ⏳ scope TBD
+Owner decision 2026-07-23. **The look changes significantly; the functionality does not.** Buttons,
+controls and flows stay as they are — this is a visual pass, not a re-architecture, and nothing here
+should become a reason to move or remove a control someone already relies on.
+
+**Not yet scoped.** Deliberately left open: agree the direction before any of it is built, because a
+half-applied restyle across ~20 admin pages is worse than either the old look or the new one.
+
+Worth carrying into it when it is scoped:
+- **Mobile/responsive is already an ongoing commitment** (moved from CORE-03) — fold it in rather than
+  treating it as separate work afterwards.
+- **Consolidation beats restyling.** The Updates page work (2026-07-23) showed the real problem wasn't
+  how a control looked but that update settings lived in four places. Look for the same pattern
+  elsewhere before repainting.
+- **Test with data present.** Every UI regression found so far — the trapped overlays (BUG-23), the
+  invisible import button (BUG-22), the render-prop 500 — passed a clean build and an empty state.
 
 #### CORE-02 · Admin area → "Settings" with a left sidebar + grouped sections — ✅ Shipped v1.3.3-beta.1, released in v1.4.0
 Restructure the admin navigation and information architecture (a UI/IA change — no new capabilities).
@@ -589,7 +694,185 @@ _None currently._
 
 ### 🟠 High
 
-- **BUG-27 · The verifier misses two ways a module reaches outside itself — OPEN.** Found 2026-07-23 by
+- **BUG-38 · An uninstalled helper still appeared on the Updates page — fixed v1.5.3-beta.17.**
+  Reported by the owner 2026-07-23 after uninstalling Backup Manager: the `filesystem` helper was
+  gone from Admin → Helpers but still listed under Admin → Updates → Beta channels, with a working
+  switch. **The uninstall itself was correct** — `pruneUnusedHelpers` removed the helper's files and
+  dropped it from the generated registry, verified on the owner's install (`helpers/` held only
+  `scheduler`). What remained was its **database row**, kept deliberately so reinstalling the module
+  restores the helper's data rather than starting it from nothing.
+  **The fault was two readers disagreeing about what "installed" means:**
+  `listHelpersForAdmin` iterates the REGISTRY and looks rows up (correct, hid it);
+  `getHelperUpdateStatus` iterated **all rows** (included the orphan). So a helper whose files were
+  deleted kept a channel switch and could be offered an update — and "update" would have installed
+  something the admin had removed.
+  **Fix:** gate `getHelperUpdateStatus` on the registry. Reproduced the owner's exact state first
+  (two rows, one installed helper) and confirmed only `scheduler` is now listed. Three regression
+  tests, including one asserting `pruneUnusedHelpers` still never deletes rows — if that changed, a
+  reinstall would silently lose the helper's history.
+  **Not an add-ons issue:** helper install and prune are owned by core.
+- **BUG-37 · A write that changed a cached answer didn't invalidate the cache — fixed v1.5.3-beta.16.**
+  Reported by the owner as *"I am not able to slide the beta sliders for the helpers"* — and the
+  slider was not the problem. Their audit log showed **five successful writes from five frustrated
+  clicks**, and the helper ended on `channel=stable pin=stable`. The write always landed; the page
+  never changed.
+  **Cause:** `getHelperUpdateStatus()` caches for 3 minutes and the Beta channels panel reads a
+  helper's channel from it. `setHelperChannelPinAction` never called `invalidateHelperUpdateCache()`
+  — which the older action it replaced *did*. The row redrew in its old position and **survived a full
+  page reload**, because the cache is in-process, not per-request. Modules were unaffected: their rows
+  come straight from Prisma. That is exactly why only the helper switches looked dead.
+  **Two more instances found by auditing the class rather than the symptom**, neither reported:
+  `setAppChannelAction` never cleared the app update cache (and `lib/update.ts` had **no invalidator at
+  all** — `clearUpdateStatusCache` is new), so switching JonDash's channel kept offering the other
+  channel's release; and `setModuleChannelAction` never called `clearModuleUpdateCache()`.
+  **Reproduced and fixed in a browser**, not by reading: logged in properly, clicked the slider,
+  watched the database change while the page didn't, then watched the row flip to "Join beta" the
+  moment the invalidation was added.
+  **Regression test is source-level on purpose** — the failure is "an action forgot a call", which no
+  behavioural test of that action can catch. It asserts each action invalidates what it must, and that
+  every cache still exposes a way to clear it.
+- **BUG-36 · A stale `module-installing` marker makes recovery remove the WRONG module — OPEN.**
+  Found 2026-07-23 while reading the owner's install after the beta.15 update: `.data/module-installing`
+  was present on a healthy instance. `markModuleInstalling` (`lib/modules/rebuild.ts:45`) writes it
+  before a rebuild, and **nothing clears it on success** — only `scripts/module-recover.mjs` clears it,
+  and that runs only when a build FAILS.
+  So after any successful module install the marker persists indefinitely naming a module that is fine.
+  The next *unrelated* build failure — a bad app update, a broken helper — then hands recovery that
+  stale name, and it removes that module's source and regenerates the registry without it. **It deletes
+  a working module to fix a failure it had nothing to do with**, which is worse than not recovering.
+  **Fix:** clear the marker on a successful build, next to where `built-version`/`built-path` are
+  written in `start-dashboard.bat`. Cheap, and it makes the marker mean "a rebuild is in flight" rather
+  than "a rebuild happened once".
+  **Not yet reproduced** — inferred from the code path plus a marker observed on a healthy install.
+- **BUG-35 · The Beta channels switch did nothing on a derived helper — fixed v1.5.3-beta.15.**
+  Reported by the owner 2026-07-23 ("I am not able to change the slider on the 2 helpers"), from a
+  screenshot showing Scheduler and Files-and-folders unresponsive. **Mine, introduced with the Beta
+  channels panel in beta.7.**
+  A helper's channel is `pin ?? derived` (`lib/helpers/channel.ts`), where `derived` is beta if any
+  module that needs it is on beta. `setHelperChannelPinAction` mapped "switch off" to **clearing the
+  pin** — so on a helper that was on beta by derivation, the pin went away, the channel re-derived
+  from a module still on beta, and it landed back where it started. The switch redrew unchanged.
+  **Overriding a derivation needs a pin, not the absence of one.**
+  **Fix:** the switch sets an explicit pin to the requested channel, and clears the pin only when the
+  request equals the derived value — so it returns to *following* rather than being frozen at a value
+  that happens to match today. Rows now state when a helper is pinned.
+  **Verified against a real database**, not just the mapping: module on beta → switch off gives
+  `channel=stable, pinned=true`; switch on gives `channel=beta, pinned=false`. Five regression tests,
+  including the property the bug broke — every flip must change the resulting channel, since a control
+  that can redraw unchanged is indistinguishable from a broken one.
+- **BUG-32 · A part-applied module migration can never recover — OPEN.** Reported by the add-ons
+  session 2026-07-23 while proving Backup Manager's 0.0.1 → 0.1.0 upgrade; **confirmed here against
+  the code**. `runModuleMigrations` (`lib/modules/migrate.ts`) runs each statement through its own
+  `$executeRawUnsafe` with **no transaction**, and writes the `ModuleMigration` row only after the
+  whole file succeeds. A file whose fourth of six statements fails leaves 1–3 committed and the file
+  unrecorded — so the next attempt restarts at statement 1, hits `ALTER TABLE ADD COLUMN` for a
+  column that now exists, and fails identically. **SQLite has no `ADD COLUMN IF NOT EXISTS`, so it
+  cannot self-heal**: every retry fails the same way and the module is stuck until someone edits the
+  database by hand.
+  **Asserted, not assumed.** Their `addons/backup-manager/tests/upgrade.test.ts` deletes the
+  `ModuleMigration` row for an applied file, re-runs the runner, and expects `duplicate column` — it
+  passes on 1.5.3-beta.5.
+  **Decision: fix, don't document.** They offered to write the constraint into the authoring guide
+  instead ("keep each file to one statement; never assume a failed file left nothing behind"). That
+  makes every author remember a rule to avoid a trap the framework is setting. Wrap each file in a
+  transaction — SQLite supports transactional DDL — so a file applies atomically or not at all and a
+  retry is always safe. **Applies to every module's migrations, not just theirs.**
+  **When it lands:** tell the add-ons session so they can invert their assertion — a re-run of a
+  part-applied file should then succeed. The test stays theirs.
+- **BUG-31 · The Updates page offered a DOWNGRADE as an update — fixed v1.5.3-beta.9.** Reported by the
+  owner 2026-07-23 from a real install: *Health monitoring v0.0.5 → v0.0.5-beta.1*, with a tick-box
+  beside it. `lib/modules/updates.ts` set `updateAvailable: cmp !== 0`, so **any** difference counted —
+  including an offering that sorts BELOW what's installed. `lib/helpers/updates.ts` had the same line.
+  Now `cmp > 0`; `isDowngrade` still reports it so the reason can be shown.
+  **The trigger is a release-process problem, not a user mistake, and the app fix only contains it.**
+  Semver sorts a pre-release below its release, so `0.0.5-beta.1` < `0.0.5`. **Promoting a pre-release
+  to stable without advancing the beta channel leaves beta pointing at the now-older pre-release** — and
+  every install on beta is then invited to go backwards. It is the add-ons repo's equivalent of the core
+  rule that both branches end on the same commit after a promotion.
+  **Still to do on the add-ons side:** after promoting `X.Y.Z-beta.N` → `X.Y.Z`, the beta manifest must
+  move to `X.Y.Z` (or beyond), never be left behind. Until it does, beta installs simply see "up to
+  date" rather than a downgrade offer — correct, but the beta channel is stale.
+- **BUG-30 · The per-module "update automatically" toggle does nothing — fixed v1.5.3-beta.5.** Found 2026-07-23 while
+  scoping the same feature for helpers. Shipped in **MOD-10 (v1.5.2)** and **live in stable now**.
+  The UI toggle exists (`app/admin/modules/[id]/page.tsx:116`), the flag saves
+  (`app/admin/modules/actions.ts:356`), `lib/modules/registry.ts` reads it back, and the page reports
+  **"Currently on"** — but `planAutoUpdates()` in `lib/modules/auto-update.ts` **has no callers**.
+  Nothing imports that module at all; it is dead code, and no test references it. A module opted in to
+  automatic updates is never updated automatically.
+  **Why it's High, not Medium:** it isn't a missing feature, it's a **false assurance about updates**.
+  Someone who ticks it reasonably believes fixes — including security fixes to a module's own code —
+  land without them. Nothing anywhere contradicts that. Silence is indistinguishable from "nothing to
+  update".
+  **The gap is only the trigger.** The planning logic is written and its refusals are right: an update
+  that ADDS a permission is never auto-applied, nor is a blocked one or a downgrade. What is missing is
+  anything that calls it and applies the result — and that's a real decision, not an oversight to patch
+  blindly: applying an update means a rebuild and a restart, which signs everyone out, so it can't
+  happen mid-request. Startup is the natural point (the launcher rebuilds and restarts there anyway).
+  **Fixed in v1.5.3-beta.5**, with the helper equivalent, sharing one runner. `lib/updates/auto-run.ts`
+  plans and applies for modules and helpers together (helpers first — a module's new version may need
+  the newer helper, never the reverse); `lib/updates/scheduler.ts` starts at boot from
+  `instrumentation.ts` and ticks every 15 minutes. Owner chose a schedule over apply-on-detect:
+  **daily/weekly/monthly, at a chosen time, on a chosen weekday or day of month.**
+  **Two bugs the tests caught before it shipped**, both silent in production: (1) deriving a synthetic
+  "first window" when no last-run existed made a *fresh install* immediately overdue, so configuring at
+  09:00 with an 03:00 schedule rebuilt and restarted the box mid-setup — now it seeds a baseline and
+  fires at the next window; (2) `setMonth()` overflows when the current day doesn't exist in the target
+  month, so from Jan 30 a monthly schedule produced "Feb 30" → **March 2, skipping February entirely**.
+  Day-of-month is capped at 28 for the same reason.
+  **Also consolidated the UI** (owner ask): update settings previously lived in four places — the app's
+  channel and auto-update on **Settings**, module/helper updates on **Updates**, and per-module
+  auto-update on **each module's own page**. All now on Admin → Updates. The module detail page keeps a
+  read-only statement of the current value and links there.
+- **BUG-29 · Background work can't be audited — every scheduled module action is silently unlogged — fixed v1.5.3-beta.3.**
+  Reported by the add-ons session 2026-07-23 from Backup Manager's first scheduled run; **reproduced here
+  the same day**. `lib/audit.ts:12` calls `await headers()` inside the *same* `try` as the
+  `prisma.auditLog.create` on line 15. `headers()` throws outside a request scope, so background work
+  throws **before** the write and the `catch` on line 23 swallows it. No row is ever written and nothing
+  signals that anything went wrong. The comment on that catch — "never let audit logging break the
+  primary flow" — is achieved, at the cost of making every module's scheduled work unauditable.
+  **Verified, not inferred.** Their four checks against a real 1.5.2 install: `ctx.audit` exists in a
+  system context and `ctx.grants` contains `audit:write` (so a module's optional-chaining isn't what
+  swallows it); that `ctx.audit` writes zero rows; core's `audit()` called directly with no request in
+  scope writes zero rows; and — the control — a direct `prisma.auditLog.create` writes one immediately.
+  My own run outside a request scope: `audit()` wrote **0** rows, the direct create wrote **1**, and
+  `headers()` threw ``headers` was called outside a request scope`. Table, schema, connection and write
+  path are all healthy; the only variable is whether `headers()` ran first.
+  **No module can work around it.** `audit()` returns `Promise<void>` and swallows its own errors, so it
+  resolves cleanly whether or not anything was written — a consumer cannot detect the failure, retry, or
+  fall back.
+  **Scope:** every module's scheduled work, including `health-monitor`'s checks. Expect those audit
+  trails to contain only entries somebody triggered by clicking.
+  **Fix:** resolve the IP in its own `try/catch` defaulting to `undefined`, then do the write in a
+  separate `try` — a missing request context should cost the `ip` column, not the whole row. `userId` is
+  already optional and already null for background work, so nothing else changes and the
+  never-break-the-flow property is preserved. Also worth deciding whether such rows should read
+  **"system"** on the audit page, so "the schedule did this" is distinguishable from "we don't know who
+  did this".
+  **Why it bites now:** filesystem 0.0.3 ships GFS snapshot retention, which deletes old backups on a
+  schedule and documents that every deletion is audited individually so "what did it remove last night"
+  is answerable. That is currently false for scheduled prunes. The helper's own per-run log file still
+  records every removal, written before each deletion happens, so the answer exists — just not in the
+  audit trail, which is where anyone would look first. `HELPER.md` carries a caveat until this lands.
+  **High rather than Critical:** nothing is destroyed or exposed, but it silently defeats a security
+  control, and has presumably been true since modules first got a scheduler.
+  **Fixed as proposed** (v1.5.3-beta.3): the IP is resolved in its own `try/catch` defaulting to
+  `undefined`, then the write happens in a separate `try`. A missing request context now costs the `ip`
+  column, not the row, and the never-break-the-flow property is preserved. Four regression tests run
+  outside a request scope — the actual failing condition — and **three of them fail against the old
+  implementation**, which is what makes them worth having.
+  **Their "system" question — done in v1.5.3-beta.4, the harder way.** A scheduled row was rendering
+  `— —`, indistinguishable from "we don't know who". The tempting inference (no user *and* no ip means
+  background) would have worked today — of 196 rows on a real install, **0** lack an ip — but it was
+  the wrong fix: `ip` comes from `x-forwarded-for`/`x-real-ip`, so on a deployment that doesn't set
+  them a **real user action would be labelled "System"**, and an audit log asserting the wrong actor is
+  worse than one admitting it doesn't know. Built instead as an explicit `AuditLog.source`
+  (`"request"` | `"system"`) + migration, set from the only authoritative signal — whether a request
+  was in scope — at the one place that knows. The page shows a **System** chip, and the User filter
+  gained **System (scheduled)** so "what ran overnight" is answerable. Existing rows backfill to
+  `request`, which is provably correct rather than assumed: the pre-fix `audit()` could not write
+  outside a request scope at all. Verified live that a request-scoped row **with no ip** stays blank
+  rather than being relabelled — the exact case the inference would have got wrong.
+- **BUG-27 · The verifier missed two ways a module reaches outside itself — fixed v1.5.3-beta.1.** Found 2026-07-23 by
   testing bypasses against `verifyModuleFiles` rather than reading it. Both work **server-side**, where
   CSP doesn't apply.
   - **`globalThis.fetch(...)` and destructuring** (`const { fetch: f } = globalThis`) are **not caught**,
@@ -608,8 +891,10 @@ _None currently._
   - **Honest limit, unchanged:** this is defence in depth, not a sandbox. `const F = g["fet"+"ch"]`
     still gets through and always will. The bar is "catches accidents and undeclared capability", not
     "resists a determined author" — but the two above are ordinary code, not obfuscation.
-- **BUG-26 · Renaming or moving the install folder permanently breaks it (`Failed to load external
-  module`) — OPEN.** Reported by the owner 2026-07-22, from two directions and now confirmed: copying
+- **BUG-26 · Renaming or moving the install folder permanently broke it — fixed v1.5.3-beta.1.**
+  The launcher now records the path a build was made at (`.data/built-path`) beside the version marker
+  and rebuilds when it changes. Previously nothing triggered a rebuild, so a moved install stayed broken
+  across every restart. Original detail: Reported by the owner 2026-07-22, from two directions and now confirmed: copying
   `JonDash-Stable` in Explorer **hangs on `sharp-20c6a5da84e2135f`** every time; and after
   moving/renaming an install, every page returns **Internal Server Error** with
   `Failed to load external module @prisma/client-2c3a283f134fdcb6: Cannot find module …`. Moving the
@@ -637,7 +922,12 @@ _None currently._
   **Also document it:** `README.md` says what to back up but never says how to move or duplicate an
   install — copy everything **except** `node_modules` and `.next` (the launcher regenerates both), or
   export a backup and restore into a fresh install.
-- **BUG-25 · An "encrypted" backup leaves every icon readable in the clear — OPEN.** Reported by the
+- **BUG-25 · An "encrypted" backup leaves every icon readable in the clear — fixed v1.5.3-beta.6.**
+  Fixed by format **v4**: with a passphrase the archive is a single `backup.json` and the icons live
+  inside its ciphertext, so no entry can be opened without the passphrase. Not "encrypt the important
+  part" — a container that seals only its payload grows a new leak each time it gains content, which is
+  how this appeared. Unencrypted backups keep the v3 layout (`icons/` entries), and v2/v3 archives still
+  restore. **Existing encrypted backups were affected and should be replaced.** Original detail: Reported by the
   owner 2026-07-22, who opened an encrypted backup ZIP and viewed `icons/<hash>.png` straight out of it
   with no passphrase. **They are right, and the framing is the point:** the promise of an encrypted
   backup is that the backup is encrypted, not that most of it is. People store these off-site — cloud
@@ -662,9 +952,11 @@ _None currently._
   readable without the passphrase — not merely that decryption succeeds.
   **Tell the user, when fixed:** every encrypted backup they have already taken exposes its icons. Those
   should be re-exported and the old copies destroyed, wherever they were stored.
-- **BUG-23 · Every full-screen overlay is trapped inside the content column — `position: fixed` is broken
-  app-wide inside admin pages — OPEN.** Reported by the owner 2026-07-22 ("when installing/updating a
-  module I want this to take up the entire screen, not just the window on the right") with a screenshot of
+- **BUG-23 · Every full-screen overlay was trapped inside the content column — fixed v1.5.3-beta.1.**
+  `ServerWaitOverlay` and `ConfirmDialog` are now portalled into `document.body`, which escapes ancestor
+  transforms permanently rather than depending on layout CSS staying benign. Original detail:
+  Reported by the owner 2026-07-22 ("when installing/updating a module I want this to take up the entire
+  screen, not just the window on the right") with a screenshot of
   *Applying your module changes…* filling only the right-hand pane while the sidebar, header and the
   "1 module update is available" banner stay visible and clickable.
   **Cause — found, and it is not the overlay's fault.** `ServerWaitOverlay` already asks for
@@ -689,7 +981,7 @@ _None currently._
   components away from the component that broke.
   **While in there:** the overlay should also be a real modal — the sidebar and banner are still
   clickable during a rebuild, which flatly contradicts "Please don't refresh or close this tab".
-- **BUG-21 · "Send test email" hangs forever on a Microsoft 365 (OAuth2) connector — OPEN.**
+- **BUG-21 · "Send test email" hung forever on a Microsoft 365 (OAuth2) connector — fixed v1.5.3-beta.1.**
   Reported by the owner 2026-07-22 against their real M365 account. The settings **save** fine, but
   pressing **Send test email** leaves the button on "Sending…" indefinitely: no success, no error, no
   timeout. High because email is a shipped feature (OPS-02 pt 1) whose *only* validation path is this
@@ -734,7 +1026,108 @@ _None currently._
 
 ### 🟡 Medium
 
-- **BUG-24 · Settings changes are audited without saying what changed — OPEN.** Reported by the owner
+- **BUG-40 · A module's Tailwind classes aren't generated, so its UI renders half-styled — OPEN.**
+  Found here 2026-07-24 while shooting README screenshots: the health-monitor detail page's stat row is
+  `grid-cols-2 sm:grid-cols-5`, but it rendered as two columns at every width. The class
+  `sm:grid-cols-5` was **absent from the built CSS**.
+  **Cause:** Tailwind v4 scans the project for class names but **skips anything matched by `.gitignore`** —
+  and `modules/` and `helpers/` are both ignored on purpose (they hold installed add-on code, not app
+  code). So any utility a module uses that the core app doesn't *also* use somewhere is silently never
+  generated. Most module UIs mostly work only because their common classes (`flex`, `gap-4`,
+  `grid-cols-2`…) happen to be used by core too; a module's less common ones vanish.
+  **Consequence:** every installed module — official or third-party — can render with part of its layout
+  missing, and there is nothing in the module's own code or the verifier that would warn the author. Not a
+  crash, not a security issue: purely visual, and confined to modules.
+  **Attempted the obvious fix and it does NOT work:** Tailwind's documented `@source "../modules"` escape
+  hatch still honours `.gitignore` in v4.3.3, so naming the folders in `globals.css` generated nothing
+  (verified with a scratch build; reverted). A real fix needs the class list to come from a **non-ignored**
+  path — e.g. the prebuild registry generator (`scripts/gen-module-registry.mjs`, which already walks every
+  installed module) also emitting the classes it finds into a committed file that `globals.css` reads, or a
+  `@source` pointing at such a generated manifest. **Affects how modules should be authored and built, so
+  the add-ons session needs to know once a direction is chosen.**
+- **BUG-39 · The verifier reads a COMMENTED-OUT `helpers:` line as a real declaration — OPEN, not reproduced.**
+  Reported by the add-ons session 2026-07-22; still open, and re-surfaced by the 2026-07-23 deep clean when
+  the note in `PROJECT_MEMORY.md` was found stale. `parseDeclaredHelpers` (`lib/modules/verify.ts`) parses
+  the raw source and **nothing in it strips comments** — it was rewritten for MOD-10 (object form parsed
+  first, its span removed) but comment handling was never added. So an author who leaves
+  `// helpers: ["scheduler"]` as a worked example has that read as a declaration.
+  **Consequence:** the module silently acquires a dependency it never uses, and the helper is installed for
+  it. Worse if the commented helper isn't published on that channel — `resolveHelpersOrRollBack` then
+  **refuses the install and rolls the module back**, so a comment makes a working module uninstallable.
+  **Not Critical, and not a security hole.** A comment can only make a module *over*-declare, which is the
+  safe direction: over-declaration is shown to the admin for consent. The dangerous direction is
+  under-declaring, which this cannot cause.
+  **Same class as two already fixed:** the old rule that matched the word "eval" in a README, and the
+  template 0.0.6 incident where a commented-out `helpers` example created a real dependency. **Any regex
+  over source is a regex over comments and strings too.**
+  **To fix:** reproduce first with a fixture whose `helpers:` is commented out, asserting
+  `verifyModuleFiles().declaredHelpers` is empty — if it doesn't reproduce, close this. If it does, strip
+  comments before parsing, reusing the stripper `verify.ts` already has for the banned-construct rules —
+  but **keep module specifiers**, because blanking every string literal broke the `import fs from "fs"`
+  rule once before. **Then check `parseDeclaredPermissions` for the identical hole.**
+- **BUG-34 · The module settings page mirrors channel/auto-update state and goes stale — fixed v1.5.3-beta.14.**
+  Reported by the add-ons session 2026-07-23 with a screenshot: Admin → Modules → Backup Manager read
+  *"Currently on beta"* while Admin → Updates → Beta channels showed its toggle **off**, in the same
+  session. The Updates page was self-consistent (its header count matched its toggles), so the module
+  page is the wrong one.
+  **Verified here, and it is NOT two sources of truth:** `channelOf` (`lib/modules/registry.ts`) is
+  `row?.channel === "beta" ? "beta" : "stable"` — the identical comparison the Updates page makes on
+  the identical column, with no cache in either reader. Root cause unconfirmed (client router cache is
+  the best guess); deliberately not chased, because the surface is being deleted.
+  **Decision: REMOVE both cards, don't fix the display.** Since the controls moved to Admin → Updates,
+  Release channel and Automatic updates on the module page are read-only mirrors that can't be acted
+  on but can still go stale — strictly worse than no mirror. Replace with one stateless line:
+  *"Release channel and automatic updates for this module are managed on Admin → Updates."* The core
+  code already carries this argument in a comment above the Automatic updates block; the Release
+  channel mirror was left behind doing exactly what that comment warned against.
+  **Two real defects go with it:** `setModuleChannelAction` (`app/admin/modules/actions.ts`) is the only
+  one of its siblings that does **not** `revalidatePath("/admin/updates")` — add it regardless of the
+  removal; and `app/admin/modules/[id]/page.tsx:85` emits a double full stop (`"…of this module."` +
+  a literal `.`).
+  **Fixed in v1.5.3-beta.14** as decided: both cards removed and replaced by a stateless pointer;
+  `revalidatePath("/admin/updates")` added to `setModuleChannelAction`; the double full stop went with
+  the card. Verified with the module **on beta** in the database — the page claims nothing about its
+  channel, while Admin → Updates shows "Leave beta" and counts it. Root cause never confirmed and
+  deliberately not chased: the surface was deleted.
+- **BUG-33 · A module's own tests have no supported way to reach the database — OPEN.** Reported by
+  the add-ons session 2026-07-23; **confirmed**. `vitest.config.ts` supplies `globalSetup` and
+  `DATABASE_URL: file:./vitest.db` but its `include` is `tests/**` only, so a module's own tests are
+  never discovered. **`vitest.mod.mts` does not exist in this repo at all** — they built that
+  scaffolding themselves, and without `globalSetup`/`DATABASE_URL` anything importing `@/lib/db`
+  there runs against the real `dev.db`. They worked around it by copying the test into `tests/`.
+  **Decision: module tests SHOULD reach the database** — the data layer is usually the interesting
+  thing about a module, so a harness that can't touch it isn't much of a harness. Core ships a
+  supported module-test config with `globalSetup` and a throwaway `DATABASE_URL`. Their guard that
+  refuses to run against `dev.db` stays; it is what caught this.
+  Related standing friction: modules can't be
+  typechecked in the add-ons repo either, so authors copy into `modules/<id>/` to run anything.
+
+- **BUG-28 · A config file it can't parse silently reverts the server to plain HTTP on port 3000 — fixed v1.5.3-beta.6.**
+  `readNetworkConfigResult()` now separates "file absent" (defaulting is legitimate) from "file present
+  but unusable", strips a leading BOM, and `server.mjs` refuses to start on the latter rather than
+  guessing — an unreadable file can't tell us whether TLS was configured, and guessing "no TLS" is the
+  unsafe direction. Original detail:
+  Found 2026-07-23 while building a disposable install to test BUG-26/BUG-07. A hand-written
+  `.data/network.json` saved as **UTF-8 with a BOM** made `JSON.parse` throw, and `readNetworkConfig`
+  (`lib/tls/network-config.mjs:42-59`) catches *every* failure and returns `DEFAULTS` — `mode:"off"`,
+  `httpPort:3000`. The server came up on 3000 instead of the configured port with **no warning in the
+  console, the logs, or the admin UI**; the only clue was the banner URL.
+  **Why it matters beyond a wrong port:** for anyone on `letsencrypt` or `byo`, the same fallback
+  silently drops **TLS** — an install that was HTTPS starts answering unencrypted. A config the admin
+  cannot parse should fail loudly, not downgrade quietly.
+  **Fix:** strip a leading BOM before parsing, and distinguish "file absent" (which may legitimately
+  default) from "file present but invalid" — the latter should log a clear error, and when the stored
+  mode was TLS, refuse to start rather than serve plaintext. Must stay dependency-free: the module is
+  imported by `server.mjs` before Next boots.
+  **Not High:** it needs the file to be corrupt, which the app's own `writeNetworkConfig` never
+  produces — reachable by hand-editing or a partial disk write, not by normal use.
+  **Independently hit by the add-ons session the same day**, in the same way (a UTF-8 BOM), and their
+  run is the sharper argument for fixing it: on their machine port 3000 belonged to another agent, so
+  it only failed loudly *because that port was already taken*. Had it been free, the server would have
+  silently come up on the wrong port. Their ask is modest and right — **one warning line when the file
+  exists but cannot be parsed**, which distinguishes "no config" from "broken config" and would have
+  turned a confusing hour into an obvious one.
+- **BUG-24 · Settings changes were audited without saying what changed — fixed v1.5.3-beta.1.** Reported by the owner
   2026-07-22: editing the sign-in message logs `settings.updated` with an empty **Detail** (`—`), so the
   entry records that *a* setting changed but not **which one**, or **from what to what**. For a security
   product that's most of the value of the entry — "who changed the idle timeout, and to what" is exactly
@@ -751,7 +1144,7 @@ _None currently._
   into the audit log — which is readable by anyone holding the **delegable** `audit.view` capability and
   is carried in backups. Log key **names** always, and values only for non-secret settings (old → new is
   ideal where it's short). That trap is the reason this is worth doing carefully rather than quickly.
-- **BUG-22 · Can't import your own module — the Import button isn't visible — OPEN.**
+- **BUG-22 · The module Import button was invisible until a file was chosen — fixed v1.5.3-beta.1.**
   Reported by the owner 2026-07-22 with a screenshot: **Admin → Modules → Import your own module** shows a
   bare "Choose File / No file chosen" control and the hint "Choose a file to continue", and no button to
   act with. **Cause (from the code, not yet confirmed against the running app):** the button is
@@ -801,7 +1194,7 @@ _None currently._
   "isn't published", including the official `template`. A sideloaded package has no manifest and so no
   channel of its own; it now uses **the admin's own update channel**, so someone on stable is not silently
   given beta helper code. Reported by the addons session 2026-07-22.
-- **BUG-07 · Launcher has no "already running" guard.** Nothing stops `start-dashboard.bat` being run
+- **BUG-07 · Launcher had no "already running" guard — fixed v1.5.3-beta.1.** Nothing stops `start-dashboard.bat` being run
   a second time. The second instance fails to bind the port (EADDRINUSE) and — worse — OPS-04's
   self-healing may then wipe `node_modules`/`.next` and rebuild, disrupting the instance that's already
   running. **Fix:** a single-instance guard at launch — e.g. a `.data/launcher.lock` (PID + staleness
@@ -931,8 +1324,59 @@ privately in `PROJECT_MEMORY.md § Testing notes`, never here.
   tests, but **no screen has been driven by a person**. Check: the Helpers page states which module put a
   helper on beta; pinning and un-pinning; a helper update actually applying; and "Update everything"
   reporting what it skipped rather than silently doing less than its name claims.
-- **Per-module automatic updates** (MOD-10) — turn it on for one module, publish a newer version, confirm
-  it applies. Then publish one that **adds a permission** and confirm it is held back and reported.
+- **Automatic updates, per item** (MOD-10, reshaped in v1.5.3-beta.11) — the per-module *"Update
+  automatically"* tick this used to describe **no longer exists**; it is now the master **Automatic
+  updates** switch plus an *exclude* switch per item. Turn the master on, leave one module included,
+  publish a newer version, confirm it applies. Then publish one that **adds a permission** and confirm it
+  is held back and reported.
+- **The Available updates list, POPULATED** (v1.5.3-beta.12) — **the rows were never exercised.**
+  Verified only that the page returns 200, the section is wired and the empty state renders; a
+  populated row, the checkboxes, the Core/add-on mutual exclusion and both button labels are all
+  unproven. Attempts to seed one locally failed on fixture problems (bundled modules have no update
+  source; the 3-minute status cache; the forged-session/`SERVER_BOOT_TIME` redirect), not on product
+  behaviour — but that is not evidence either way. **Check this before anything else:** an available
+  module update should render name, `old → new`, a checkbox, and Update all / Update selected.
+- **The helper-dependency rule** (v1.5.3-beta.11) — **no test covers this yet.** A helper excluded from
+  automatic updates must still be updated when a module that needs it updates. Verify with a module
+  included and its helper excluded, both with updates available: the helper should update anyway and
+  the run should say why.
+- **Automatic updates, end to end** (BUG-30, v1.5.3-beta.5) — the schedule logic is well covered by
+  tests but **no update has ever actually been applied by the scheduler**. Turn **Automatic updates** on
+  (leaving the module included rather than excluded — the per-module tick this originally described was
+  replaced in v1.5.3-beta.11), set the schedule a few minutes ahead, publish a newer version, and confirm
+  it applies and restarts. Then confirm the refusals: a version that **adds a permission** must be held back and named,
+  not applied.
+- **Beta channels panel** (v1.5.3-beta.7) — confirm each switch moves the right thing: JonDash's own
+  channel, a module's, and a helper's pin. For the helper, check that switching OFF returns it to
+  *following its modules* rather than forcing it to stable — if a module is still on beta the helper
+  should stay on beta.
+- **The consolidated Updates page** (v1.5.3-beta.5) — confirm the schedule saves and reads back, the
+  weekly/monthly day fields appear for the right frequency, and the per-item ticks persist. Also check
+  the module detail page now points at Updates rather than offering its own toggle.
+- **Send a real email through the relay** (v1.5.3-beta.2) — the connection is proven (`verify()` succeeds
+  against the owner's M365 endpoint with no credentials) but **nothing has actually been delivered**: no
+  mail was sent during testing. Confirm a test email arrives. If it fails with `550 5.7.64`, that's the
+  inbound connector not authorising this IP to relay to external recipients, not JonDash.
+- **Send test email — failure paths** (BUG-21/OPS-13, v1.5.3-beta.1) — confirm it **fails within ~15s with
+  a reason** instead of hanging, on both SMTP and the 365 OAuth connector, and that a *working* connector
+  still sends.
+- **The untrusted-certificate option** (v1.5.3-beta.2) — only meaningful against a relay with a private or
+  self-signed certificate, which wasn't available to test. Confirm ticking it lets such a relay connect,
+  that the red warning shows while it's on, and that the audit entry records it.
+- **Confirm dialogs, everywhere** (BUG-23, v1.5.3-beta.1) — the overlay now portals to `document.body`,
+  which touches **every confirm dialog in the app**, not just the update one. Worth clicking through
+  delete/disable user, revoke session, and delete module to confirm each still opens, closes, and
+  actually performs the action.
+- **Full-screen update / restart overlay** (BUG-23) — confirm it covers the whole screen rather than the
+  right-hand column, during a real module install and a restart.
+- **Module import button** (BUG-22) — confirm it is visible before a file is chosen, disabled until one
+  is picked, and that importing still works.
+- **Audit detail on settings saves** (BUG-24) — change the sign-in message and confirm the audit entry
+  now names the setting and its new value. Same for a Sessions and an Audit-retention change, since all
+  three actions were rewritten.
+
+Cleared by live testing on a disposable install (2026-07-23), so **not** listed above: moved/renamed
+install rebuilding (BUG-26) and the double-launch refusal (BUG-07).
 
 ---
 

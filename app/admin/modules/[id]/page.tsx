@@ -6,7 +6,7 @@ import { moduleSettingsApi } from "@/lib/modules/store";
 import { prisma } from "@/lib/db";
 import { moduleGroupIds } from "@/lib/modules/visibility";
 import { buildModuleContext } from "@/lib/modules/context";
-import { setModuleChannelAction, setModuleAutoUpdateAction } from "../actions";
+
 import { ModuleSettingsForm, type SettingFieldView } from "./ui";
 import { ModuleGroupsForm } from "./groups-form";
 
@@ -77,50 +77,16 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-1 text-lg font-semibold">Release channel</h2>
-        <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
-          Which releases <strong>this module</strong> updates to. This is separate from JonDash&apos;s own
-          update channel — you can run one module on beta while everything else stays on stable.
+        {/* NO STATE HERE, deliberately (BUG-34). Once the controls moved to Admin → Updates
+            these became read-only mirrors: they couldn't be acted on but could still go
+            stale, and did — this page read "Currently on beta" while the Updates toggle for
+            the same module was off. A mirror that can't be used but can be wrong is worse
+            than no mirror. A pointer with no state in it cannot ever disagree. */}
+        <h2 className="mb-1 text-lg font-semibold">Updates</h2>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Release channel and automatic updates for this module are managed on{" "}
+          <Link href="/admin/updates" style={{ color: "var(--primary)" }}>Admin → Updates</Link>.
         </p>
-        <form action={setModuleChannelAction} className="flex flex-wrap items-center gap-3">
-          <input type="hidden" name="id" value={def.id} />
-          <input type="hidden" name="channel" value={state.channel === "beta" ? "stable" : "beta"} />
-          <span className="text-sm">
-            Currently on <strong>{state.channel}</strong>
-            {state.channel === "beta" && " — you'll get pre-release versions of this module."}
-          </span>
-          <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={!state.installed}>
-            {state.channel === "beta" ? "Leave beta (use stable)" : "Opt into beta releases"}
-          </button>
-        </form>
-        {!state.installed && (
-          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-            Enable the module first — the channel applies to its updates.
-          </p>
-        )}
-
-        <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-          <h3 className="mb-1 font-medium">Automatic updates</h3>
-          <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
-            Off by default. With this on, new versions of <strong>this module</strong> are applied without
-            asking. It stays a per-module choice on purpose — a single switch for everything would let any
-            source you&apos;ve added run new code here whenever it liked.
-          </p>
-          <form action={setModuleAutoUpdateAction} className="flex flex-wrap items-center gap-3">
-            <input type="hidden" name="moduleId" value={def.id} />
-            <input type="hidden" name="autoUpdate" value={state.autoUpdate ? "off" : "on"} />
-            <span className="text-sm">
-              Currently <strong>{state.autoUpdate ? "on" : "off"}</strong>
-            </span>
-            <button type="submit" className="btn btn-ghost !py-1.5 text-sm" disabled={!state.installed}>
-              {state.autoUpdate ? "Turn off automatic updates" : "Update this module automatically"}
-            </button>
-          </form>
-          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-            A version asking for <strong>more access</strong> than you approved is never applied
-            automatically — it waits for you, however this is set.
-          </p>
-        </div>
       </section>
 
       {(fields.length > 0 || !SettingsPanel) && (

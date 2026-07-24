@@ -1,7 +1,16 @@
 // Client-safe email constants + types (NO "server-only" import) so they can be
 // used from client components (ui.tsx) and shared across the OAuth routes.
 
-export type EmailMode = "password" | "oauth2";
+/**
+ * How JonDash authenticates to the mail server.
+ *  - "password": SMTP username + (app) password.
+ *  - "oauth2":   Google/Microsoft XOAUTH2 via a stored refresh token.
+ *  - "relay":    NO authentication. For a relay that authorises by source IP
+ *                (an internal smarthost, or M365 direct send via an inbound
+ *                connector). Offering credentials to a server that advertises no
+ *                AUTH is a different failure mode, so this sends none at all.
+ */
+export type EmailMode = "password" | "oauth2" | "relay";
 export type EmailProvider = "google" | "microsoft" | "";
 
 /** SMTP presets for password mode (host/port/secure can still be overridden). */

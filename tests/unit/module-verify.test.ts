@@ -213,6 +213,52 @@ export default mod;`;
     }
   });
 
+  /**
+   * REGRESSION (BUG-27, 2026-07-23). Found by testing BYPASSES rather than re-reading the
+   * rules — the existing tests all assert constructs that ARE caught, which is exactly why
+   * these two survived. Both are ordinary code, not obfuscation.
+   *
+   * 1. The fetch rule's lookbehind excludes `.fetch(` so that `ctx.fetch(...)` — the
+   *    sanctioned path — stays legal. That also let `globalThis.fetch(...)` through, which
+   *    is the same capability by a longer name.
+   * 2. A LITERAL `await import("node:fs")` fell between the banned-construct rule (which
+   *    targets *computed* import()) and the filesystem rule (which only knew static
+   *    syntax). Filesystem access is refused outright for modules — it is the ban the whole
+   *    helper model rests on — so this was the more serious of the two.
+   */
+  it("catches reaching the network via a global, not just a bare fetch()", () => {
+    for (const body of [
+      `await globalThis.fetch(url);`,
+      `await global.fetch(url);`,
+      `await window.fetch(url);`,
+      `const { fetch: f } = globalThis; await f(url);`,
+    ]) {
+      const res = verify([MODULE_TS([], body)]);
+      expect(res.ok, body).toBe(false);
+      expect(res.issues.map((i) => i.rule), body).toContain("undeclared-capability");
+      // ...and declaring it makes them legal, exactly like a bare fetch().
+      expect(verify([MODULE_TS(["network:outbound"], body)]).ok, body).toBe(true);
+    }
+    // The sanctioned path must stay allowed — the lookbehind exists for this.
+    expect(verify([MODULE_TS([], "await ctx.fetch(url);")]).ok).toBe(true);
+  });
+
+  it("catches a banned module reached by a LITERAL dynamic import", () => {
+    const cases: [string, string][] = [
+      [`const fs = await import("node:fs");`, "filesystem"],
+      [`const fs = await import("fs/promises");`, "filesystem"],
+      [`const cp = await import("node:child_process");`, "banned-construct"],
+      [`const net = await import("node:net");`, "undeclared-capability"],
+    ];
+    for (const [body, rule] of cases) {
+      const res = verify([MODULE_TS([], body)]);
+      expect(res.ok, body).toBe(false);
+      expect(res.issues.map((i) => i.rule), body).toContain(rule);
+    }
+    // A module importing its OWN files dynamically is still fine.
+    expect(verify([MODULE_TS([], `const x = await import("./lib/util");`)]).ok).toBe(true);
+  });
+
   it("enforces archive hygiene: file types, traversal and size", () => {
     const traversal = verify([MODULE_TS([]), { path: "../../evil.ts", bytes: 10, text: "x" }]);
     expect(traversal.issues.map((i) => i.rule)).toContain("path-traversal");

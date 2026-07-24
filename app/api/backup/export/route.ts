@@ -43,13 +43,18 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  const filename = `jondash-backup-${stamp}.zip`;
+  // `.dashbk`, not `.zip`. A backup is a JonDash artifact you restore, not a folder to
+  // rummage in — the extension says so, and stops a double-click scattering the contents.
+  // Honest about what it is: still a ZIP inside, and renaming it back to .zip opens it.
+  // That is presentation, not protection — an ENCRYPTED backup is protected because
+  // everything in it is inside the ciphertext (BUG-25), not because of its name.
+  const filename = `jondash-backup-${stamp}.dashbk`;
   // Copy into a fresh Uint8Array (backed by a plain ArrayBuffer) so it satisfies
   // the Web `BodyInit` type; fflate returns Uint8Array<ArrayBufferLike>.
   return new Response(new Uint8Array(archive), {
     status: 200,
     headers: {
-      "content-type": "application/zip",
+      "content-type": "application/octet-stream",
       "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "no-store",
     },

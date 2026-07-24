@@ -104,13 +104,13 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
 
       <div>
         <label className="label" htmlFor="import-file">
-          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive)</span>
+          Backup file <span style={{ color: "var(--muted)" }}>(.dashbk, or an older .zip)</span>
         </label>
         <input
           id="import-file"
           name="file"
           type="file"
-          accept=".zip,application/zip"
+          accept=".dashbk,.zip,application/zip,application/octet-stream"
           required
           className="input"
           onChange={(e) => {

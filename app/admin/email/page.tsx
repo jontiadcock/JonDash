@@ -31,6 +31,7 @@ export default async function EmailPage({
     host: cfg.host,
     port: cfg.port,
     secure: cfg.secure,
+    allowUntrustedCert: cfg.allowUntrustedCert,
     provider: cfg.provider,
     oauthClientId: cfg.oauthClientId,
     hasPassword: !!cfg.password,
@@ -46,8 +47,8 @@ export default async function EmailPage({
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">Email</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Configure an outgoing mail account so JonDash can send email. Supports a standard SMTP
-          username + app password, or OAuth2 for Google and Microsoft. Requires the Email capability
-          (full admins have it).
+          username + app password, OAuth2 for Google and Microsoft, or a mail relay that authorises
+          by IP address and needs no sign-in. Requires the Email capability (full admins have it).
         </p>
       </section>
 
