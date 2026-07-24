@@ -9,6 +9,29 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.6.0] — 2026-07-24
+
+**A friendlier update and account experience.** Coming from 1.5.4, this is the 1.6.0 beta line in one.
+Nothing about your services or data changes.
+
+### Changed
+- **The "updates available" notice is a single compact banner.** One line, coloured by how important the
+  most urgent update is — green, amber or red — reading e.g. *"You have 3 updates available ·
+  Recommended"*. It counts JonDash, modules and helpers together, and clicking it opens the Updates page,
+  where all the detail and controls live. The old large box with the release notes is gone.
+- **The account controls are now one small menu.** Every header shows an account icon instead of separate
+  Account / email / Sign out buttons; it opens to **My account** and **Sign out**, with your email inside.
+  Much tidier on a phone, and you can now reach your account from the admin area too. Signing out asks you
+  to confirm first, so a stray tap can't do it.
+- **An update keeps you signed in.** After JonDash updates itself it reconnects to an **"Update
+  successful"** screen with your session intact, instead of sending you back to the sign-in page. A restart
+  — or moving the install to another machine — still signs everyone out, exactly as before.
+- **The updating / restarting screen reconnects as soon as the server is back**, rather than waiting longer
+  than it needs to.
+
+### Added
+- Helper updates are now included in the "updates available" total, alongside JonDash and modules.
+
 ## [1.6.0-beta.1] — 2026-07-24
 
 A friendlier update and account experience. Nothing about your services or data changes.
