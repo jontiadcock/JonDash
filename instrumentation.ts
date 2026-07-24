@@ -15,6 +15,17 @@ export async function register() {
   // filesystem, timers), so the import must be conditional as the docs require.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // BUG-36: reaching a running server means the build the `module-installing` marker was
+  // guarding booted fine, so the install/rebuild is done — clear the marker. Left set, it
+  // named a healthy module indefinitely, and the next unrelated build failure would hand
+  // recovery that stale name and remove a module that had nothing to do with the failure.
+  try {
+    const { clearModuleInstalling } = await import("@/lib/modules/rebuild");
+    clearModuleInstalling();
+  } catch (e) {
+    console.error("[instrumentation] could not clear module-installing marker:", e);
+  }
+
   try {
     const { bootHelpers } = await import("@/lib/helpers/boot");
     await bootHelpers();

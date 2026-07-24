@@ -164,6 +164,10 @@ if defined NEEDBUILD (
   REM A good build was reached: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
   if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul
+  REM BUG-36: the module install/rebuild is done — clear its marker so an unrelated future
+  REM build failure can't hand recovery this stale name and delete a healthy module. (A
+  REM FAILED build is handled by :module_recover, which removes the module and clears it.)
+  if exist ".data\module-installing" del ".data\module-installing" >nul 2>nul
   call :log build ok "built v%APPVER%; pruned + stripped runtime footprint"
 ) else (
   echo.
@@ -171,6 +175,9 @@ if defined NEEDBUILD (
   REM Healthy fast-path start: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
   if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul
+  REM BUG-36: also clear a stale installing marker on a healthy start, to heal installs that
+  REM already carry one from before this fix (the app clears it on boot too).
+  if exist ".data\module-installing" del ".data\module-installing" >nul 2>nul
 )
 
 REM Work out the real address (scheme/host/port) from the network config.

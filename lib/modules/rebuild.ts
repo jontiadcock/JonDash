@@ -45,6 +45,19 @@ export function markModuleInstalling(moduleIds: string[]): void {
   fs.writeFileSync(INSTALLING_MARKER, moduleIds.join("\n"), "utf8");
 }
 
+/**
+ * Clear the "a module rebuild is in flight" marker (BUG-36). Called when the app boots
+ * successfully — reaching a running server means the build the marker was guarding is fine,
+ * so the install is complete. Nothing cleared it on success before, so it lingered forever
+ * naming a healthy module, and the next *unrelated* build failure handed recovery that stale
+ * name and deleted a module that had nothing to do with the failure. The launcher clears it
+ * too, on a good build; this is the cross-platform backstop and the one a test can drive.
+ * (`scripts/module-recover.mjs` still clears it on a FAILED build, then removes the module.)
+ */
+export function clearModuleInstalling(): void {
+  fs.rmSync(INSTALLING_MARKER, { force: true });
+}
+
 /** Modules the launcher had to remove because they broke the build (for the admin UI). */
 export function readFailedModule(): { id: string; at: string } | null {
   try {

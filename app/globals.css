@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/*
+ * BUG-40: Tailwind skips `.gitignore`d paths, and installed modules/helpers live in the
+ * ignored `modules/` and `helpers/` folders — so a utility a module uses that the core app
+ * doesn't also use was never generated, and the module rendered half-styled. The prebuild
+ * registry generator mirrors those class names into the file below (a non-ignored path), and
+ * this explicit @source makes Tailwind scan it. Empty in a stock checkout.
+ */
+@source "../lib/modules/tailwind-classes.generated.html";
+
 :root {
   --background: #f6f7fb;
   --surface: #ffffff;

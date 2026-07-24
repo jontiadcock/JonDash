@@ -47,10 +47,18 @@ export async function runModuleMigrations(def: ModuleDefinition): Promise<void> 
   for (const file of files) {
     if (applied.has(file)) continue;
     const sql = fs.readFileSync(path.join(dir, file), "utf8");
-    for (const stmt of splitStatements(sql)) {
-      await prisma.$executeRawUnsafe(stmt);
-    }
-    await prisma.moduleMigration.create({ data: { moduleId: def.id, filename: file } });
+    const statements = splitStatements(sql);
+    // BUG-32: run the whole file in ONE transaction, with the "applied" record written in
+    // the same transaction. SQLite has transactional DDL, so a statement failing part-way
+    // rolls back every earlier statement in the file AND the record — nothing is applied and
+    // nothing is recorded, so a retry starts clean. Without this, statements 1..n-1 committed
+    // one at a time while the file stayed unrecorded, and the retry re-ran from statement 1
+    // and died on the same `ALTER TABLE ADD COLUMN` forever (SQLite has no ADD COLUMN IF NOT
+    // EXISTS) — recoverable only by hand. Affects every module's migrations, not one module's.
+    await prisma.$transaction([
+      ...statements.map((stmt) => prisma.$executeRawUnsafe(stmt)),
+      prisma.moduleMigration.create({ data: { moduleId: def.id, filename: file } }),
+    ]);
   }
 }
 

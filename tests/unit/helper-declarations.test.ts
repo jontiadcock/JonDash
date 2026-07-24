@@ -42,6 +42,34 @@ describe("parsing a module's declared helpers", () => {
   it("returns nothing when a module declares none", () => {
     expect(parseDeclaredHelpers(`const mod = { id: "demo", permissions: [] };`)).toEqual([]);
   });
+
+  it("ignores a commented-out helpers example (BUG-39)", () => {
+    // A worked example left in a comment must not become a real dependency — it would
+    // install that helper, or (if it isn't published on the module's channel) roll the whole
+    // module back at install. This is the same class as matching "eval" in a README.
+    const alongsideAComment = `
+const mod = {
+  id: "demo", permissions: [],
+  helpers: ["scheduler"],
+  // helpers: ["filesystem", "scheduler"],  example — not used
+};`;
+    expect(parseDeclaredHelpers(alongsideAComment)).toEqual(["scheduler"]);
+
+    // A fully commented-out declaration means NO helpers, not a phantom one.
+    expect(
+      parseDeclaredHelpers(`const mod = {\n  id: "demo", permissions: [],\n  // helpers: ["scheduler"],\n};`),
+    ).toEqual([]);
+
+    // A line comment INSIDE the array is stripped, leaving only the real entry.
+    const inArray = `
+const mod = {
+  helpers: [
+    "scheduler", // the one it needs
+    // "filesystem", only an example
+  ],
+};`;
+    expect(parseDeclaredHelpers(inArray)).toEqual(["scheduler"]);
+  });
 });
 
 describe("helperIdsOf / helperNeedId", () => {

@@ -9,6 +9,32 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.5.4-beta.1] — 2026-07-24
+
+Five fixes, all in the module system — installing, building and testing add-ons. Nothing changes
+unless you install or build modules.
+
+### Fixed
+- **A module's own styling could come out half-applied.** Tailwind doesn't scan the folders installed
+  modules and helpers live in, so any layout class a module used that the base app didn't *also* use was
+  never generated — health monitoring's stat row, for one, collapsed from five columns to two. A
+  module's classes are now generated. (BUG-40)
+- **A module database migration that failed part-way could never recover.** Each migration file now runs
+  as a single transaction, so a statement failing rolls back the whole file and the next attempt starts
+  clean — instead of wedging on a half-applied change that could only be undone by hand. (BUG-32)
+- **A commented-out example in a module could be read as a real declaration.** A `// helpers: [...]` or
+  `// permissions: [...]` line left as a worked example is no longer treated as a dependency or a granted
+  capability — which could otherwise have installed a helper, rolled the module back at install, or
+  overstated what you were asked to approve. (BUG-39)
+- **A finished module install could later cause a healthy module to be removed.** The "install in
+  progress" marker is now cleared once the app is running again; before, it lingered indefinitely, and an
+  unrelated later build failure could hand recovery that stale name and remove the wrong module. (BUG-36)
+
+### Added
+- **A supported way for a module's own tests to reach a database.** Tests under `modules/…/tests` (and
+  `helpers/…/tests`) run against a throwaway, migrated database with `npm run test:modules` — the data
+  layer is usually the interesting part of a module, and there was no supported way to test it. (BUG-33)
+
 ## [1.5.3] — 2026-07-24
 
 **One page for everything that updates — and updates that can finally run on their own.** Coming from

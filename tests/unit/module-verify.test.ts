@@ -37,6 +37,17 @@ describe("module verifier", () => {
     ]);
   });
 
+  it("does not read a commented-out permission (BUG-39)", () => {
+    // The same comment-stripping hole as helpers: a commented example must not be granted.
+    const src = `
+const mod = {
+  id: "demo", permissions: ["audit:write"],
+  // permissions: ["crypto:use", "audit:write"],  example
+};`;
+    expect(parseDeclaredPermissions(src)).toEqual(["audit:write"]);
+    expect(parseDeclaredPermissions(`const mod = { id: "d", /* permissions: ["crypto:use"] */ };`)).toEqual([]);
+  });
+
   it("refuses constructs no module has a legitimate need for", () => {
     const cases: [string, string][] = [
       ['import { execFile } from "node:child_process";', "banned-construct"],

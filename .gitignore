@@ -71,3 +71,6 @@ prisma/*.db.*
 next-env.d.ts
 
 /app/generated/prisma
+
+# local build/test sandbox (core-testbed-isolation rule)
+/.testbed/

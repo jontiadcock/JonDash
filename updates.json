@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.5.4-beta.1",
+      "date": "2026-07-24",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: five fixes, all for installing or building modules. A module's own layout could come out half-styled - Tailwind skips the folders installed modules and helpers live in, so a class a module used that the base app did not was never generated (health monitoring's stat row collapsed from five columns to two); those classes are now generated. A module database migration that failed part-way could wedge forever - each migration file now runs as one transaction and rolls back cleanly, so a retry starts fresh. A commented-out example line in a module - a // helpers or // permissions - is no longer read as a real declaration, which could have installed a helper, rolled the module back, or overstated what you were asked to approve. A finished module install no longer leaves behind a marker that a later, unrelated build failure could use to remove a healthy module. And a module's own tests can now use a throwaway database. Nothing changes unless you install or build modules."
+    },
+    {
       "version": "1.5.3",
       "date": "2026-07-24",
       "type": "minor",

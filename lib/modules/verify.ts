@@ -204,7 +204,10 @@ function coreImportsIn(src: string): string[] {
  * the point is to check the code before it ever runs.
  */
 export function parseDeclaredPermissions(moduleSource: string): DeclaredPermission[] {
-  const m = /permissions\s*:\s*\[([\s\S]*?)\]/.exec(moduleSource);
+  // BUG-39: strip comments/prose first, or a commented-out `// permissions: ["crypto:use"]`
+  // worked example is read as a real declaration. stripNoise keeps module-specifier-shaped
+  // strings, and a permission slug (no whitespace) is one, so real declarations survive.
+  const m = /permissions\s*:\s*\[([\s\S]*?)\]/.exec(stripNoise(moduleSource));
   if (!m) return [];
   const out: DeclaredPermission[] = [];
   // Core (`crypto:use`) and helper-namespaced (`filesystem:write`, `my-helper:read`) both.
@@ -216,7 +219,11 @@ export function parseDeclaredPermissions(moduleSource: string): DeclaredPermissi
 
 /** Helper ids declared in the module's own `module.ts` (parsed, never executed). */
 export function parseDeclaredHelpers(moduleSource: string): string[] {
-  const m = /\bhelpers\s*:\s*\[([\s\S]*?)\]/.exec(moduleSource);
+  // BUG-39: same hole as parseDeclaredPermissions — a commented-out `// helpers: ["scheduler"]`
+  // example must not become a real dependency (which would install the helper, or roll the
+  // module back if that helper isn't published on the channel). Strip comments first; slugs
+  // are specifier-shaped so stripNoise keeps them.
+  const m = /\bhelpers\s*:\s*\[([\s\S]*?)\]/.exec(stripNoise(moduleSource));
   if (!m) return [];
   const body = m[1];
   const out: string[] = [];

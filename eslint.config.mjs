@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local build/test sandbox (core-testbed-isolation): a full copy of the app + its build
+    // output, which must never be linted (or typechecked) as if it were source.
+    ".testbed/**",
   ]),
   {
     // Allow intentionally-unused args/vars prefixed with _ (e.g. useActionState's
