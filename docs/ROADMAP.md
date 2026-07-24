@@ -1301,6 +1301,14 @@ reclassified as an improvement → **OPS-06** in the catalog.)_
 - **v1.5.2** (2026-07-23) — **MOD-09 + MOD-10.** Helper-named capabilities and the consent roll-up (a
   helper's declaration of what it can do was being silently discarded, so consent understated it), plus
   helper updates, derived channels, per-module opt-in auto-update and "Update everything".
+- **v1.5.3** (2026-07-24) — **update-system rework** (BUG-30 + the beta.1–17 line). Automatic updates that
+  actually run — off by default, with a schedule and per-item exclusions, never applying a version that
+  adds access, goes backwards, or breaks a dependency; **Admin → Updates consolidated into one four-part
+  page** (version · one grouped Available-updates list with checkboxes · Automatic updates · Beta
+  channels); single-file encrypted **`.dashbk`** backups carrying icons and module data; scheduled/
+  background work now audited as **System**; plus the run of update-system fixes found across the betas
+  (BUG-25/28/29/31/34/35/37/38) and IP-authorised mail relays. **Promoted with the automatic/scheduled
+  update path still unverified end-to-end** (off by default) — see Testing required.
 
 **Per-release detail is in `CHANGELOG.md`** — this log is landmarks only, one line per release line.
 
