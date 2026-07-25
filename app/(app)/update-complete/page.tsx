@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 /**
  * Shown after an in-place update. The overlay sends the admin here once the new build is up
  * — and because an update now keeps the session (lib/boot SESSION_EPOCH), they arrive still
- * signed in, rather than being bounced to /login. A restart still lands on /login.
+ * signed in, rather than being bounced to /login. A plain restart or module rebuild also
+ * keeps the session now, but lands on /dashboard rather than this update-specific screen.
  */
 export default async function UpdateCompletePage() {
   await requireUser();

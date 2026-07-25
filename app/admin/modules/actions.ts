@@ -68,8 +68,8 @@ export async function disableModuleAction(formData: FormData): Promise<void> {
 
 /**
  * Uninstall: purge the module's data AND delete its source, then rebuild so its code is
- * no longer compiled in. The rebuild restarts the server (and signs everyone out), which
- * the confirm step warns about.
+ * no longer compiled in. The rebuild restarts the server (a graceful restart — sessions
+ * survive), which the confirm step warns about.
  */
 export async function uninstallModuleAction(formData: FormData): Promise<void> {
   await gate();

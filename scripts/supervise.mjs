@@ -35,6 +35,7 @@ const REBUILD_SIGNAL = path.join(ROOT, ".rebuild-and-restart"); // module instal
 const RESTART_SIGNAL = path.join(ROOT, ".restart-and-run"); // in-app "restart server"
 const SHUTDOWN_SIGNAL = path.join(ROOT, ".shutdown"); // in-app "shut down server"
 const POST_UPDATE = path.join(ROOT, ".data", "post-update");
+const KEEP_SESSIONS = path.join(ROOT, ".data", "keep-sessions"); // in-app restart / rebuild: keep sessions
 const LOG_DIR = path.join(ROOT, "logs");
 const SERVER_CMD = process.env.JONDASH_SERVER_CMD || "server.mjs"; // overridable for tests
 
@@ -131,13 +132,21 @@ function runOnce() {
   // proven it boots — clear the post-update marker so a *later* unrelated crash
   // never rolls back a version that actually works. (Previously this only happened
   // on a crash-after-healthy, so the marker lingered on a server that kept running.)
+  // The keep-sessions marker (an in-app restart / module rebuild kept everyone signed
+  // in) is cleared the same way, so it can't carry sessions into a later ordinary restart.
   const healthyTimer = setTimeout(() => {
-    if (childAlive && exists(POST_UPDATE)) {
-      try {
-        fs.rmSync(POST_UPDATE, { force: true });
-        appendLog("server", "healthy", "server booted OK — cleared post-update marker");
-      } catch {
-        /* ignore */
+    if (!childAlive) return;
+    for (const [marker, label] of [
+      [POST_UPDATE, "post-update"],
+      [KEEP_SESSIONS, "keep-sessions"],
+    ]) {
+      if (exists(marker)) {
+        try {
+          fs.rmSync(marker, { force: true });
+          appendLog("server", "healthy", `server booted OK — cleared ${label} marker`);
+        } catch {
+          /* ignore */
+        }
       }
     }
   }, MIN_UPTIME_MS);

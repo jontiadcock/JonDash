@@ -131,4 +131,12 @@ describe("server supervisor", () => {
     expect(await runSupervisor(dir, fake, "run")).toBe(0); // runs 2s (> MIN_UPTIME 1.5s), then exits 0
     expect(fs.existsSync(path.join(dir, ".data", "post-update"))).toBe(false);
   }, 15000);
+
+  it("clears the keep-sessions marker once the server has booted healthily", async () => {
+    // An in-app restart / module rebuild left this to keep everyone signed in; once the new
+    // build is proven healthy it must go, so it can't carry sessions into a later restart.
+    fs.writeFileSync(path.join(dir, ".data", "keep-sessions"), "1");
+    expect(await runSupervisor(dir, fake, "run")).toBe(0);
+    expect(fs.existsSync(path.join(dir, ".data", "keep-sessions"))).toBe(false);
+  }, 15000);
 });

@@ -7,7 +7,7 @@ const MODES: readonly ServerWaitMode[] = ["updating", "restarting", "shutdown", 
 
 /**
  * Shows the full-screen "applying your module changes" cover while JonDash rebuilds and
- * restarts, then returns the user to sign-in on its own.
+ * restarts, then drops the user back into the app — still signed in — on its own.
  *
  * Installing, importing or uninstalling a module ends with the server process exiting so
  * the launcher can rebuild it. The triggering request therefore never completes, which

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.6.2-beta.1",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: restarts no longer sign you out, continuing the session-friendly behaviour 1.6.0 began for updates. An intentional restart - from Admin > Server, or the automatic restart after a module is installed, updated or removed - now brings everyone straight back into the dashboard still signed in, showing the familiar full-screen 'please wait' page while the server comes back. Shutting down stays the exception by design: it is the one deliberate stop that isn't a quick restart, so the next start asks everyone to sign in again. A crash, or moving the install to another machine, still signs everyone out too - those are exactly the cases where ending every session is the safe thing to do. The wording on the restart, module-change and network-settings screens now says you stay signed in rather than warning you'll be signed out."
+    },
+    {
       "version": "1.6.1-beta.1",
       "date": "2026-07-24",
       "type": "patch",

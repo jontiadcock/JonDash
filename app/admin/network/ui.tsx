@@ -153,7 +153,7 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
         className="rounded-lg px-4 py-3 text-sm"
         style={{ background: "var(--surface-2)", color: "var(--muted)" }}
       >
-        Changes take effect after the dashboard is restarted. Restarting signs everyone out.
+        Changes take effect after the dashboard is restarted. You stay signed in across the restart.
       </div>
 
       <div className="flex items-center gap-3">

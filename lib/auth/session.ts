@@ -10,9 +10,10 @@ import { SESSION_EPOCH } from "@/lib/boot";
 // Only rewrite lastSeenAt when it's older than this, to avoid a write per request.
 const LAST_SEEN_THROTTLE_MS = 1000 * 60 * 5; // 5 minutes
 
-// SESSION_EPOCH (lib/boot) is the "sign everyone out" cutoff. It advances on a normal
-// restart (so a restart, or a folder copied elsewhere, invalidates every existing session)
-// but is REUSED across an in-place update, so an update keeps everyone signed in.
+// SESSION_EPOCH (lib/boot) is the "sign everyone out" cutoff. It is REUSED across any
+// graceful, app-initiated restart — an update, an in-app restart, or a module rebuild — so
+// those keep everyone signed in. It advances (invalidating every session) only on an
+// unexpected boot: a crash, a folder copied elsewhere, or a shutdown → cold start.
 // Fixed cookie name (works over http and https). The Secure flag is set automatically
 // when the request is HTTPS, so no configuration is needed.
 export const SESSION_COOKIE = "dashboard_session";

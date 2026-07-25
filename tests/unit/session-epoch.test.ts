@@ -4,13 +4,24 @@ import os from "node:os";
 import path from "node:path";
 import { computeSessionEpoch } from "@/lib/boot";
 
-// The session cutoff (lib/auth/session.ts rejects sessions created before it). It must
-// advance on a plain restart (and a folder copied elsewhere) so those sign everyone out,
-// but be REUSED across an in-place update so an update keeps everyone signed in. The update
-// is signalled by the launcher's `.data/post-update` marker.
+// The session cutoff (lib/auth/session.ts rejects sessions created before it). It is REUSED
+// across a graceful, app-initiated restart so everyone stays signed in, and advances (cutting
+// every session off) only on an unexpected boot — a crash, a folder copied elsewhere, or a
+// shutdown -> cold start. Two markers signal "graceful":
+//   .data/post-update  — an UPDATE (also drives crash-revert; the launcher clears it).
+//   .data/keep-sessions — an in-app restart / module rebuild.
+// Neither is deleted by computeSessionEpoch: the server evaluates this module more than once
+// per start (instrumentation bundle, then the first app-route request), so a delete-on-read
+// would let the second evaluation advance past a fresh session. The SUPERVISOR clears them
+// after a healthy boot; the tests simulate that with an explicit rm.
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "jd-epoch-"));
 const markUpdate = (d: string) => fs.writeFileSync(path.join(d, "post-update"), "1");
+const markRestart = (d: string) => fs.writeFileSync(path.join(d, "keep-sessions"), "1");
+const clearMarkers = (d: string) => { // what the supervisor does once the boot is healthy
+  fs.rmSync(path.join(d, "post-update"), { force: true });
+  fs.rmSync(path.join(d, "keep-sessions"), { force: true });
+};
 
 describe("session epoch", () => {
   it("advances to now on the first boot and on a plain restart", () => {
@@ -33,7 +44,7 @@ describe("session epoch", () => {
     computeSessionEpoch(d, 1000);
     markUpdate(d);
     computeSessionEpoch(d, 5000); // post-update -> reuse 1000
-    fs.rmSync(path.join(d, "post-update")); // marker cleared once the new build is healthy
+    clearMarkers(d); // marker cleared once the new build is healthy
     expect(computeSessionEpoch(d, 9000)).toBe(9000); // ordinary restart cuts off again
   });
 
@@ -41,5 +52,41 @@ describe("session epoch", () => {
     const d = tmp();
     markUpdate(d); // marker but no prior epoch file — must fall back to now, the safe way
     expect(computeSessionEpoch(d, 3000)).toBe(3000);
+  });
+
+  // keep-sessions marker: in-app restart + module rebuild (the new behaviour).
+  it("reuses the previous epoch across an in-app restart (keep-sessions), keeping sessions", () => {
+    const d = tmp();
+    computeSessionEpoch(d, 1000);
+    markRestart(d);
+    expect(computeSessionEpoch(d, 5000)).toBe(1000); // graceful restart -> sessions survive
+  });
+
+  // Regression for the double-evaluation bug found in live testing: the server computes the
+  // epoch more than once per start (instrumentation bundle + first app-route request). BOTH
+  // must reuse — a delete-on-read let the second advance past a just-created session.
+  it("reuses across MULTIPLE evaluations of one start (marker not consumed on read)", () => {
+    const d = tmp();
+    computeSessionEpoch(d, 1000);
+    markRestart(d);
+    expect(computeSessionEpoch(d, 5000)).toBe(1000); // evaluation #1 (e.g. instrumentation)
+    expect(computeSessionEpoch(d, 5300)).toBe(1000); // evaluation #2 (first request) — still reuses
+    expect(fs.existsSync(path.join(d, "keep-sessions"))).toBe(true); // left for the supervisor
+  });
+
+  it("advances on the next plain restart once the supervisor has cleared keep-sessions", () => {
+    const d = tmp();
+    computeSessionEpoch(d, 1000);
+    markRestart(d);
+    computeSessionEpoch(d, 5000); // reuse 1000
+    clearMarkers(d); // supervisor clears it after a healthy boot
+    expect(computeSessionEpoch(d, 9000)).toBe(9000); // an ordinary restart now cuts off
+  });
+
+  it("shutdown -> cold start (no marker) signs everyone out", () => {
+    const d = tmp();
+    computeSessionEpoch(d, 1000); // a session-bearing run
+    // shutdown leaves NO marker (and clears any leftover); the next cold start advances
+    expect(computeSessionEpoch(d, 8000)).toBe(8000);
   });
 });

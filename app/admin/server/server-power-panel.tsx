@@ -44,8 +44,8 @@ export function ServerPowerPanel() {
           <div className="min-w-0">
             <p className="font-medium">Restart server</p>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              Stops and relaunches the dashboard. Everyone is signed out and comes back in a few
-              seconds. Use this to apply a config change or clear a stuck state.
+              Stops and relaunches the dashboard — it comes back in a few seconds and everyone
+              stays signed in. Use this to apply a config change or clear a stuck state.
             </p>
           </div>
           {confirming === "restart" ? (

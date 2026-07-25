@@ -2,6 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { markKeepSessions } from "@/lib/server-control";
 
 /**
  * Rebuild-on-module-change (MOD-01 Phase 2, chunk B).
@@ -79,6 +80,7 @@ export function clearFailedModule(): void {
  * unsupervised (the process simply exits).
  */
 export function requestRebuildAndRestart(): void {
+  markKeepSessions(); // a module rebuild is an intentional restart — keep everyone signed in
   fs.writeFileSync(REBUILD_SIGNAL, new Date().toISOString(), "utf8");
   setTimeout(() => process.exit(0), EXIT_DELAY_MS);
 }

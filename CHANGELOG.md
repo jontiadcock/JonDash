@@ -9,6 +9,22 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.6.2-beta.1] — 2026-07-25
+
+**Restarts no longer sign you out.** Continues the session-friendly behaviour 1.6.0 began for updates.
+
+### Changed
+- **An intentional restart keeps everyone signed in.** Restarting from Admin → Server, and the automatic
+  restart after a **module is installed, updated or removed**, now bring you straight back into the
+  dashboard still signed in — the same as an update already did. Each shows the familiar full-screen
+  "please wait" page while the server comes back, then drops you back where you were.
+- **Shutting down is the exception, by design.** A shutdown still signs everyone out: it's the one
+  deliberate stop that isn't a quick restart, so the next start asks everyone to sign in again.
+- **A crash, or moving the install to another machine, still signs everyone out** — those are exactly the
+  cases where ending every session is the safe thing to do.
+- The wording on the restart, module-change and network-settings screens now says you stay signed in,
+  rather than warning you'll be signed out.
+
 ## [1.6.1-beta.1] — 2026-07-24
 
 **Security hardening.** Nothing changes in how you use JonDash day to day — these close weaknesses found

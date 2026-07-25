@@ -38,9 +38,11 @@ const STALL_AFTER_MS = 90_000;
 
 /**
  * Full-screen "please wait" cover shown after the admin triggers an update, restart,
- * or shutdown. For update/restart it polls the public /api/health probe and, once the
- * *new* server (a changed `boot`) answers reliably, sends the user to /login (the
- * restart ended every session). For shutdown it just explains the server is down.
+ * or shutdown. For update/restart/rebuild it polls the public /api/health probe and, once
+ * the *new* server (a changed `boot`) answers reliably, sends the user back into the app —
+ * an update to its success screen, a restart or module rebuild straight to the dashboard,
+ * both still signed in (the session survives a graceful restart). For shutdown it just
+ * explains the server is down.
  *
  * It's a pure client overlay with no server dependency of its own, so it keeps
  * rendering while the server is offline — the user should not refresh.
@@ -73,10 +75,10 @@ export function ServerWaitOverlay({
     const done = () => {
       if (cancelled) return;
       cancelled = true;
-      // An update keeps everyone signed in (lib/boot SESSION_EPOCH), so land on the success
-      // screen still authenticated. A restart or module rebuild ended every session — the
-      // only place to go is the sign-in page.
-      window.location.href = mode === "updating" ? "/update-complete" : "/login";
+      // Every graceful restart now keeps the session (lib/boot keep-sessions / post-update).
+      // An update lands on its success screen; a restart or module rebuild drops straight back
+      // into the app, still signed in. (Shutdown never reaches here — it isn't coming back.)
+      window.location.href = mode === "updating" ? "/update-complete" : "/dashboard";
     };
 
     async function poll() {
@@ -163,7 +165,7 @@ export function ServerWaitOverlay({
             {reconnecting
               ? mode === "updating"
                 ? "Update applied — reconnecting…"
-                : "Reconnecting — taking you back to sign in…"
+                : "Reconnecting — you’re still signed in…"
               : copy.body}
           </p>
         </div>
