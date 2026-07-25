@@ -1,5 +1,5 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
-import { getAccentColor, getAppName, getLogoFilename } from "@/lib/settings";
+import { getAccentColor, getAppName, getLogoFilename, getStyleId } from "@/lib/settings";
 
 /**
  * During `next build` there is no database — JonDash builds on each machine, often before
@@ -64,6 +64,19 @@ export async function appName(): Promise<string> {
  * The header brand: the square mark (first letter of the app name) plus the wordmark.
  * `suffix` is the admin header's " Settings", hidden on small screens by the caller.
  */
+/**
+ * The chosen interface style id (CORE-07), for the `data-style` attribute on <html>.
+ * Everything is keyed off that attribute in `globals.css` — see docs/STYLES.md.
+ */
+export async function styleId(): Promise<string> {
+  if (isBuildPhase) return "default";
+  try {
+    return (await getStyleId()) || "default";
+  } catch {
+    return "default";
+  }
+}
+
 /** The configured logo's stored filename, or "" when none is set. Never throws. */
 export async function logoFilename(): Promise<string> {
   if (isBuildPhase) return "";

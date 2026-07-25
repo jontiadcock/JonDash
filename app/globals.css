@@ -21,6 +21,21 @@
   --danger: #dc2626;
   --ring: rgba(79, 70, 229, 0.35);
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+
+  /*
+   * Shape, depth and type tokens (CORE-07). These exist so a *style* can change how the app
+   * is drawn without touching a single page or component — see docs/STYLES.md for the
+   * contract. `--border-strong` was previously referenced by components but never defined,
+   * so it silently resolved to nothing.
+   */
+  --border-strong: #c7ccdb;
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --border-width: 1px;
+  --shadow-control: 0 1px 2px color-mix(in srgb, var(--primary) 30%, transparent);
+  --surface-blur: 0px;
+  --surface-gradient: none;
+  --font-weight-strong: 600;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,6 +51,7 @@
     --danger: #f87171;
     --ring: rgba(124, 115, 255, 0.4);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.45);
+    --border-strong: #3a4152;
   }
 }
 
@@ -67,10 +83,11 @@ body {
  * and can't leave half of it looking like the old version.
  */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: var(--surface-gradient), var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--surface-blur));
 }
 
 /*
@@ -94,13 +111,15 @@ summary:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 10px;
-  font-weight: 600;
+  border-radius: var(--radius-control);
+  font-weight: var(--font-weight-strong);
   font-size: 0.925rem;
+  /* Padding is deliberately NOT a style token: hit-target size is an accessibility floor,
+     not a stylistic choice (docs/STYLES.md §3). */
   padding: 0.625rem 1rem;
   cursor: pointer;
   transition: transform 0.05s ease, background-color 0.15s ease, opacity 0.15s ease;
-  border: 1px solid transparent;
+  border: var(--border-width) solid transparent;
 }
 .btn:active {
   transform: translateY(1px);
@@ -114,11 +133,10 @@ summary:focus-visible {
   color: var(--primary-foreground);
   /* Tinted with the accent rather than a neutral grey, so a rebranded instance's buttons
      sit on their own colour instead of a purple-tinted leftover. */
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 30%, transparent);
+  box-shadow: var(--shadow-control);
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .btn-ghost {
   background: transparent;
@@ -139,9 +157,9 @@ summary:focus-visible {
 
 .input {
   width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--surface-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
   padding: 0.625rem 0.75rem;
   font-size: 0.95rem;
   color: var(--foreground);
@@ -185,4 +203,125 @@ summary:focus-visible {
   .page-fade {
     animation: none;
   }
+}
+
+/* ============================================================================
+ * STYLES (CORE-07) — see docs/STYLES.md for the contract.
+ *
+ * A style redefines the shared design tokens under a `data-style` attribute on
+ * <html>. It never targets a page or a component, so installed modules — built
+ * from the same primitives by people who have never heard of the style — are
+ * re-skinned along with everything else instead of breaking.
+ * ========================================================================== */
+
+/* --- XP: opaque, bevelled, unapologetically 2001. -------------------------
+ * A COMMITTED style (docs/STYLES.md §5): the grey-and-blue is the whole point,
+ * so it ignores the system dark preference rather than inventing a dark XP. */
+:root[data-style="xp"] {
+  --background: #5a7edc;
+  --surface: #ece9d8;
+  --surface-2: #f5f4ea;
+  --foreground: #000000;
+  --muted: #4a4a42;
+  --border: #aca899;
+  --border-strong: #716f64;
+  --primary: #245edb;
+  --primary-foreground: #ffffff;
+  --danger: #c00000;
+  --ring: rgba(36, 94, 219, 0.5);
+  --shadow: 1px 1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-control: none;
+  --radius-card: 4px;
+  --radius-control: 3px;
+  --border-width: 1px;
+  --surface-blur: 0px;
+  --surface-gradient: none;
+  --font-sans: Tahoma, Verdana, Geneva, sans-serif;
+  --font-weight-strong: 700;
+}
+/* Bevels are the look; applied to the shared primitives only. */
+:root[data-style="xp"] .card {
+  border-color: var(--border-strong);
+}
+:root[data-style="xp"] .btn {
+  background-image: linear-gradient(to bottom, #ffffff 0%, #f0efe6 48%, #e3e0d0 52%, #ffffff 100%);
+  border-color: var(--border-strong);
+  color: #000;
+  text-shadow: none;
+}
+:root[data-style="xp"] .btn-primary {
+  background-image: linear-gradient(to bottom, #6ea1f5 0%, #3a76e8 48%, #2a5fd0 52%, #6ea1f5 100%);
+  color: #fff;
+  border-color: #1c3f96;
+}
+:root[data-style="xp"] .btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+:root[data-style="xp"] .input {
+  background: #ffffff;
+  border-color: var(--border-strong);
+}
+
+/* --- Crystal: translucent "liquid glass". ---------------------------------
+ * ADAPTIVE (docs/STYLES.md §5) — defined for light, redefined for dark below.
+ * Surfaces are deliberately kept opaque ENOUGH that text clears the contrast
+ * floor over a worst-case backdrop, not just a flattering one (§4). */
+:root[data-style="crystal"] {
+  --background: #e8ecf6;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.5);
+  --foreground: #10131a;
+  --muted: #4d5666;
+  --border: rgba(255, 255, 255, 0.75);
+  --border-strong: rgba(120, 130, 150, 0.45);
+  --primary: #0b7285;
+  --primary-foreground: #ffffff;
+  --danger: #c92a2a;
+  --ring: rgba(11, 114, 133, 0.4);
+  --shadow: 0 4px 12px rgba(20, 30, 60, 0.1), 0 16px 40px rgba(20, 30, 60, 0.12);
+  --shadow-control: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
+  --radius-card: 20px;
+  --radius-control: 999px;
+  --border-width: 1px;
+  --surface-blur: 18px;
+  --surface-gradient: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  --font-weight-strong: 600;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="crystal"] {
+    --background: #0a0f18;
+    --surface: rgba(30, 38, 54, 0.66);
+    --surface-2: rgba(48, 58, 78, 0.5);
+    --foreground: #f2f5fa;
+    --muted: #a9b4c6;
+    --border: rgba(255, 255, 255, 0.14);
+    --border-strong: rgba(255, 255, 255, 0.26);
+    --primary: #38d9c0;
+    --primary-foreground: #06231f;
+    --danger: #ff8787;
+    --ring: rgba(56, 217, 192, 0.45);
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 20px 48px rgba(0, 0, 0, 0.5);
+    --surface-gradient: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.03) 45%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+  }
+}
+/* The page itself gets depth for the glass to sit against. */
+:root[data-style="crystal"] body {
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 5%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%);
+  background-attachment: fixed;
+}
+:root[data-style="crystal"] .btn-ghost {
+  background: var(--surface-2);
+  backdrop-filter: blur(var(--surface-blur));
 }

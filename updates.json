@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.6",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: choose how JonDash looks. The interface now comes in styles and you pick one under Admin > Settings > Branding - Modern (the standard look, following your system light/dark setting), XP (bevelled buttons, tan panels, a bright blue desktop and Tahoma - one committed look that ignores dark mode on purpose), and Crystal (translucent frosted-glass panels over a soft gradient, following light/dark). More will follow. Your accent colour and logo carry across every style: the style is the chrome and your branding sits on top of it. Installed modules are restyled along with everything else without their authors doing anything, because a style only redefines the shared design tokens and never targets one page or component. The rules every style must follow - no layout changes, no shrinking of tap targets, a visible keyboard focus ring and a contrast floor - are written down in docs/STYLES.md."
+    },
+    {
       "version": "1.7.0-beta.5",
       "date": "2026-07-25",
       "type": "minor",

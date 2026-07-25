@@ -679,6 +679,28 @@ review as it stood, with findings marked fixed as later releases address them.
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
 
+#### CORE-07 · Selectable interface styles — ⏳ Planned (direction set 2026-07-25)
+Owner decision, 2026-07-25: the UI rework is **not one new look — it's a chooser**. The app ships several
+distinct *styles* and the operator picks one, with more added over time. Named wants so far: **XP**,
+**Windows 7 (Aero)**, **Crystal** (Apple "liquid glass"), and others later.
+
+This reframes CORE-04: instead of agreeing a single visual direction, build the **mechanism** plus a couple
+of styles, and let taste be a setting rather than an argument.
+
+- **Build order (owner):** the selection mechanism plus **1–2 styles** first, so more can be designed later
+  without touching the app.
+- **Methodology is a deliverable, not a side-effect.** How a style is defined, what it may and may not
+  change, and the accessibility floor it must clear are written down in **`docs/STYLES.md`** so later
+  styles are consistent and can be built without re-deriving the rules.
+- **The hard constraint: installed modules must look right in every style.** Modules are third-party code
+  using the same primitives, so a style may only redefine the shared design tokens — never per-page or
+  per-component rules a module can't know about. This is what makes styles safe rather than a source of
+  "module X looks broken in style Y".
+- **Every style must stay usable**, not just pretty: contrast floor, a visible keyboard focus ring, and no
+  loss of hit-target size. A style that fails those isn't shipped.
+- **Interaction with CORE-06:** the accent colour and logo are the operator's *brand*; a style is the
+  *chrome*. They compose — an accent must work in every style.
+
 #### CORE-06 · Rebranding / white-labelling — ⏳ Planned
 Owner request, 2026-07-25. Let the operator make the instance their own — three parts:
 - **Colour scheme.** Change the app's colours from the default. The UI is already themed through CSS

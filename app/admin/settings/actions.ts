@@ -85,6 +85,23 @@ export async function updateBrandingAction(
   return { success: "Branding saved." };
 }
 
+/** Choose the interface style (CORE-07). Re-renders every layout — it restyles the whole app. */
+export async function saveStyleAction(
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("settings.manage");
+
+  const chosen = String(formData.get("style") ?? "");
+  const err = await writeSetting("branding.style", chosen);
+  if (err) return { errors: { "branding.style": "That isn't one of the available styles." } };
+
+  await audit("settings.branding.style", { userId: admin.id, detail: chosen });
+  revalidatePath("/", "layout");
+  return { success: "Style applied." };
+}
+
 /**
  * Upload (or remove) the instance logo — CORE-06.
  *

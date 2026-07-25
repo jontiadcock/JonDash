@@ -9,6 +9,25 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.6] — 2026-07-25
+
+**Choose how JonDash looks.** The interface now comes in styles, and you pick one.
+
+### Added
+- **Interface styles.** *Admin → Settings → Branding* offers:
+  - **Modern** — the standard look; follows your system light/dark setting.
+  - **XP** — bevelled buttons, tan panels, a bright blue desktop and Tahoma. One committed look, so it
+    ignores dark mode on purpose.
+  - **Crystal** — translucent frosted-glass panels over a soft gradient; follows light/dark.
+  More will follow. Your accent colour and logo carry across every style — the style is the chrome, your
+  branding sits on top of it.
+- **Installed modules are restyled along with everything else**, without their authors doing anything: a
+  style only redefines the shared design tokens, never one page or one component.
+
+### Notes
+- Styles are documented in `docs/STYLES.md`, including the rules every style must follow — no layout
+  changes, no shrinking of tap targets, a visible keyboard focus ring, and a contrast floor.
+
 ## [1.7.0-beta.5] — 2026-07-25
 
 **UI rework — phase 4: your own logo, and a more legible interface.**

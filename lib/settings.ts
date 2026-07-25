@@ -49,6 +49,19 @@ export const SETTINGS = {
     group: "branding",
   } as SettingDef<string>,
 
+  // Interface style (CORE-07). Chrome, not brand — the accent and logo compose on top of
+  // whichever style is chosen. Adding one: see docs/STYLES.md §6. Hidden from the generic
+  // form; it has a visual picker.
+  "branding.style": {
+    label: "Interface style",
+    help: "How the interface is drawn.",
+    kind: "string",
+    default: "default",
+    schema: z.enum(["default", "xp", "crystal"]),
+    group: "branding",
+    hidden: true,
+  } as SettingDef<string>,
+
   // The uploaded logo's stored filename (not a path, and never user-supplied text — it is
   // written by the upload action after sharp has re-encoded the image). Empty = the default
   // lettermark. Hidden from the generic settings form; it has its own file input.
@@ -221,6 +234,11 @@ export async function getAccentColor(): Promise<string> {
  * logo route kept serving 404 (or the previous logo) for up to 30 seconds after an upload:
  * you'd change the logo, the header would update, and the image itself would not.
  */
+/** The chosen interface style id (CORE-07); "default" when unset. */
+export async function getStyleId(): Promise<string> {
+  return readValue("branding.style");
+}
+
 export async function getLogoFilename(fresh = false): Promise<string> {
   if (fresh) cache.delete("branding.logo");
   return readValue("branding.logo");

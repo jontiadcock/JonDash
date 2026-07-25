@@ -1,7 +1,8 @@
 import { requirePermission } from "@/lib/auth/guards";
-import { listSettings, getLogoFilename } from "@/lib/settings";
+import { listSettings, getLogoFilename, getStyleId } from "@/lib/settings";
 import { SettingsForm } from "./ui";
 import { LogoForm } from "./logo-form";
+import { StyleForm } from "./style-form";
 import { updateSettingsAction, updateBrandingAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function AdminSettingsPage() {
   const settings = await listSettings("general");
   const branding = await listSettings("branding");
   const logo = await getLogoFilename();
+  const style = await getStyleId();
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,6 +40,15 @@ export default async function AdminSettingsPage() {
         <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--border)" }}>
           <h3 className="mb-3 text-sm font-semibold">Logo</h3>
           <LogoForm current={logo} />
+        </div>
+
+        <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--border)" }}>
+          <h3 className="mb-1 text-sm font-semibold">Interface style</h3>
+          <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
+            How the interface is drawn. Your accent colour and logo carry across every style. This applies
+            to everyone using this instance.
+          </p>
+          <StyleForm current={style} />
         </div>
       </section>
     </div>

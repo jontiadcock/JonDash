@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { BrandingStyle, appName, logoFilename } from "@/app/components/branding";
+import { BrandingStyle, appName, logoFilename, styleId } from "@/app/components/branding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,14 +27,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The whole style system hangs off this one attribute (CORE-07 / docs/STYLES.md).
+  const style = await styleId();
   return (
     <html
       lang="en"
+      data-style={style}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
