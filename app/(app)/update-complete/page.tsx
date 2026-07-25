@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { getAppVersion } from "@/lib/update";
 import { AutoContinue } from "./auto-continue";
+import { ContinueAddons } from "./continue-addons";
+import { hasQueuedAddonUpdates } from "@/lib/update-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,24 @@ export const dynamic = "force-dynamic";
 export default async function UpdateCompletePage() {
   await requireUser();
   const version = getAppVersion();
+  // "Update everything" leaves its add-on half queued for after the restart — if one is
+  // waiting, this screen is the middle of the run, not the end of it.
+  const addonsPending = hasQueuedAddonUpdates();
+
+  if (addonsPending) {
+    return (
+      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-5 text-center">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">JonDash is updated</h1>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm" style={{ color: "var(--muted)" }}>
+            Now running <strong style={{ color: "var(--foreground)" }}>v{version}</strong>. Updating your
+            add-ons next — this takes another minute.
+          </p>
+        </div>
+        <ContinueAddons />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[55vh] flex-col items-center justify-center gap-5 text-center">

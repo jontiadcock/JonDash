@@ -9,6 +9,24 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.4] — 2026-07-25
+
+**"Update all" now updates JonDash as well as your add-ons.**
+
+### Fixed
+- **"Update all" used to skip JonDash itself** and update only modules and helpers — so the one button
+  that reads like "update everything" left the app on its old version.
+
+### Changed
+- **One button now runs the whole thing, in the right order: JonDash → add-ons → done.** JonDash updates
+  and restarts first, then your modules and helpers are updated after it comes back. That order matters:
+  a new module version often needs the newer JonDash, never the other way round.
+- **You can see it happen.** After JonDash restarts you get *"JonDash is updated — updating your add-ons
+  next"*, then the finished screen once they're done. Stay on the page and it runs to the end by itself.
+- **If the add-ons can't be updated, it says so and stops** — naming the reason, confirming JonDash itself
+  is fine, and pointing at Admin → Updates. It won't retry in a loop.
+- You can also tick JonDash and add-ons together in the list now; they used to be mutually exclusive.
+
 ## [1.7.0-beta.3] — 2026-07-25
 
 **UI rework — phase 3: arrange your dashboard by dragging.**

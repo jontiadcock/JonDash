@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { updateSelectedAction, checkAllUpdatesAction, type SelectionState } from "./selection-actions";
+import {
+  updateSelectedAction,
+  checkAllUpdatesAction,
+  queueAddonUpdatesAction,
+  type SelectionState,
+} from "./selection-actions";
 import { RestartWarning } from "../modules/restart-warning";
 import { useRebuildWatch } from "../modules/rebuild-watch";
 
@@ -37,10 +42,16 @@ const CRIT_COLOUR: Record<string, string> = {
  * Replaces the separate module and helper panels: the question "what can I update?" was
  * answered in two places that had to be read together.
  *
- * **Core is applied on its own.** JonDash's own update goes through the launcher
- * (`/api/update/apply`), while modules and helpers are applied in-process and exit to
- * rebuild. Running both from one click can half-apply, so selecting Core clears any add-on
- * selection and vice versa — stated in the UI rather than silently enforced.
+ * **Core and add-ons can be updated together, in that order.** They apply through different
+ * machinery — JonDash's own update goes out to the launcher (`/api/update/apply`) and
+ * restarts the whole process, while modules and helpers are applied in-process — so a single
+ * pass cannot do both: the process running the click is replaced halfway through.
+ *
+ * They are therefore chained rather than kept apart: the add-ons are written to a queue
+ * (`lib/update-queue`), JonDash updates and restarts, and the post-update screen picks the
+ * queue up and applies them. Core goes first because a module's new version may require the
+ * newer JonDash, never the other way round. Previously the two were mutually exclusive and
+ * "Update all" silently skipped JonDash itself, updating only the add-ons.
  */
 export function AvailableUpdates({
   items,
@@ -91,23 +102,38 @@ export function AvailableUpdates({
     setSelected((prev) => {
       const next = new Set(prev);
       const k = key(it);
-      if (next.has(k)) {
-        next.delete(k);
-        return next;
-      }
-      // Core and add-ons apply through different machinery — never both at once.
-      if (it.kind === "core") next.clear();
-      else for (const s of [...next]) if (s.startsWith("core:")) next.delete(s);
-      next.add(k);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
       return next;
     });
   }
 
   const chosen = selectable.filter((it) => selected.has(key(it)));
-  const coreChosen = chosen.some((it) => it.kind === "core");
-  // Nothing ticked = act on everything selectable, which is what "Update all" means.
-  const effective = chosen.length > 0 ? chosen : selectable.filter((it) => it.kind !== "core");
+  // Nothing ticked = act on everything selectable — including JonDash itself, which is what
+  // "Update all" ought to mean. It used to quietly skip core and update only the add-ons.
+  const effective = chosen.length > 0 ? chosen : selectable;
+  const coreChosen = effective.some((it) => it.kind === "core");
+  const addons = effective.filter((it) => it.kind !== "core");
+  // Core AND add-ons: run as one chained job — JonDash first, then the add-ons after it
+  // restarts (a module's new version may need the newer JonDash, never the reverse).
+  const chained = coreChosen && addons.length > 0;
   const label = chosen.length > 0 ? `Update selected (${chosen.length})` : "Update all";
+
+  /** Start the chained run: write down the add-ons, then apply core. */
+  async function applyAll() {
+    setCoreError(null);
+    try {
+      await queueAddonUpdatesAction(
+        addons.filter((it) => it.kind === "module").map((it) => it.id),
+        addons.filter((it) => it.kind === "helper").map((it) => it.id),
+        addons.filter((it) => consented.has(key(it))).map((it) => it.id),
+      );
+    } catch {
+      setCoreError("Couldn't prepare the add-on updates. Try updating JonDash on its own.");
+      return;
+    }
+    await applyCore();
+  }
 
   const checkNow = (
     <form action={checkAllUpdatesAction}>
@@ -234,16 +260,31 @@ export function AvailableUpdates({
 
       {coreChosen ? (
         <div className="flex flex-col gap-2">
-          <RestartWarning what="Update JonDash itself. It restarts when it's done." />
+          <RestartWarning
+            what={
+              chained
+                ? `Update JonDash, then ${addons.length} add-on${addons.length === 1 ? "" : "s"}: ${addons
+                    .map((it) => it.name)
+                    .join(", ")}.`
+                : "Update JonDash itself. It restarts when it's done."
+            }
+          />
           <div>
-            <button type="button" className="btn btn-primary" onClick={applyCore}>
-              Update JonDash
+            <button type="button" className="btn btn-primary" onClick={chained ? applyAll : applyCore}>
+              {chained ? label : "Update JonDash"}
             </button>
             {coreError && <span className="form-error ml-3">{coreError}</span>}
           </div>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            JonDash&apos;s own update is applied on its own — it restarts differently from modules and
-            helpers, so the two are never run from one click.
+            {chained ? (
+              <>
+                JonDash updates first and restarts, then its add-ons are updated — they can need the
+                newer JonDash, so the order matters. Both stages run on their own; stay on this page and
+                it will tell you when everything is done.
+              </>
+            ) : (
+              <>JonDash&apos;s own update restarts the app when it finishes.</>
+            )}
           </p>
         </div>
       ) : effective.length > 0 ? (

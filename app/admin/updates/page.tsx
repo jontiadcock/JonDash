@@ -157,7 +157,8 @@ export default async function AdminUpdatesPage() {
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
           Everything with a newer version, in one list. Tick what you want and use{" "}
           <strong>Update selected</strong>, or leave everything unticked and use{" "}
-          <strong>Update all</strong>.
+          <strong>Update all</strong> — that now updates <strong>JonDash first, then your add-ons</strong>,
+          restarting once for each stage.
         </p>
         <AvailableUpdates items={available} errors={[...moduleStatus.errors, ...helperStatus.errors]} />
         <p className="mt-4 text-xs" style={{ color: "var(--muted)" }}>

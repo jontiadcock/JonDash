@@ -15,8 +15,52 @@ import { resolveHelperChannel } from "@/lib/helpers/channel";
 import { clearModuleUpdateCache } from "@/lib/modules/updates";
 import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } from "@/lib/modules/rebuild";
 import { applyModuleUpdates } from "./module-actions";
+import { queueAddonUpdates, takeQueuedAddonUpdates } from "@/lib/update-queue";
 
 export type SelectionState = { ok?: boolean; error?: string };
+
+/**
+ * Stage one of "Update everything": remember the add-ons, so they can be applied once
+ * JonDash's own update has landed and the server has come back.
+ *
+ * The caller applies the core update immediately afterwards (`/api/update/apply`), which
+ * ends this process — hence writing the list down rather than holding it in memory.
+ */
+export async function queueAddonUpdatesAction(
+  moduleIds: string[],
+  helperIds: string[],
+  consented: string[],
+): Promise<void> {
+  await assertSameOrigin();
+  const admin = await requirePermission("modules.manage");
+  queueAddonUpdates({ moduleIds, helperIds, consented });
+  await audit("admin.updates.queued", {
+    userId: admin.id,
+    detail: `after core: ${[...moduleIds, ...helperIds].join(", ").slice(0, 300) || "none"}`,
+  });
+}
+
+/**
+ * Stage two: apply whatever stage one left behind. Called from the post-update screen once
+ * the new build is running.
+ *
+ * The queue is consumed as it's read, so a failure here is reported once rather than retried
+ * on every boot. Items are re-checked against what's actually available on the NEW version —
+ * an update that no longer applies is skipped, not forced.
+ */
+export async function applyQueuedAddonUpdatesAction(): Promise<SelectionState> {
+  await assertSameOrigin();
+  await requirePermission("modules.manage");
+
+  const pending = takeQueuedAddonUpdates();
+  if (!pending) return { error: "Nothing was waiting." };
+
+  const form = new FormData();
+  for (const id of pending.helperIds) form.append("helperId", id);
+  for (const id of pending.moduleIds) form.append("moduleId", id);
+  for (const id of pending.consented) form.append("consent", id);
+  return updateSelectedAction({}, form);
+}
 
 /** Force a fresh check of all three — core, modules and helpers — in one click. */
 export async function checkAllUpdatesAction(): Promise<void> {

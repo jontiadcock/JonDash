@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.4",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: 'Update all' now updates JonDash as well as your add-ons. It previously skipped JonDash itself and updated only modules and helpers, so the one button that reads like 'update everything' left the app on its old version. One button now runs the whole thing in the right order - JonDash first, then add-ons, then done - because a new module version often needs the newer JonDash, never the other way round. JonDash updates and restarts, then you see 'JonDash is updated - updating your add-ons next', then the finished screen once they are done; stay on the page and it runs to the end by itself. If the add-ons cannot be updated it says so and stops, naming the reason, confirming JonDash itself is fine and pointing you at Admin > Updates - it will not retry in a loop. You can also tick JonDash and add-ons together in the list now; they used to be mutually exclusive."
+    },
+    {
       "version": "1.7.0-beta.3",
       "date": "2026-07-25",
       "type": "minor",
