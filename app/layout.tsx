@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { BrandingStyle, appName } from "@/app/components/branding";
+import { BrandingStyle, appName, logoFilename } from "@/app/components/branding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,10 +16,14 @@ const geistMono = Geist_Mono({
 // The browser-tab title follows the configured app name (CORE-06). Async so it can read
 // the setting; falls back to the stock name if settings aren't available.
 export async function generateMetadata(): Promise<Metadata> {
+  // The uploaded logo doubles as the browser-tab icon; without one the bundled favicon
+  // stands. Failure here must not take the page down, so it falls back silently.
+  const logo = await logoFilename();
   return {
     title: await appName(),
     description: "Your personal dashboard of services.",
     robots: { index: false, follow: false },
+    ...(logo ? { icons: { icon: `/api/branding/logo?v=${logo.slice(0, 8)}` } } : {}),
   };
 }
 

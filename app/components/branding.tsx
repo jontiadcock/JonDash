@@ -1,5 +1,5 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
-import { getAccentColor, getAppName } from "@/lib/settings";
+import { getAccentColor, getAppName, getLogoFilename } from "@/lib/settings";
 
 /**
  * During `next build` there is no database — JonDash builds on each machine, often before
@@ -64,13 +64,39 @@ export async function appName(): Promise<string> {
  * The header brand: the square mark (first letter of the app name) plus the wordmark.
  * `suffix` is the admin header's " Settings", hidden on small screens by the caller.
  */
+/** The configured logo's stored filename, or "" when none is set. Never throws. */
+export async function logoFilename(): Promise<string> {
+  if (isBuildPhase) return "";
+  try {
+    return await getLogoFilename();
+  } catch {
+    return "";
+  }
+}
+
 export async function BrandMark({ suffix }: { suffix?: React.ReactNode }) {
   const name = await appName();
+  const logo = await logoFilename();
+
   return (
     <>
-      <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-        {name.trim().charAt(0).toUpperCase() || "J"}
-      </span>
+      {logo ? (
+        // Plain <img>: the file is served by our own route, and next/image would want
+        // configuration for a dynamic local endpoint to no benefit at this size. The
+        // filename is random per upload, so the URL changes when the logo does.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/branding/logo?v=${logo.slice(0, 8)}`}
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7 flex-none rounded-lg object-contain"
+        />
+      ) : (
+        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+          {name.trim().charAt(0).toUpperCase() || "J"}
+        </span>
+      )}
       <span className="truncate">
         {name}
         {suffix}

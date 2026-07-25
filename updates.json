@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.5",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: UI rework phase 4 - your own logo, and a more legible interface. You can now upload a logo under Admin > Settings > Branding (PNG, JPEG, WebP or GIF up to 2 MB); it replaces the square lettermark in every header and is used as the browser-tab icon, and removing it brings the lettermark back. Uploads are resized and re-saved as PNGs so nothing hidden inside a file is kept, and SVGs are refused. Keyboard focus is visible again - buttons, links and inputs show a clear focus ring when you tab to them, where the custom styling previously left almost no indication of where you were. Buttons also carry a subtle shadow in your own accent colour rather than a fixed one. Fixed: changing the logo now takes effect immediately instead of up to 30 seconds later."
+    },
+    {
       "version": "1.7.0-beta.4",
       "date": "2026-07-25",
       "type": "minor",

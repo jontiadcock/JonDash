@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
-import { applySettingsFormDetailed, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
+import {
+  applySettingsFormDetailed,
+  settingKeysByGroup,
+  writeSetting,
+  getLogoFilename,
+  type SettingsFormState,
+} from "@/lib/settings";
+import { processIconUpload } from "@/lib/security/upload";
+import { deleteIcon } from "@/lib/icons";
 import { writeChannel, isChannel } from "@/lib/update-channel";
 import { writeAutoInstall, clearUpdateFailure } from "@/lib/update-prefs";
 
@@ -75,6 +83,46 @@ export async function updateBrandingAction(
   await audit("settings.branding.updated", { userId: admin.id, detail: changed.join(", ") || "no change" });
   revalidatePath("/", "layout"); // header brand + tab title live in the root layout
   return { success: "Branding saved." };
+}
+
+/**
+ * Upload (or remove) the instance logo — CORE-06.
+ *
+ * Reuses the hardened icon path: size-capped, magic-byte allowlisted (SVG refused — script
+ * risk), and re-encoded through sharp, which drops any embedded payload. The stored file
+ * keeps a random name and lives outside the web root.
+ */
+export async function uploadLogoAction(
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("settings.manage");
+
+  const previous = await getLogoFilename();
+
+  if (formData.get("remove") === "1") {
+    await writeSetting("branding.logo", "");
+    await deleteIcon(previous);
+    await audit("settings.branding.logo", { userId: admin.id, detail: "removed" });
+    revalidatePath("/", "layout");
+    return { success: "Logo removed." };
+  }
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { errors: { "branding.logo": "Choose an image." } };
+
+  const result = await processIconUpload(file);
+  if (!result.ok) return { errors: { "branding.logo": result.error } };
+
+  const err = await writeSetting("branding.logo", result.filename);
+  if (err) return { errors: { "branding.logo": err } };
+  // Only once the new one is recorded — otherwise a failed write would leave no logo at all.
+  await deleteIcon(previous);
+
+  await audit("settings.branding.logo", { userId: admin.id, detail: "updated" });
+  revalidatePath("/", "layout");
+  return { success: "Logo updated." };
 }
 
 /** Save the general (non-critical) settings on the Settings page. */

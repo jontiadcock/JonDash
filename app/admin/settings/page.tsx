@@ -1,6 +1,7 @@
 import { requirePermission } from "@/lib/auth/guards";
-import { listSettings } from "@/lib/settings";
+import { listSettings, getLogoFilename } from "@/lib/settings";
 import { SettingsForm } from "./ui";
+import { LogoForm } from "./logo-form";
 import { updateSettingsAction, updateBrandingAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export default async function AdminSettingsPage() {
   await requirePermission("settings.manage");
   const settings = await listSettings("general");
   const branding = await listSettings("branding");
+  const logo = await getLogoFilename();
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,6 +34,11 @@ export default async function AdminSettingsPage() {
           for the default.
         </p>
         <SettingsForm settings={branding} action={updateBrandingAction} saveLabel="Save branding" />
+
+        <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--border)" }}>
+          <h3 className="mb-3 text-sm font-semibold">Logo</h3>
+          <LogoForm current={logo} />
+        </div>
       </section>
     </div>
   );

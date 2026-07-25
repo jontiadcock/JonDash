@@ -23,6 +23,8 @@ type SettingDef<T> = {
   schema: z.ZodType<T>;
   secret?: boolean;
   group: SettingGroup;
+  /** Kept out of the generic settings form — it has a purpose-built control instead. */
+  hidden?: boolean;
 };
 
 // Registry of global settings.
@@ -45,6 +47,19 @@ export const SETTINGS = {
     default: "JonDash",
     schema: z.string().trim().min(1, "Enter a name.").max(40),
     group: "branding",
+  } as SettingDef<string>,
+
+  // The uploaded logo's stored filename (not a path, and never user-supplied text — it is
+  // written by the upload action after sharp has re-encoded the image). Empty = the default
+  // lettermark. Hidden from the generic settings form; it has its own file input.
+  "branding.logo": {
+    label: "Logo",
+    help: "Uploaded logo filename.",
+    kind: "string",
+    default: "",
+    schema: z.string().regex(/^$|^[a-f0-9]{32}\.png$/),
+    group: "branding",
+    hidden: true,
   } as SettingDef<string>,
 
   "branding.accent": {
@@ -197,6 +212,19 @@ export async function getAppName(): Promise<string> {
 export async function getAccentColor(): Promise<string> {
   return readValue("branding.accent");
 }
+/**
+ * The logo's stored filename.
+ *
+ * `fresh` bypasses the 30s cache. Needed because that cache is **module state, and Next gives
+ * route handlers and server actions separate module instances** — so the `cache.delete` that
+ * `writeSetting` performs in the action's copy doesn't reach the route's. Without this, the
+ * logo route kept serving 404 (or the previous logo) for up to 30 seconds after an upload:
+ * you'd change the logo, the header would update, and the image itself would not.
+ */
+export async function getLogoFilename(fresh = false): Promise<string> {
+  if (fresh) cache.delete("branding.logo");
+  return readValue("branding.logo");
+}
 export async function getSessionLifetimeMs(): Promise<number> {
   return (await readValue("session.lifetimeDays")) * 24 * 60 * 60 * 1000;
 }
@@ -247,6 +275,7 @@ export async function listSettings(group?: SettingGroup): Promise<SettingView[]>
   for (const key of Object.keys(SETTINGS) as SettingKey[]) {
     const def = SETTINGS[key];
     if (group && def.group !== group) continue;
+    if (def.hidden) continue; // has its own control (e.g. the logo's file input)
     const value = await readValue(key);
     out.push({
       key,

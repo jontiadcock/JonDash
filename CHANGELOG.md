@@ -9,6 +9,26 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.5] — 2026-07-25
+
+**UI rework — phase 4: your own logo, and a more legible interface.**
+
+### Added
+- **Upload your own logo.** *Admin → Settings → Branding* takes a PNG, JPEG, WebP or GIF (up to 2 MB); it
+  replaces the square lettermark in every header and is used as the browser-tab icon. Remove it and the
+  lettermark comes back. Images are resized and re-saved as PNGs, so nothing hidden inside a file is kept.
+
+### Changed
+- **Keyboard focus is visible again.** Buttons, links and inputs now show a clear focus ring when you tab
+  to them — previously the custom styling left almost no indication of where you were.
+- **Buttons carry a subtle shadow in your accent colour** rather than a fixed one, so a rebranded instance
+  looks deliberate rather than tinted with leftovers.
+
+### Fixed
+- **Changing the logo took effect immediately instead of up to 30 seconds later.** Settings are cached per
+  request-handler, and the cache the upload cleared wasn't the one the image was served from, so a new
+  logo could 404 or serve the old image for a while.
+
 ## [1.7.0-beta.4] — 2026-07-25
 
 **"Update all" now updates JonDash as well as your add-ons.**

@@ -59,12 +59,34 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-/* Reusable primitives (kept small; most styling is Tailwind utilities). */
+/*
+ * Reusable primitives (kept small; most styling is Tailwind utilities).
+ *
+ * CORE-04 refines these rather than restyling ~20 pages one at a time: every screen is built
+ * from the same handful of primitives, so improving them here reaches the whole app at once
+ * and can't leave half of it looking like the old version.
+ */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow);
+}
+
+/*
+ * A visible keyboard focus ring on everything interactive. Buttons previously relied on the
+ * browser default, which the custom backgrounds made nearly invisible — so tabbing through
+ * the admin area gave almost no indication of where you were. `:focus-visible` (not `:focus`)
+ * keeps it to keyboard use, so mouse clicks don't leave a ring behind.
+ */
+.btn:focus-visible,
+.input:focus-visible,
+a:focus-visible,
+[role="menuitem"]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .btn {
@@ -90,9 +112,13 @@ body {
 .btn-primary {
   background: var(--primary);
   color: var(--primary-foreground);
+  /* Tinted with the accent rather than a neutral grey, so a rebranded instance's buttons
+     sit on their own colour instead of a purple-tinted leftover. */
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .btn-ghost {
   background: transparent;
