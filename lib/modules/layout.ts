@@ -107,6 +107,29 @@ export async function moveModule(
   }
 }
 
+/**
+ * Persist an arbitrary order for this user — what drag-and-drop produces, where a widget can
+ * land anywhere rather than one step at a time.
+ *
+ * Writes the whole visible order (like `moveModule`) so widgets that never had a saved row
+ * get one, and positions stay consistent afterwards. The caller is responsible for having
+ * filtered `orderedIds` to modules this user may actually see.
+ */
+export async function reorderModules(userId: string, orderedIds: string[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  const existing = await getUserModuleLayout(userId);
+  await prisma.$transaction(
+    orderedIds.map((id, index) => {
+      const prev = existing.get(id);
+      return prisma.moduleLayout.upsert({
+        where: { userId_moduleId: { userId, moduleId: id } },
+        create: { userId, moduleId: id, width: prev?.width ?? 1, height: prev?.height ?? 1, sortOrder: index },
+        update: { sortOrder: index },
+      });
+    }),
+  );
+}
+
 /** Forget a user's customisation for one module (back to the default size/position). */
 export async function resetModuleLayout(userId: string, moduleId: string): Promise<void> {
   await prisma.moduleLayout.deleteMany({ where: { userId, moduleId } });

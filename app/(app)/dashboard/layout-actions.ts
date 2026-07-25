@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
-import { setModuleSize, moveModule, resetModuleLayout } from "@/lib/modules/layout";
+import { setModuleSize, moveModule, reorderModules, resetModuleLayout } from "@/lib/modules/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 
 /**
@@ -38,6 +38,21 @@ export async function moveWidgetAction(
   // for modules they have no access to.
   const safeOrder = orderedIds.filter((id) => user.allowed.has(id));
   await moveModule(user.id, moduleId, direction, safeOrder);
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Save a whole new order — what a drag-and-drop produces. Same gate as the rest: the user
+ * comes from the session, and the order is filtered to modules this user may see, so a
+ * crafted list can't write layout rows for anything restricted.
+ */
+export async function reorderWidgetsAction(orderedIds: string[]): Promise<void> {
+  await assertSameOrigin();
+  const user = await requireUser();
+  const allowed = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
+  const safeOrder = orderedIds.filter((id) => allowed.has(id));
+  if (safeOrder.length === 0) return;
+  await reorderModules(user.id, safeOrder);
   revalidatePath("/dashboard");
 }
 

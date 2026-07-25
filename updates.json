@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.3",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: UI rework phase 3 - arrange your dashboard by dragging. Grab a module widget by the grip in its corner and drop it anywhere in the grid; it moves as you drop it and the new arrangement is remembered for you alone, without affecting anyone else's dashboard. The old 'Customise' link is now a small edit (pencil) icon, with width, height, position and Reset to default tucked inside it, so the dashboard stays clean until you actually want to change something - both the grip and the pencil stay out of sight until you hover over a widget. You can still move widgets without dragging: the edit popover keeps the arrow position buttons, which work with a keyboard and on touch, where dragging doesn't."
+    },
+    {
       "version": "1.7.0-beta.2",
       "date": "2026-07-25",
       "type": "minor",

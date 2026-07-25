@@ -7,7 +7,7 @@ import { buildModuleContext } from "@/lib/modules/context";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { ensureModuleMigrations } from "@/lib/modules/manage";
 import { getUserModuleLayout, applyLayoutOrder } from "@/lib/modules/layout";
-import { WidgetFrame } from "./widget-frame";
+import { WidgetGrid, type WidgetItem } from "./widget-grid";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -26,7 +26,26 @@ export default async function DashboardPage() {
   // Each user arranges their own dashboard; without a saved layout nothing changes.
   const layout = await getUserModuleLayout(user.id);
   const widgets = applyLayoutOrder(allowedWidgets, layout);
-  const orderedIds = widgets.map((s) => s.def.id);
+
+  // Each widget is rendered here (it's a server component — it may query, and must stay off
+  // the client) and handed to the grid as a node, so the grid can reorder without them
+  // becoming client code.
+  const widgetItems: WidgetItem[] = widgets.map((s) => {
+    const Widget = s.def.DashboardWidget!;
+    const ctx = buildModuleContext(s.def, s.granted, {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    const size = layout.get(s.def.id);
+    return {
+      id: s.def.id,
+      name: s.def.name,
+      width: size?.width ?? 1,
+      height: size?.height ?? 1,
+      node: <Widget ctx={ctx} />,
+    };
+  });
 
   return (
     <div>
@@ -83,29 +102,12 @@ export default async function DashboardPage() {
       {widgets.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Modules</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {widgets.map((s) => {
-              const Widget = s.def.DashboardWidget!;
-              const ctx = buildModuleContext(s.def, s.granted, {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-              });
-              const size = layout.get(s.def.id);
-              return (
-                <WidgetFrame
-                  key={s.def.id}
-                  moduleId={s.def.id}
-                  name={s.def.name}
-                  width={size?.width ?? 1}
-                  height={size?.height ?? 1}
-                  orderedIds={orderedIds}
-                >
-                  <Widget ctx={ctx} />
-                </WidgetFrame>
-              );
-            })}
-          </div>
+          {/* Keyed on the SET of visible modules (sorted, so a reorder isn't a new key):
+              installing or removing one re-seeds the grid; dragging leaves it mounted. */}
+          <WidgetGrid
+            key={widgetItems.map((w) => w.id).sort().join(",")}
+            items={widgetItems}
+          />
         </section>
       )}
     </div>

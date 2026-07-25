@@ -9,6 +9,19 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.3] — 2026-07-25
+
+**UI rework — phase 3: arrange your dashboard by dragging.**
+
+### Changed
+- **Drag module widgets where you want them.** Grab a widget by the grip in its corner and drop it
+  anywhere in the grid — it moves as you drop and the new arrangement is remembered for you alone.
+- **The "Customise" link is now a small edit (pencil) icon.** Width, height, position and *Reset to
+  default* moved inside it, so the dashboard stays clean until you actually want to change something.
+  Both the grip and the pencil stay out of sight until you hover over a widget.
+- **You can still move widgets without dragging.** The edit popover keeps the ← → position buttons, which
+  work with a keyboard and on touch, where dragging doesn't.
+
 ## [1.7.0-beta.2] — 2026-07-25
 
 **UI rework — phase 2: make it yours.** You can now rename the app and set your own accent colour.
