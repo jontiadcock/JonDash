@@ -17,6 +17,12 @@ import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 import { installChannelFor } from "./channel";
 import { helperIdsOf } from "@/lib/modules/types";
+import { getHelperDef } from "./registry";
+import { helperContext } from "./boot";
+import { audit } from "@/lib/audit";
+
+/** Same reasoning as the boot budget: an uninstall must not hang the admin screen. */
+const UNINSTALL_BUDGET_MS = 5000;
 
 /**
  * Helper installation (MOD-08).
@@ -208,7 +214,7 @@ export async function ensureHelpersFor(
  * Remove helpers nothing depends on any more. Files only — see removeHelperFiles.
  * Returns the ids removed, so the caller can tell the admin what went and why.
  */
-export function pruneUnusedHelpers(removingModuleIds: string[] = []): string[] {
+export async function pruneUnusedHelpers(removingModuleIds: string[] = []): Promise<string[]> {
   // getAllModules() is the COMPILED registry, so a module being uninstalled right now is
   // still in it and counts as its own dependent — nothing would ever be pruned.
   // Regenerating the registry first doesn't help either: rewriting the file can't change
@@ -233,6 +239,29 @@ export function pruneUnusedHelpers(removingModuleIds: string[] = []): string[] {
   const removed: string[] = [];
   for (const id of present) {
     if (needed.has(id) || !helperFilesExist(id)) continue;
+
+    // Let the helper release anything it created OUTSIDE JonDash before its files go — an OS
+    // grant, a scheduled task, a firewall rule. Nothing else can reach that state, and after
+    // the next line the code that knows about it no longer exists. (OPS-18: grants must not
+    // outlive the helper that justified them.)
+    //
+    // BEST-EFFORT, deliberately. A helper that throws or hangs here must not leave itself
+    // half-removed, so the failure is recorded and removal proceeds regardless. Bounded for
+    // the same reason `onBoot` is: an uninstall cannot be allowed to hang the admin screen.
+    const def = getHelperDef(id);
+    if (def?.onUninstall) {
+      try {
+        await Promise.race([
+          def.onUninstall(helperContext(def)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), UNINSTALL_BUDGET_MS)),
+        ]);
+      } catch (e) {
+        await audit("helper.uninstall-cleanup-failed", {
+          detail: `${id}: ${e instanceof Error ? e.message : String(e)} — files removed anyway; anything it created outside JonDash may remain`,
+        });
+      }
+    }
+
     removeHelperFiles(id);
     removed.push(id);
   }

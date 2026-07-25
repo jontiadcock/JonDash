@@ -26,6 +26,11 @@ const BOOT_BUDGET_MS = 5000;
 
 let booted = false;
 
+/** Shared by `onBoot` and `onUninstall` — both are the system acting, with no user. */
+export function helperContext(def: HelperDefinition): HelperBootContext {
+  return bootContext(def);
+}
+
 function bootContext(def: HelperDefinition): HelperBootContext {
   return {
     helperId: def.id,

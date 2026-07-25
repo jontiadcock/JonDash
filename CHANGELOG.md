@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.4] — 2026-07-25
+
+### Fixed
+- **The last way a permission could be left behind.** Add-ons that need special access are
+  removed automatically once no module uses them — but they had no chance to tidy up first, so
+  anything they'd registered with Windows could outlive them. They can now clean up on removal.
+  If that cleanup fails or takes too long, the add-on is still removed and the problem is
+  recorded, so nothing can get stuck half-removed.
+
 ## [1.7.1-beta.3] — 2026-07-25
 
 ### Fixed

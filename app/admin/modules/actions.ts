@@ -88,7 +88,9 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
   // A helper exists only to serve a module. With its last dependent gone it's removed —
   // FILES ONLY. Its data stays, so reinstalling the module brings the helper back with
   // its history intact rather than starting from nothing.
-  const droppedHelpers = pruneUnusedHelpers(defs.map((d) => d.id));
+  // Async now: a helper gets to release anything it created outside JonDash (an OS grant, a
+  // scheduled task) before its files go — nothing else can reach that state afterwards.
+  const droppedHelpers = await pruneUnusedHelpers(defs.map((d) => d.id));
   if (droppedHelpers.length > 0) {
     await audit("admin.helper.remove", { detail: `${droppedHelpers.join(", ")} (no longer needed)` });
   }

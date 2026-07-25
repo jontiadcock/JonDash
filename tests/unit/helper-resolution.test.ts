@@ -64,7 +64,7 @@ describe("pruning excludes modules being removed", () => {
     ]);
 
     // Told what's going away, it must not count that module as its own dependent.
-    expect(pruneUnusedHelpers(["dep"])).toEqual(["prunetest"]);
+    expect(await pruneUnusedHelpers(["dep"])).toEqual(["prunetest"]);
     expect(fs.existsSync(TEST_HELPER)).toBe(false);
   });
 
@@ -76,7 +76,39 @@ describe("pruning excludes modules being removed", () => {
       { id: "other", name: "Other", description: "", version: "1.0.0", minAppVersion: "1.5.0", permissions: [], helpers: ["prunetest"] },
     ]);
 
-    expect(pruneUnusedHelpers(["dep"])).toEqual([]);
+    expect(await pruneUnusedHelpers(["dep"])).toEqual([]);
     expect(fs.existsSync(TEST_HELPER)).toBe(true);
+  });
+});
+
+/**
+ * A helper must get to release what it created OUTSIDE JonDash before its files go (OPS-18).
+ *
+ * `host-services` creates OS-level grants that survive restarts and uninstalls. A module can
+ * clean up its own via `onUninstall`, but when the HELPER itself was pruned there was no hook
+ * at all — so grants outlived the thing that justified them, which the elevation design
+ * forbids. Owner, 2026-07-25: "when the module is removed, I don't want a random task present."
+ *
+ * Source-level, because the behaviour needs an installed helper with a real definition; the
+ * two properties below are the ones that would break silently.
+ */
+describe("helper onUninstall runs before the files are removed", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "lib", "helpers", "install.ts"), "utf8");
+  const body = src.slice(src.indexOf("export async function pruneUnusedHelpers"));
+
+  it("calls onUninstall BEFORE removeHelperFiles, not after", () => {
+    // Reversed, the helper's own code is gone by the time it is asked to tidy up.
+    const hook = body.indexOf("onUninstall(");
+    const remove = body.indexOf("removeHelperFiles(");
+    expect(hook).toBeGreaterThan(-1);
+    expect(hook).toBeLessThan(remove);
+  });
+
+  it("removes the files even when the hook throws or hangs", () => {
+    // A helper must never be able to leave itself half-removed. The failure is audited and
+    // removal proceeds — which makes this a tidy-up, not a guarantee.
+    expect(body).toMatch(/try\s*{[\s\S]*onUninstall[\s\S]*}\s*catch/);
+    expect(body).toContain("helper.uninstall-cleanup-failed");
+    expect(body).toContain("UNINSTALL_BUDGET_MS"); // bounded, like onBoot
   });
 });

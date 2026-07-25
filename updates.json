@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.4",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: closes the last way a permission could be left behind. Add-ons that need special access are removed automatically once no module uses them - but until now they had no chance to tidy up first, so anything they had registered with Windows could outlive them. They can now do that cleanup on removal. If the cleanup fails or takes too long the add-on is still removed and the problem is recorded, so nothing can get stuck half-removed."
+    },
+    {
       "version": "1.7.1-beta.3",
       "date": "2026-07-25",
       "type": "patch",

@@ -85,6 +85,27 @@ export type HelperDefinition = {
    * fatal.
    */
   onBoot?: (ctx: HelperBootContext) => Promise<void>;
+
+  /**
+   * Runs ONCE, just before the helper's files are removed because no module needs it any more.
+   *
+   * **This exists for state a helper created OUTSIDE JonDash**, which nothing else can reach:
+   * an OS-level grant, a scheduled task, a firewall rule, a registry key. Its own
+   * `hlp_<id>_*` tables are deliberately left alone — removal is conservative, so reinstalling
+   * the module brings the helper back with its history intact (see `pruneUnusedHelpers`).
+   *
+   * **The case that made this necessary** (OPS-18): `host-services` creates OS grants that
+   * survive restarts and uninstalls. A module can clean up its own via `onUninstall`, but when
+   * the *helper itself* was pruned there was no hook at all — so grants outlived the thing that
+   * justified them, which is the one outcome the elevation design forbids. Owner, 2026-07-25:
+   * *"when the module is removed, I don't want a random task present."*
+   *
+   * **Best-effort, and it must not block removal.** A helper that throws or hangs here cannot
+   * be allowed to leave itself half-installed; the failure is logged and the files still go.
+   * That means it is a tidy-up, not a guarantee — anything that MUST be revoked needs to be
+   * revocable independently too, which for grants is `--remove --all` and Task Scheduler.
+   */
+  onUninstall?: (ctx: HelperBootContext) => Promise<void>;
 };
 
 /**
