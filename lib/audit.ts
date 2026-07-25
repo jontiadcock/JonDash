@@ -43,18 +43,92 @@ export async function audit(
   }
 
   try {
+    await writeRow(action, opts, ip, source);
+  } catch {
+    // Never let audit logging break the primary flow.
+  }
+}
+
+/**
+ * The single write path, with one deliberate rescue: **an unattributable actor must not cost
+ * the whole row.**
+ *
+ * `userId` is a foreign key. A stale or synthetic id — an ordinary mistake for a helper acting
+ * on behalf of a user who has since been deleted — makes `create` fail with a constraint
+ * violation, and `audit()` then swallows it. The result is a privileged action with no trace,
+ * which is the one outcome an audit log exists to prevent.
+ *
+ * Reported by the add-ons session (2026-07-25) with a repro on the *normal* path: a grant was
+ * created and the task ran, with no audit row, because the id didn't resolve.
+ *
+ * So a failed write is retried once with **no actor and a note saying why**. Losing "who" is a
+ * far smaller loss than losing "what happened", and recording "we could not attribute this" is
+ * honest where a missing row is merely silent. If the retry fails too — the database is
+ * genuinely unreachable — the error propagates and the caller decides.
+ */
+async function writeRow(
+  action: string,
+  opts: { userId?: string | null; detail?: string },
+  ip: string | undefined,
+  source: AuditSource,
+): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: { action, userId: opts.userId ?? undefined, detail: opts.detail, ip, source },
+    });
+  } catch (err) {
+    // Nothing to rescue: there was no actor to drop, so this is a real write failure.
+    if (opts.userId == null) throw err;
+
+    const note = `actor "${opts.userId}" could not be attributed`;
     await prisma.auditLog.create({
       data: {
         action,
-        userId: opts.userId ?? undefined,
-        detail: opts.detail,
+        userId: null,
+        detail: opts.detail ? `${opts.detail} · ${note}` : note,
         ip,
         source,
       },
     });
-  } catch {
-    // Never let audit logging break the primary flow.
   }
+}
+
+/**
+ * Same write, but it THROWS when the row genuinely can't be recorded.
+ *
+ * `audit()` swallowing its own failures is right almost everywhere — losing a log line must
+ * not break a working feature. It is wrong for an action that *grants privilege*, where
+ * "audited" and "attempted to audit" are different things and only one of them is what was
+ * promised. Reported by the add-ons session 2026-07-25: a `removeAllGrants` succeeded while
+ * the audit write failed, so a privileged action happened with no record of it.
+ *
+ * Note the ordering that makes this usable: an unattributable actor is rescued by `writeRow`
+ * into an unattributed row, so only a real outage reaches the caller. Without that, the
+ * fail-closed behaviour would turn an ordinary stale-id mistake into a blocked feature.
+ *
+ * Use this to write the INTENT *before* a privileged action, and refuse the action if it
+ * throws. Note the deliberate asymmetry — see `lib/elevation.ts`: granting privilege without
+ * a record is refused, revoking privilege without a record proceeds, because failing to
+ * revoke is the worse outcome of the two.
+ */
+export async function auditOrThrow(
+  action: string,
+  opts: { userId?: string | null; detail?: string } = {},
+): Promise<void> {
+  let ip: string | undefined;
+  let source: AuditSource = "system";
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? undefined;
+    source = "request";
+  } catch {
+    // No request in scope — enrichment only, same as above. Never a reason to fail.
+  }
+
+  // Same rescue as `audit()`: an unresolvable actor degrades to an unattributed row rather
+  // than throwing, so a stale id never blocks a legitimate privileged action. Only a genuine
+  // write failure — the database unreachable — propagates and fails the caller closed.
+  await writeRow(action, opts, ip, source);
 }
 
 /**

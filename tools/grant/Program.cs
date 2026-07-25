@@ -73,6 +73,7 @@ static class Program
             case "list": return List(a.Json);
             case "create": return Create(a);
             case "remove": return Remove(a);
+            case "run": return RunGrant(a);
             case "help": Usage(); return ExitOk;
             // Prints what a name would sanitise to, and exits. No privilege, no side effects.
             // Exists so the name-handling rules can actually be TESTED — they are the path-escape
@@ -115,7 +116,7 @@ static class Program
         var created = new List<string>();
         foreach (var verb in verbs)
         {
-            string name = UniqueName(folder, id + "-" + verb, created);
+            string name = ResolveName(folder, id + "-" + verb, a.Service, created);
             RegisterOne(svc, folder, name, a.Service, verb, by, sddl, a.Once);
             created.Add(name);
             Console.WriteLine(FolderPath + "\\" + name);
@@ -252,6 +253,58 @@ static class Program
         return ExitOk;
     }
 
+    // ------------------------------------------------------------------- run
+
+    /**
+     * Trigger an existing grant.
+     *
+     * NEEDS NO ELEVATION, and that is the entire point of the design — creating a grant
+     * requires a human at the prompt, using one does not, which is what makes unattended
+     * automation possible.
+     *
+     * It exists because the add-ons session pointed out (2026-07-25) that core logged
+     * *granting* and *revoking* a permission but not *using* one — so the moment a service
+     * actually restarted was absent from the very log built to record privileged effects.
+     * They were spawning `schtasks /run` themselves, which is not a rule bent (it cannot
+     * escalate) but did put the real-world event outside core's audit trail.
+     *
+     * Refuses anything it did not grant: the task must exist inside \JonDash\. There is no
+     * syntax here for running a task anywhere else.
+     */
+    static int RunGrant(Args a)
+    {
+        if (string.IsNullOrEmpty(a.Id)) { Console.Error.WriteLine("error: --run needs --id"); return ExitUsage; }
+        string name = Sanitize(a.Id);
+        if (name.Length == 0) { Console.Error.WriteLine("error: --id is empty after sanitising"); return ExitUsage; }
+
+        var svc = Connect();
+        dynamic folder;
+        try { folder = svc.GetFolder(FolderPath); }
+        catch { Console.Error.WriteLine("error: no grants exist (" + FolderPath + " is absent)"); return ExitFailed; }
+
+        dynamic task;
+        try { task = folder.GetTask(name); }
+        catch
+        {
+            Console.Error.WriteLine("error: no grant named \"" + name + "\". Grants are created by an " +
+                                    "admin and cannot be conjured here; run --list to see what exists.");
+            return ExitFailed;
+        }
+
+        if (!(bool)task.Enabled)
+        {
+            // Disabled is a deliberate admin act — honour it rather than quietly re-enabling.
+            Console.Error.WriteLine("error: the grant \"" + name + "\" is disabled.");
+            return ExitFailed;
+        }
+
+        task.Run(null);
+        // The task is asynchronous by nature (a service stop can take seconds), so this reports
+        // that it STARTED. Claiming success for the service change itself would be a lie.
+        Console.WriteLine("started " + FolderPath + "\\" + name);
+        return ExitOk;
+    }
+
     // ------------------------------------------------------------------ list
 
     // Reads from the OS, never from a file we keep, so it cannot drift from what is actually
@@ -356,20 +409,56 @@ static class Program
     }
 
     /** Numeric suffix on collision, per the naming contract agreed with the add-ons session. */
-    static string UniqueName(dynamic folder, string baseName, List<string> alreadyCreated)
+    /**
+     * Decide the task name, and REFUSE an ambiguous collision rather than inventing a suffix.
+     *
+     * This previously appended `-2`, which the comment above it claimed it did not do. Two
+     * separate bugs fell out of that, both found by the add-ons session on 2026-07-25:
+     *
+     *  - **Re-creating the same grant made a duplicate** (`Plex-restart`, `Plex-restart-2`),
+     *    so grants accumulated every time an entry was saved.
+     *  - **Removal matches by name prefix**, so `--remove --service Plex` matched both. Two
+     *    allowlist entries whose names sanitised to the same thing therefore shared a task,
+     *    and removing either silently revoked the other. Silently revoking a permission
+     *    somebody still relies on is worse than refusing to create it.
+     *
+     * So: same service → reuse the name and let CreateOrUpdate overwrite, which makes a
+     * re-create idempotent. Different service → refuse, and say what to do about it. A
+     * suffix would produce a grant whose removal is ambiguous, which is how this started.
+     */
+    static string ResolveName(dynamic folder, string baseName, string service, List<string> createdThisRun)
     {
-        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (dynamic t in folder.GetTasks(1)) existing.Add((string)t.Name);
-        foreach (var n in alreadyCreated) existing.Add(n);
+        if (createdThisRun.Contains(baseName)) return baseName;
 
-        // An exact re-create of the same grant should overwrite, not accumulate -1, -2, -3 …
-        if (!existing.Contains(baseName)) return baseName;
-        for (int i = 2; i < 1000; i++)
+        foreach (dynamic t in folder.GetTasks(1))
         {
-            string candidate = Truncate(baseName, 60) + "-" + i.ToString(CultureInfo.InvariantCulture);
-            if (!existing.Contains(candidate)) return candidate;
+            if (!string.Equals((string)t.Name, baseName, StringComparison.OrdinalIgnoreCase)) continue;
+
+            string owner = ServiceOf(t);
+            if (owner == null || string.Equals(owner, service, StringComparison.OrdinalIgnoreCase))
+                return baseName; // same grant being re-made → overwrite
+
+            throw new Exception(
+                "the task " + FolderPath + "\\" + baseName + " already exists for the \"" + owner +
+                "\" service, so \"" + service + "\" cannot use that name. Two entries sharing a task " +
+                "name would make removal ambiguous. Pass an explicit --id to give this one its own name.");
         }
-        throw new Exception("too many name collisions for " + baseName);
+        return baseName;
+    }
+
+    /** The service a task acts on, read back from its own fixed arguments. Null if unreadable. */
+    static string ServiceOf(dynamic task)
+    {
+        try
+        {
+            foreach (dynamic act in task.Definition.Actions)
+            {
+                var m = Regex.Match((string)act.Arguments ?? "", "\"([^\"]+)\"");
+                if (m.Success) return m.Groups[1].Value;
+            }
+        }
+        catch { /* an unreadable task is treated as "not ours to judge" — caller decides */ }
+        return null;
     }
 
     // --------------------------------------------------------------- names
@@ -450,6 +539,7 @@ static class Program
 
   --create --service <name> --verb start,stop,restart [--id <name>] [--once]
            [--account <DOMAIN\User>] [--by <label>]
+  --run    --id <name>       trigger an existing grant (no elevation needed)
   --remove (--id <name> | --service <name> | --all)
   --list [--json]
   --check-name <name>        show what a name sanitises to (no privilege, no side effects)
@@ -583,6 +673,7 @@ Exit codes: 0 ok · 2 usage · 3 failed · 4 no interactive desktop · 1223 decl
                     case "--create": a.Command = "create"; break;
                     case "--remove": a.Command = "remove"; break;
                     case "--list": a.Command = "list"; break;
+                    case "--run": a.Command = "run"; break;
                     case "--check-name": a.Command = "check-name"; a.Id = Next(argv, ref i); break;
                     case "--help": case "-h": case "/?": a.Command = "help"; break;
                     case "--json": a.Json = true; break;

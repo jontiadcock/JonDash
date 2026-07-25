@@ -2,7 +2,7 @@ import "server-only";
 import path from "node:path";
 import fs from "node:fs";
 import { execFile } from "node:child_process";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 
 /**
  * Core-side API for `jondash-grant` (OPS-18) — the only supported way for a helper to create,
@@ -51,8 +51,10 @@ export type GrantFailure =
   | "unsupported-platform" // not Windows
   | "not-installed" // the binary is missing from this install
   | "declined" // the admin dismissed the UAC prompt
+  | "timed-out" // the prompt was never answered
   | "no-interactive-desktop" // Session 0 / container / headless — cannot prompt
   | "invalid-request" // rejected by the binary's own grammar
+  | "not-audited" // refused because the attempt could not be recorded
   | "failed"; // everything else
 
 export type GrantResult<T> = { ok: true; value: T } | { ok: false; reason: GrantFailure; message: string };
@@ -64,8 +66,21 @@ export type GrantResult<T> = { ok: true; value: T } | { ok: false; reason: Grant
  */
 const EXIT = { ok: 0, usage: 2, failed: 3, noDesktop: 4, declined: 1223 } as const;
 
-/** Longer than a UAC prompt should ever sit unanswered, short enough not to hang a request. */
-const TIMEOUT_MS = 120_000;
+/**
+ * How long to wait for the binary.
+ *
+ * This was 2 minutes and that was too short: a `--create` sits at a UAC prompt until a human
+ * decides, and 2 minutes is not long for someone weighing up whether to grant admin rights.
+ *
+ * Found while investigating a suspected declined/failed mis-mapping that turned out **not to
+ * exist** — the add-ons session verified the 1223 path end to end and withdrew the report. The
+ * timeout gap is real and separate: Node signals a timeout by killing the child, which leaves
+ * no exit code, so it was silently folded into "failed". Someone taking three minutes over the
+ * prompt would have been told the operation broke.
+ *
+ * Now 10 minutes, and a timeout is its own outcome.
+ */
+const TIMEOUT_MS = 600_000;
 
 /**
  * The binary ships inside the release archive at `bin/jondash-grant.exe`, so it sits next to
@@ -96,7 +111,7 @@ export function grantSupport(): { available: true } | { available: false; reason
   return { available: true };
 }
 
-type RunOutcome = { code: number; stdout: string; stderr: string };
+type RunOutcome = { code: number; stdout: string; stderr: string; timedOut: boolean };
 
 function run(args: string[]): Promise<RunOutcome> {
   return new Promise((resolve) => {
@@ -104,18 +119,21 @@ function run(args: string[]): Promise<RunOutcome> {
     // name can be reinterpreted as shell syntax. A `shell: true` here would undo the binary's
     // whole grammar argument.
     execFile(grantBinaryPath(), args, { timeout: TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => {
-      const code =
-        err && typeof (err as NodeJS.ErrnoException & { code?: number }).code === "number"
-          ? ((err as unknown as { code: number }).code)
-          : err
-            ? EXIT.failed
-            : EXIT.ok;
-      resolve({ code, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+      // Node reports a timeout by KILLING the child, which leaves no exit code — so this has to
+      // be detected separately or it silently becomes "failed", which is the mis-report the
+      // add-ons session hit.
+      const killed = Boolean(err && (err as NodeJS.ErrnoException & { killed?: boolean }).killed);
+      const numeric = err && typeof (err as { code?: unknown }).code === "number"
+        ? (err as unknown as { code: number }).code
+        : null;
+      const code = numeric !== null ? numeric : err ? EXIT.failed : EXIT.ok;
+      resolve({ code, stdout: String(stdout ?? ""), stderr: String(stderr ?? ""), timedOut: killed });
     });
   });
 }
 
 function classify(o: RunOutcome): GrantFailure {
+  if (o.timedOut) return "timed-out";
   if (o.code === EXIT.declined) return "declined";
   if (o.code === EXIT.noDesktop) return "no-interactive-desktop";
   if (o.code === EXIT.usage) return "invalid-request";
@@ -128,21 +146,51 @@ function messageFrom(o: RunOutcome, fallback: string): string {
   return s.length > 0 ? s.split("\n")[0]!.replace(/^error:\s*/, "") : fallback;
 }
 
+/**
+ * Run the binary and record it.
+ *
+ * `mustAudit` encodes a deliberate ASYMMETRY, and the direction matters:
+ *
+ *  - **Granting privilege (`--create`) fails closed.** The intent is written *before* the
+ *    action; if that write fails, the action does not happen. The add-ons session found a
+ *    `removeAllGrants` that succeeded while its audit write failed (no `DATABASE_URL` in a
+ *    script context), leaving a privileged action with no record. "Audited" and "attempted to
+ *    audit" are different promises and only one of them was made.
+ *  - **Revoking privilege (`--remove`) proceeds regardless.** Refusing to revoke because a log
+ *    is unavailable would leave an elevated grant in place, which is plainly worse than
+ *    revoking it unlogged. An unrecorded revocation is a gap in the record; an unrevoked grant
+ *    is a live capability nobody wanted.
+ */
 async function invoke<T>(
   args: string[],
   auditAction: string,
   auditDetail: string,
   parse: (o: RunOutcome) => T,
-  opts: { userId?: string | null } = {},
+  opts: { userId?: string | null; mustAudit?: boolean } = {},
 ): Promise<GrantResult<T>> {
   const support = grantSupport();
   if (!support.available) return { ok: false, reason: support.reason, message: support.message };
 
+  if (opts.mustAudit) {
+    try {
+      await auditOrThrow(`${auditAction}.attempt`, { userId: opts.userId ?? undefined, detail: auditDetail });
+    } catch {
+      return {
+        ok: false,
+        reason: "not-audited",
+        message:
+          "Refusing to grant a privilege that cannot be recorded — the audit log is unavailable. " +
+          "Nothing was changed.",
+      };
+    }
+  }
+
   const outcome = await run(args);
 
-  // Audited whatever happened, including declined and failed. A log that only records
-  // successes cannot answer "did anyone try?", which is the question that matters after an
-  // incident. Best-effort by design — `audit` swallows its own failures.
+  // The OUTCOME is always best-effort: by this point the action has already happened, so
+  // throwing here would report a failure that did not occur. Recorded whatever it was,
+  // including declined and failed — a log that holds only successes cannot answer "did anyone
+  // try?", which is the question that matters after an incident.
   await audit(auditAction, {
     userId: opts.userId ?? undefined,
     detail: `${auditDetail} → exit ${outcome.code}${outcome.code === EXIT.ok ? "" : ` (${classify(outcome)})`}`,
@@ -190,6 +238,40 @@ export async function createGrant(input: {
     "elevation.grant.create",
     `${input.service} [${input.verbs.join(",")}]${input.once ? " once" : ""}`,
     (o) => o.stdout.split("\n").map((l) => l.trim()).filter(Boolean),
+    // Granting privilege is the one direction that fails closed: if the attempt cannot be
+    // recorded, it does not happen. See `invoke` for why revoking is the opposite.
+    { userId: input.userId, mustAudit: true },
+  );
+}
+
+/**
+ * Trigger an existing grant — the moment a service actually starts, stops or restarts.
+ *
+ * **This is the entry that was missing**, and the add-ons session was right to push on it: core
+ * logged *granting* and *revoking* a permission but not *using* one, so the real-world effect
+ * was absent from the very log built to record privileged actions. They were spawning
+ * `schtasks /run` themselves — not a rule bent, since running cannot escalate, but it put the
+ * event outside core's audit trail.
+ *
+ * **Needs no elevation.** That asymmetry is the whole design: creating a grant requires a human
+ * at a prompt, using one does not, which is what lets a health check restart a hung service at
+ * 3am. Nothing here can create a capability — if the grant doesn't exist, this simply fails.
+ *
+ * Returns once the task has been *started*. A service stop can take seconds, so claiming the
+ * service change itself succeeded would be a lie; poll the service if the caller needs to know.
+ */
+export async function runGrant(input: { name: string; userId?: string | null }): Promise<GrantResult<string>> {
+  if (!input.name.trim()) {
+    return { ok: false, reason: "invalid-request", message: "A grant name is required." };
+  }
+  return invoke(
+    ["--run", "--id", input.name],
+    "elevation.grant.run",
+    input.name,
+    (o) => o.stdout.trim(),
+    // Best-effort audit, deliberately: this uses a capability an admin already approved rather
+    // than creating one, and refusing to restart a hung service because the log is unavailable
+    // would break the automation this exists for. The grant itself is already on record.
     { userId: input.userId },
   );
 }
@@ -258,9 +340,16 @@ export async function listGrants(): Promise<GrantResult<Grant[]>> {
 }
 
 /**
- * What a name will become once sanitised. Exposed so a UI can show the real task name before
- * an admin approves it — the case for readable names is that Task Scheduler can be read, and
- * that only holds if what appears there is what they were shown.
+ * What a name will become once sanitised.
+ *
+ * **AUTHORITATIVE, NOT ADVISORY.** A caller that sanitises locally and assumes agreement will
+ * get this wrong: the add-ons session maps a space to `-` where this deletes it, so `My Service`
+ * and `MyService` were two entries on their side and **one task name** to Windows. Their
+ * collision check passed and removing either entry silently revoked the other.
+ *
+ * Any helper deciding whether two entries collide must ask here rather than guess. The binary
+ * now also refuses an ambiguous collision outright instead of inventing a suffix, so the failure
+ * is loud rather than silent — but resolving the name first is still the right way round.
  */
 export async function previewGrantName(name: string): Promise<GrantResult<string>> {
   const support = grantSupport();

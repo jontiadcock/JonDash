@@ -9,6 +9,30 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.2] — 2026-07-25
+
+### Fixed
+- **An action could happen without being recorded.** If the log entry couldn't be written —
+  most easily when it named a user account that no longer exists — the entry was quietly
+  dropped and the action went ahead anyway. That's the one thing an audit log exists to
+  prevent. Now the entry is always written; if we can't tell *who* asked, it's recorded as
+  unattributed and says so, which is honest rather than silent. And granting a new permission
+  is refused outright if it can't be recorded at all.
+- **Saving the same permission twice created a duplicate**, and because removal matches by
+  name, deleting one wiped both. Two differently-named entries could also end up sharing a
+  single permission, so removing one silently revoked the other. Re-saving now updates the
+  existing entry, and a genuine name clash is refused with an explanation instead of quietly
+  creating something ambiguous.
+- **A slow decision looked like a breakage.** You now get ten minutes to answer the Windows
+  prompt instead of two, and taking too long is reported as "timed out" rather than "failed".
+
+### Added
+- **Using a permission is now logged, not just granting or removing one.** The moment a service
+  is actually restarted appears in the audit log alongside everything else.
+
+*All four reported by the add-ons session, which has the feature working end to end: one
+approval when a service is added, then start and stop with no further prompts.*
+
 ## [1.7.1-beta.1] — 2026-07-25
 
 ### Added

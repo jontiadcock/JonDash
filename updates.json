@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.2",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes to the service-permission groundwork, all found by the add-ons session, which now has the feature working end to end - one approval when a service is added, then start and stop with no further prompts. Fixed: an action could happen without being recorded. If the log entry could not be written - most easily when it named a user account that no longer exists - the entry was quietly dropped and the action went ahead anyway, which is the one thing an audit log exists to prevent. The entry is now always written; if we cannot tell who asked, it is recorded as unattributed and says so, and granting a new permission is refused outright if it cannot be recorded at all. Fixed: saving the same permission twice created a duplicate, and because removal matches by name, deleting one wiped both - two differently-named entries could also end up sharing a single permission, so removing one silently revoked the other. Re-saving now updates the existing entry and a genuine name clash is refused with an explanation. Fixed: a slow decision looked like a breakage - you now get ten minutes to answer the Windows prompt instead of two, and taking too long is reported as timed out rather than failed. Added: using a permission is now logged, not just granting or removing one."
+    },
+    {
       "version": "1.7.1-beta.1",
       "date": "2026-07-25",
       "type": "patch",

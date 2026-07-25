@@ -80,6 +80,30 @@ describe("elevation: exit codes agree between the binary and lib/elevation.ts", 
     expect(expected.declined).toBe(1223);
     expect(ts).toContain('"declined"');
   });
+
+  it("a timeout is its own outcome, not folded into failed", () => {
+    // Node signals a timeout by KILLING the child, which leaves no exit code. Without an
+    // explicit check that silently became "failed", so someone taking three minutes over a UAC
+    // prompt would have been told the operation broke.
+    expect(ts).toContain('"timed-out"');
+    expect(ts).toMatch(/killed/);
+  });
+
+  it("granting fails closed when it cannot be audited; revoking does not", () => {
+    // The asymmetry is deliberate and the direction matters: an unrecorded revocation is a gap
+    // in the log, but an unrevoked grant is a live capability nobody wanted.
+    expect(ts).toContain('"not-audited"');
+    expect(ts).toMatch(/mustAudit:\s*true/);
+    // Exactly one call site opts in — createGrant. If a second appears, it needs justifying.
+    expect(ts.match(/mustAudit:\s*true/g)?.length).toBe(1);
+  });
+
+  it("using a grant is audited too, not just granting and revoking one", () => {
+    // The privileged EFFECT is the service restart. Logging only create/remove would leave the
+    // moment that matters absent from the log built to record it.
+    expect(ts).toContain("elevation.grant.run");
+    expect(ts).toMatch(/export async function runGrant/);
+  });
 });
 
 describe.runIf(onWindows)("elevation: name handling (the path-escape defence)", () => {
@@ -112,6 +136,19 @@ describe.runIf(onWindows)("elevation: name handling (the path-escape defence)", 
 
   it("truncates to 64 characters", () => {
     expect(check("A".repeat(200)).length).toBe(64);
+  });
+
+  it("refuses --run without a grant, and cannot conjure one", () => {
+    // Running is unprivileged BY DESIGN — that asymmetry is what allows unattended automation.
+    // The safety property is that it can only trigger what an admin already approved, so with
+    // no grant present it must fail rather than create anything.
+    let code = 0;
+    try {
+      execFileSync(BIN, ["--run", "--id", "NoSuchGrant"], { windowsHide: true, stdio: "pipe" });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? -1;
+    }
+    expect(code).toBe(3); // failed, not usage — the request was well-formed, the grant isn't there
   });
 
   it("rejects a verb outside the grammar", () => {
