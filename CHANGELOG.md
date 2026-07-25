@@ -9,9 +9,9 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
-## [1.6.2-beta.1] — 2026-07-25
+## [1.6.2] — 2026-07-25
 
-**Security hardening, plus restarts that no longer sign you out.** Everything since 1.6.0, in one beta.
+**Security hardening, plus restarts that no longer sign you out.** Everything since 1.6.0, in one release.
 Most of this is behind-the-scenes; nothing changes in how you use JonDash day to day.
 
 ### Changed — restarts keep you signed in
