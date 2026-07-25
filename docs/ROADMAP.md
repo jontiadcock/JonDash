@@ -77,27 +77,31 @@ MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0), MOD-09/10 (v1.5.2); MOD-1
 8. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
 9. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-10. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
+10. ⏳ **OPS-18 — Elevation binaries (`jondash-grant`)** — unblocks the add-ons session's `host-services`
+   helper, which cannot proceed without it. Windows first. Ships **unsigned** (owner decision) — Windows
+   will say "Unknown publisher"; that's documented, not worked around, and signing is tracked separately.
+   **Position not yet confirmed by the owner** — move it freely
+11. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
    (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
    by the owner** — move it freely
-11. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
+12. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
    back to it; **no compatibility work, just a warning + disclaimer** ("this may break your JonDash").
    Owner request 2026-07-25. **Position not yet confirmed by the owner** — move it freely
-12. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+13. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-13. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+14. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-14. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+15. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-15. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+16. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-16. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-17. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+17. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+18. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-18. 🌅 **OPS-03 — VHD appliance**
-19. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+19. 🌅 **OPS-03 — VHD appliance**
+20. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -682,6 +686,40 @@ review as it stood, with findings marked fixed as later releases address them.
 
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
+
+#### OPS-18 · Elevation binaries (`jondash-grant`, and later the elevate shim) — ⏳ Planned (2026-07-25)
+Requested by the add-ons session; blocks the `host-services` helper now and `host-install` later. The
+shared design is `JonDash-addons/helpers/ELEVATION.md` and is accepted as written.
+
+**Why this is core's and not an add-on's:** the UAC prompt names *the binary being elevated*, and its
+publisher. That makes it a packaging concern — a helper can spawn a process, but it cannot make Windows
+say "JonDash" in the consent dialog. Once the binary exists at a known path, helpers just invoke it.
+
+**The governing rule (owner, 2026-07-25):** *a fixed action can be granted once; a variable action must be
+approved every time.* A standing privileged daemon was proposed and rejected — nothing may be permanently
+root and listening so that a button can restart Plex.
+
+- **Part 1 — the grant manager** (`jondash-grant`), the actual blocker. Creates/removes **one OS-level
+  grant per fixed action**: a Scheduled Task with "run with highest privileges" on Windows, sudoers
+  NOPASSWD or polkit on Linux. Windows first.
+- **The non-negotiable:** a granted action is **fully self-contained** and never reads what to do from a
+  file or any other mutable source. A task running a fixed `sc.exe stop "Plex"` is a narrow permanent
+  capability; a task running `pending.bat` is local privilege escalation for every process on the box,
+  because the unprivileged app can write that file. `schtasks /run` cannot pass arguments, which is what
+  makes the fixed-command form enforceable by Windows rather than by convention.
+- **Part 2 — the elevate shim**, later, only for `host-install`. Structured action + result path, launched
+  with `runas` so UAC prompts each time; writes `{ok, exitCode, output, error}` and must distinguish
+  **declined at UAC** from **action failed**.
+- **Both refuse rather than degrade** in Session 0 / a container / headless. Note the asymmetry: *creating*
+  a grant needs an interactive desktop; *using* one does not — which is what makes unattended automation
+  work afterwards.
+- **Code signing: ships unsigned, tracked separately** (owner decision 2026-07-25). JonDash signs nothing
+  today, so Windows shows "Unknown publisher" on the prompt. That gets **documented honestly rather than
+  worked around**, and JonDash's own consent screen — which shows the exact command verbatim — carries the
+  real consent. Signing is worth doing and does **not** block this.
+- **Batching is the add-ons session's call.** Core supports one grant per prompt, or several in one
+  elevation passed **as arguments**. Reading grants from a file stays forbidden — that's the actual hole.
+- **Positioning not yet set by the owner** — move it freely.
 
 #### CORE-08 · Dashboard widget interaction rework — ⏳ Planned (owner-directed 2026-07-25)
 Owner feedback after using the drag-and-drop dashboard: the arranging works, the *interaction model*

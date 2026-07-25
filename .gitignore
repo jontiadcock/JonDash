@@ -72,5 +72,18 @@ next-env.d.ts
 
 /app/generated/prisma
 
-# local build/test sandbox (core-testbed-isolation rule)
+# Local build/test sandbox — WORKING/ and .testbed/
+#
+# Scratch work, test instances, throwaway databases and unpacked releases live in WORKING/
+# (owner decision, 2026-07-25). Running-instance state belongs there, NOT at the repo root:
+# prisma/dev.db, .data/, uploads/, logs/. node_modules/ and .next/ legitimately stay put —
+# a build needs them in the tree it is building.
+#
+# THESE THREE LINES ARE LOAD-BEARING. Because the folder is inside the checkout, they are
+# the only thing keeping hundreds of MB of instance state out of a commit. If you edit this
+# file, re-verify with:  git add -An | grep -i WORKING     (must return nothing)
+#
+# See WORKING/README.md.
 /.testbed/
+/WORKING/
+/working/
