@@ -9,6 +9,50 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0] — 2026-07-25
+
+**Make it yours.** This release is about the instance looking like *your* instance rather than like
+JonDash — plus a dashboard you can rearrange by hand and a nav that works on a phone.
+
+### Added
+- **Choose how the whole interface looks.** Seven **styles**, each with its own **palettes** — twenty
+  combinations in all, under Admin → Settings → Appearance. A *style* is the shape of things (corners,
+  borders, shadows, glass, title bars, type); a *palette* is the colour that fills it.
+  - **Modern** — soft cards and gentle shadows, in Indigo, Nord or Solarized. Follows your system's
+    light/dark setting.
+  - **Crystal** — frosted glass and pill-shaped controls, in Aurora or Neon.
+  - **Aero** — framed glass with a highlight along the top and gradient buttons, in Sky, Twilight or Slate.
+  - **XP** — a title bar on every panel, bevelled buttons and sunken fields, in Luna Blue, Olive Green or
+    Silver.
+  - **Terminal** — monospace throughout with hard edges, in Phosphor Green, Amber or Cyan.
+  - **Brutalist** — fat black borders and hard offset shadows, in Yellow, Cyan or Mono.
+  - **Paper** — ink on stock: a serif face, hairline rules and no shadows anywhere, in Newsprint, Sepia
+    or Ink.
+  - **Each style moves the way it should.** XP doesn't animate at all — it snaps, the way it did — and
+    shows the era's marching-blocks progress bar instead of a spinner. Crystal takes its time. Terminal
+    blinks a block cursor. Your system's reduced-motion setting is respected throughout.
+  - **Installed modules follow the style too**, without their authors having to do anything.
+- **Make it your own instance.** Change the app name, upload your own logo, and pick an accent colour.
+  The name and logo appear in the header, the browser tab and its icon, and on the sign-in page. New
+  authenticator enrolments use your name as well — existing entries keep working untouched.
+- **Rearrange your dashboard by dragging.** Drag widgets into the order you want, or use the move buttons
+  if you'd rather not drag. Sizing and position now live behind a small edit icon instead of a permanent
+  panel, so the dashboard is what you see the rest of the time. Your arrangement is yours — it doesn't
+  affect anyone else's.
+- **A proper menu on phones and tablets.** The admin menu is now a drawer that slides out from the left,
+  grouped and closing when you pick something.
+
+### Changed
+- **"Update all" now updates JonDash itself as well as your add-ons**, in that order — JonDash first,
+  because add-ons can need the newer version. It previously skipped JonDash entirely.
+- **A module with settings now says "Settings".** It used to say "Channel" and lead somewhere that no
+  longer managed channels.
+
+### Fixed
+- **The official JonDash module source can no longer be removed.** Disabling and re-enabling it is still
+  fine — but removing it left no way to install official modules at all.
+- **Applying an update no longer signs everyone out.** *This affected 1.6.2.*
+
 ## [1.7.0-beta.10] — 2026-07-25
 
 ### Added

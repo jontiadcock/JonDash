@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Make it yours. Choose how the whole interface looks: seven styles, each with its own palettes - twenty combinations - under Admin > Settings > Appearance. Modern (Indigo/Nord/Solarized), Crystal (Aurora/Neon), Aero (Sky/Twilight/Slate), XP (Luna Blue/Olive Green/Silver), Terminal (Phosphor Green/Amber/Cyan), Brutalist (Yellow/Cyan/Mono) and Paper (Newsprint/Sepia/Ink). Each style also moves the way it should - XP snaps and shows the era's marching-blocks progress bar, Crystal takes its time, Terminal blinks a block cursor - and your system's reduced-motion setting is respected. Installed modules follow the style too. You can also make it your own instance: change the app name, upload a logo and pick an accent, all of which appear in the header, the browser tab and its icon, and on the sign-in page. Rearrange your dashboard by dragging widgets, with sizing and position now behind a small edit icon. Phones and tablets get a proper slide-out admin menu. Update all now updates JonDash itself as well as your add-ons, in that order. Fixed: the official JonDash module source can no longer be removed (disabling is still fine), and applying an update no longer signs everyone out - that affected 1.6.2."
+    },
+    {
       "version": "1.7.0-beta.10",
       "date": "2026-07-25",
       "type": "minor",
