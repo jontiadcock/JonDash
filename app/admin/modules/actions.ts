@@ -310,6 +310,10 @@ export async function removeSourceAction(formData: FormData): Promise<void> {
   await gate();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  // The official source is permanent — it can be disabled, never deleted. Checked here and
+  // not only in the UI: the button being hidden isn't a control, it's a suggestion.
+  const source = await prisma.moduleSource.findUnique({ where: { id }, select: { isDefault: true } });
+  if (source?.isDefault) return;
   await removeSource(id);
   await audit("admin.module.source.remove", { detail: id });
   revalidatePath("/admin/modules/sources");

@@ -145,18 +145,22 @@ export function ServerWaitOverlay({
       <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
         {isShutdown ? (
           <div
-            className="flex h-14 w-14 items-center justify-center rounded-full"
-            style={{ background: "var(--surface-2)", color: "var(--muted)" }}
+            className="flex h-14 w-14 items-center justify-center"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--muted)",
+              // Follows the style rather than being a hardcoded circle — a perfect circle
+              // looks out of place in XP and Brutalist, where nothing else is round.
+              borderRadius: "var(--radius-card)",
+            }}
             aria-hidden="true"
           >
-            <span className="block h-4 w-4 rounded-sm" style={{ background: "var(--muted)" }} />
+            <span className="block h-4 w-4" style={{ background: "var(--muted)" }} />
           </div>
         ) : (
-          <div
-            className="h-12 w-12 animate-spin rounded-full border-4"
-            style={{ borderColor: "var(--surface-2)", borderTopColor: "var(--primary)" }}
-            aria-hidden="true"
-          />
+          // The shared busy primitive (CORE-07): each style decides what "working" looks
+          // like — a ring, XP's marching blocks, Terminal's blinking cursor.
+          <div className="spinner" aria-hidden="true" />
         )}
 
         <div className="flex flex-col gap-2">

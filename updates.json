@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.9",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: styles now have a colour choice - 5 styles, 16 palettes. Several styles turned out to be the same shape in different colours, so the two are now separate: a style is the structure (corners, borders, shadows, glass, title bars, type) and a palette is the colour that fills it. Pick Modern then Indigo, Nord, Solarized or Paper; XP then Luna Blue, Olive Green or Silver; Crystal offers Aurora, Neon and Aero; Terminal offers Phosphor Green, Amber and Cyan; Brutalist offers Yellow, Cyan and Mono. The picker is two levels - compact style tiles grouped by family, then that style's palettes. Each style also now moves the way it should: XP no longer transitions at all and shows the era's marching-blocks progress bar instead of a spinner, Crystal is slower and eases, Terminal doesn't move and blinks a block cursor, Brutalist jumps in visible steps. Reduced-motion settings are respected. Appearance is now its own settings section, separate from Branding. Fixed: the official JonDash module source can no longer be removed - disabling it is still fine, but removing it left no way to install official modules."
+    },
+    {
       "version": "1.7.0-beta.8",
       "date": "2026-07-25",
       "type": "minor",

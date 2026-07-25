@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Interface styles (CORE-07) — their own file; see docs/STYLES.md. Must sit up here:
+   a CSS @import after any rule is ignored. */
+@import "./styles.css";
 
 /*
  * BUG-40: Tailwind skips `.gitignore`d paths, and installed modules/helpers live in the
@@ -41,6 +44,31 @@
   --surface-blur: 0px;
   --surface-gradient: none;
   --font-weight-strong: 600;
+  --shadow-hover: 0 2px 4px rgba(16, 24, 40, 0.06), 0 12px 32px rgba(16, 24, 40, 0.1);
+
+  /*
+   * Motion (CORE-07). How the interface *moves* is as much a part of a style's identity as
+   * its corner radius: XP snaps instantly between states because that's what it did, Crystal
+   * eases because glass should feel unhurried. Every animated thing in the app reads these
+   * four tokens, so a style sets its whole feel in one block.
+   */
+  --motion-fast: 140ms; /* hover, focus, small state changes */
+  --motion-slow: 220ms; /* page enter, drawer slide — anything that moves a distance */
+  --motion-ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --motion-lift: -2px; /* how far an interactive card rises on hover; 0 = it doesn't */
+  --motion-press: 1px; /* how far a button sinks when pressed */
+  --motion-spin: spin 1s linear infinite; /* the busy indicator */
+
+  /*
+   * Tailwind's own motion defaults, re-pointed at the tokens above. This is what makes the
+   * system reach code we don't own: a `transition` or `animate-spin` utility inside an
+   * INSTALLED MODULE resolves these variables and follows the style automatically, without
+   * the module author knowing styles exist. `@theme` emits into a cascade layer, and
+   * unlayered rules beat layered ones outright, so this wins without `!important`.
+   */
+  --default-transition-duration: var(--motion-fast);
+  --default-transition-timing-function: var(--motion-ease);
+  --animate-spin: var(--motion-spin);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,6 +86,7 @@
     --success: #4ade80;
     --ring: rgba(124, 115, 255, 0.4);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.45);
+    --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.55);
     --border-strong: #3a4152;
   }
 }
@@ -125,11 +154,13 @@ summary:focus-visible {
      not a stylistic choice (docs/STYLES.md §3). */
   padding: 0.625rem 1rem;
   cursor: pointer;
-  transition: transform 0.05s ease, background-color 0.15s ease, opacity 0.15s ease;
+  transition: transform var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
   border: var(--border-width) solid transparent;
 }
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(var(--motion-press));
 }
 .btn:disabled {
   opacity: 0.6;
@@ -171,7 +202,8 @@ summary:focus-visible {
   font-size: 0.95rem;
   color: var(--foreground);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 .input:focus {
   border-color: var(--primary);
@@ -204,135 +236,56 @@ summary:focus-visible {
   }
 }
 .page-fade {
-  animation: page-fade-in 0.22s ease-out both;
+  animation: page-fade-in var(--motion-slow) var(--motion-ease) both;
 }
+
+/*
+ * `.lift` — an interactive card that responds to hover. A primitive rather than Tailwind
+ * utilities on each call site, because "how far does it rise, and does it rise at all" is a
+ * per-style decision: XP windows and Brutalist blocks don't float, Crystal panels do.
+ */
+.lift {
+  transition: transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+.lift:hover {
+  transform: translateY(var(--motion-lift));
+  box-shadow: var(--shadow-hover);
+}
+
+/*
+ * `.spinner` — the shared busy indicator. Also a primitive so a style can replace the *look*
+ * and not just the timing: XP's is a marching-blocks progress bar, Terminal's is a blinking
+ * block. Anything showing "working…" should use this, modules included.
+ */
+.spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 4px solid var(--surface-2);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: var(--motion-spin);
+}
+
+/*
+ * Reduced motion. Neutralises the DECORATIVE motion — fades, slides, hover lifts — by zeroing
+ * the tokens, which reaches every consumer including modules.
+ *
+ * The spinner is deliberately left running: it isn't decoration, it's the only signal that
+ * the server is still working, and a frozen ring reads as "crashed" rather than "calm". It's
+ * slowed instead. Placed after `styles.css` (imports are hoisted) so it beats a style's own
+ * block, which carries the same specificity.
+ */
 @media (prefers-reduced-motion: reduce) {
+  :root,
+  :root[data-style] {
+    --motion-fast: 0ms;
+    --motion-slow: 0ms;
+    --motion-lift: 0px;
+    --motion-spin: spin 2.4s linear infinite;
+  }
   .page-fade {
     animation: none;
   }
 }
 
-/* ============================================================================
- * STYLES (CORE-07) — see docs/STYLES.md for the contract.
- *
- * A style redefines the shared design tokens under a `data-style` attribute on
- * <html>. It never targets a page or a component, so installed modules — built
- * from the same primitives by people who have never heard of the style — are
- * re-skinned along with everything else instead of breaking.
- * ========================================================================== */
-
-/* --- XP: opaque, bevelled, unapologetically 2001. -------------------------
- * A COMMITTED style (docs/STYLES.md §5): the grey-and-blue is the whole point,
- * so it ignores the system dark preference rather than inventing a dark XP. */
-:root[data-style="xp"] {
-  --background: #5a7edc;
-  --surface: #ece9d8;
-  --surface-2: #f5f4ea;
-  --foreground: #000000;
-  --muted: #4a4a42;
-  --border: #aca899;
-  --border-strong: #716f64;
-  --primary: #245edb;
-  --primary-foreground: #ffffff;
-  --danger: #c00000;
-  --warning: #9a5b00;
-  --success: #006400;
-  --ring: rgba(36, 94, 219, 0.5);
-  --shadow: 1px 1px 0 rgba(0, 0, 0, 0.18);
-  --shadow-control: none;
-  --radius-card: 4px;
-  --radius-control: 3px;
-  --border-width: 1px;
-  --surface-blur: 0px;
-  --surface-gradient: none;
-  --font-sans: Tahoma, Verdana, Geneva, sans-serif;
-  --font-weight-strong: 700;
-}
-/* Bevels are the look; applied to the shared primitives only. */
-:root[data-style="xp"] .card {
-  border-color: var(--border-strong);
-}
-:root[data-style="xp"] .btn {
-  background-image: linear-gradient(to bottom, #ffffff 0%, #f0efe6 48%, #e3e0d0 52%, #ffffff 100%);
-  border-color: var(--border-strong);
-  color: #000;
-  text-shadow: none;
-}
-:root[data-style="xp"] .btn-primary {
-  background-image: linear-gradient(to bottom, #6ea1f5 0%, #3a76e8 48%, #2a5fd0 52%, #6ea1f5 100%);
-  color: #fff;
-  border-color: #1c3f96;
-}
-:root[data-style="xp"] .btn:hover:not(:disabled) {
-  filter: brightness(1.04);
-}
-:root[data-style="xp"] .input {
-  background: #ffffff;
-  border-color: var(--border-strong);
-}
-
-/* --- Crystal: translucent "liquid glass". ---------------------------------
- * ADAPTIVE (docs/STYLES.md §5) — defined for light, redefined for dark below.
- * Surfaces are deliberately kept opaque ENOUGH that text clears the contrast
- * floor over a worst-case backdrop, not just a flattering one (§4). */
-:root[data-style="crystal"] {
-  --background: #e8ecf6;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-2: rgba(255, 255, 255, 0.5);
-  --foreground: #10131a;
-  --muted: #4d5666;
-  --border: rgba(255, 255, 255, 0.75);
-  --border-strong: rgba(120, 130, 150, 0.45);
-  --primary: #0b7285;
-  --primary-foreground: #ffffff;
-  --danger: #c92a2a;
-  --warning: #b25e02;
-  --success: #0b7a3d;
-  --ring: rgba(11, 114, 133, 0.4);
-  --shadow: 0 4px 12px rgba(20, 30, 60, 0.1), 0 16px 40px rgba(20, 30, 60, 0.12);
-  --shadow-control: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
-  --radius-card: 20px;
-  --radius-control: 999px;
-  --border-width: 1px;
-  --surface-blur: 18px;
-  --surface-gradient: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.12) 45%,
-    rgba(255, 255, 255, 0.3) 100%
-  );
-  --font-weight-strong: 600;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-style="crystal"] {
-    --background: #0a0f18;
-    --surface: rgba(30, 38, 54, 0.66);
-    --surface-2: rgba(48, 58, 78, 0.5);
-    --foreground: #f2f5fa;
-    --muted: #a9b4c6;
-    --border: rgba(255, 255, 255, 0.14);
-    --border-strong: rgba(255, 255, 255, 0.26);
-    --primary: #38d9c0;
-    --primary-foreground: #06231f;
-    --danger: #ff8787;
-    --ring: rgba(56, 217, 192, 0.45);
-    --shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 20px 48px rgba(0, 0, 0, 0.5);
-    --surface-gradient: linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.03) 45%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-  }
-}
-/* The page itself gets depth for the glass to sit against. */
-:root[data-style="crystal"] body {
-  background-image:
-    radial-gradient(60rem 40rem at 15% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
-    radial-gradient(50rem 36rem at 95% 5%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%);
-  background-attachment: fixed;
-}
-:root[data-style="crystal"] .btn-ghost {
-  background: var(--surface-2);
-  backdrop-filter: blur(var(--surface-blur));
-}

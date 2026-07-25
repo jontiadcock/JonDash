@@ -118,7 +118,7 @@ function BetaRow({ item }: { item: BetaItem }) {
             height: 18,
             borderRadius: "50%",
             background: item.onBeta ? "#fff" : "var(--border-strong, #999)",
-            transition: "left 120ms",
+            transition: "left var(--motion-fast) var(--motion-ease)",
           }}
         />
       </button>

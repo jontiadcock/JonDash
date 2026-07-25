@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { BrandingStyle, appName, logoFilename, styleId } from "@/app/components/branding";
+import { BrandingStyle, appName, logoFilename, styleId, paletteId } from "@/app/components/branding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,10 +34,12 @@ export default async function RootLayout({
 }>) {
   // The whole style system hangs off this one attribute (CORE-07 / docs/STYLES.md).
   const style = await styleId();
+  const palette = await paletteId(style);
   return (
     <html
       lang="en"
       data-style={style}
+      data-palette={palette}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">

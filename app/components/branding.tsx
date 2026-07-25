@@ -1,5 +1,6 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
-import { getAccentColor, getAppName, getLogoFilename, getStyleId, STYLE_SETTINGS } from "@/lib/settings";
+import { getAccentColor, getAppName, getLogoFilename, getStyleId, getPaletteId, STYLE_SETTINGS } from "@/lib/settings";
+import { resolvePalette } from "@/lib/styles";
 
 /**
  * During `next build` there is no database — JonDash builds on each machine, often before
@@ -79,6 +80,20 @@ export async function styleId(): Promise<string> {
     return (await getStyleId()) || "default";
   } catch {
     return "default";
+  }
+}
+
+/**
+ * The palette for the current style, as the `data-palette` attribute. Normalised through
+ * `resolvePalette`, so a pairing left over from a previous style resolves to the new style's
+ * default rather than matching no CSS at all.
+ */
+export async function paletteId(style: string): Promise<string> {
+  if (isBuildPhase) return resolvePalette("default", "").id;
+  try {
+    return resolvePalette(style, await getPaletteId()).id;
+  } catch {
+    return resolvePalette(style, "").id;
   }
 }
 

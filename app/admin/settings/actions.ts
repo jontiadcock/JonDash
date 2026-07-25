@@ -12,6 +12,7 @@ import {
   type SettingsFormState,
 } from "@/lib/settings";
 import { processIconUpload } from "@/lib/security/upload";
+import { resolvePalette } from "@/lib/styles";
 import { deleteIcon } from "@/lib/icons";
 import { writeChannel, isChannel } from "@/lib/update-channel";
 import { writeAutoInstall, clearUpdateFailure } from "@/lib/update-prefs";
@@ -85,7 +86,14 @@ export async function updateBrandingAction(
   return { success: "Branding saved." };
 }
 
-/** Choose the interface style (CORE-07). Re-renders every layout — it restyles the whole app. */
+/**
+ * Choose the interface style and its palette (CORE-07). Re-renders every layout — it
+ * restyles the whole app.
+ *
+ * The two are written together and the pairing is normalised through `resolvePalette`: a
+ * palette id only means something inside its style, so a stale one from a previous style
+ * silently becomes that style's default rather than being stored as an invalid combination.
+ */
 export async function saveStyleAction(
   _prev: SettingsState,
   formData: FormData,
@@ -97,7 +105,10 @@ export async function saveStyleAction(
   const err = await writeSetting("branding.style", chosen);
   if (err) return { errors: { "branding.style": "That isn't one of the available styles." } };
 
-  await audit("settings.branding.style", { userId: admin.id, detail: chosen });
+  const palette = resolvePalette(chosen, String(formData.get("palette") ?? "")).id;
+  await writeSetting("branding.palette", palette);
+
+  await audit("settings.branding.style", { userId: admin.id, detail: `${chosen}/${palette}` });
   revalidatePath("/", "layout");
   return { success: "Style applied." };
 }

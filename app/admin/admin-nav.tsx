@@ -8,7 +8,15 @@ import { createPortal } from "react-dom";
 type Item = { href: string; label: string };
 type Group = { label: string | null; items: Item[] };
 
-const SLIDE_MS = 200;
+/**
+ * How long the panel stays mounted after closing, so the slide-out is visible.
+ *
+ * The *visual* duration is `--motion-slow`, which each interface style sets (CORE-07) — this
+ * is only the unmount fallback, so it must be at least the slowest style's value (Crystal,
+ * 380ms). Overshooting is harmless: the panel is `pointer-events: none` once it starts
+ * leaving, so a style with instant motion doesn't leave anything in the way.
+ */
+const SLIDE_MS = 420;
 
 /**
  * Mobile admin navigation: a hamburger that slides a panel out from the left. Picking an
@@ -79,10 +87,18 @@ export function AdminNav({ groups }: { groups: Group[] }) {
       {render && typeof document !== "undefined"
         ? createPortal(
             <div className="fixed inset-0 z-[9998] md:hidden" role="dialog" aria-modal="true" aria-label="Settings menu">
-              {/* Backdrop */}
+              {/* Backdrop. `pointerEvents` follows `visible`, not `render`: the panel stays
+                  mounted for SLIDE_MS after closing so it can slide out, and an opacity-0
+                  backdrop still swallows clicks — which a style with instant motion (XP) would
+                  turn into a fifth of a second of a dead, invisible screen. */}
               <div
                 className="absolute inset-0 transition-opacity"
-                style={{ background: "rgba(0,0,0,0.45)", opacity: visible ? 1 : 0, transitionDuration: `${SLIDE_MS}ms` }}
+                style={{
+                  background: "rgba(0,0,0,0.45)",
+                  opacity: visible ? 1 : 0,
+                  pointerEvents: visible ? "auto" : "none",
+                  transitionDuration: "var(--motion-slow)",
+                }}
                 onClick={close}
                 aria-hidden
               />
@@ -93,7 +109,10 @@ export function AdminNav({ groups }: { groups: Group[] }) {
                   background: "var(--background)",
                   borderColor: "var(--border)",
                   transform: visible ? "translateX(0)" : "translateX(-100%)",
-                  transitionDuration: `${SLIDE_MS}ms`,
+                  // The style owns the timing (CORE-07). SLIDE_MS below is only the unmount
+                  // fallback, so it must be >= the slowest style's --motion-slow.
+                  transitionDuration: "var(--motion-slow)",
+                  pointerEvents: visible ? "auto" : "none",
                 }}
               >
                 <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>

@@ -43,7 +43,7 @@ export function Slider({
           height: 18,
           borderRadius: "50%",
           background: on ? "#fff" : "var(--border-strong, #999)",
-          transition: "left 120ms",
+          transition: "left var(--motion-fast) var(--motion-ease)",
         }}
       />
     </button>

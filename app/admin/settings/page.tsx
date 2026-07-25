@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/auth/guards";
-import { listSettings, getLogoFilename, getStyleId, listStyleSettings } from "@/lib/settings";
-import { STYLE_NAMES } from "@/lib/styles";
+import { listSettings, getLogoFilename, getStyleId, getPaletteId, listStyleSettings } from "@/lib/settings";
+import { STYLE_NAMES, resolvePalette } from "@/lib/styles";
 import { SettingsForm } from "./ui";
 import { LogoForm } from "./logo-form";
 import { StyleForm } from "./style-form";
@@ -14,6 +14,7 @@ export default async function AdminSettingsPage() {
   const branding = await listSettings("branding");
   const logo = await getLogoFilename();
   const style = await getStyleId();
+  const palette = resolvePalette(style, await getPaletteId()).id;
   const styleSettings = await listStyleSettings(style);
   const styleName = STYLE_NAMES[style] ?? "This style";
 
@@ -31,12 +32,13 @@ export default async function AdminSettingsPage() {
         <SettingsForm settings={settings} action={updateSettingsAction} />
       </section>
 
+      {/* Branding = WHO this instance is: its name and its logo. */}
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Branding</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Make this instance your own. The name appears in the header and the browser tab; the accent
-          colour is used for buttons and highlights, in both light and dark mode. Leave the colour blank
-          for the default.
+          Who this instance is. The name appears in the header, the browser tab and new authenticator
+          enrolments; the logo replaces the square mark and the browser-tab icon. Both carry across every
+          interface style.
         </p>
         <SettingsForm settings={branding} action={updateBrandingAction} saveLabel="Save branding" />
 
@@ -44,14 +46,18 @@ export default async function AdminSettingsPage() {
           <h3 className="mb-3 text-sm font-semibold">Logo</h3>
           <LogoForm current={logo} />
         </div>
+      </section>
 
-        <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--border)" }}>
-          <h3 className="mb-1 text-sm font-semibold">Interface style</h3>
-          <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
-            How the interface is drawn. Your accent colour and logo carry across every style. This applies
-            to everyone using this instance.
-          </p>
-          <StyleForm current={style} />
+      {/* Appearance = HOW it's drawn. Deliberately its own section: a style is chrome, not
+          identity, and the two were confusing to see under one heading. */}
+      <section className="card p-6">
+        <h2 className="mb-1 text-lg font-semibold">Appearance</h2>
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+          How the interface is drawn. This applies to everyone using this instance — your branding sits on
+          top of whichever style you pick.
+        </p>
+        <div>
+          <StyleForm current={style} currentPalette={palette} />
 
           {/* Options belonging to the CHOSEN style. Modern has an accent colour; XP and
               Crystal carry their own palettes, so they have none — say so rather than

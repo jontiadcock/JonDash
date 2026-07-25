@@ -1,0 +1,598 @@
+/* ============================================================================
+ * Interface styles (CORE-07) — see docs/STYLES.md for the contract.
+ *
+ * TWO LAYERS, and the split matters:
+ *
+ *   :root[data-style="X"]                    STRUCTURE — radius, borders,
+ *                                            shadows, blur, bevels, fonts, and
+ *                                            the style's default palette.
+ *   :root[data-style="X"][data-palette="Y"]  COLOUR only.
+ *
+ * A style is what makes XP feel like XP; a palette just repaints it. Before this
+ * split, Nord and Solarized were separate "styles" that duplicated the entire
+ * token set to change a dozen colours — which is also why they looked like
+ * variants of Modern: they were.
+ *
+ * Neither layer may target a page or component, so installed modules — built on
+ * the same primitives by authors who never heard of the style — are re-skinned
+ * along with everything else instead of breaking.
+ *
+ * Contrast is checked against the worst-case surface (STYLES.md §4).
+ * ========================================================================== */
+
+/* ─── MODERN ──────────────────────────────────────────────────────────────
+ * Structure: soft cards, medium radius, gentle shadow. ADAPTIVE.
+ * Palettes: Indigo (default) · Nord · Solarized · Paper.
+ * The base tokens in globals.css already ARE Modern/Indigo, so this style only
+ * needs its alternative palettes. */
+
+:root[data-style="default"][data-palette="nord"] {
+  --background: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #e5e9f0;
+  --foreground: #2e3440;
+  --muted: #46536b;
+  --border: #d8dee9;
+  --border-strong: #aeb8c8;
+  --primary: #5e81ac;
+  --primary-foreground: #ffffff;
+  --danger: #a8434c;
+  --warning: #9a6f22;
+  --success: #4a7c59;
+  --ring: rgba(94, 129, 172, 0.4);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="default"][data-palette="nord"] {
+    --background: #2e3440;
+    --surface: #3b4252;
+    --surface-2: #434c5e;
+    --foreground: #e5e9f0;
+    --muted: #c2cad8;
+    --border: #4c566a;
+    --border-strong: #6b7689;
+    --primary: #88c0d0;
+    --primary-foreground: #2e3440;
+    --danger: #d0868e;
+    --warning: #ebcb8b;
+    --success: #a3be8c;
+    --ring: rgba(136, 192, 208, 0.45);
+  }
+}
+
+:root[data-style="default"][data-palette="solarized"] {
+  --background: #eee8d5;
+  --surface: #fdf6e3;
+  --surface-2: #eee8d5;
+  --foreground: #073642;
+  --muted: #4e6a6d;
+  --border: #ddd6c1;
+  --border-strong: #93a1a1;
+  --primary: #1d7fbe;
+  --primary-foreground: #fdf6e3;
+  --danger: #c22d2a;
+  --warning: #9a7400;
+  --success: #6b7d00;
+  --ring: rgba(29, 127, 190, 0.4);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="default"][data-palette="solarized"] {
+    --background: #002b36;
+    --surface: #073642;
+    --surface-2: #0a4351;
+    --foreground: #eee8d5;
+    --muted: #b6c3c3;
+    --border: #0f4c5c;
+    --border-strong: #587e86;
+    --primary: #2aa198;
+    --primary-foreground: #002b36;
+    --danger: #e4635f;
+    --warning: #cb9e00;
+    --success: #9aae00;
+    --ring: rgba(42, 161, 152, 0.45);
+  }
+}
+
+/* Paper zeroes the shadow as well as recolouring. A palette normally sets colour
+   only; "flat" is close enough to the Modern structure to stay a palette rather
+   than justify a near-duplicate style (STYLES.md §8). */
+:root[data-style="default"][data-palette="paper"] {
+  --background: #e9e7e1;
+  --surface: #fdfcf9;
+  --surface-2: #f3f1ea;
+  --foreground: #14110c;
+  --muted: #4a4438;
+  --border: #cdc8bb;
+  --border-strong: #14110c;
+  --primary: #14110c;
+  --primary-foreground: #fdfcf9;
+  --danger: #9b1c1c;
+  --warning: #8a5a00;
+  --success: #1c5f2e;
+  --ring: rgba(20, 17, 12, 0.3);
+  --shadow: none;
+  --shadow-control: none;
+  --radius-card: 2px;
+  --radius-control: 2px;
+}
+
+/* ─── CRYSTAL ─────────────────────────────────────────────────────────────
+ * Structure: frosted glass, blur, pill controls, gradient wash. ADAPTIVE.
+ * Palettes: Aurora (default) · Neon · Aero. */
+:root[data-style="crystal"] {
+  /* Surfaces are opaque ENOUGH on purpose: at 0.72 the text sat over whatever
+     the gradient was doing behind it. Blur and the edge highlight carry the glass. */
+  --background: #e8ecf6;
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-2: rgba(255, 255, 255, 0.78);
+  --foreground: #0b0e14;
+  --muted: #3d4557;
+  --border: rgba(255, 255, 255, 0.85);
+  --border-strong: rgba(120, 130, 150, 0.5);
+  --primary: #0b7285;
+  --primary-foreground: #ffffff;
+  --danger: #c92a2a;
+  --warning: #b25e02;
+  --success: #0b7a3d;
+  --ring: rgba(11, 114, 133, 0.4);
+  --shadow: 0 4px 12px rgba(20, 30, 60, 0.1), 0 16px 40px rgba(20, 30, 60, 0.12);
+  --shadow-control: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
+  --radius-card: 20px;
+  --radius-control: 999px;
+  --border-width: 1px;
+  --surface-blur: 18px;
+  --surface-gradient: linear-gradient(145deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.28) 100%);
+  --font-weight-strong: 600;
+  --shadow-hover: 0 8px 20px rgba(20, 30, 60, 0.14), 0 24px 56px rgba(20, 30, 60, 0.18);
+
+  /* Glass should feel unhurried: everything is slower than Modern and decelerates hard
+     (the 0.22/1/0.36/1 curve), so panels appear to settle rather than arrive. */
+  --motion-fast: 220ms;
+  --motion-slow: 380ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-lift: -3px;
+  --motion-press: 1px;
+  --motion-spin: spin 1.6s linear infinite;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="crystal"] {
+    --background: #0a0f18;
+    --surface: rgba(26, 33, 48, 0.88);
+    --surface-2: rgba(44, 54, 74, 0.8);
+    --foreground: #f4f7fc;
+    --muted: #bcc6d6;
+    --border: rgba(255, 255, 255, 0.14);
+    --border-strong: rgba(255, 255, 255, 0.28);
+    --primary: #38d9c0;
+    --primary-foreground: #06231f;
+    --danger: #ff8787;
+    --warning: #ffc861;
+    --success: #63e6a0;
+    --ring: rgba(56, 217, 192, 0.45);
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 20px 48px rgba(0, 0, 0, 0.5);
+    --surface-gradient: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.07) 100%);
+  }
+}
+:root[data-style="crystal"] body {
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 5%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%);
+  background-attachment: fixed;
+}
+:root[data-style="crystal"] .btn-ghost {
+  background: var(--surface-2);
+  backdrop-filter: blur(var(--surface-blur));
+}
+
+/* Neon: committed dark, so it overrides the adaptive base in BOTH schemes. The
+   glow lives on borders and the backdrop, never behind text. */
+:root[data-style="crystal"][data-palette="neon"],
+:root[data-style="crystal"][data-palette="neon"] :root {
+  --background: #12082a;
+  --surface: rgba(35, 17, 70, 0.92);
+  --surface-2: rgba(52, 26, 96, 0.85);
+  --foreground: #f4ecff;
+  --muted: #c9b6e8;
+  --border: rgba(255, 86, 200, 0.28);
+  --border-strong: #7b3fd4;
+  --primary: #ff56c8;
+  --primary-foreground: #1b0530;
+  --danger: #ff5c7a;
+  --warning: #ffc857;
+  --success: #4ce0b3;
+  --ring: rgba(255, 86, 200, 0.45);
+  --shadow: 0 0 0 1px rgba(255, 86, 200, 0.18), 0 10px 34px rgba(0, 0, 0, 0.6);
+  --shadow-control: 0 0 14px rgba(255, 86, 200, 0.45);
+  --surface-gradient: linear-gradient(160deg, rgba(255, 86, 200, 0.12), transparent 60%);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-style="crystal"][data-palette="neon"] {
+    --background: #12082a;
+    --surface: rgba(35, 17, 70, 0.92);
+    --surface-2: rgba(52, 26, 96, 0.85);
+    --foreground: #f4ecff;
+    --muted: #c9b6e8;
+    --border: rgba(255, 86, 200, 0.28);
+    --border-strong: #7b3fd4;
+    --primary: #ff56c8;
+    --primary-foreground: #1b0530;
+    --shadow: 0 0 0 1px rgba(255, 86, 200, 0.18), 0 10px 34px rgba(0, 0, 0, 0.6);
+    --surface-gradient: linear-gradient(160deg, rgba(255, 86, 200, 0.12), transparent 60%);
+  }
+}
+
+/* Aero: Windows 7 glass. The desktop is deliberately PALE — Aero's dark navy text
+   also lands on the page background (sidebar nav, page headings), and navy on a
+   mid blue failed the contrast floor. */
+:root[data-style="crystal"][data-palette="aero"] {
+  --background: #c3daf1;
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-2: rgba(255, 255, 255, 0.76);
+  --foreground: #10243a;
+  --muted: #3a5570;
+  --border: rgba(255, 255, 255, 0.85);
+  --border-strong: #7fa8cc;
+  --primary: #1f7fd6;
+  --primary-foreground: #ffffff;
+  --danger: #c0271e;
+  --warning: #8f5300;
+  --success: #1a7a35;
+  --ring: rgba(31, 127, 214, 0.45);
+  --shadow: 0 2px 6px rgba(10, 40, 70, 0.25), 0 12px 28px rgba(10, 40, 70, 0.2);
+  --shadow-control: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --radius-card: 8px;
+  --radius-control: 5px;
+  --surface-blur: 14px;
+  --surface-gradient: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.06));
+  --font-sans: "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="crystal"][data-palette="aero"] {
+    --background: #c3daf1;
+    --surface: rgba(255, 255, 255, 0.9);
+    --surface-2: rgba(255, 255, 255, 0.76);
+    --foreground: #10243a;
+    --muted: #3a5570;
+    --border: rgba(255, 255, 255, 0.85);
+    --border-strong: #7fa8cc;
+    --primary: #1f7fd6;
+    --primary-foreground: #ffffff;
+    --shadow: 0 2px 6px rgba(10, 40, 70, 0.25), 0 12px 28px rgba(10, 40, 70, 0.2);
+    --surface-gradient: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.06));
+  }
+}
+:root[data-style="crystal"][data-palette="aero"] body {
+  background-image: linear-gradient(160deg, #dbe9f8, #b9d4ef 55%, #a3c6e8);
+  background-attachment: fixed;
+}
+:root[data-style="crystal"][data-palette="aero"] .btn {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.95), rgba(210, 232, 250, 0.75));
+  border-color: #6f9fc6;
+  color: #123a5c;
+}
+:root[data-style="crystal"][data-palette="aero"] .btn-primary {
+  background-image: linear-gradient(#5fb0f5, #1f7fd6);
+  border-color: #1a6cb5;
+  color: #fff;
+}
+
+/* ─── XP ──────────────────────────────────────────────────────────────────
+ * Structure: title bar on every panel, bevels, sunken wells. COMMITTED.
+ * Palettes: Luna Blue (default) · Olive Green · Silver.
+ * The chrome is drawn from --xp-bar-*, so a palette only swaps those. */
+:root[data-style="xp"] {
+  --xp-bar-1: #0055ea;
+  --xp-bar-2: #2a80f0;
+  --xp-bar-3: #0e5fd8;
+  --xp-frame: #0831d9;
+  --xp-desk-1: #4b7fdc;
+  --xp-desk-2: #5a8ee0;
+  --xp-desk-3: #3f6fc9;
+
+  --background: #5a7edc;
+  --surface: #ece9d8;
+  --surface-2: #f5f4ea;
+  --foreground: #000000;
+  --muted: #4a4a42;
+  --border: #aca899;
+  --border-strong: #716f64;
+  --primary: #245edb;
+  --primary-foreground: #ffffff;
+  --danger: #c00000;
+  --warning: #9a5b00;
+  --success: #006400;
+  --ring: rgba(36, 94, 219, 0.5);
+  --shadow: 1px 1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-control: none;
+  --radius-card: 4px;
+  --radius-control: 3px;
+  --border-width: 1px;
+  --surface-blur: 0px;
+  --surface-gradient: none;
+  --font-sans: Tahoma, Verdana, Geneva, sans-serif;
+  --font-weight-strong: 700;
+  --shadow-hover: 1px 1px 0 rgba(0, 0, 0, 0.18);
+
+  /* XP had no compositor and no transitions — a window was either up or it wasn't, and a
+     button swapped its bevel the instant you pressed it. Zeroing the timings is the single
+     biggest thing that makes this read as XP rather than as a modern app wearing a skin.
+     The press stays: that bevel swap was the era's whole feedback vocabulary. */
+  --motion-fast: 0ms;
+  --motion-slow: 0ms;
+  --motion-ease: linear;
+  --motion-lift: 0px;
+  --motion-press: 1px;
+  /* Ticks in 8 discrete steps rather than gliding. Deliberately still a *spin*: this token
+     is also Tailwind's `animate-spin`, so a module's own spinner must keep working. */
+  --motion-spin: spin 0.8s steps(8) infinite;
+}
+:root[data-style="xp"] .card {
+  border-color: var(--xp-frame);
+  padding-top: 1.9rem;
+  background-image: linear-gradient(
+    to bottom,
+    var(--xp-bar-1) 0px, var(--xp-bar-2) 4px, var(--xp-bar-3) 22px,
+    var(--surface) 23px, var(--surface) 100%
+  );
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px #ffffff, 1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+:root[data-style="xp"] .card h2,
+:root[data-style="xp"] .card h3 { color: var(--xp-frame); }
+:root[data-style="xp"] .input {
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.16);
+}
+:root[data-style="xp"] .input:focus {
+  border-color: var(--xp-frame);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.16), 0 0 0 2px var(--ring);
+}
+:root[data-style="xp"] .btn {
+  background-image: linear-gradient(to bottom, #ffffff 0%, #f0efe6 48%, #e3e0d0 52%, #ffffff 100%);
+  border-color: var(--border-strong);
+  color: #000;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.22), inset 1px 1px 0 #ffffff;
+}
+:root[data-style="xp"] .btn-primary {
+  background-image: linear-gradient(to bottom,
+    color-mix(in srgb, var(--primary) 55%, white) 0%,
+    var(--primary) 48%,
+    color-mix(in srgb, var(--primary) 80%, black) 52%,
+    color-mix(in srgb, var(--primary) 55%, white) 100%);
+  color: #fff;
+  border-color: color-mix(in srgb, var(--primary) 60%, black);
+}
+:root[data-style="xp"] .btn:active:not(:disabled) {
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.28);
+  transform: none;
+}
+:root[data-style="xp"] body {
+  background-image: linear-gradient(to bottom, var(--xp-desk-1) 0%, var(--xp-desk-2) 40%, var(--xp-desk-3) 100%);
+  background-attachment: fixed;
+}
+:root[data-style="xp"] th {
+  background: linear-gradient(to bottom, #ffffff, #e3e0d0);
+  border-bottom: 1px solid var(--border);
+  color: var(--xp-frame);
+}
+
+:root[data-style="xp"][data-palette="olive"] {
+  --xp-bar-1: #7ba05b; --xp-bar-2: #93b872; --xp-bar-3: #5c7a2e;
+  --xp-frame: #46621f;
+  --xp-desk-1: #7a9153; --xp-desk-2: #8aa063; --xp-desk-3: #667c42;
+  --background: #7a9153;
+  --primary: #5c7a2e;
+  --ring: rgba(92, 122, 46, 0.5);
+}
+:root[data-style="xp"][data-palette="silver"] {
+  --xp-bar-1: #b6b8c6; --xp-bar-2: #d2d4de; --xp-bar-3: #9093a5;
+  --xp-frame: #5a5d70;
+  --xp-desk-1: #8f92a1; --xp-desk-2: #9ea1af; --xp-desk-3: #7c7f8e;
+  --background: #8f92a1;
+  --surface: #eeeef2;
+  --surface-2: #f7f7fa;
+  --border: #a9abb8;
+  --border-strong: #6f7285;
+  --primary: #5a5d70;
+  --ring: rgba(90, 93, 112, 0.5);
+}
+
+/* ─── TERMINAL ────────────────────────────────────────────────────────────
+ * Structure: monospace, zero radius, no shadow. COMMITTED.
+ * Palettes: Phosphor Green (default) · Amber · Cyan.
+ * Everything is one hue, so a palette is essentially --primary + surfaces. */
+:root[data-style="terminal"] {
+  --background: #050805;
+  --surface: #0a120a;
+  --surface-2: #0d1a0d;
+  --foreground: #7dffa8;
+  --muted: #57c682;
+  --border: #1d4d1d;
+  --border-strong: #2f8f4a;
+  --primary: #7dffa8;
+  --primary-foreground: #041007;
+  --danger: #ff6b6b;
+  --warning: #ffd166;
+  --success: #7dffa8;
+  --ring: rgba(125, 255, 168, 0.4);
+  --shadow: none;
+  --shadow-control: none;
+  --radius-card: 0px;
+  --radius-control: 0px;
+  --border-width: 1px;
+  --surface-blur: 0px;
+  --surface-gradient: none;
+  --font-sans: ui-monospace, Consolas, "Courier New", monospace;
+  --font-weight-strong: 700;
+  --shadow-hover: none;
+
+  /* A terminal redraws; it doesn't animate. Nothing eases, nothing lifts, and a button
+     doesn't even depress — there is no bevel to depress. */
+  --motion-fast: 0ms;
+  --motion-slow: 0ms;
+  --motion-ease: linear;
+  --motion-lift: 0px;
+  --motion-press: 0px;
+  --motion-spin: spin 1s steps(4) infinite;
+}
+:root[data-style="terminal"] .btn-primary {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+:root[data-style="terminal"][data-palette="amber"] {
+  --background: #0a0703;
+  --surface: #150f05;
+  --surface-2: #1c1408;
+  --foreground: #ffb44d;
+  --muted: #c98a35;
+  --border: #4d3313;
+  --border-strong: #8f5f22;
+  --primary: #ffb44d;
+  --primary-foreground: #150f05;
+  --success: #ffb44d;
+  --ring: rgba(255, 180, 77, 0.4);
+}
+:root[data-style="terminal"][data-palette="cyan"] {
+  --background: #03080a;
+  --surface: #061418;
+  --surface-2: #081c22;
+  --foreground: #5fe3ff;
+  --muted: #3fa8c4;
+  --border: #12414d;
+  --border-strong: #1f7b91;
+  --primary: #5fe3ff;
+  --primary-foreground: #04161b;
+  --success: #5fe3ff;
+  --ring: rgba(95, 227, 255, 0.4);
+}
+
+/* ─── BRUTALIST ───────────────────────────────────────────────────────────
+ * Structure: fat borders, zero radius, hard offset shadow. COMMITTED.
+ * Palettes: Yellow (default) · Cyan · Mono. */
+:root[data-style="brutalist"] {
+  --background: #f5e600;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --foreground: #000000;
+  --muted: #333333;
+  --border: #000000;
+  --border-strong: #000000;
+  --primary: #0033ff;
+  --primary-foreground: #ffffff;
+  --danger: #c00000;
+  --warning: #8a4b00;
+  --success: #006400;
+  --ring: rgba(0, 51, 255, 0.5);
+  --shadow: 5px 5px 0 #000000;
+  --shadow-control: 3px 3px 0 #000000;
+  --radius-card: 0px;
+  --radius-control: 0px;
+  --border-width: 3px;
+  --surface-blur: 0px;
+  --surface-gradient: none;
+  --font-weight-strong: 800;
+  --shadow-hover: 8px 8px 0 #000000;
+
+  /* Not instant like XP, but not smooth either — it JUMPS, in two visible steps. A stepped
+     timing function is the motion equivalent of the hard offset shadow: obviously mechanical,
+     no pretence of physics. The press is exaggerated so a button visibly slams down. */
+  --motion-fast: 110ms;
+  --motion-slow: 110ms;
+  --motion-ease: steps(2, end);
+  --motion-lift: -3px;
+  --motion-press: 3px;
+  --motion-spin: spin 0.6s steps(4) infinite;
+}
+:root[data-style="brutalist"] .btn { border-color: #000000; }
+:root[data-style="brutalist"][data-palette="cyan"] {
+  --background: #00e5ff;
+  --primary: #d92b00;
+  --ring: rgba(217, 43, 0, 0.5);
+}
+:root[data-style="brutalist"][data-palette="mono"] {
+  --background: #d9d9d9;
+  --primary: #000000;
+  --ring: rgba(0, 0, 0, 0.5);
+}
+
+/* ─── BUSY INDICATORS ─────────────────────────────────────────────────────
+ * `.spinner` is a shared primitive (globals.css), so a style may replace the whole *look* of
+ * "working…" and not just its timing. Grouped here rather than filed under each style so the
+ * five can be compared side by side — they're the most visible motion in the app, since the
+ * update and restart screens are nothing but this.
+ *
+ * A style that replaces the indicator OWNS ITS REDUCED-MOTION BEHAVIOUR: the global override
+ * in globals.css slows `--motion-spin`, which a replaced animation no longer reads.
+ * See docs/STYLES.md §6. */
+
+/* Crystal: the default ring, but the translucent `--surface-2` would leave the track nearly
+   invisible, and glass gets a bloom. */
+:root[data-style="crystal"] .spinner {
+  border-color: var(--border-strong);
+  border-top-color: var(--primary);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* XP: the era's "working" affordance was never a spinner — it was a segmented bar of blocks
+   marching left to right. Steps, not a glide, because that's how it drew. */
+:root[data-style="xp"] .spinner {
+  position: relative;
+  width: 12rem;
+  height: 1.25rem;
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  background: #ffffff;
+  overflow: hidden;
+  animation: none;
+}
+:root[data-style="xp"] .spinner::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 3.4rem;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--xp-bar-2) 0 0.6rem,
+    transparent 0.6rem 0.85rem
+  );
+  animation: xp-marching 1.4s steps(14) infinite;
+}
+@keyframes xp-marching {
+  from { transform: translateX(-3.5rem); }
+  to { transform: translateX(12rem); }
+}
+
+/* Terminal: a blinking block cursor. Nothing rotates in a terminal. */
+:root[data-style="terminal"] .spinner {
+  width: auto;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 0;
+  animation: none;
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-size: 1.4rem;
+  line-height: 1.6rem;
+}
+:root[data-style="terminal"] .spinner::after {
+  content: "█";
+  animation: term-blink 1s steps(1, end) infinite;
+}
+@keyframes term-blink {
+  50% { opacity: 0; }
+}
+
+/* Brutalist: a hard black square, quartering round. No radius, no easing. */
+:root[data-style="brutalist"] .spinner {
+  border-radius: 0;
+  border-width: 6px;
+  border-color: #000000;
+  border-top-color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="xp"] .spinner::after { animation-duration: 3.5s; }
+  :root[data-style="terminal"] .spinner::after { animation-duration: 2.4s; }
+}

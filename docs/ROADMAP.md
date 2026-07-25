@@ -65,35 +65,39 @@ MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0), MOD-09/10 (v1.5.2); MOD-1
    rework (drag-and-drop module widgets, a small edit icon replacing the customize panel, a mobile
    hamburger nav) **plus** rebranding (colour scheme, custom logo, rename from "JonDash"). Functionality
    unchanged. **Agree direction / preview first**, then build in phases
-2. ⏳ **SEC-04 — Session lifecycle hardening**
-3. ⏳ **SEC-05 — Trusted-IP auto-login**
-4. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
-5. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
-6. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-7. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-8. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
+2. ⏳ **CORE-08 — Dashboard widget interaction rework** *(owner-directed 2026-07-25)* — click the widget to
+   open it, pointer-only hover highlight from the style tokens, and an explicit **edit mode** carrying move
+   (as a tappable button, not a hover grip) and **drag-the-corners resize → save**. Closes BUG-53/54/55.
+   Straight after CORE-07 so it's built against the finished token set
+3. ⏳ **SEC-04 — Session lifecycle hardening**
+4. ⏳ **SEC-05 — Trusted-IP auto-login**
+5. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
+6. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
+7. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+8. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+9. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-9. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
+10. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
    (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
    by the owner** — move it freely
-10. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
+11. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
    back to it; **no compatibility work, just a warning + disclaimer** ("this may break your JonDash").
    Owner request 2026-07-25. **Position not yet confirmed by the owner** — move it freely
-11. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+12. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-12. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+13. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-13. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+14. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-14. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+15. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-15. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-16. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+16. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+17. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-17. 🌅 **OPS-03 — VHD appliance**
-18. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+18. 🌅 **OPS-03 — VHD appliance**
+19. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -678,6 +682,27 @@ review as it stood, with findings marked fixed as later releases address them.
 
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
+
+#### CORE-08 · Dashboard widget interaction rework — ⏳ Planned (owner-directed 2026-07-25)
+Owner feedback after using the drag-and-drop dashboard: the arranging works, the *interaction model*
+doesn't. Controls are hover-revealed (so they don't exist on touch), they overlap widget content, and the
+widget itself isn't clickable. The fix is a mode, not more buttons.
+
+- **Clicking the widget opens the module.** The separate "Open" button goes away — it's redundant when the
+  whole card is the target, and it's the thing currently colliding with the controls (**BUG-53**).
+- **Hover gives a light highlight on pointer devices**, drawn from the current style/palette tokens so it
+  reads correctly in every style (CORE-07) — no hardcoded hover colour. Pointer-only, via
+  `@media (hover: hover)`, so touch doesn't get a stuck hover state.
+- **Move appears only in edit mode, as a real button.** Today the grip is hover-revealed, which means
+  **it does not exist on a phone**. Edit mode must expose move as a tappable control, not a hover affordance.
+- **Resize becomes edit → drag the corners → save**, replacing the 1/2/3 width and height buttons. This
+  also has to fix **BUG-54** (height does nothing, because the grid has no row track) and **BUG-55**
+  (widgets aren't a uniform size) — a drag handle is meaningless while the underlying size can't change.
+- **Explicit save.** Resizing commits on save rather than per-drag, so an experiment can be abandoned.
+
+**Depends on / supersedes:** BUG-53, BUG-54, BUG-55 — all three are symptoms of this design and should be
+closed by it, not patched first. **Do after CORE-07 ships**, so the hover highlight and edit chrome are
+built against the finished token set.
 
 #### CORE-07 · Selectable interface styles — ⏳ Planned (direction set 2026-07-25)
 Owner decision, 2026-07-25: the UI rework is **not one new look — it's a chooser**. The app ships several

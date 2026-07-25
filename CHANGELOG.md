@@ -9,6 +9,33 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.9] — 2026-07-25
+
+### Added
+- **Styles now have a colour choice: 5 styles, 16 palettes.** Several of the styles turned out to be the
+  same shape in different colours, so the two are now separate choices. A **style** is the structure —
+  corners, borders, shadows, glass, title bars, type. A **palette** is the colour that fills it. Pick
+  Modern and then Indigo, Nord, Solarized or Paper; pick XP and then Luna Blue, Olive Green or Silver.
+  Crystal offers Aurora, Neon and Aero; Terminal offers Phosphor Green, Amber and Cyan; Brutalist offers
+  Yellow, Cyan and Mono. The picker is now two levels — compact style tiles grouped by family, then that
+  style's palettes.
+- **Each style now moves the way it should.** How the interface animates is part of a style, not a fixed
+  behaviour. **XP no longer transitions at all** — it snaps between states the way it actually did, and
+  its "working" indicator is the era's marching-blocks progress bar rather than a spinner. Crystal is
+  slower and eases, because glass should feel unhurried. Terminal doesn't move and blinks a block cursor.
+  Brutalist jumps in visible steps. Everything respects your system's reduced-motion setting, though the
+  busy indicator keeps turning — a frozen one looks like a crash.
+
+### Changed
+- **Appearance is now its own settings section, separate from Branding.** Branding is who the instance is
+  (its name and logo); Appearance is how it's drawn. They were confusing together, and a style isn't
+  branding.
+
+### Fixed
+- **The official JonDash module source can no longer be removed.** Disabling and re-enabling it is still
+  fine — but removing it left no way to install official modules, and the control was only hidden in the
+  UI rather than actually prevented.
+
 ## [1.7.0-beta.8] — 2026-07-25
 
 ### Changed

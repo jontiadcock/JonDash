@@ -57,7 +57,24 @@ export const SETTINGS = {
     help: "How the interface is drawn.",
     kind: "string",
     default: "default",
-    schema: z.enum(["default", "xp", "crystal"]),
+    // Structure only. The palette is stored separately — see `branding.palette`.
+    // Keep in step with lib/styles.ts and app/styles.css (docs/STYLES.md §6).
+    schema: z.enum(["default", "crystal", "xp", "terminal", "brutalist"]),
+    group: "branding",
+    hidden: true,
+  } as SettingDef<string>,
+
+  // The colour palette WITHIN the chosen style (CORE-07). Stored loosely on purpose: a
+  // palette id only means something inside its style ("cyan" exists for both Terminal and
+  // Brutalist), so the style/palette pairing is validated together at write time and
+  // `resolvePalette` falls back to the style's default whenever the stored one doesn't
+  // belong. That keeps a stale pairing from a style change harmless.
+  "branding.palette": {
+    label: "Palette",
+    help: "Colour scheme within the chosen style.",
+    kind: "string",
+    default: "",
+    schema: z.string().max(24),
     group: "branding",
     hidden: true,
   } as SettingDef<string>,
@@ -250,9 +267,14 @@ export async function getAccentColor(): Promise<string> {
  * A new style adds its own entry here; an empty list is normal and means "no options".
  */
 export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
+  // Modern is the neutral structure, so a free-choice accent is meaningful there — it
+  // composes with whichever Modern palette is picked. The other styles get their colour from
+  // their palettes instead; an arbitrary accent would fight the look rather than serve it.
   default: ["branding.accent"],
-  xp: [],
   crystal: [],
+  xp: [],
+  terminal: [],
+  brutalist: [],
 };
 
 /** The settings the given style exposes, as views for the form. */
@@ -267,6 +289,11 @@ export async function listStyleSettings(styleId: string): Promise<SettingView[]>
 /** The chosen interface style id (CORE-07); "default" when unset. */
 export async function getStyleId(): Promise<string> {
   return readValue("branding.style");
+}
+
+/** The chosen palette id. Meaningful only alongside the style — see `resolvePalette`. */
+export async function getPaletteId(): Promise<string> {
+  return readValue("branding.palette");
 }
 
 export async function getLogoFilename(fresh = false): Promise<string> {

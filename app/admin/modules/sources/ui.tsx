@@ -90,7 +90,14 @@ function SourceRow({ s }: { s: SourceItem }) {
           </button>
         </form>
 
-        {confirmRemove ? (
+        {/* The official source can be turned OFF but never removed: it's how JonDash finds
+            first-party modules and helpers, and deleting it leaves an install with no way
+            back to them short of retyping the URL. Disable achieves everything removal did. */}
+        {s.isDefault ? (
+          <span className="text-xs" style={{ color: "var(--muted)" }}>
+            Built in — disable it if you don&apos;t want it
+          </span>
+        ) : confirmRemove ? (
           <>
             <span className="text-sm">Remove?</span>
             <form action={removeSourceAction}>
