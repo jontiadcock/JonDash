@@ -55,37 +55,42 @@ not a temporary one. Country-based policy was also dropped (retired SEC-03).
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Nothing is in flight.** MOD-09 and MOD-10 both shipped in **v1.5.2**. The next module-platform item is
-**MOD-11** — making helper capability checks enforcement rather than advice — worth doing before
-helper-side enforcement spreads across several helpers.
+**Now in flight: CORE-04 + CORE-06** — the full UI rework combined with rebranding (owner decision
+2026-07-25), moved ahead of SEC-04. Direction to be agreed / previewed before mass-applying. Otherwise this
+list is only what's left to build — shipped items live in their **Catalog** entry (which names the version
+each shipped in) and in `CHANGELOG.md`, not here. The **modules platform is complete**: MOD-01 (v1.4.0),
+MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0), MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 
-Otherwise this list is only what's left to build — shipped items live in their **Catalog** entry (which
-names the version each shipped in) and in `CHANGELOG.md`, not here. The **modules platform is otherwise complete**: MOD-01 (v1.4.0), MOD-02 (the
-`health-monitor` module), MOD-08 (v1.5.0).
-
-1. ⏳ **SEC-04 — Session lifecycle hardening**
-2. ⏳ **SEC-05 — Trusted-IP auto-login**
-3. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
-4. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
-5. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-6. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-7. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
+1. ▶️ **CORE-04 + CORE-06 — Full UI rework + rebranding** *(active, owner-directed 2026-07-25)* — visual
+   rework (drag-and-drop module widgets, a small edit icon replacing the customize panel, a mobile
+   hamburger nav) **plus** rebranding (colour scheme, custom logo, rename from "JonDash"). Functionality
+   unchanged. **Agree direction / preview first**, then build in phases
+2. ⏳ **SEC-04 — Session lifecycle hardening**
+3. ⏳ **SEC-05 — Trusted-IP auto-login**
+4. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
+5. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
+6. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+7. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+8. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-8. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+9. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
+   (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
+   by the owner** — move it freely
+10. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-9. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+11. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-10. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+12. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-11. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+13. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-12. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-13. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+14. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+15. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-14. 🌅 **OPS-03 — VHD appliance**
-15. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+16. 🌅 **OPS-03 — VHD appliance**
+17. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -415,6 +420,23 @@ piece of module-UI work rather than tracking it.
 
 ### OPS — Platform, packaging & operations
 
+#### OPS-16 · Back up & restore a module's own data tables — ⏳ Planned
+Owner request 2026-07-25 (asked "does backup cover module data?"). **Partly, today.** A backup
+(`lib/backup.ts`) already carries each module's **settings**, its generic key/value **`records`** store,
+and each user's widget **`layout`** — but **not** the module's bespoke **`mod_<id>_*` SQL tables** (the
+ones a module creates through its own migrations — e.g. health-monitor's history). Those are excluded on
+purpose: the table schema belongs to the module **version** installed at restore time, and writing rows
+from a different version back in corrupts the module rather than restoring it.
+
+This item closes the gap **safely**, rather than by lifting the exclusion blindly:
+- Capture the `mod_<id>_*` tables in the `.dashbk` archive, tagged with the module **id + version**.
+- On restore, rewrite a module's tables only when the installed version **matches** (or the module offers a
+  migration path); otherwise **skip with a clear report**, never a silent partial/ corrupting restore.
+- Keep it inside the existing encrypted `.dashbk` format and the step-up-gated restore flow.
+
+Independent of the UI rework — deserves its own focused beta so a restore can be tested carefully. **Queue
+position not yet confirmed by the owner** — move it freely.
+
 #### OPS-01 · Shrink install footprint — ✅ Shipped (prune v1.1.4, strip v1.1.7; standalone reverted)
 **Phase 1 (v1.1.4):** the launcher builds only when the version changes, then `npm prune
 --omit=dev` — node_modules **26,155 → 15,485 files (~41%)**. Config moved to `next.config.mjs`.
@@ -638,6 +660,28 @@ review as it stood, with findings marked fixed as later releases address them.
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
 
+#### CORE-06 · Rebranding / white-labelling — ⏳ Planned
+Owner request, 2026-07-25. Let the operator make the instance their own — three parts:
+- **Colour scheme.** Change the app's colours from the default. The UI is already themed through CSS
+  variables (`--primary`, `--background`, `--surface-2`, …), so the hook exists; this is a settings surface
+  over it (a few presets and/or a custom accent), applied instance-wide and working in both light and dark.
+- **Custom logo.** Upload a logo to replace the "J" mark / wordmark in the header (and the favicon / PWA
+  icon where it appears). Reuse the hardened icon-upload path (`lib/security/upload.ts` — sharp, stored
+  outside the web root, size-checked), not a new one.
+- **Rename from "JonDash".** A custom app name used wherever the name shows — the header, page `<title>`s,
+  the PWA manifest, and outgoing email. **Watch the TOTP issuer:** the authenticator label is currently
+  "JonDash"; changing it only affects *new* enrolments (the shared secret is unchanged, so existing codes
+  keep working), but it's the one place a rename is more than cosmetic and should be flagged to the admin.
+
+**Scope notes for when it's built:**
+- **Instance-wide, admin-set** — the operator branding the whole install, not a per-user theme.
+- **Stored in the Setting store** like other settings, with the defaults as the fallback so a fresh install
+  is still recognisably JonDash until changed.
+- **Build it with CORE-04 (full UI rework) in view** — the theming system and the rework touch the same
+  surface; agree the direction once rather than restyling twice.
+- **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
+  a remote logo or theme.
+
 #### CORE-05 · "Buy me a coffee" banner + a support page — ⏳ Planned
 Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
 a support page that is deliberately a bit cute and funny. Someone who goes on to support gets a second,
@@ -675,17 +719,29 @@ two pages and in the banner copy, not in the admin UI around them.
 **Open, for the owner:** which payment provider (Ko-fi / Buy Me a Coffee / GitHub Sponsors / plain
 PayPal), and whether the banner appears on the dashboard, in the admin area, or both.
 
-#### CORE-04 · Full UI rework — ⏳ scope TBD
-Owner decision 2026-07-23. **The look changes significantly; the functionality does not.** Buttons,
-controls and flows stay as they are — this is a visual pass, not a re-architecture, and nothing here
-should become a reason to move or remove a control someone already relies on.
+#### CORE-04 · Full UI rework (with CORE-06 rebranding) — ⏳ Planned — direction to agree first
+Owner decision 2026-07-23; **being built together with CORE-06 (rebranding) as one effort, owner decision
+2026-07-25 — this is now the active work, ahead of SEC-04.** **The look changes significantly; the
+functionality does not.** Buttons, controls and flows stay as they are — this is a visual pass, not a
+re-architecture, and nothing here should become a reason to move or remove a control someone relies on.
 
-**Not yet scoped.** Deliberately left open: agree the direction before any of it is built, because a
-half-applied restyle across ~20 admin pages is worse than either the old look or the new one.
+**Concrete scope added 2026-07-25 (owner):**
+- **Drag-and-drop module widgets.** Let a user drag their dashboard module widgets to different positions.
+  Per-user widget sizing + ordering already exists (v1.4.0 — stored in `ModuleLayout`: width, height,
+  sortOrder); this adds direct drag-and-drop over that, persisting to the same store.
+- **Replace the "customize" section with a small edit (pencil) icon.** Size options move inside it, so the
+  dashboard stays clean until you choose to edit it, instead of showing a customize panel.
+- **Mobile nav → hamburger.** On mobile, replace the admin **Menu ▾** dropdown (`app/admin/admin-nav.tsx`)
+  with a hamburger that slides a panel out from the left; pick an option and it hides again.
+- **Rebranding (CORE-06)** — colour scheme, custom logo, rename — folded in, since it touches the same
+  theming surface.
+
+**Still: agree the direction before mass-applying.** A half-applied restyle across ~20 admin pages is worse
+than either look. UI-heavy → **preview/mockup first** (feature-build-workflow), and build in phases.
 
 Worth carrying into it when it is scoped:
 - **Mobile/responsive is already an ongoing commitment** (moved from CORE-03) — fold it in rather than
-  treating it as separate work afterwards.
+  treating it as separate work afterwards. The hamburger above is part of this.
 - **Consolidation beats restyling.** The Updates page work (2026-07-23) showed the real problem wasn't
   how a control looked but that update settings lived in four places. Look for the same pattern
   elsewhere before repainting.
