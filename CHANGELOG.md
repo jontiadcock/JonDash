@@ -9,6 +9,20 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.7] — 2026-07-25
+
+### Fixed
+- **Updating no longer signs you out.** Applying an update looked fine, then logged everyone out the
+  moment you moved to a page you hadn't opened yet. JonDash decides "does this restart keep people signed
+  in?" as it starts — but that decision was being re-made later, by which time the marker saying *this was
+  a deliberate restart* had already been tidied away, so it concluded nobody should stay signed in. The
+  decision is now made once per start and everything else follows it. **This affected 1.6.2 onwards.**
+
+### Changed
+- **Your branding now shows on the sign-in page.** It was still showing "JonDash" and the default mark to
+  anyone signing in — the one screen where a renamed instance most needs to look like itself. Your name,
+  logo and accent colour all appear there now.
+
 ## [1.7.0-beta.6] — 2026-07-25
 
 **Choose how JonDash looks.** The interface now comes in styles, and you pick one.

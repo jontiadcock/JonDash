@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.7",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "important",
+      "summary": "Beta: fixes updating signing you out. Applying an update looked fine and then logged everyone out the moment you moved to a page you had not opened yet. JonDash decides 'does this restart keep people signed in?' as it starts, but that decision was being re-made later - by which time the marker saying this was a deliberate restart had already been tidied away, so it concluded nobody should stay signed in. The decision is now made once per start and everything else follows it. This affected 1.6.2 onwards, so update if you are on one of those. Also: your branding now shows on the sign-in page, which was still showing JonDash and the default mark to anyone signing in - the one screen where a renamed instance most needs to look like itself. Your name, logo and accent colour all appear there now."
+    },
+    {
       "version": "1.7.0-beta.6",
       "date": "2026-07-25",
       "type": "minor",

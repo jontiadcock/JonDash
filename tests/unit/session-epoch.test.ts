@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { computeSessionEpoch } from "@/lib/boot";
+import { computeSessionEpoch, sessionEpochFor } from "@/lib/boot";
 
 // The session cutoff (lib/auth/session.ts rejects sessions created before it). It is REUSED
 // across a graceful, app-initiated restart so everyone stays signed in, and advances (cutting
@@ -81,6 +81,27 @@ describe("session epoch", () => {
     computeSessionEpoch(d, 5000); // reuse 1000
     clearMarkers(d); // supervisor clears it after a healthy boot
     expect(computeSessionEpoch(d, 9000)).toBe(9000); // an ordinary restart now cuts off
+  });
+
+  // Regression, found in the field: applying an update signed everyone out a moment later.
+  // `lib/boot` is imported by several route bundles and Next loads those LAZILY, on first
+  // request — so the reuse-or-advance decision was re-taken whenever a bundle happened to
+  // load, including after the supervisor had cleared the marker. That late evaluation saw no
+  // marker, advanced the epoch past every freshly-created session, and logged the instance
+  // out. The decision must be made once per RUN, and later callers must agree with it.
+  it("is decided once per run: a later caller agrees even after the marker is gone", () => {
+    const d = tmp();
+    computeSessionEpoch(d, 1000); // the run that created the sessions
+    markRestart(d);
+
+    const first = sessionEpochFor(d); // whichever bundle loads first decides
+    expect(first).toBe(1000); // graceful restart -> reuse
+
+    clearMarkers(d); // the supervisor clears it once the boot looks healthy
+
+    // A route bundle loading minutes later must NOT re-decide and advance.
+    expect(sessionEpochFor(d)).toBe(first);
+    expect(sessionEpochFor(d)).toBe(first);
   });
 
   it("shutdown -> cold start (no marker) signs everyone out", () => {

@@ -46,34 +46,81 @@ const DATA_DIR = path.join(process.cwd(), ".data");
  * *hashes* — a valid session still needs a raw cookie token an attacker can't get from the
  * files. A missing/garbled epoch file falls back to `now`, the safe (invalidating) direction.
  */
-export const SESSION_EPOCH: number = computeSessionEpoch(DATA_DIR, Date.now());
+export const SESSION_EPOCH: number = sessionEpochFor(DATA_DIR);
 
 /**
- * Pure-ish core of the epoch rule, exported for tests. Reads the previous epoch and the two
- * graceful-restart markers from `dataDir`, returns the epoch to use, and persists it. Neither
- * marker is deleted here — see the note above on why (multiple evaluations per start). The
- * supervisor clears them after a healthy boot; a shutdown clears keep-sessions itself.
+ * When this OS process started. Identical in every bundle of the same process (unlike a
+ * module-level `Date.now()`, which is whenever that particular bundle happened to load), so
+ * it can be used to tell "the epoch on disk was decided by THIS run" from "…by a previous
+ * one". Rounded, because `process.uptime()` is a float.
+ */
+function processStartedAt(): number {
+  return Math.round(Date.now() - process.uptime() * 1000);
+}
+
+/**
+ * The session epoch for this process — decided **once per run**, then reused by every caller.
+ *
+ * This function exists because the obvious version was wrong in a way that only showed up in
+ * production. `lib/boot` is imported by several route bundles, and Next loads those **lazily,
+ * on first request**. The decision "reuse the epoch or advance it?" was therefore re-taken
+ * whenever a bundle happened to load — including minutes after start, by which time the
+ * supervisor had cleared the graceful-restart marker. That late evaluation saw no marker,
+ * advanced the epoch past everyone's freshly-created sessions, and signed the whole instance
+ * out. Applying an update looked fine and then logged you out the moment you navigated
+ * somewhere new.
+ *
+ * So the record on disk now carries **which run decided it** (`decidedBy`). A process that
+ * finds its own stamp just reads the value; only the first caller in a run makes the
+ * decision. Marker state is then read exactly once per boot, when it is still meaningful.
+ */
+export function sessionEpochFor(dataDir: string): number {
+  const started = processStartedAt();
+  const stored = readEpochRecord(dataDir);
+  // Decided by this run already (by whichever bundle loaded first) — just agree with it.
+  if (stored && Math.abs(stored.decidedBy - started) < 2000) return stored.epoch;
+  return computeSessionEpoch(dataDir, Date.now());
+}
+
+type EpochRecord = { epoch: number; decidedBy: number };
+
+function readEpochRecord(dataDir: string): EpochRecord | null {
+  try {
+    const raw = fs.readFileSync(path.join(dataDir, "session-epoch"), "utf8").trim();
+    // Older installs stored a bare number; treat it as "decided by a previous run", which is
+    // the safe reading — this run then decides for itself.
+    if (/^\d+$/.test(raw)) return { epoch: Number.parseInt(raw, 10), decidedBy: 0 };
+    const parsed = JSON.parse(raw) as Partial<EpochRecord>;
+    if (typeof parsed.epoch === "number" && typeof parsed.decidedBy === "number") {
+      return { epoch: parsed.epoch, decidedBy: parsed.decidedBy };
+    }
+  } catch {
+    /* absent or unreadable — the caller decides afresh */
+  }
+  return null;
+}
+
+/**
+ * Decide the epoch for a fresh run and persist it, exported for tests. Reads the previous
+ * epoch and the two graceful-restart markers from `dataDir`. Neither marker is deleted here —
+ * the supervisor clears them after a healthy boot; a shutdown clears keep-sessions itself.
  */
 export function computeSessionEpoch(dataDir: string, now: number): number {
   const epochFile = path.join(dataDir, "session-epoch");
   const postUpdate = path.join(dataDir, "post-update");
   const keepSessions = path.join(dataDir, "keep-sessions");
-  let previous: number | null = null;
-  try {
-    const n = Number.parseInt(fs.readFileSync(epochFile, "utf8").trim(), 10);
-    if (Number.isFinite(n)) previous = n;
-  } catch {
-    /* first boot — no epoch yet */
-  }
+  const previousRecord = readEpochRecord(dataDir);
+  const previous = previousRecord?.epoch ?? null;
   // A graceful restart (update OR an in-app restart/rebuild) reuses the previous epoch so
-  // everyone stays signed in; anything else advances to now. `previous != null` first so the
-  // compiler narrows it to a number in the reuse branch. Idempotent across the several
-  // evaluations of one start because the marker is left in place until the boot is healthy.
+  // everyone stays signed in; anything else advances to now.
   const graceful = fs.existsSync(postUpdate) || fs.existsSync(keepSessions);
   const epoch = previous != null && graceful ? previous : now;
   try {
     fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(epochFile, String(epoch));
+    // Stamped with the run that decided it, so later-loading bundles in THIS process reuse
+    // the value instead of re-deciding once the markers have been cleared.
+    const record: EpochRecord = { epoch, decidedBy: processStartedAt() };
+    fs.writeFileSync(epochFile, JSON.stringify(record));
   } catch {
     /* best effort; if we can't persist, next boot advances — the safe direction */
   }

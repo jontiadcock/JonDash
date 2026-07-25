@@ -4,6 +4,7 @@ import { getPreAuthUserId } from "@/lib/auth/preauth";
 import { hasActiveAdmin } from "@/lib/auth/bootstrap";
 import { getLoginMessage } from "@/lib/settings";
 import { PasswordForm, SecondFactorForm } from "./forms";
+import { BrandHeading } from "@/app/components/branding";
 
 // Auth state must be evaluated per request, never statically cached.
 export const dynamic = "force-dynamic";
@@ -19,15 +20,7 @@ export default async function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold">
-            J
-          </div>
-          <h1 className="text-xl font-semibold">JonDash</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {pending ? "Two-factor authentication" : "Sign in to continue"}
-          </p>
-        </div>
+        <BrandHeading subtitle={pending ? "Two-factor authentication" : "Sign in to continue"} />
         {loginMessage && (
           <div
             className="card mb-4 p-4 text-sm"

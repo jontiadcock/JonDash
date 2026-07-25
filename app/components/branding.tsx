@@ -87,6 +87,41 @@ export async function logoFilename(): Promise<string> {
   }
 }
 
+/**
+ * The large, centred brand for the sign-in and first-run screens.
+ *
+ * These pages sit outside the app shell, so they don't get the header's `BrandMark` — which
+ * meant a renamed, re-logoed instance still greeted people with a purple "J" and the word
+ * JonDash at the one moment branding matters most. The logo route is deliberately readable
+ * signed-out for exactly this.
+ */
+export async function BrandHeading({ subtitle }: { subtitle: string }) {
+  const name = await appName();
+  const logo = await logoFilename();
+  return (
+    <div className="mb-6 text-center">
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/branding/logo?v=${logo.slice(0, 8)}`}
+          alt=""
+          width={48}
+          height={48}
+          className="mx-auto mb-3 h-12 w-12 rounded-2xl object-contain"
+        />
+      ) : (
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold">
+          {name.trim().charAt(0).toUpperCase() || "J"}
+        </div>
+      )}
+      <h1 className="text-xl font-semibold">{name}</h1>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
 export async function BrandMark({ suffix }: { suffix?: React.ReactNode }) {
   const name = await appName();
   const logo = await logoFilename();
