@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.9",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "important",
+      "summary": "Beta: add-ons that need setting up now have a place in JonDash to do it, on Admin > Helpers, rather than through whichever module happens to use them. This closes a real hole. An add-on that keeps an admin-approved list - say, which Windows services JonDash may restart - had nowhere to edit that list except inside a module, so the module could edit it. It could show you a button saying 'Add Plex' and actually add something else entirely, and the Windows prompt names JonDash rather than the service, so nothing on screen would have shown you the difference. The list that limits what a module can do is no longer editable by a module: it is edited on a JonDash admin page, and JonDash checks you are an administrator before the add-on sees anything. Every change is recorded, including ones that are refused."
+    },
+    {
       "version": "1.7.1-beta.8",
       "date": "2026-07-26",
       "type": "patch",

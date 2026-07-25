@@ -75,7 +75,31 @@ go into core because a module can't spawn `ping`; under this model it would be a
 
    This is rule 2 in another shape: the narrow API is the point, and reaching around it returns the
    general escape hatch that rule exists to prevent.
-8. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
+8. **A helper's module-facing API must contain NO mutators for admin-owned configuration.**
+   Read and request, never add, remove or approve. Admin-owned config is edited on
+   **Admin → Helpers** via `SettingsPanel` + `onSettingsSubmit`, behind a core permission check,
+   with no module in the path.
+
+   **This is the rule that was missing, and the bug is the argument for it** (found by the owner,
+   2026-07-26). `host-services` exposed `admin.add` on the surface a module could reach, because
+   there was nowhere else to put an allowlist editor. The consuming module's consent screen said
+   *"start, stop and restart the services you listed"* — nothing about **adding** to that list —
+   and `admin.add` took the service name from the module's own form. So a module could display
+   **"Add Plex" and submit "sshd"**. The UAC prompt names `jondash-grant.exe` and never the
+   service, so nothing on screen caught the substitution.
+
+   **The allowlist is meant to BE the boundary, and the thing it bounds could edit it.**
+
+   Both apparent mitigations were weaker than they read: `ctx.user` is forgeable exactly as
+   `ctx.can` is, and UAC is unforgeable but *content-free* — it proves a human was present, not
+   what they agreed to.
+
+   **It generalises.** Any helper whose safety rests on admin-owned configuration has this shape
+   the moment the only place to edit that configuration is a module. `filesystem` has it today:
+   backup-manager's panel manages the approved roots. Less dangerous — a root is a folder, not a
+   standing OS permission — but the same structure, and worth moving.
+
+9. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
    `uninstallQuestions()` puts yes/no questions on the confirmation screen and the answers arrive in
    `onUninstall`. It exists because that hook is headless and runs *after* the admin has confirmed,
    so anything needing a decision — *"also remove Docker Desktop?"*, *"withdraw the Windows

@@ -12,7 +12,10 @@ export const dynamic = "force-dynamic";
  * or remove here: the page's job is to answer "what is this, and why is it on my system?"
  */
 export default async function AdminHelpersPage() {
-  await requirePermission("modules.manage");
+  // Kept, not discarded: a panel's context carries the admin core resolved from the session,
+  // never a value a caller supplied. That distinction is the point of the whole feature.
+  const session = await requirePermission("modules.manage");
+  const admin = { id: session.id, email: session.email, role: session.role };
   const helpers = await listHelpersForAdmin();
   const inUse = helpers.filter((h) => h.dependents.length > 0);
 
@@ -49,14 +52,23 @@ export default async function AdminHelpersPage() {
               </div>
               <p className="text-sm" style={{ color: "var(--muted)" }}>{def.description}</p>
 
-              {/* Channel and update controls moved to Admin → Updates (Beta channels), so
-                  this page can be about the helper itself. Reserved for helper settings
-                  once the contract carries them — no helper declares any yet. */}
+              {/* Admin-owned configuration is edited HERE and nowhere else.
+                  A helper whose safety rests on an admin-approved list previously had no home
+                  for that list, so it exposed an editor through a consuming module — and the
+                  module could then edit the very list meant to bound it. This page is behind
+                  `modules.manage`, and the panel saves through `saveHelperSettingsAction`,
+                  which re-checks before the helper is reached. No module is in the path. */}
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Settings</p>
-                <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                  This helper has no settings.
-                </p>
+                {def.SettingsPanel ? (
+                  <div className="mt-2">
+                    <def.SettingsPanel ctx={{ helperId: def.id, user: admin }} />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                    This helper has no settings.
+                  </p>
+                )}
               </div>
 
               <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>

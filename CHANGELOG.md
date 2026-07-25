@@ -9,6 +9,23 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.9] — 2026-07-26
+
+### Added
+- **Add-ons that need setting up now have a place in JonDash to do it** — Admin → Helpers, rather
+  than through whichever module happens to use them.
+  - **This closes a real hole.** An add-on that keeps an admin-approved list — say, which Windows
+    services JonDash may restart — had nowhere to edit that list except inside a module. So the
+    module could edit it. It could show you a button saying "Add Plex" and actually add something
+    else entirely, and the Windows prompt names JonDash rather than the service, so nothing on
+    screen would have shown you the difference.
+  - **The list that limits what a module can do is no longer editable by a module.** It's edited
+    on a JonDash admin page, and JonDash checks you're an administrator before the add-on sees
+    anything.
+  - Every change is recorded, including ones that are refused.
+
+*Found by the owner; the add-on side was fixed by the add-ons session in parallel.*
+
 ## [1.7.1-beta.8] — 2026-07-26
 
 ### Fixed

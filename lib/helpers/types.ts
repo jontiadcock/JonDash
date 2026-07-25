@@ -1,4 +1,20 @@
+import type { ComponentType } from "react";
 import type { DeclaredPermission, ModuleContext, UninstallQuestion } from "@/lib/modules/types";
+
+/**
+ * What a helper's settings panel is given.
+ *
+ * **`user` is resolved by core from the session**, not passed in by a caller. That distinction
+ * is the whole point: the bug that prompted this feature had a helper trusting a `ctx.user` that
+ * a module supplied, which was forgeable exactly as `ctx.can` was.
+ */
+export type HelperSettingsContext = {
+  helperId: string;
+  user: { id: string; email: string; role: "ADMIN" | "USER" };
+};
+
+/** What a settings submission produced. `error` is shown to the admin verbatim. */
+export type HelperSettingsResult = { ok: true; message?: string } | { ok: false; error: string };
 
 /**
  * Helper contract (MOD-08). See docs/HELPERS-DESIGN.md for the reasoning.
@@ -120,6 +136,43 @@ export type HelperDefinition = {
    * uninstall without its questions rather than blocking it.
    */
   uninstallQuestions?: () => Promise<UninstallQuestion[]>;
+
+  /**
+   * A settings panel for this helper, rendered by CORE on Admin → Helpers.
+   *
+   * **Why this had to exist** (add-ons session, 2026-07-26). A helper whose safety rests on
+   * admin-owned configuration had nowhere to be configured except through a consuming module —
+   * so `host-services` exposed `admin.add` on its module-facing API, and a module could edit the
+   * very allowlist that was supposed to bound it. It could display "Add Plex" and submit
+   * "sshd"; the UAC prompt names the binary and never the service, so nothing on screen caught
+   * the substitution. **The thing being bounded could edit its own boundary.**
+   *
+   * The fix is structural: admin-owned configuration is edited HERE, on a core page behind a
+   * core permission check, with no module anywhere in the path.
+   *
+   * The panel is a client component. It must submit through `saveHelperSettingsAction` — see
+   * `onSettingsSubmit` for why it may not define its own server action.
+   */
+  SettingsPanel?: ComponentType<{ ctx: HelperSettingsContext }>;
+
+  /**
+   * Receives what the panel submitted. Called ONLY by core's `saveHelperSettingsAction`, which
+   * has already checked same-origin and the admin permission, and which builds `ctx` from the
+   * real session.
+   *
+   * **A helper may not define its own server action for this.** It is first-party and could —
+   * and that is precisely the point: the bug this whole feature exists to fix was a first-party
+   * helper exposing something it should not have. Making the gated path the only path means the
+   * check cannot be forgotten, rather than being remembered by every helper that ships.
+   *
+   * `ctx.user` is authoritative here in a way it was not before: core resolved it from the
+   * session, so it is not something a caller supplied and it is not forgeable the way a
+   * module-supplied context was.
+   */
+  onSettingsSubmit?: (
+    ctx: HelperSettingsContext,
+    payload: Record<string, unknown>,
+  ) => Promise<HelperSettingsResult>;
 
   /**
    * Set when `onUninstall` may raise an **elevation prompt**. Its budget becomes the elevation
