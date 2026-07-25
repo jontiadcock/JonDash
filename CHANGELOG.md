@@ -9,6 +9,22 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.6] — 2026-07-25
+
+### Added
+- **Groundwork for add-ons that can install software for you** — Docker, for instance, if you
+  don't already have it.
+  - **This one asks every single time.** Unlike the service permissions added earlier, what's
+    being installed changes each time, so there's nothing fixed to approve once.
+  - **Read the add-on's screen, not the Windows prompt.** Windows can only tell you JonDash
+    wants administrator rights — it cannot tell you *what* is being installed. The add-on has to
+    name the package, and that's the thing worth reading.
+  - Only installing and removing a **named package from the official Windows package source** is
+    possible. There is deliberately no way to pass extra options to an installer, install from a
+    file, or pick an older version — any of those would amount to running anything at all as an
+    administrator.
+  - Nothing uses it yet; the Docker add-on is being built separately.
+
 ## [1.7.1-beta.5] — 2026-07-25
 
 ### Fixed

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.6",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: groundwork for add-ons that can install software for you - Docker, for instance, if you do not already have it. Unlike the service permissions added earlier, an install asks your approval every single time, because the thing being installed changes each time and there is nothing fixed to approve once. Windows will only tell you that JonDash is asking for administrator rights, not what it wants to install, so the add-on's own screen has to name the package and you should read it. Only installing and removing a named package from the official Windows package source is possible - there is deliberately no way to pass extra options to an installer, install from a file, or pick an old version, since any of those would amount to running anything at all as an administrator. Nothing to use it with yet; the Docker add-on is being built separately."
+    },
+    {
       "version": "1.7.1-beta.5",
       "date": "2026-07-25",
       "type": "patch",

@@ -55,6 +55,8 @@ export type GrantFailure =
   | "no-interactive-desktop" // Session 0 / container / headless — cannot prompt
   | "invalid-request" // rejected by the binary's own grammar
   | "not-audited" // refused because the attempt could not be recorded
+  | "package-not-found" // no such package in the source
+  | "no-package-manager" // winget isn't present on this machine
   | "failed"; // everything else
 
 export type GrantResult<T> = { ok: true; value: T } | { ok: false; reason: GrantFailure; message: string };
@@ -362,6 +364,146 @@ export async function listGrants(): Promise<GrantResult<Grant[]>> {
   } catch {
     return { ok: false, reason: "failed", message: "Could not parse the grant list." };
   }
+}
+
+// ─── Package actions (the elevate shim) ──────────────────────────────────────────────────
+//
+// WEAKER THAN GRANTS, DELIBERATELY AND UNAVOIDABLY. A grant is safe because the action is
+// frozen when the admin approves it and Windows enforces that nothing else can happen. An
+// install has a variable part, so nothing can be frozen and every one prompts.
+//
+// UAC does not protect the admin here — the prompt names `jondash-elevate.exe` and says nothing
+// about the package. **The caller's own screen is the real consent surface and must show the
+// package id verbatim.** What the shim contributes is a bound: the only expressible action is
+// "install/uninstall a named package from the official winget source at current version", so a
+// compromised caller can reach the winget catalogue and nothing beyond it.
+//
+// The risk that remains: an installer runs the vendor's code as administrator by definition.
+
+export type PackageManager = "winget";
+export type PackageState = "installed" | "not-installed";
+
+const PKG_EXIT = { ok: 0, usage: 2, failed: 3, noDesktop: 4, notFound: 5, already: 6, noManager: 7, declined: 1223 } as const;
+
+function elevateBinaryPath(): string {
+  return path.join(process.cwd(), "bin", "jondash-elevate.exe");
+}
+
+function runShim(args: string[]): Promise<RunOutcome> {
+  return new Promise((resolve) => {
+    execFile(elevateBinaryPath(), args, { timeout: TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => {
+      const killed = Boolean(err && (err as NodeJS.ErrnoException & { killed?: boolean }).killed);
+      const numeric = err && typeof (err as { code?: unknown }).code === "number"
+        ? (err as unknown as { code: number }).code
+        : null;
+      resolve({
+        code: numeric !== null ? numeric : err ? PKG_EXIT.failed : PKG_EXIT.ok,
+        stdout: String(stdout ?? ""),
+        stderr: String(stderr ?? ""),
+        timedOut: killed,
+      });
+    });
+  });
+}
+
+function classifyPkg(o: RunOutcome): GrantFailure {
+  if (o.timedOut) return "timed-out";
+  if (o.code === PKG_EXIT.declined) return "declined";
+  if (o.code === PKG_EXIT.noDesktop) return "no-interactive-desktop";
+  if (o.code === PKG_EXIT.usage) return "invalid-request";
+  if (o.code === PKG_EXIT.notFound) return "package-not-found";
+  if (o.code === PKG_EXIT.noManager) return "no-package-manager";
+  return "failed";
+}
+
+/** Whether package actions are possible here. Cheap; no prompt. */
+export function packageSupport(): { available: true } | { available: false; reason: GrantFailure; message: string } {
+  if (process.platform !== "win32") {
+    return { available: false, reason: "unsupported-platform", message: "Package actions are Windows-only in this release." };
+  }
+  if (!fs.existsSync(elevateBinaryPath())) {
+    return { available: false, reason: "not-installed", message: "jondash-elevate.exe is missing from this install." };
+  }
+  return { available: true };
+}
+
+async function pkgAction(
+  action: "install" | "uninstall",
+  pkg: string,
+  opts: { manager?: PackageManager; userId?: string | null } = {},
+): Promise<GrantResult<"done" | "already">> {
+  const support = packageSupport();
+  if (!support.available) return { ok: false, reason: support.reason, message: support.message };
+
+  // Audited BEFORE acting, like createGrant: this elevates, and an elevated action that
+  // happened with no record is the outcome the log exists to prevent.
+  try {
+    await auditOrThrow(`elevation.package.${action}.attempt`, { userId: opts.userId ?? undefined, detail: pkg });
+  } catch {
+    return {
+      ok: false,
+      reason: "not-audited",
+      message: "Refusing to run an elevated install that cannot be recorded — the audit log is unavailable.",
+    };
+  }
+
+  const outcome = await runShim(["--action", action, "--manager", opts.manager ?? "winget", "--package", pkg]);
+  await audit(`elevation.package.${action}`, {
+    userId: opts.userId ?? undefined,
+    detail: `${pkg} → exit ${outcome.code}${outcome.code === PKG_EXIT.ok ? "" : ` (${classifyPkg(outcome)})`}`,
+  });
+
+  if (outcome.code === PKG_EXIT.ok) return { ok: true, value: "done" };
+  // "Already in that state" is a success for the caller's purpose — the package is where they
+  // wanted it — but they may want to say "already installed" rather than "installed".
+  if (outcome.code === PKG_EXIT.already) return { ok: true, value: "already" };
+  return { ok: false, reason: classifyPkg(outcome), message: messageFrom(outcome, `The ${action} failed.`) };
+}
+
+/**
+ * Install a package. **Prompts for elevation every time** — there is nothing to grant once.
+ *
+ * Returns when the installer has FINISHED, which can be minutes. There is no progress stream:
+ * the elevated child owns its own console, so nothing comes back mid-run (the same constraint
+ * that shapes `createGrant`). To show progress, poll `packageState()` — it needs no elevation
+ * and never prompts.
+ */
+export function installPackage(
+  pkg: string,
+  opts: { manager?: PackageManager; userId?: string | null } = {},
+): Promise<GrantResult<"done" | "already">> {
+  return pkgAction("install", pkg, opts);
+}
+
+/**
+ * Uninstall a package. Prompts every time.
+ *
+ * Only ever call this for something JonDash installed. Removing software the user installed
+ * themselves is not ours to do — clean up what you created, never what you found.
+ */
+export function uninstallPackage(
+  pkg: string,
+  opts: { manager?: PackageManager; userId?: string | null } = {},
+): Promise<GrantResult<"done" | "already">> {
+  return pkgAction("uninstall", pkg, opts);
+}
+
+/**
+ * Whether a package is installed. **No elevation, no prompt, no audit entry** — reading is not
+ * a privileged act, and a prompt per poll would make progress-checking unusable.
+ */
+export async function packageState(
+  pkg: string,
+  opts: { manager?: PackageManager } = {},
+): Promise<GrantResult<PackageState>> {
+  const support = packageSupport();
+  if (!support.available) return { ok: false, reason: support.reason, message: support.message };
+
+  const outcome = await runShim(["--action", "status", "--manager", opts.manager ?? "winget", "--package", pkg]);
+  if (outcome.code !== PKG_EXIT.ok) {
+    return { ok: false, reason: classifyPkg(outcome), message: messageFrom(outcome, "Could not check the package.") };
+  }
+  return { ok: true, value: outcome.stdout.trim() === "installed" ? "installed" : "not-installed" };
 }
 
 /**

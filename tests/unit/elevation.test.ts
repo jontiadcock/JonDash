@@ -186,3 +186,77 @@ describe.runIf(onWindows)("elevation: name handling (the path-escape defence)", 
     expect(code).toBe(2);
   });
 });
+
+/**
+ * OPS-18 part 2 — the elevate shim. Weaker than grants by nature: an install has a variable
+ * part, so nothing can be frozen at approval time and every one prompts. What the shim
+ * contributes is a BOUND on the blast radius, and these are the tests for that bound.
+ */
+const SHIM = path.join(ROOT, "bin", "jondash-elevate.exe");
+
+describe("elevate shim ships", () => {
+  it("is committed and small", () => {
+    expect(fs.existsSync(SHIM), `missing ${SHIM} — run tools/elevate/build.ps1`).toBe(true);
+    expect(fs.statSync(SHIM).size).toBeLessThan(256 * 1024);
+  });
+
+  it("keeps its source, so the artifact can be rebuilt and verified", () => {
+    expect(fs.existsSync(path.join(ROOT, "tools", "elevate", "Program.cs"))).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, "tools", "elevate", "build.ps1"))).toBe(true);
+  });
+});
+
+describe.runIf(onWindows)("elevate shim: the flags that would mean arbitrary code as admin", () => {
+  const run = (args: string[]) => {
+    try {
+      execFileSync(SHIM, args, { windowsHide: true, stdio: "pipe" });
+      return 0;
+    } catch (e) {
+      return (e as { status?: number }).status ?? -1;
+    }
+  };
+  const base = ["--action", "install", "--manager", "winget"];
+
+  // winget's own pass-throughs. Any one of these reaching the command line turns "install a
+  // named package" into "run whatever the caller likes, as administrator".
+  it.each(["--custom", "--override", "--manifest", "--version", "--location"])(
+    "refuses %s outright rather than ignoring it",
+    (flag) => {
+      // Ignoring an unknown flag is worse than refusing it: the caller believes it constrained
+      // something that it did not.
+      expect(run([...base, "--package", "Docker.DockerDesktop", flag, "x"])).toBe(2);
+    },
+  );
+
+  // The subtle one: a package id starting with "-" is read by winget as a FLAG, which is how a
+  // pass-through gets smuggled in wearing a package name.
+  it.each([
+    "--custom",
+    "-Recurse",
+    "Docker --custom calc",
+    'a" --custom "calc',
+    "..\..\evil",
+    "a;calc",
+    "a&calc",
+    "a|calc",
+    "a`calc",
+    "",
+  ])("refuses %j as a package id", (pkg) => {
+    expect(run([...base, "--package", pkg])).toBe(2);
+  });
+
+  it("refuses an action outside the grammar", () => {
+    expect(run(["--action", "runscript", "--manager", "winget", "--package", "X"])).toBe(2);
+  });
+
+  it("refuses a manager it does not implement", () => {
+    // Rejected rather than ignored, so the grammar can grow without a caller silently getting
+    // the wrong manager.
+    expect(run(["--action", "install", "--manager", "choco", "--package", "X"])).toBe(2);
+  });
+
+  it("accepts a well-formed id, and status needs no elevation", () => {
+    // status is a read: it must never prompt, which is what makes polling for progress viable.
+    expect(run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"])).toBe(0);
+  });
+});
