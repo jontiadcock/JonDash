@@ -93,18 +93,21 @@ another session's work while nothing blocks it.
 13. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-14. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+14. ⏳ **CORE-09 — Modules page: search, filter, compact list** *(owner request 2026-07-26)* — the
+   full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
+   do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
+15. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-15. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+16. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-16. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+17. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-17. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-18. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+18. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+19. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-19. 🌅 **OPS-03 — VHD appliance**
-20. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+20. 🌅 **OPS-03 — VHD appliance**
+21. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -865,6 +868,24 @@ restarts a hung service cannot wait for a human"*), and re-granting costs anothe
   re-deriving.
 - The add-ons session is **blocked on this only for its integration test**; their allowlist and spec
   proceed without it.
+
+#### CORE-09 · Modules page: search, filter, and a compact list — ⏳ Planned (owner request 2026-07-26)
+The page renders every module as a full card, which was fine when there were two and is already
+unwieldy now that there are several. It only gets worse as more ship.
+
+- **Search** by name and description.
+- **Filtering** — at least enabled/disabled and installed/available; settle the rest when building.
+- **A compact list by default, with a way to expand.** Owner: *"in a list, rather than a full list
+  taking up a lot of room."* The per-module detail (description, permissions, version, buttons)
+  moves behind expanding a row rather than being permanently on screen for everything.
+
+**Deliberately not urgent** — the owner said *"lets do that later"*. Position is open.
+
+**Watch on the way through:** the permissions block is currently always visible on every card, and
+that visibility is a security property rather than decoration — an admin can see at a glance what
+each module can do. Hiding it behind an expander is reasonable; hiding it *by accident* while
+making the page tidier is not. Whatever the collapsed row shows, a module holding a dangerous
+permission should still be identifiable without expanding it.
 
 #### CORE-08 · Dashboard widget interaction rework — ⏳ Planned (owner-directed 2026-07-25)
 Owner feedback after using the drag-and-drop dashboard: the arranging works, the *interaction model*
