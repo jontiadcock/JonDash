@@ -11,9 +11,10 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 
 ## [1.6.2-beta.1] — 2026-07-25
 
-**Restarts no longer sign you out.** Continues the session-friendly behaviour 1.6.0 began for updates.
+**Security hardening, plus restarts that no longer sign you out.** Everything since 1.6.0, in one beta.
+Most of this is behind-the-scenes; nothing changes in how you use JonDash day to day.
 
-### Changed
+### Changed — restarts keep you signed in
 - **An intentional restart keeps everyone signed in.** Restarting from Admin → Server, and the automatic
   restart after a **module is installed, updated or removed**, now bring you straight back into the
   dashboard still signed in — the same as an update already did. Each shows the familiar full-screen
@@ -25,13 +26,9 @@ Within a release: **patch** = fix/security · **minor** = feature · **major** =
 - The wording on the restart, module-change and network-settings screens now says you stay signed in,
   rather than warning you'll be signed out.
 
-## [1.6.1-beta.1] — 2026-07-24
-
-**Security hardening.** Nothing changes in how you use JonDash day to day — these close weaknesses found
-in an independent security review. Access control itself was tested and found sound: the sign-in page
-could not be bypassed.
-
-### Changed
+### Changed — security hardening
+These close weaknesses found in an independent security review. Access control itself was tested and found
+sound: the sign-in page could not be bypassed.
 - **Signing in no longer reveals which email addresses have an account.** An unrecognised address used to
   fail noticeably faster than a wrong password, and a locked account announced itself by name — together
   that let someone test whether an address was registered here. Every failed sign-in now does the same
