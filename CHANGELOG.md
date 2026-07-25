@@ -9,6 +9,19 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.5] — 2026-07-25
+
+### Fixed
+- **The cleanup added in the previous build could not actually work.** Removing a permission
+  needs your approval, and approving takes as long as it takes you to read the prompt — but the
+  cleanup was cut off after five seconds. The prompt was abandoned underneath you and the
+  permission survived, which is the whole thing it was meant to prevent. Add-ons that need to ask
+  you something during removal now get the time to do it. Safe to wait on, because it only
+  happens while you are sat there having just clicked uninstall.
+
+  *Reported by the add-ons session, who found it could only ever succeed when there was nothing
+  to clean up.*
+
 ## [1.7.1-beta.4] — 2026-07-25
 
 ### Fixed

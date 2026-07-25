@@ -111,4 +111,11 @@ describe("helper onUninstall runs before the files are removed", () => {
     expect(body).toContain("helper.uninstall-cleanup-failed");
     expect(body).toContain("UNINSTALL_BUDGET_MS"); // bounded, like onBoot
   });
+
+  it("gives a helper that must prompt the elevation timeout, not 5s", () => {
+    // Revoking a grant needs elevation, which waits on a human; 5s abandons the prompt
+    // underneath them and the cleanup only ever succeeded when there was nothing to do.
+    expect(body).toContain("uninstallMayPrompt");
+    expect(src).toContain("UNINSTALL_PROMPT_BUDGET_MS = 600_000");
+  });
 });

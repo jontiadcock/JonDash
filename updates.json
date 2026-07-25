@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.5",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: the cleanup added in the previous build could not actually work. Removing a permission needs your approval, and approving takes as long as it takes you to read the prompt - but the cleanup was cut off after five seconds. So the prompt was abandoned underneath you and the permission survived, which was the whole thing it was meant to prevent. Add-ons that need to ask you something during removal now get the time to do it. This is safe to wait on because it only happens while you are sat there having just clicked uninstall."
+    },
+    {
       "version": "1.7.1-beta.4",
       "date": "2026-07-25",
       "type": "patch",

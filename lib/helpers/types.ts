@@ -106,6 +106,29 @@ export type HelperDefinition = {
    * revocable independently too, which for grants is `--remove --all` and Task Scheduler.
    */
   onUninstall?: (ctx: HelperBootContext) => Promise<void>;
+
+  /**
+   * Set when `onUninstall` may raise an **elevation prompt**. Its budget becomes the elevation
+   * timeout (10 minutes) instead of the default 5 seconds.
+   *
+   * **Why this exists** — reported by the add-ons session, 2026-07-25, and they were right: the
+   * 5s budget could never work for `host-services`. Revoking a grant needs elevation, elevation
+   * waits on a human answering a UAC prompt, and core's own timeout for that is ten minutes. So
+   * on any machine with live grants the hook was cut off mid-prompt, the files went anyway, and
+   * the grants survived — the exact orphan the hook exists to close. It succeeded only in the
+   * empty case, where there was nothing to do.
+   *
+   * **Blocking that long is acceptable here, and only here**, because `pruneUnusedHelpers` runs
+   * inside the uninstall the admin has just clicked. They are at the machine, looking at the
+   * screen, and the prompt they see has obvious provenance. That is the same reasoning the
+   * elevation design uses throughout: creating or revoking a grant needs an interactive desktop;
+   * using one does not.
+   *
+   * **Do not set this to buy a helper more time for ordinary work.** It exists for waiting on a
+   * person, not for slow code. A helper that needs 30 seconds of computation should do it
+   * elsewhere; this budget is a human's attention span, not a performance allowance.
+   */
+  uninstallMayPrompt?: boolean;
 };
 
 /**

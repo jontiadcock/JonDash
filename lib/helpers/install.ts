@@ -25,6 +25,13 @@ import { audit } from "@/lib/audit";
 const UNINSTALL_BUDGET_MS = 5000;
 
 /**
+ * For a helper that declares `uninstallMayPrompt`. Matches the elevation timeout in
+ * `lib/elevation.ts`, because that is what the hook is actually waiting for: a person deciding
+ * whether to approve a UAC prompt. Anything shorter abandons the prompt underneath them.
+ */
+const UNINSTALL_PROMPT_BUDGET_MS = 600_000;
+
+/**
  * Helper installation (MOD-08).
  *
  * Helpers are installed from the addons repo like modules, but with one absolute
@@ -250,10 +257,15 @@ export async function pruneUnusedHelpers(removingModuleIds: string[] = []): Prom
     // the same reason `onBoot` is: an uninstall cannot be allowed to hang the admin screen.
     const def = getHelperDef(id);
     if (def?.onUninstall) {
+      // A helper that must raise an elevation prompt gets the elevation timeout, not the 5s
+      // one — otherwise the prompt is abandoned underneath the admin and the cleanup can only
+      // ever succeed when there was nothing to clean up. Safe to block here specifically:
+      // this runs inside the uninstall the admin just clicked, so they are at the machine.
+      const budget = def.uninstallMayPrompt ? UNINSTALL_PROMPT_BUDGET_MS : UNINSTALL_BUDGET_MS;
       try {
         await Promise.race([
           def.onUninstall(helperContext(def)),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), UNINSTALL_BUDGET_MS)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out after ${budget}ms`)), budget)),
         ]);
       } catch (e) {
         await audit("helper.uninstall-cleanup-failed", {
