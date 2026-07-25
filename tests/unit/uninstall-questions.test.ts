@@ -77,9 +77,14 @@ describe("the constraints on third-party questions", () => {
     expect(UI).not.toMatch(/dangerouslySetInnerHTML\s*=/);
   });
 
-  it("attributes every question to whoever asked it", () => {
-    // Nobody should read a module's wording as JonDash speaking.
-    expect(UI).toContain("Asked by");
-    expect(UI).toContain("q.owner.name");
+  it("attributes every question to whoever asked it, BEFORE the wording", () => {
+    // Core cannot police wording: nothing stops a module writing a label like
+    // "host-services: withdraw Windows permissions?". Attribution below the label is read
+    // after the claim has landed; above it, the claim is framed before it is made. On a
+    // security screen the reading order is the control, so assert the order, not the presence.
+    const owner = UI.indexOf("q.owner.name");
+    const label = UI.indexOf("q.question.label");
+    expect(owner).toBeGreaterThan(-1);
+    expect(owner).toBeLessThan(label);
   });
 });

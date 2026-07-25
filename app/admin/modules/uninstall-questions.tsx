@@ -65,6 +65,14 @@ export function UninstallQuestions({ moduleIds }: { moduleIds: string[] }) {
             className="mt-0.5 flex-none"
           />
           <span className="flex flex-col gap-0.5">
+            {/* ATTRIBUTION FIRST, deliberately. Nothing stops a module writing a label like
+                "host-services: withdraw Windows permissions?" — core cannot police wording. Put
+                below, the true owner is read AFTER the claim has landed; put above, it frames
+                the claim before it is made. Same words, different reading order, and on a
+                security-relevant screen the order is the control. */}
+            <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              {q.owner.name} asks{q.owner.kind === "helper" ? " (shared capability)" : ""}:
+            </span>
             {/* Rendered as text by React. Never dangerouslySetInnerHTML here — this is
                 third-party wording on a destructive-confirmation screen. */}
             <span>{q.question.label}</span>
@@ -73,10 +81,6 @@ export function UninstallQuestions({ moduleIds }: { moduleIds: string[] }) {
                 {q.question.detail}
               </span>
             )}
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              Asked by {q.owner.name}
-              {q.owner.kind === "helper" ? " (shared capability)" : ""}
-            </span>
           </span>
         </label>
       ))}

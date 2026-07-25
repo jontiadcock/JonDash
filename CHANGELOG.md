@@ -9,6 +9,15 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.8] — 2026-07-26
+
+### Fixed
+- **On the uninstall screen, the name of whatever is asking now appears above the question, not
+  below it.** JonDash can't control the wording a module chooses, so a module could word its
+  question to look as though it came from something else — and with the real name underneath,
+  you'd read the claim before the correction. You now see who's asking before you see what
+  they're asking. Same information; on a screen about permissions, the order is the point.
+
 ## [1.7.1-beta.7] — 2026-07-25
 
 ### Added

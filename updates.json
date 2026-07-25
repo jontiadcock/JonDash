@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.8",
+      "date": "2026-07-26",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: on the uninstall screen, the name of whatever is asking a question now appears ABOVE the question rather than below it. JonDash cannot control the wording a module chooses, so a module could word its question to look as though it came from something else - and with the real name underneath, you would read the claim before the correction. Putting it first means you see who is asking before you see what they are asking. Same information, and on a screen about permissions the order is the point."
+    },
+    {
       "version": "1.7.1-beta.7",
       "date": "2026-07-25",
       "type": "minor",
