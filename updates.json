@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.1",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: UI rework, phase 1 of several - the look and layout are being refreshed in stages, and nothing about your services or data changes. This first beta reworks the mobile admin navigation: on a phone, the admin Menu dropdown is replaced by a hamburger button that slides the full Settings navigation out from the left, grouped exactly like the desktop sidebar. Pick a section and it navigates and closes itself; tap outside or the close icon to dismiss. The desktop sidebar is unchanged."
+    },
+    {
       "version": "1.6.2",
       "date": "2026-07-25",
       "type": "minor",

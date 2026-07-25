@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.1] — 2026-07-25
+
+**UI rework — phase 1 of several.** The look and layout are being refreshed in stages; nothing about your
+services or data changes. This first beta is the mobile admin navigation.
+
+### Changed
+- **Mobile admin navigation is now a slide-out menu.** On a phone, the admin **Menu** dropdown is replaced
+  by a **hamburger** button that slides the full Settings navigation out from the left — grouped exactly
+  like the desktop sidebar. Pick a section and it navigates and closes itself; tap outside or the ✕ to
+  dismiss. The desktop sidebar is unchanged.
+
 ## [1.6.2] — 2026-07-25
 
 **Security hardening, plus restarts that no longer sign you out.** Everything since 1.6.0, in one release.

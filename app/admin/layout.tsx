@@ -46,9 +46,6 @@ export default async function AdminLayout({
     .map((g) => ({ label: g.label, items: g.items.filter((i) => i.show).map(({ href, label }) => ({ href, label })) }))
     .filter((g) => g.items.length > 0);
 
-  // Flat list for the mobile dropdown (the desktop sidebar renders the groups).
-  const flatItems = groups.flatMap((g) => g.items);
-
   return (
     <div className="min-h-screen flex flex-col">
       <header
@@ -66,9 +63,10 @@ export default async function AdminLayout({
               </span>
             </Link>
             <span className="hidden text-xs sm:inline" style={{ color: "var(--muted)" }}>v{version}</span>
-            {/* Mobile nav: the grouped sidebar is hidden below md, so surface a dropdown. */}
+            {/* Mobile nav: the grouped sidebar is hidden below md, so surface a hamburger
+                that slides the same grouped nav out from the left. */}
             <div className="md:hidden">
-              <AdminNav items={flatItems} />
+              <AdminNav groups={groups} />
             </div>
           </div>
           <div className="flex flex-none items-center gap-2 sm:gap-3">
