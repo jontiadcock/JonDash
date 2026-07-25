@@ -58,6 +58,23 @@ go into core because a module can't spawn `ping`; under this model it would be a
    no resolution, no conflicts, no version negotiation.
 6. **Auto-install, conservative removal.** Installing a module installs the helpers it needs, shown as one
    visible batch with every permission involved. Removal never destroys helper-owned data.
+7. **Anything elevated goes through core, and is audited.** A helper may spawn processes, so it *could*
+   invoke `bin/jondash-grant.exe` itself. **It must not.** Elevation is reached only through
+   `lib/elevation.ts` (OPS-18) — `createGrant`, `removeGrant`, `removeAllGrants`, `listGrants`.
+   **Owner requirement, 2026-07-25: *"I want it to be audited."***
+
+   Three things break the moment a helper goes direct, and all three break *quietly*:
+   - **The audit trail.** Core logs every call — including **declined** and **failed**, because a log
+     that only records successes cannot answer "did anyone try?", which is the question that matters
+     after an incident. A helper spawning the binary itself simply wouldn't appear, and the one that
+     forgot would be the invisible one.
+   - **Path resolution.** One place resolves `bin/jondash-grant.exe`. A helper that *computes* the path
+     is a helper that can be made to compute a different one.
+   - **Exit-code meaning.** `declined` (1223) and `failed` are different outcomes with different retry
+     policies. Conflating them tells somebody an operation broke when they simply said no.
+
+   This is rule 2 in another shape: the narrow API is the point, and reaching around it returns the
+   general escape hatch that rule exists to prevent.
 
 ## Shape
 

@@ -9,6 +9,30 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.1] — 2026-07-25
+
+### Added
+- **Groundwork for letting add-ons control Windows services** (restart Plex, and so on) **without
+  asking your permission every single time.** JonDash can't do that on its own — restarting a service
+  needs administrator rights — so this adds a small program, `jondash-grant.exe`, that records your
+  decision with Windows once.
+  - **You approve once, per service.** The question asked is the one you actually care about: *may
+    JonDash restart Plex?* After that it can do that one thing, and nothing else.
+  - **It really is only that one thing.** What gets saved is a fixed instruction naming one service and
+    one action. It can't be edited into something else afterwards, and it can't be handed different
+    orders at the time it runs.
+  - **You can see and remove them yourself.** Everything appears in Windows' own Task Scheduler under a
+    `JonDash` folder, saying who added it and when. Deleting one there works, and so does removing it
+    from JonDash. Removing a module, the add-on, or JonDash itself takes its permissions with it.
+  - Nothing runs in the background waiting for orders, and nothing is left running with administrator
+    rights between uses.
+- **Nothing to use it yet.** The add-on that will actually use this is being built separately. This
+  release only puts the foundation in place.
+
+### Note
+- Windows only. The Linux equivalent is designed but not built, because JonDash doesn't run on Linux
+  yet — that's now tracked on the roadmap rather than left unsaid.
+
 ## [1.7.0] — 2026-07-25
 
 **Make it yours.** This release is about the instance looking like *your* instance rather than like

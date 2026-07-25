@@ -1,0 +1,128 @@
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+
+/**
+ * OPS-18. Two things nothing else would notice:
+ *
+ *  1. The exit codes live in BOTH `tools/grant/Program.cs` and `lib/elevation.ts`. Two copies
+ *     of a contract drift silently, and the symptom would be JonDash telling somebody an
+ *     operation failed when they had simply declined the prompt.
+ *  2. The binary must actually ship. It is committed rather than built on the user's machine,
+ *     so a missing or export-ignored file is a broken feature nobody sees until a grant is
+ *     attempted on a real install.
+ *
+ * The name vectors run against the real binary on Windows and are skipped elsewhere, so CI's
+ * ubuntu leg stays green without pretending it verified anything.
+ */
+const ROOT = process.cwd();
+const BIN = path.join(ROOT, "bin", "jondash-grant.exe");
+const SRC = path.join(ROOT, "tools", "grant", "Program.cs");
+const onWindows = process.platform === "win32";
+
+describe("elevation: the binary ships", () => {
+  it("is committed at bin/jondash-grant.exe", () => {
+    expect(fs.existsSync(BIN), `missing ${BIN} — run tools/grant/build.ps1`).toBe(true);
+  });
+
+  it("is small enough to belong in a source repo", () => {
+    // It is committed, so every clone carries it and git stores each rebuild as a full blob.
+    // A jump here means someone changed the toolchain (a self-contained .NET build is ~15 MB,
+    // a Node SEA ~60 MB+) and the trade-off deserves a fresh decision, not a silent commit.
+    expect(fs.statSync(BIN).size).toBeLessThan(256 * 1024);
+  });
+
+  it("keeps its source alongside it, so the artifact can be rebuilt and verified", () => {
+    // A privileged binary nobody can reproduce is a supply-chain smell.
+    expect(fs.existsSync(SRC)).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, "tools", "grant", "build.ps1"))).toBe(true);
+  });
+
+  it("is not stripped from the release archive by .gitattributes", () => {
+    // The updater downloads the git tag archive, so an export-ignore on bin/ would ship an
+    // install with no binary and no error until a grant was attempted.
+    const attrs = fs.readFileSync(path.join(ROOT, ".gitattributes"), "utf8");
+    for (const line of attrs.split(/\r?\n/)) {
+      if (!line.includes("export-ignore")) continue;
+      const target = line.trim().split(/\s+/)[0]!;
+      expect(target.replace(/^\//, "").startsWith("bin"), `bin is export-ignored by: ${line}`).toBe(false);
+      expect(target.replace(/^\//, "").startsWith("tools"), `tools is export-ignored by: ${line}`).toBe(false);
+    }
+  });
+});
+
+describe("elevation: exit codes agree between the binary and lib/elevation.ts", () => {
+  const cs = fs.readFileSync(SRC, "utf8");
+  const ts = fs.readFileSync(path.join(ROOT, "lib", "elevation.ts"), "utf8");
+
+  const expected: Record<string, number> = { ok: 0, usage: 2, failed: 3, noDesktop: 4, declined: 1223 };
+
+  it("the C# constants are what lib/elevation.ts assumes", () => {
+    const csCodes: Record<string, number> = {
+      ok: Number(/ExitOk\s*=\s*(\d+)/.exec(cs)?.[1]),
+      usage: Number(/ExitUsage\s*=\s*(\d+)/.exec(cs)?.[1]),
+      failed: Number(/ExitFailed\s*=\s*(\d+)/.exec(cs)?.[1]),
+      noDesktop: Number(/ExitNoDesktop\s*=\s*(\d+)/.exec(cs)?.[1]),
+      declined: Number(/ExitDeclined\s*=\s*(\d+)/.exec(cs)?.[1]),
+    };
+    expect(csCodes).toEqual(expected);
+  });
+
+  it("the TypeScript EXIT map matches", () => {
+    const block = /const EXIT = \{([^}]*)\}/.exec(ts)?.[1] ?? "";
+    const tsCodes: Record<string, number> = {};
+    for (const m of block.matchAll(/(\w+):\s*(\d+)/g)) tsCodes[m[1]!] = Number(m[2]);
+    expect(tsCodes).toEqual(expected);
+  });
+
+  it("1223 is ERROR_CANCELLED — declined must never be reported as a failure", () => {
+    expect(expected.declined).toBe(1223);
+    expect(ts).toContain('"declined"');
+  });
+});
+
+describe.runIf(onWindows)("elevation: name handling (the path-escape defence)", () => {
+  const check = (name: string) =>
+    execFileSync(BIN, ["--check-name", name], { encoding: "utf8", windowsHide: true }).trim();
+
+  // Agreed with the add-ons session: readable names, [A-Za-z0-9._-], max 64. They sanitise
+  // independently and BOTH layers stay — so these vectors are the shared conformance set.
+  it.each([
+    ["Plex", "Plex"],
+    ["My Service", "MyService"],
+    ["Web.Server_01", "Web.Server_01"],
+    ["-lead-and-trail-", "lead-and-trail"],
+    ["...", ""],
+  ])("sanitises %j to %j", (input, want) => {
+    expect(check(input)).toBe(want);
+  });
+
+  // The one that matters: backslash is Task Scheduler's folder separator, so a name that kept
+  // one could place a task outside \JonDash\ — where our permissions and our removal do not reach.
+  it.each([
+    "Plex\\Foo",
+    "..\\..\\Windows\\System32\\evil",
+    "\\Malware",
+    "\\\\server\\share\\x",
+    "C:\\Windows\\x",
+  ])("strips every path separator from %j", (evil) => {
+    expect(check(evil)).not.toMatch(/[\\/:]/);
+  });
+
+  it("truncates to 64 characters", () => {
+    expect(check("A".repeat(200)).length).toBe(64);
+  });
+
+  it("rejects a verb outside the grammar", () => {
+    // There is deliberately no syntax for "run this command"; an unknown verb takes the whole
+    // request down rather than being partially honoured.
+    let code = 0;
+    try {
+      execFileSync(BIN, ["--create", "--service", "Spooler", "--verb", "nuke"], { windowsHide: true, stdio: "pipe" });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? -1;
+    }
+    expect(code).toBe(2);
+  });
+});

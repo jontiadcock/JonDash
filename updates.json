@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.1",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: groundwork for letting add-ons control Windows services (restarting Plex, say) without asking your permission every single time. Restarting a service needs administrator rights, which JonDash does not have, so this adds a small program - jondash-grant.exe - that records your decision with Windows once. You approve one service at a time, answering the question you actually care about: may JonDash restart Plex? After that it can do that one thing and nothing else. What gets saved is a fixed instruction naming one service and one action; it cannot be edited into something else later, and it cannot be handed different orders when it runs. Everything is visible in Windows' own Task Scheduler under a JonDash folder, showing who added it and when, and you can delete one there or from JonDash. Removing a module, the add-on, or JonDash itself takes its permissions with it. Nothing runs in the background waiting for orders and nothing keeps administrator rights between uses. There is nothing to use it with yet - the add-on that will is being built separately, so this release only lays the foundation. Windows only for now."
+    },
+    {
       "version": "1.7.0",
       "date": "2026-07-25",
       "type": "minor",

@@ -6,6 +6,12 @@
 *.mjs             text eol=lf
 *.bat             text eol=crlf
 
+# The shipped grant binary (OPS-18). Git's auto-detection already treats it as binary, but
+# this is a load-bearing artifact — an executable is committed rather than built on the user's
+# machine — and relying on detection means a future `* text=auto` could silently CRLF-mangle it
+# into something that won't run. Say it outright.
+*.exe             binary
+
 # Keep the downloadable package lean: exclude the developer/test tooling from
 # source archives (GitHub "Download ZIP" and the auto-update download). These
 # files stay in the repository, so `git clone` still includes them for anyone

@@ -55,32 +55,35 @@ not a temporary one. Country-based policy was also dropped (retired SEC-03).
 Built one at a time, each via the per-item workflow (plan → preview → review → implement →
 self-test → hand off → cleanup). Each ships only after test → confirm → approval → tagged push.
 
-**Now in flight: CORE-04 + CORE-06** — the full UI rework combined with rebranding (owner decision
-2026-07-25), moved ahead of SEC-04. Direction to be agreed / previewed before mass-applying. Otherwise this
-list is only what's left to build — shipped items live in their **Catalog** entry (which names the version
-each shipped in) and in `CHANGELOG.md`, not here. The **modules platform is complete**: MOD-01 (v1.4.0),
-MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0), MOD-09/10 (v1.5.2); MOD-11 is the last small item.
+**CORE-04 + CORE-06 shipped in v1.7.0** (2026-07-25) — the UI rework and rebranding are done; the style
+system that came out of them is CORE-07. This list is only what's left to build — shipped items live in
+their **Catalog** entry (which names the version each shipped in) and in `CHANGELOG.md`, not here. The
+**modules platform is complete**: MOD-01 (v1.4.0), MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0),
+MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 
-1. ▶️ **CORE-04 + CORE-06 — Full UI rework + rebranding** *(active, owner-directed 2026-07-25)* — visual
-   rework (drag-and-drop module widgets, a small edit icon replacing the customize panel, a mobile
-   hamburger nav) **plus** rebranding (colour scheme, custom logo, rename from "JonDash"). Functionality
-   unchanged. **Agree direction / preview first**, then build in phases
-2. ⏳ **CORE-08 — Dashboard widget interaction rework** *(owner-directed 2026-07-25)* — click the widget to
+**Now in flight: OPS-18** — moved to the front on 2026-07-25 at the owner's direction, because it blocks
+another session's work while nothing blocks it.
+
+1. ▶️ **OPS-18 — Elevation binaries (`jondash-grant`)** *(active, owner-directed 2026-07-25)* — unblocks
+   the add-ons session's `host-services` helper. **Windows only** (owner decision) — the Linux design is
+   recorded but not built, because OPS-19 must land first for it to be reachable or testable. Contract
+   settled with add-ons; see the catalog entry
+2. ⏳ **OPS-19 — Run JonDash on Linux** *(owner request 2026-07-25)* — the launcher is the real work: a
+   `.sh` mirroring the `.bat`'s supervisor **contract** (exit codes 10/11/12/13), not just `node`. Also
+   swap PowerShell `Expand-Archive` for `fflate` (already a dependency), privileged ports for HTTPS, and a
+   case-sensitive build pass. **Position not confirmed by the owner** — move it freely
+3. ⏳ **CORE-08 — Dashboard widget interaction rework** *(owner-directed 2026-07-25)* — click the widget to
    open it, pointer-only hover highlight from the style tokens, and an explicit **edit mode** carrying move
    (as a tappable button, not a hover grip) and **drag-the-corners resize → save**. Closes BUG-53/54/55.
    Straight after CORE-07 so it's built against the finished token set
-3. ⏳ **SEC-04 — Session lifecycle hardening**
-4. ⏳ **SEC-05 — Trusted-IP auto-login**
-5. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
-6. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
-7. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-8. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
-9. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
+4. ⏳ **SEC-04 — Session lifecycle hardening**
+5. ⏳ **SEC-05 — Trusted-IP auto-login**
+6. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
+7. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
+8. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
+9. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+10. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-10. ⏳ **OPS-18 — Elevation binaries (`jondash-grant`)** — unblocks the add-ons session's `host-services`
-   helper, which cannot proceed without it. Windows first. Ships **unsigned** (owner decision) — Windows
-   will say "Unknown publisher"; that's documented, not worked around, and signing is tracked separately.
-   **Position not yet confirmed by the owner** — move it freely
 11. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
    (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
    by the owner** — move it freely
@@ -687,6 +690,30 @@ review as it stood, with findings marked fixed as later releases address them.
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
 Retired IDs table in the build queue._
 
+#### OPS-19 · Run JonDash on Linux — ⏳ Planned (owner request 2026-07-25)
+JonDash is a **Windows product today** and nothing on this roadmap said so. The server itself is close to
+portable — `supervise.mjs` spawns via `process.execPath`, and `@node-rs/argon2`, `sharp` and
+`@prisma/client` all have Linux builds through npm. What is Windows-only is everything *around* it.
+
+**The blockers, all found by inspection 2026-07-25:**
+- **There is no launcher.** `start-dashboard.bat` is not a convenience wrapper — it owns already-running
+  detection, the update check, and the `_run` relaunch loop that implements the supervisor's exit codes
+  (10 update · 11 revert · 12 boot-crash · 13 rebuild). A `.sh` must mirror that **contract**, not just
+  run `node`. Without it there is no auto-update, no crash-revert and no rebuild-after-module-install.
+- **The updater shells out to PowerShell** — `scripts/update.mjs:211` extracts with `Expand-Archive`.
+  **Easy fix: `fflate` is already a dependency** (the backup zips use it), so `unzipSync` replaces it with
+  no new package and makes the path portable on both platforms.
+- **Privileged ports.** Let's Encrypt binds 80/443; on Linux that needs root or `CAP_NET_BIND_SERVICE`.
+  Decide between `setcap`, a reverse proxy, or a high port plus redirect — and say which in the docs.
+- **Case-sensitive filesystem.** Windows hides import-casing mistakes; a full build/test pass on Linux is
+  the only way to find them.
+- **Windows-only UI hints** — the BYO-cert page suggests `C:\certs\fullchain.pem`. Make it platform-aware.
+- Consider a **systemd unit** as the supervisor rather than a foreground script, since that is how a
+  Linux user would actually expect to run it.
+
+**Position not set by the owner** — move it freely. **Related:** OPS-18's Linux half is being built ahead
+of this and cannot be verified end-to-end until this lands.
+
 #### OPS-18 · Elevation binaries (`jondash-grant`, and later the elevate shim) — ⏳ Planned (2026-07-25)
 Requested by the add-ons session; blocks the `host-services` helper now and `host-install` later. The
 shared design is `JonDash-addons/helpers/ELEVATION.md` and is accepted as written.
@@ -717,9 +744,127 @@ root and listening so that a button can restart Plex.
   today, so Windows shows "Unknown publisher" on the prompt. That gets **documented honestly rather than
   worked around**, and JonDash's own consent screen — which shows the exact command verbatim — carries the
   real consent. Signing is worth doing and does **not** block this.
-- **Batching is the add-ons session's call.** Core supports one grant per prompt, or several in one
-  elevation passed **as arguments**. Reading grants from a file stays forbidden — that's the actual hole.
-- **Positioning not yet set by the owner** — move it freely.
+**Contract SETTLED with the add-ons session 2026-07-25 — build to this, it is no longer open:**
+- **Task names are readable, not opaque.** `JonDash\Plex-restart`, not `JonDash\svc_a7f3-restart`. An
+  opaque id would be immune to anything derived from the service name, but it forfeits the property that
+  justifies the whole design: *the admin can open Task Scheduler and read exactly what JonDash may do
+  unprompted.* Their call, and it's the right one.
+- **Safety comes from the charset instead:** `[A-Za-z0-9._-]`, max 64 chars, numeric suffix on collision,
+  one task per verb, and the **display label never appears in a task name** — so relabelling an entry
+  never touches the OS, and a label containing a backslash cannot reach the task path.
+- **Two independent layers, and neither may be removed because the other exists.** Their sanitising is a
+  path-escape defence (backslash is the folder separator, so this is not tidiness); core's *refuse
+  anything outside `JonDash\`* is the second. Defence in depth, explicitly agreed on both sides.
+- **Core owes them one thing: populate the task's `Description` field** — *"added by &lt;admin&gt; on
+  &lt;date&gt; for the service-control module"*. Cheap, and it turns the Task Scheduler view from a list
+  of names into a real audit trail, which is the thing this design claims over a daemon.
+  **Implementation note:** the label is operator-supplied text, so if the task is registered via generated
+  XML it must be XML-escaped — otherwise a label containing `</Description>` breaks the registration.
+- **Batching: one UAC prompt per ENTRY, not per grant** (their decision). Adding a service creates its
+  start, stop and restart grants behind a single prompt — three prompts would train the admin to click
+  through them, which is the habituation ELEVATION.md warns about, and prompts two and three carry no new
+  information. The decision actually being made is *"may JonDash control this service"*. Arguments only;
+  `--create-from <file>` stays forbidden.
+**Windows AND Linux — owner requirement, 2026-07-25. They need DIFFERENT SHAPES, and that is forced by
+the platforms, not by convenience:**
+
+- **Windows needs a compiled binary, and that is the whole reason this is core's job.** UAC displays the
+  *executable's* name and publisher, so the thing being elevated must be ours and must be named. A ~7 KB
+  C# binary built with the `csc.exe` already inside every Windows install (`C:\Windows\Microsoft.NET\
+  Framework64\v4.0.30319\csc.exe`) — no SDK for us, no runtime for the user. **Proven by a spike**: 6,656
+  bytes, connects to Task Scheduler over COM, reports its own elevation state correctly.
+- **Linux needs no binary at all.** There is no UAC; a "grant" is a **text file written by root** — a
+  `NOPASSWD` line in `/etc/sudoers.d/` or a polkit `.policy`. The prompt comes from `sudo`/`pkexec` and
+  names the *command*, not our tool. So Linux ships a plain Node script (JonDash already requires Node) —
+  no toolchain, no committed binary, and **auditable by the admin before they run it under sudo**, which
+  is strictly better for a privileged tool.
+
+**The trap that decides the Windows shape — the logic must be COMPILED IN, not read from disk.** A tiny
+shim that elevates and then runs a script from the install directory is *exactly* the escalation rule 3
+forbids: the unprivileged app can rewrite that script, so anything that can write it gets SYSTEM. This
+also rules out shipping Node as the Windows privileged path — and elevating `node.exe` would show
+"Node.js JavaScript Runtime" in the prompt, the same anti-pattern as elevating `powershell.exe`.
+
+**Why the same trap does not apply to Linux.** Creating a grant there is a one-time interactive act — the
+admin types `sudo jondash-grant --create …` themselves, so a readable script is no worse than them typing
+the sudoers line by hand, which is the bar ELEVATION.md sets. **The tool itself must never get a NOPASSWD
+rule**; only the fixed target command does.
+
+- **Divergence is the real risk, so it gets a shared conformance suite.** The safety logic — verb grammar,
+  name sanitising, namespace refusal, exit codes, environment detection — is most of the risk surface and
+  now exists twice. Both implementations must pass the same test vectors: same input → same sanitised
+  name, same refusals, same exit codes.
+- **Committed binary weight: ~7 KB** (Windows only). The updater fetches the git tag archive and has no
+  path to a GitHub Release asset, so anything shipped must be in the repo — which is why size drove the
+  choice. Alternatives measured: .NET self-contained ≈ 15 MB, Node SEA ≈ 60–90 MB, Go ≈ 2 MB per target.
+**SECURITY — a real vulnerability found and fixed during the build, 2026-07-25.** Prompted by the owner
+asking *"could someone replace the file with a malicious one of the same name… or can you pin it by hash?"*
+Three findings, in order of severity:
+
+1. **FOLDER SQUATTING — critical, would have defeated the whole design.** Measured, not theorised: an
+   **unprivileged** user can create a Task Scheduler folder, and Windows grants the creator
+   `(A;ID;FA;;;<their SID>)` plus `(A;OICIIOID;FA;;;CO)` — CREATOR OWNER, full access, **inherited by
+   children**. So an attacker, or a compromised JonDash (which runs unprivileged), could pre-create
+   `\JonDash\` *before the first grant existed*. Grants would then be registered into a folder they own,
+   the inheritable ACE would flow onto the task, and they could rewrite `net.exe stop Plex` into anything
+   — running as **SYSTEM**. Full local privilege escalation.
+   **Fixed two ways, both needed:** the task/folder DACL is now `D:P(...)` — the **`P` marks it protected
+   and blocks all inherited ACEs** — and `EnsureFolder` **always re-stamps the descriptor**, whether it
+   created the folder or found one, which it can do because it is elevated at that moment. Pre-creating
+   the folder therefore gains an attacker nothing.
+2. **DLL search-order hijack — fixed.** Task actions had no `WorkingDirectory`, so the child could start
+   in an attacker-writable directory. `net.exe` would be genuine; the DLLs beside it might not. Both
+   actions now pin `WorkingDirectory` to System32.
+3. **Hash-pinning the executable: not possible, and not needed.** Task Scheduler has no hash field — it
+   resolves the path at run time. But `C:\Windows\System32\net.exe` is owned by `NT SERVICE\TrustedInstaller`,
+   the **only** identity with write access (verified; an unprivileged write was denied). Replacing it
+   already requires the privilege this scheme protects. **Pinning to System32 is the hash pin in
+   threat-model terms** — and pinning to a *JonDash* binary would be strictly worse, because the install
+   directory **is** unprivileged-writable (also verified), so a compromised app could swap the very binary
+   doing the checking. True hash/publisher enforcement is WDAC or AppLocker: machine-wide OS policy, out
+   of scope for JonDash to configure.
+
+**Still unverified — both need a task to exist, so they are the manual pass:** that the descriptor really
+does stop a standard user *editing* a task (they must be able to run, not change — this is the single most
+important assertion in the design), and that a standard user cannot add their own task inside `\JonDash\`
+once the folder carries the protected DACL.
+
+**LIFETIME — persistent, owner decision 2026-07-25** (*"persistent, as long as it's secure"*). A grant
+survives until explicitly removed, so one approval covers "may JonDash control this service" and
+unattended automation works. `--once` remains available per entry for callers that want a self-deleting
+grant.
+
+**REMOVAL — owner requirement, 2026-07-25: *"when the module is removed, I don't want a random task
+present."*** A grant is elevated and survives restarts, so nothing may outlive the thing that justified
+it. Four exits, and all four must work:
+1. **Entry deleted in JonDash** → `--remove --service <name>` drops that entry's grants. Already the
+   contract ("removing an entry removes its grant, in the same action" — ELEVATION.md rule 4).
+2. **The consuming module is uninstalled** → the helper drops the entries that module owned. Helper-side
+   logic, but it needs core's module-uninstall path to actually call it — **an integration point that
+   does not exist yet, and the most likely place for an orphan to appear.**
+3. **The `host-services` helper is uninstalled** → `--remove --all`: every grant plus the `\JonDash\`
+   folder itself.
+4. **JonDash is uninstalled** → same `--remove --all`. Requires elevation, so it cannot be silent; if the
+   admin declines, they must be told plainly that grants remain and how to remove them by hand.
+
+**Orphans are still possible** and should be assumed rather than designed away: a grant outlives an
+uninstall that skipped the prompt, or a machine restored from a backup. `--list` reads from the OS
+precisely so the truth can be compared against JonDash's own record, and the admin can always delete a
+task in Task Scheduler directly — that visibility is the thing this design claims over a daemon.
+
+**`--once` implemented** (2026-07-25): the grant deletes itself as its final action, so nothing survives
+the single use it was approved for. Still self-contained — a fixed command naming a fixed task — so it
+does not reopen the mutable-source hole. **Opt-in, not the default** (see LIFETIME above): a self-deleting
+grant cannot serve unattended automation, which is the case ELEVATION.md calls out (*"a health check that
+restarts a hung service cannot wait for a human"*), and re-granting costs another UAC prompt each time.
+
+- **WINDOWS ONLY for now — owner decision, 2026-07-25.** The Linux half is designed above but deliberately
+  **not built**: JonDash has no Linux launcher (**OPS-19**), so the helper that would call it cannot run
+  there, and the code could not be verified end-to-end. Building it would mean committing untested code
+  for an unreachable platform. Revisit once OPS-19 lands; the design above stands and does not need
+  re-deriving.
+- The add-ons session is **blocked on this only for its integration test**; their allowlist and spec
+  proceed without it.
 
 #### CORE-08 · Dashboard widget interaction rework — ⏳ Planned (owner-directed 2026-07-25)
 Owner feedback after using the drag-and-drop dashboard: the arranging works, the *interaction model*
