@@ -1,5 +1,6 @@
 import { requirePermission } from "@/lib/auth/guards";
-import { listSettings, getLogoFilename, getStyleId } from "@/lib/settings";
+import { listSettings, getLogoFilename, getStyleId, listStyleSettings } from "@/lib/settings";
+import { STYLE_NAMES } from "@/lib/styles";
 import { SettingsForm } from "./ui";
 import { LogoForm } from "./logo-form";
 import { StyleForm } from "./style-form";
@@ -13,6 +14,8 @@ export default async function AdminSettingsPage() {
   const branding = await listSettings("branding");
   const logo = await getLogoFilename();
   const style = await getStyleId();
+  const styleSettings = await listStyleSettings(style);
+  const styleName = STYLE_NAMES[style] ?? "This style";
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,6 +52,32 @@ export default async function AdminSettingsPage() {
             to everyone using this instance.
           </p>
           <StyleForm current={style} />
+
+          {/* Options belonging to the CHOSEN style. Modern has an accent colour; XP and
+              Crystal carry their own palettes, so they have none — say so rather than
+              offering a control that would do nothing. */}
+          <div className="mt-5 rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
+            <h4 className="mb-1 text-xs font-semibold uppercase" style={{ letterSpacing: "0.08em", color: "var(--muted)" }}>
+              {styleName} settings
+            </h4>
+            {styleSettings.length > 0 ? (
+              <>
+                <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
+                  These apply to the {styleName} style only.
+                </p>
+                <SettingsForm
+                  settings={styleSettings}
+                  action={updateBrandingAction}
+                  saveLabel={`Save ${styleName} settings`}
+                />
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                {styleName} has no options of its own — its palette is part of the style. Your logo and
+                app name still apply.
+              </p>
+            )}
+          </div>
         </div>
       </section>
     </div>

@@ -75,6 +75,10 @@ export const SETTINGS = {
     hidden: true,
   } as SettingDef<string>,
 
+  // A STYLE-SPECIFIC setting (CORE-07): only Modern uses it. XP and Crystal carry their own
+  // palettes as part of their identity, so an accent there would either be ignored or wreck
+  // the look. Surfaced under the chosen style rather than as a global, so it isn't offered
+  // where it does nothing. See STYLE_SETTINGS below.
   "branding.accent": {
     label: "Accent colour",
     help: "A hex colour like #4f46e5 for buttons and highlights, or blank for the default. Used in both light and dark mode.",
@@ -85,6 +89,7 @@ export const SETTINGS = {
       .trim()
       .regex(/^$|^#[0-9a-fA-F]{6}$/, "Use a 6-digit hex colour like #4f46e5, or leave blank."),
     group: "branding",
+    hidden: true, // shown under its style, not in the general branding form
   } as SettingDef<string>,
 
   "session.lifetimeDays": {
@@ -234,6 +239,31 @@ export async function getAccentColor(): Promise<string> {
  * logo route kept serving 404 (or the previous logo) for up to 30 seconds after an upload:
  * you'd change the logo, the header would update, and the image itself would not.
  */
+/**
+ * Which settings each interface style exposes (CORE-07).
+ *
+ * A style's palette is part of its identity — XP is grey-and-blue, Crystal is glass — so an
+ * accent colour is meaningful for **Modern** and nowhere else. Rather than offer a control
+ * that silently does nothing (a style's own `--primary` wins on specificity anyway), each
+ * style declares what it actually supports, and the UI shows only that.
+ *
+ * A new style adds its own entry here; an empty list is normal and means "no options".
+ */
+export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
+  default: ["branding.accent"],
+  xp: [],
+  crystal: [],
+};
+
+/** The settings the given style exposes, as views for the form. */
+export async function listStyleSettings(styleId: string): Promise<SettingView[]> {
+  const keys = STYLE_SETTINGS[styleId] ?? [];
+  const all = await listSettings("branding", true);
+  return keys
+    .map((k) => all.find((s) => s.key === k))
+    .filter((s): s is SettingView => !!s);
+}
+
 /** The chosen interface style id (CORE-07); "default" when unset. */
 export async function getStyleId(): Promise<string> {
   return readValue("branding.style");
@@ -288,12 +318,14 @@ export function settingKeysByGroup(group: SettingGroup): SettingKey[] {
 }
 
 /** All settings (optionally just one group) with their current values, for admin forms. */
-export async function listSettings(group?: SettingGroup): Promise<SettingView[]> {
+export async function listSettings(group?: SettingGroup, includeHidden = false): Promise<SettingView[]> {
   const out: SettingView[] = [];
   for (const key of Object.keys(SETTINGS) as SettingKey[]) {
     const def = SETTINGS[key];
     if (group && def.group !== group) continue;
-    if (def.hidden) continue; // has its own control (e.g. the logo's file input)
+    // Hidden settings have their own control (the logo's file input, a style's own options),
+    // so they're kept out of the generic form unless a caller asks for them by name.
+    if (def.hidden && !includeHidden) continue;
     const value = await readValue(key);
     out.push({
       key,

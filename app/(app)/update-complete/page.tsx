@@ -39,7 +39,7 @@ export default async function UpdateCompletePage() {
     <div className="flex min-h-[55vh] flex-col items-center justify-center gap-5 text-center">
       <div
         className="flex h-16 w-16 items-center justify-center rounded-full"
-        style={{ background: "color-mix(in srgb, #16a34a 16%, transparent)", color: "#16a34a" }}
+        style={{ background: "color-mix(in srgb, var(--success) 16%, transparent)", color: "var(--success)" }}
         aria-hidden
       >
         <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">

@@ -71,7 +71,7 @@ export function SessionsList({
                     <button
                       type="submit"
                       className="btn btn-ghost !py-1.5 !px-3 text-sm"
-                      style={{ color: "#dc2626" }}
+                      style={{ color: "var(--danger)" }}
                     >
                       {s.current ? "Sign out" : "Revoke"}
                     </button>

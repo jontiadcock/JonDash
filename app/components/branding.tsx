@@ -1,5 +1,5 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
-import { getAccentColor, getAppName, getLogoFilename, getStyleId } from "@/lib/settings";
+import { getAccentColor, getAppName, getLogoFilename, getStyleId, STYLE_SETTINGS } from "@/lib/settings";
 
 /**
  * During `next build` there is no database — JonDash builds on each machine, often before
@@ -38,6 +38,11 @@ export async function BrandingStyle() {
   if (isBuildPhase) return null;
   let accent = "";
   try {
+    // The accent is a **style-specific** setting (CORE-07): only Modern uses it. XP and
+    // Crystal carry their own palette as part of their identity — and would win on
+    // specificity regardless, since `:root[data-style=…]` outranks this `:root` override.
+    // Checking here rather than emitting CSS that does nothing keeps the two consistent.
+    if (!STYLE_SETTINGS[await styleId()]?.includes("branding.accent")) return null;
     accent = await getAccentColor();
   } catch {
     return null; // settings unavailable — keep the default theme

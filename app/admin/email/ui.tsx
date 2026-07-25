@@ -167,7 +167,7 @@ export function EmailSettings({
             {allowUntrusted ? (
               <p
                 className="mt-2 rounded-lg p-3 text-xs"
-                style={{ background: "var(--bg-danger, #fef2f2)", color: "var(--text-danger, #b91c1c)" }}
+                style={{ background: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)" }}
               >
                 <strong>Certificate checking is off for outgoing mail.</strong> JonDash can no longer
                 prove it is talking to the right server, so anything able to intercept this connection
@@ -293,7 +293,7 @@ function TestEmailForm({ defaultTo }: { defaultTo: string }) {
         <p
           className="text-sm"
           style={{
-            color: state.testOk ? "var(--primary)" : "var(--destructive, #dc2626)",
+            color: state.testOk ? "var(--primary)" : "var(--danger)",
             whiteSpace: "pre-wrap",
           }}
         >

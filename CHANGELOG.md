@@ -9,6 +9,23 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.8] — 2026-07-25
+
+### Changed
+- **Accent colour is now a Modern-style option, shown under the style you've chosen.** It only ever
+  affected Modern — XP and Crystal carry their own palettes as part of their look — but it was offered as
+  a general setting, so on those styles it silently did nothing. Each style now has its own settings
+  block; Modern's holds the accent, and XP and Crystal say plainly that they have no options of their own.
+- **Every colour in the app now comes from the style.** A sweep found status colours (update criticality,
+  warnings, the success tick, danger text) hardcoded in a dozen places where no style could reach them.
+  All 15 pages were then checked under XP with nothing left painted in the old palette.
+
+### Fixed
+- **A module with a settings panel but no settings list showed a button labelled "Channel"** — pointing at
+  a page that no longer manages channels, and giving no obvious way into its settings. It now reads
+  **Settings** whenever a module has any, and **Manage** otherwise. *Reported by the add-ons session;
+  affected Backup Manager on stable.*
+
 ## [1.7.0-beta.7] — 2026-07-25
 
 ### Fixed

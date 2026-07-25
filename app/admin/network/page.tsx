@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const STATE_COLOR: Record<string, string> = {
   ok: "var(--primary)",
   issuing: "var(--warning, #b8860b)",
-  error: "var(--destructive, #dc2626)",
+  error: "var(--danger)",
   idle: "var(--muted)",
 };
 

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.8",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the accent colour is now a Modern-style option, shown under the style you have chosen. It only ever affected Modern - XP and Crystal carry their own palettes as part of their look - but it was offered as a general setting, so on those styles it silently did nothing. Each style now has its own settings block: Modern's holds the accent, and XP and Crystal say plainly that they have no options of their own. Every colour in the app now comes from the style too - a sweep found status colours (update criticality, warnings, the success tick, danger text) hardcoded in a dozen places where no style could reach them, and all 15 pages were then checked under XP with nothing left painted in the old palette. Also fixed: a module with a settings panel but no settings list showed a button labelled 'Channel', pointing at a page that no longer manages channels and giving no obvious way into its settings - it now reads Settings whenever a module has any, and Manage otherwise."
+    },
+    {
       "version": "1.7.0-beta.7",
       "date": "2026-07-25",
       "type": "patch",

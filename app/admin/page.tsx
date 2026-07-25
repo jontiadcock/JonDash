@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const statusStyles: Record<string, string> = {
   ACTIVE: "var(--primary)",
-  PENDING_SETUP: "#d97706",
+  PENDING_SETUP: "var(--warning)",
   DISABLED: "var(--muted)",
 };
 

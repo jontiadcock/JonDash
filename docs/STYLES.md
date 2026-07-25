@@ -94,8 +94,11 @@ These aren't stylistic preferences — breaking them breaks other people's modul
    makes the app worse on touch.
 4. **Never remove the focus ring.** It may be restyled to suit the look, but tabbing must always show
    clearly where you are.
-5. **Never assume the accent.** The operator's colour lands in `--primary`. A style that hardcodes its own
-   accent throws their branding away.
+5. **Own your palette — and say so.** A style's colours are part of its identity: XP is grey-and-blue,
+   Crystal is glass. Set `--primary` to whatever the style needs. (Revised 2026-07-25; this previously said
+   the opposite. A global accent was silently ignored by every style except Modern, because a style's
+   `:root[data-style=…]` block outranks a `:root` override on specificity — so the setting appeared to do
+   nothing. Better to own the palette openly and let a style *offer* an accent if it wants one — see §8.)
 6. **No remote assets.** No web fonts, no CDN images, no external anything — the Content-Security-Policy
    forbids it and self-hosting is the point. Use system font stacks and CSS-drawn effects.
 
@@ -140,6 +143,31 @@ Two options, and a style must declare which it is:
 7. Screenshot it for the changelog entry.
 
 ---
+
+## 8. Style-specific settings
+
+A style may expose its own options. **Modern** offers an accent colour; **XP** and **Crystal** offer none,
+because their palettes are the style.
+
+Declare them in `STYLE_SETTINGS` (`lib/settings.ts`), keyed by style id:
+
+```ts
+export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
+  default: ["branding.accent"],
+  xp: [],
+  crystal: [],
+};
+```
+
+The Branding page then shows exactly those under the chosen style, and an empty list renders an honest
+"this style has no options of its own".
+
+**A setting listed here must also be honoured at runtime.** `BrandingStyle` checks this registry before
+emitting the accent override — otherwise the UI would offer a control that the CSS ignores, which is the
+bug this mechanism exists to prevent. If you add a style setting, wire both ends.
+
+**What stays global:** the **app name** and **logo**. Those are the operator's identity, not the chrome, and
+must carry across every style.
 
 ## 7. Why not a theme file or a plugin?
 

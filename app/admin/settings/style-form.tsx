@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { saveStyleAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
+import { STYLES } from "@/lib/styles";
 
 /**
  * Interface-style picker (CORE-07). Each option previews itself using the same tokens the
@@ -11,26 +12,7 @@ import type { SettingsFormState } from "@/lib/settings";
  * Adding a style: define it in `globals.css`, allow its id in the `branding.style` setting,
  * and add a row here — see docs/STYLES.md §6 for the full checklist.
  */
-const STYLES = [
-  {
-    id: "default",
-    name: "Modern",
-    description: "The standard look — soft cards, rounded corners. Follows your system light/dark setting.",
-    swatch: { bg: "#f6f7fb", surface: "#ffffff", accent: "#4f46e5", radius: "10px", border: "#e2e5ee" },
-  },
-  {
-    id: "xp",
-    name: "XP",
-    description: "Bevelled buttons, tan panels and a bright blue desktop. One committed look — it ignores dark mode.",
-    swatch: { bg: "#5a7edc", surface: "#ece9d8", accent: "#245edb", radius: "3px", border: "#716f64" },
-  },
-  {
-    id: "crystal",
-    name: "Crystal",
-    description: "Translucent frosted-glass panels over a soft gradient. Follows your system light/dark setting.",
-    swatch: { bg: "#dbe4f5", surface: "rgba(255,255,255,0.75)", accent: "#0b7285", radius: "18px", border: "rgba(255,255,255,0.8)" },
-  },
-];
+
 
 export function StyleForm({ current }: { current: string }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveStyleAction, {});

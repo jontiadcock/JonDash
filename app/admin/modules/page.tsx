@@ -35,7 +35,12 @@ export default async function AdminModulesPage() {
     icon: def.icon ? <def.icon className="h-5 w-5" /> : null,
     enabled,
     installed,
-    hasSettings: (def.settings?.length ?? 0) > 0,
+    // A module configures itself EITHER with a declared `settings` array OR with its own
+    // `SettingsPanel` — the two are alternatives (see ModuleDefinition). Counting only the
+    // array meant a panel-only module (backup-manager on stable) looked settings-less and its
+    // button read "Channel", leaving an admin no obvious route to its settings.
+    // Reported by the add-ons session 2026-07-25, confirmed against host-vitals 0.0.1 vs 0.0.2.
+    hasSettings: (def.settings?.length ?? 0) > 0 || !!def.SettingsPanel,
     hasPage: !!def.Page,
     permissions: def.permissions.map((p) => {
       const { text, dangerous } = describePermission(p, helperLabels);

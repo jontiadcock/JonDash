@@ -82,7 +82,7 @@ export function RegenerateBackupCodes({ remaining, total }: { remaining: number;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm">
-        <span style={{ color: low ? "#d97706" : "var(--muted)" }}>
+        <span style={{ color: low ? "var(--warning)" : "var(--muted)" }}>
           {remaining} of {total} recovery codes remaining.
         </span>{" "}
         {low && "Consider regenerating a fresh set."}

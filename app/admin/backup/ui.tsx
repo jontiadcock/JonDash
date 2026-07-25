@@ -95,7 +95,7 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
     <form action={action} className="flex flex-col gap-4">
       <div
         className="rounded-lg p-3 text-sm"
-        style={{ background: "color-mix(in srgb, #dc2626 12%, transparent)", color: "#b91c1c" }}
+        style={{ background: "color-mix(in srgb, var(--danger) 12%, transparent)", color: "var(--danger)" }}
       >
         <strong>This replaces the data you select.</strong> Each chosen category is erased and replaced
         from the backup — this cannot be undone. Restoring <strong>Users</strong> from an encrypted
@@ -197,7 +197,7 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
       <button
         type="submit"
         className="btn self-start"
-        style={{ background: "#dc2626", color: "white" }}
+        style={{ background: "var(--danger)", color: "white" }}
         disabled={pending || confirmText !== "Everything" || !!fileError || !anySelected}
       >
         {pending ? "Restoring…" : "Erase & restore"}

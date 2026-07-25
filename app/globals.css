@@ -19,6 +19,11 @@
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
   --danger: #dc2626;
+  /* Semantic status colours. These were hardcoded across a dozen components (update
+     criticality, account warnings, backup danger, the success tick), which put them out of
+     reach of a style — XP's palette can't accommodate a modern flat red. Tokens now. */
+  --warning: #d97706;
+  --success: #16a34a;
   --ring: rgba(79, 70, 229, 0.35);
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
 
@@ -49,6 +54,8 @@
     --primary: #7c73ff;
     --primary-foreground: #0b0d12;
     --danger: #f87171;
+    --warning: #fbbf24;
+    --success: #4ade80;
     --ring: rgba(124, 115, 255, 0.4);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.45);
     --border-strong: #3a4152;
@@ -228,6 +235,8 @@ summary:focus-visible {
   --primary: #245edb;
   --primary-foreground: #ffffff;
   --danger: #c00000;
+  --warning: #9a5b00;
+  --success: #006400;
   --ring: rgba(36, 94, 219, 0.5);
   --shadow: 1px 1px 0 rgba(0, 0, 0, 0.18);
   --shadow-control: none;
@@ -277,6 +286,8 @@ summary:focus-visible {
   --primary: #0b7285;
   --primary-foreground: #ffffff;
   --danger: #c92a2a;
+  --warning: #b25e02;
+  --success: #0b7a3d;
   --ring: rgba(11, 114, 133, 0.4);
   --shadow: 0 4px 12px rgba(20, 30, 60, 0.1), 0 16px 40px rgba(20, 30, 60, 0.12);
   --shadow-control: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);

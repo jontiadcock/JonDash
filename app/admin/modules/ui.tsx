@@ -157,7 +157,11 @@ function ModuleCard({
           {m.enabled ? (
             <>
               <a href={`/admin/modules/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">
-                {m.hasSettings ? "Settings" : "Channel"}
+                {/* "Channel" was left over from when the per-module channel control lived on
+                    that page; it moved to Admin → Updates in v1.5.3, so the label pointed at
+                    something no longer there. The page still holds visibility and update
+                    options for every module, so it's always worth opening. */}
+                {m.hasSettings ? "Settings" : "Manage"}
               </a>
               {m.hasPage && (
                 <a href={`/m/${m.id}`} className="btn btn-ghost !py-1.5 text-sm">Open</a>

@@ -10,11 +10,11 @@ type UpdateFailure = { failedVersion: string; revertedTo: string; at: string };
 // helper manifests don't, so a set of updates with no core release shows no word and the
 // low-key green (the owner's rule: if there's no criticality, say nothing about it).
 const CRIT: Record<string, { color: string; label: string }> = {
-  critical: { color: "#dc2626", label: "Important" },
-  recommended: { color: "#d97706", label: "Recommended" },
-  optional: { color: "#16a34a", label: "Optional" },
+  critical: { color: "var(--danger)", label: "Important" },
+  recommended: { color: "var(--warning)", label: "Recommended" },
+  optional: { color: "var(--success)", label: "Optional" },
 };
-const NEUTRAL = "#16a34a"; // green — updates waiting, nothing flagged as urgent
+const NEUTRAL = "var(--success)"; // green — updates waiting, nothing flagged as urgent
 
 export function UpdateBanner() {
   const [coreRelease, setCoreRelease] = useState<Release | null>(null);
