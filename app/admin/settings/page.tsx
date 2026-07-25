@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/auth/guards";
 import { listSettings, getLogoFilename, getStyleId, getPaletteId, listStyleSettings } from "@/lib/settings";
-import { STYLE_NAMES, resolvePalette } from "@/lib/styles";
+import { STYLE_NAMES, resolveStylePair } from "@/lib/styles";
 import { SettingsForm } from "./ui";
 import { LogoForm } from "./logo-form";
 import { StyleForm } from "./style-form";
@@ -13,8 +13,9 @@ export default async function AdminSettingsPage() {
   const settings = await listSettings("general");
   const branding = await listSettings("branding");
   const logo = await getLogoFilename();
-  const style = await getStyleId();
-  const palette = resolvePalette(style, await getPaletteId()).id;
+  // Through the same choke point the layout uses, so a moved pairing (Aero leaving Crystal)
+  // shows the picker sitting on what's actually rendering, not on the old stored value.
+  const { style, palette } = resolveStylePair(await getStyleId(), await getPaletteId());
   const styleSettings = await listStyleSettings(style);
   const styleName = STYLE_NAMES[style] ?? "This style";
 

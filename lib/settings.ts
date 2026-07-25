@@ -59,7 +59,7 @@ export const SETTINGS = {
     default: "default",
     // Structure only. The palette is stored separately — see `branding.palette`.
     // Keep in step with lib/styles.ts and app/styles.css (docs/STYLES.md §6).
-    schema: z.enum(["default", "crystal", "xp", "terminal", "brutalist"]),
+    schema: z.enum(["default", "crystal", "aero", "xp", "terminal", "brutalist", "paper"]),
     group: "branding",
     hidden: true,
   } as SettingDef<string>,
@@ -272,9 +272,11 @@ export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
   // their palettes instead; an arbitrary accent would fight the look rather than serve it.
   default: ["branding.accent"],
   crystal: [],
+  aero: [],
   xp: [],
   terminal: [],
   brutalist: [],
+  paper: [],
 };
 
 /** The settings the given style exposes, as views for the form. */

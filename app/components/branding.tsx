@@ -1,6 +1,6 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { getAccentColor, getAppName, getLogoFilename, getStyleId, getPaletteId, STYLE_SETTINGS } from "@/lib/settings";
-import { resolvePalette } from "@/lib/styles";
+import { resolvePalette, resolveStylePair } from "@/lib/styles";
 
 /**
  * During `next build` there is no database — JonDash builds on each machine, often before
@@ -77,7 +77,10 @@ export async function appName(): Promise<string> {
 export async function styleId(): Promise<string> {
   if (isBuildPhase) return "default";
   try {
-    return (await getStyleId()) || "default";
+    const stored = (await getStyleId()) || "default";
+    // A pairing may have MOVED between releases (Aero left Crystal in 1.7.0-beta.10), which
+    // can change the style, not just the palette — so the style is resolved through the pair.
+    return resolveStylePair(stored, await getPaletteId()).style;
   } catch {
     return "default";
   }
@@ -91,7 +94,9 @@ export async function styleId(): Promise<string> {
 export async function paletteId(style: string): Promise<string> {
   if (isBuildPhase) return resolvePalette("default", "").id;
   try {
-    return resolvePalette(style, await getPaletteId()).id;
+    // `style` has already been through resolveStylePair above, so the stored palette is
+    // normalised against the style that will actually be applied.
+    return resolveStylePair(await getStyleId(), await getPaletteId()).palette ?? resolvePalette(style, "").id;
   } catch {
     return resolvePalette(style, "").id;
   }

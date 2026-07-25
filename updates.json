@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.10",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: Aero and Paper are now styles of their own - 7 styles, 20 palettes. Both had been offered as a colour of another style, but neither was really a colour: Aero was changing the corner radius, the blur and the typeface, and Paper the shadows and radius. As proper styles they get to be themselves. Aero now frames every panel the way Windows 7 did, with a highlight along the top and gradient buttons, in Sky, Twilight or Slate. Paper is ink on stock - a serif face, hairline rules and no shadows anywhere - in Newsprint, Sepia or Ink. If you were already using either, you simply keep using it: your setting moves with the style rather than falling back to something you didn't choose. Crystal now offers Aurora and Neon; Modern offers Indigo, Nord and Solarized."
+    },
+    {
       "version": "1.7.0-beta.9",
       "date": "2026-07-25",
       "type": "minor",

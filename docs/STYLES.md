@@ -124,6 +124,12 @@ If a palette changes structure it stops being a palette and should be its own st
 screenshot of palette A be mistaken for a screenshot of palette B with different colours?* If yes, it's a
 palette.
 
+**This has already happened twice, and the tell was the same both times.** Aero shipped as a Crystal
+palette and Paper as a Modern one; both had to override radius and shadow (Aero also blur and the
+typeface) to look right. Overriding a structure token from a palette block is the smell — if you find
+yourself doing it, you are writing a style. Both were promoted in 1.7.0-beta.10; see §10 for how the
+operators on them were carried across.
+
 ### Style-private tokens
 
 A style with chrome the shared tokens don't describe may define its own, **prefixed with the style id** so
@@ -188,7 +194,7 @@ Two options, and a style must declare which it is:
   `@media (prefers-color-scheme: dark)`. Preferred. Modern and Crystal are adaptive.
 - **Committed** — the style *is* a specific look (XP's grey-and-blue is not meaningfully "dark mode"), so
   it defines one palette and ignores the system preference. Say so in the style's `description`, so nobody
-  reports it as a bug. XP, Terminal and Brutalist are committed.
+  reports it as a bug. XP, Aero, Terminal, Brutalist and Paper are committed.
 
 **A palette may be committed inside an adaptive style.** Crystal's Neon is dark whatever the system says —
 that's the palette's whole identity. When it does this it must handle *both* system settings, which means
@@ -286,6 +292,10 @@ keyframes in `styles.css`.
 **Never reorder a style's `palettes` array casually** — the first entry is the fallback for anyone whose
 stored palette no longer resolves, so reordering silently restyles instances.
 
+**Promoting a palette to a style?** Do the add-a-style checklist above, remove it from the old style's
+`palettes`, and **add a `MOVED` entry** (§10) so anyone using it is carried across instead of dropped on
+the old style's default.
+
 ---
 
 ## 9. Style-specific settings
@@ -299,9 +309,11 @@ Declare them in `STYLE_SETTINGS` (`lib/settings.ts`), keyed by style id:
 export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
   default: ["branding.accent"],
   crystal: [],
+  aero: [],
   xp: [],
   terminal: [],
   brutalist: [],
+  paper: [],
 };
 ```
 
@@ -320,20 +332,41 @@ genuinely tolerates any hue. Nothing else does.
 
 ## 10. What is stored, and what happens when it doesn't resolve
 
-Two settings: `branding.style` and `branding.palette`. They are written together and normalised through
-`resolvePalette(styleId, paletteId)`, which returns the requested palette if it belongs to that style and
-the style's first palette otherwise.
+Two settings: `branding.style` and `branding.palette`, written together and read back through
+**`resolveStylePair(styleId, paletteId)`** — the single choke point. It does two things in order:
 
-That normalisation runs in three places, deliberately:
+1. **Applies any move** (see below), which can change the *style*, not just the palette.
+2. **Normalises the palette** via `resolvePalette`, which returns the requested palette if it belongs to
+   that style and the style's first palette otherwise.
+
+It runs in three places, deliberately:
 
 - **On save**, so an invalid pairing is never stored.
-- **On render** (`app/layout.tsx` via `paletteId()`), so a pairing that became invalid — a palette removed
-  in an update — still produces a coherent page rather than an attribute matching no CSS at all.
-- **In the picker**, so changing style immediately shows that style's palettes rather than carrying a
-  stale selection.
+- **On render** (`app/layout.tsx` via `styleId()` / `paletteId()`), so a pairing that became invalid still
+  produces a coherent page rather than an attribute matching no CSS at all.
+- **In the picker**, so the settings page shows what is actually rendering, not a stale stored value.
 
-An update that removes a palette therefore degrades to the style's default, silently and safely. An update
-that removes a *style* degrades to Modern.
+### Broken vs moved — they need different answers
+
+An update that removes a palette degrades to the style's default; one that removes a *style* degrades to
+Modern. That is right for something genuinely gone.
+
+**It is wrong for something that simply lives somewhere else now.** When Aero was promoted out of Crystal,
+plain fallback would have dropped everyone on it onto Crystal · Aurora — a look they never chose — while
+their stored setting plainly said "Aero". So renames and promotions go in the `MOVED` map in
+`lib/styles.ts`:
+
+```ts
+const MOVED: Record<string, { style: string; palette: string }> = {
+  "crystal:aero": { style: "aero", palette: "sky" },
+  "default:paper": { style: "paper", palette: "newsprint" },
+};
+```
+
+**Keep entries forever.** They cost nothing, and an instance can update from any age — someone on a
+two-year-old build still deserves to land where they meant to be. Add one whenever you promote a palette
+to a style, rename an id, or fold a style into another. `tests/unit/styles.test.ts` asserts every move
+lands on a pairing that actually exists.
 
 ---
 

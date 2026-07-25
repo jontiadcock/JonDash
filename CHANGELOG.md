@@ -9,6 +9,21 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.10] — 2026-07-25
+
+### Added
+- **Aero and Paper are now styles of their own — 7 styles, 20 palettes.** Both had been offered as a
+  *colour* of another style, but neither was really a colour: Aero was changing the corner radius, the
+  blur and the typeface, and Paper the shadows and radius. As proper styles they get to be themselves.
+  **Aero** now frames every panel the way Windows 7 did, with a highlight along the top and gradient
+  buttons, in **Sky**, **Twilight** or **Slate**. **Paper** is ink on stock — a serif face, hairline
+  rules and no shadows anywhere — in **Newsprint**, **Sepia** or **Ink**.
+- **If you were using either, you'll simply keep using it.** Your setting moves with the style rather
+  than falling back to something you didn't choose.
+
+### Changed
+- Crystal now offers Aurora and Neon; Modern offers Indigo, Nord and Solarized.
+
 ## [1.7.0-beta.9] — 2026-07-25
 
 ### Added
