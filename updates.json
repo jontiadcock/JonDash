@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Groundwork. Nothing here changes JonDash on its own - it is the foundation that lets add-ons do things JonDash itself is not allowed to do, like restarting a Windows service or installing software. The add-ons that use it are being built separately. Add-ons can control Windows services with your approval given once: you approve one service at a time - may JonDash restart Plex? - and after that it can do that one thing without asking again. What gets saved names one service and one action and cannot be edited into something else afterwards; you can see and remove them yourself in Windows Task Scheduler under a JonDash folder, showing who added each one and when. Nothing runs in the background waiting for orders and nothing keeps administrator rights between uses. Add-ons can also install software for you, which asks every single time because what is being installed changes each time - read the add-on's screen rather than the Windows prompt, since Windows can only say that JonDash wants administrator rights, not what is being installed. Add-ons can ask you something when you remove them, answered on the confirmation screen, with every question saying who is asking. Fixed: add-ons that need setting up are now configured in JonDash rather than through a module, closing a hole where a module could edit the list of what it was allowed to do; and an action could previously happen without being recorded if the log entry could not be written."
+    },
+    {
       "version": "1.7.1-beta.9",
       "date": "2026-07-26",
       "type": "minor",

@@ -9,6 +9,39 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1] — 2026-07-26
+
+**Groundwork.** Nothing here changes JonDash on its own — it's the foundation that lets add-ons do
+things JonDash itself isn't allowed to do, like restarting a Windows service or installing
+software. The add-ons that use it are being built separately.
+
+### Added
+- **Add-ons can control Windows services, with your approval given once.** Restarting a service
+  needs administrator rights, which JonDash doesn't have. You approve one service at a time —
+  *may JonDash restart Plex?* — and after that it can do that one thing without asking again.
+  - **It really is only that one thing.** What gets saved names one service and one action, and
+    can't be edited into something else afterwards.
+  - **You can see and remove them yourself**, in Windows' own Task Scheduler under a `JonDash`
+    folder, showing who added each one and when.
+  - Nothing runs in the background waiting for orders, and nothing keeps administrator rights
+    between uses. Removing a module, the add-on, or JonDash takes its permissions with it.
+- **Add-ons can install software for you** — Docker, for instance. Unlike service permissions,
+  this asks every single time, because what's being installed changes each time.
+  - **Read the add-on's screen, not the Windows prompt.** Windows can only say that JonDash wants
+    administrator rights; it can't say what's being installed. Only installing and removing a
+    named package from the official Windows package source is possible.
+- **Add-ons can ask you something when you remove them** — *"also remove Docker Desktop?"* —
+  answered on the confirmation screen rather than guessed at. Every question says who's asking,
+  above the question itself.
+
+### Fixed
+- **Add-ons that need setting up are now configured in JonDash, not through a module.** An add-on
+  keeping a list of what it's allowed to do had nowhere to edit that list except inside a module —
+  so the module could edit it, and could show you one thing while doing another. That list is no
+  longer editable by a module.
+- **An action could happen without being recorded.** If a log entry couldn't be written, it was
+  quietly dropped and the action went ahead — the one thing an audit log exists to prevent.
+
 ## [1.7.1-beta.9] — 2026-07-26
 
 ### Added
