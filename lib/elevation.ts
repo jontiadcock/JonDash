@@ -165,6 +165,11 @@ async function invoke<T>(
   args: string[],
   auditAction: string,
   auditDetail: string,
+  /**
+   * Reads the result out of the process outcome. Note that for anything which ELEVATES, stdout
+   * is not available — the elevated child owns its own console — so those callers must read
+   * the result back from Windows instead of parsing here.
+   */
   parse: (o: RunOutcome) => T,
   opts: { userId?: string | null; mustAudit?: boolean } = {},
 ): Promise<GrantResult<T>> {
@@ -233,15 +238,35 @@ export async function createGrant(input: {
   if (input.by) args.push("--by", input.by);
   if (input.once) args.push("--once");
 
-  return invoke(
+  const created = await invoke(
     args,
     "elevation.grant.create",
     `${input.service} [${input.verbs.join(",")}]${input.once ? " once" : ""}`,
-    (o) => o.stdout.split("\n").map((l) => l.trim()).filter(Boolean),
+    // Deliberately NOT the child's stdout. `--create` re-launches itself elevated, and the
+    // elevated process writes to its own hidden console — nothing comes back to us, so this
+    // returned an empty array on success. Found in manual testing 2026-07-25.
+    //
+    // The obvious fix — have the elevated child write results to a path we pass it — would be
+    // an ARBITRARY FILE WRITE AS ADMINISTRATOR, since we choose that path while unprivileged.
+    // `--result C:\Windows\System32\anything` is exactly the shape this whole design refuses.
+    // So the names are read back from Windows instead, below.
+    () => undefined,
     // Granting privilege is the one direction that fails closed: if the attempt cannot be
     // recorded, it does not happen. See `invoke` for why revoking is the opposite.
     { userId: input.userId, mustAudit: true },
   );
+  if (!created.ok) return created;
+
+  // Read the truth from the OS rather than trusting anything we were told. Needs no elevation
+  // and no prompt. Names are deterministic (`<id>-<verb>`) now that a collision is refused
+  // rather than silently suffixed, but asking is still better than deriving.
+  const listed = await listGrants();
+  if (!listed.ok) return listed;
+  const prefix = ((input.id ?? input.service).match(/[A-Za-z0-9._-]+/g) ?? []).join("");
+  const names = listed.value
+    .map((g) => g.name)
+    .filter((n) => input.verbs.some((v) => n.toLowerCase() === `${prefix}-${v}`.toLowerCase()));
+  return { ok: true, value: names };
 }
 
 /**

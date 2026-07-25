@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.3",
+      "date": "2026-07-25",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: fixes a defect found while testing the service-permission feature by hand. Adding a permission worked, but JonDash was told nothing about what it had just created - the list of new entries came back empty, because the part that runs with administrator rights reports to its own hidden window. It now reads the result back from Windows itself, which is the authoritative answer anyway. The obvious shortcut - handing the elevated part a file to write its results into - was deliberately avoided, because JonDash chooses that location without administrator rights and it would have amounted to writing any file anywhere as an administrator, which is exactly what this design exists to prevent. Also in this release: the manual test itself, which confirmed the whole model works. Adding a permission needs your approval once; using it needs none; and from an ordinary account the permission cannot be rewritten, disabled or deleted - Windows refuses all three."
+    },
+    {
       "version": "1.7.1-beta.2",
       "date": "2026-07-25",
       "type": "patch",

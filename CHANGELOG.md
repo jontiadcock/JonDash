@@ -9,6 +9,29 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.3] — 2026-07-25
+
+### Fixed
+- **Adding a permission told JonDash nothing about what it had created.** The list of new
+  entries came back empty, because the part that runs with administrator rights reports to its
+  own hidden window and nothing came back. It now reads the result back from Windows, which is
+  the authoritative answer anyway.
+  - The obvious shortcut — handing the elevated part a file to write its results into — was
+    deliberately avoided. JonDash picks that location *without* administrator rights, so it
+    would have amounted to writing any file anywhere as an administrator, which is precisely
+    what this whole design exists to prevent.
+
+### Verified
+The feature was tested by hand for the first time, and the model holds:
+- Adding a permission asks once. Using it asks nothing.
+- The permission does something JonDash genuinely cannot do otherwise — stopping the service
+  directly from an ordinary account is refused by Windows.
+- From an ordinary account the permission **cannot be rewritten, disabled or deleted**, and no
+  new one can be planted alongside it. Windows refuses all three.
+- Removing everything leaves nothing behind — no entries, and the `JonDash` folder itself goes.
+
+*Independently reproduced by the add-ons session, which reached the same result.*
+
 ## [1.7.1-beta.2] — 2026-07-25
 
 ### Fixed

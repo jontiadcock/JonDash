@@ -98,6 +98,29 @@ describe("elevation: exit codes agree between the binary and lib/elevation.ts", 
     expect(ts.match(/mustAudit:\s*true/g)?.length).toBe(1);
   });
 
+  it("createGrant reads its result back from Windows, not from the child's stdout", () => {
+    // `--create` re-launches itself elevated and the elevated process owns its own console, so
+    // nothing reaches us — this silently returned an empty array on success (found by manual
+    // testing 2026-07-25, before any consumer depended on it).
+    //
+    // The tempting fix is to pass the child a path to write results to. That would be an
+    // ARBITRARY FILE WRITE AS ADMINISTRATOR, because we choose the path while unprivileged:
+    // `--result C:\Windows\System32\anything`. Guard against it being "simplified" back.
+    // Sliced to the next top-level export rather than regex-matched to a closing brace: the
+    // signature has its own `}` (an inline parameter type), so a non-greedy match captured only
+    // the signature and the assertion below passed for the wrong reason.
+    const from = ts.indexOf("export async function createGrant");
+    const to = ts.indexOf("\nexport ", from + 1);
+    const create = ts.slice(from, to === -1 ? undefined : to);
+    expect(create).toContain("listGrants()");
+    // `o.stdout` is the actual read; a bare /stdout/ also matches the comment explaining why we
+    // don't use it, which would fail for the wrong reason.
+    expect(create).not.toMatch(/o\.stdout/);
+    // As a quoted argument, not as the word — the comment above names `--result` precisely to
+    // explain why it must never be passed, and matching prose fails for the wrong reason.
+    expect(ts).not.toContain('"--result"');
+  });
+
   it("using a grant is audited too, not just granting and revoking one", () => {
     // The privileged EFFECT is the service restart. Logging only create/remove would leave the
     // moment that matters absent from the log built to record it.
