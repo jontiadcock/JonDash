@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { enableModuleAction, disableModuleAction, uninstallModuleAction } from "./actions";
+import { UninstallQuestions } from "./uninstall-questions";
 import { RestartWarning } from "./restart-warning";
 import { useRebuildWatch } from "./rebuild-watch";
 
@@ -81,7 +82,9 @@ export function ModulesList({ items }: { items: ModuleItem[] }) {
                   .join(", ")}. This can't be undone.`}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <form action={uninstallModuleAction}>
+                {/* Inside the form, so the ticked boxes post with the uninstall. */}
+                <form action={uninstallModuleAction} className="flex flex-col gap-3">
+                  <UninstallQuestions moduleIds={chosen.map((m) => m.id)} />
                   {chosen.map((m) => (
                     <input key={m.id} type="hidden" name="id" value={m.id} />
                   ))}
@@ -211,7 +214,10 @@ function ModuleCard({
                 what={`Permanently delete ${m.name}, its settings and all of its stored data. This can't be undone.`}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <form action={uninstallModuleAction}>
+                {/* The single-module path needs the questions too — most uninstalls go through
+                    here, not the bulk form. Missing it would make the feature look intermittent. */}
+                <form action={uninstallModuleAction} className="flex flex-col gap-3">
+                  <UninstallQuestions moduleIds={[m.id]} />
                   <input type="hidden" name="id" value={m.id} />
                   <button
                     type="submit"

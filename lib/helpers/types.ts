@@ -1,4 +1,4 @@
-import type { DeclaredPermission, ModuleContext } from "@/lib/modules/types";
+import type { DeclaredPermission, ModuleContext, UninstallQuestion } from "@/lib/modules/types";
 
 /**
  * Helper contract (MOD-08). See docs/HELPERS-DESIGN.md for the reasoning.
@@ -105,7 +105,21 @@ export type HelperDefinition = {
    * That means it is a tidy-up, not a guarantee — anything that MUST be revoked needs to be
    * revocable independently too, which for grants is `--remove --all` and Task Scheduler.
    */
-  onUninstall?: (ctx: HelperBootContext) => Promise<void>;
+  onUninstall?: (ctx: HelperBootContext, answers: Record<string, boolean>) => Promise<void>;
+
+  /**
+   * Questions for the uninstall confirmation screen; the replies arrive in `onUninstall`.
+   * Same mechanism as a module's, and the same rules — except that a helper is **first-party**,
+   * so `default: true` is honoured here and forced to false for modules.
+   *
+   * The case this was built for: `host-services` asking whether to withdraw the Windows
+   * permissions it holds, and `host-install` asking whether to remove software JonDash
+   * installed. Both need an answer from a person, and the person is only present here.
+   *
+   * Bounded and best-effort, like `readConfig`: a helper that throws or hangs shows the
+   * uninstall without its questions rather than blocking it.
+   */
+  uninstallQuestions?: () => Promise<UninstallQuestion[]>;
 
   /**
    * Set when `onUninstall` may raise an **elevation prompt**. Its budget becomes the elevation

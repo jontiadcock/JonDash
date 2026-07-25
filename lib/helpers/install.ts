@@ -20,6 +20,7 @@ import { helperIdsOf } from "@/lib/modules/types";
 import { getHelperDef } from "./registry";
 import { helperContext } from "./boot";
 import { audit } from "@/lib/audit";
+import { answersFor } from "@/lib/uninstall-questions";
 
 /** Same reasoning as the boot budget: an uninstall must not hang the admin screen. */
 const UNINSTALL_BUDGET_MS = 5000;
@@ -221,7 +222,36 @@ export async function ensureHelpersFor(
  * Remove helpers nothing depends on any more. Files only — see removeHelperFiles.
  * Returns the ids removed, so the caller can tell the admin what went and why.
  */
-export async function pruneUnusedHelpers(removingModuleIds: string[] = []): Promise<string[]> {
+/**
+ * Which helpers `pruneUnusedHelpers` WOULD remove, with no side effects.
+ *
+ * Split out so the uninstall confirmation can ask a helper its questions before anything is
+ * touched — asking about a helper that is going to stay would be a question with no
+ * consequence. Same dependency logic, one source of truth.
+ */
+export function helpersThatWouldBePruned(removingModuleIds: string[] = []): string[] {
+  const removing = new Set(removingModuleIds);
+  const needed = new Set<string>();
+  for (const m of getAllModules()) {
+    if (removing.has(m.id)) continue;
+    for (const h of helperIdsOf(m.helpers)) needed.add(h);
+  }
+  try {
+    return fs
+      .readdirSync(HELPERS_DIR, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((id) => !needed.has(id) && helperFilesExist(id));
+  } catch {
+    return [];
+  }
+}
+
+export async function pruneUnusedHelpers(
+  removingModuleIds: string[] = [],
+  /** Replies to `uninstallQuestions`, namespaced `helper:<id>:<questionId>`. */
+  tickedAnswers: string[] = [],
+): Promise<string[]> {
   // getAllModules() is the COMPILED registry, so a module being uninstalled right now is
   // still in it and counts as its own dependent — nothing would ever be pruned.
   // Regenerating the registry first doesn't help either: rewriting the file can't change
@@ -264,7 +294,7 @@ export async function pruneUnusedHelpers(removingModuleIds: string[] = []): Prom
       const budget = def.uninstallMayPrompt ? UNINSTALL_PROMPT_BUDGET_MS : UNINSTALL_BUDGET_MS;
       try {
         await Promise.race([
-          def.onUninstall(helperContext(def)),
+          def.onUninstall(helperContext(def), answersFor("helper", id, tickedAnswers)),
           new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out after ${budget}ms`)), budget)),
         ]);
       } catch (e) {

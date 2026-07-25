@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.1-beta.7",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: add-ons can now ask you something when you remove them, on the confirmation screen, so you answer while you are still there rather than the add-on guessing. The case it was built for is 'also remove Docker Desktop?' when the Docker module goes - removing it automatically would be wrong since it is your software and probably in use, but quietly leaving it behind is not right either. Every question says who asked it, so a module's wording is never mistaken for JonDash's. A module you installed cannot pre-tick anything on a screen whose job is confirming something you cannot undo; add-ons that ship with JonDash may set a default. Ten questions maximum, text only, no formatting or links. And a broken module cannot make itself unremovable - if asking fails or hangs you get the uninstall without its questions rather than no uninstall at all."
+    },
+    {
       "version": "1.7.1-beta.6",
       "date": "2026-07-25",
       "type": "minor",

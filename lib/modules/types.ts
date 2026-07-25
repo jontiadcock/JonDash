@@ -307,7 +307,46 @@ export type ModuleDefinition = {
    *  extra cleanup. */
   onEnable?: (ctx: ModuleContext) => Promise<void>;
   onDisable?: (ctx: ModuleContext) => Promise<void>;
-  onUninstall?: (ctx: ModuleContext) => Promise<void>;
+  /**
+   * `answers` carries the replies to `uninstallQuestions`, keyed by question id. A question
+   * that was never asked — or that core dropped — is simply absent, so read defensively.
+   */
+  onUninstall?: (ctx: ModuleContext, answers: Record<string, boolean>) => Promise<void>;
+
+  /**
+   * Questions to put on the uninstall confirmation screen, answered while the admin is still
+   * there. The replies arrive in `onUninstall`.
+   *
+   * For decisions core cannot make and should not guess: "also remove Docker Desktop?" — wrong
+   * to do automatically (it is the admin's software, probably in use, and a dashboard module
+   * being removed is no reason to delete it) and wrong to skip silently.
+   *
+   * **A MODULE IS THIRD-PARTY CODE PUTTING TEXT ON A CORE ADMIN SCREEN**, so core constrains it:
+   *  - **Attributed.** Every question is labelled with the module that asked it, so nobody reads
+   *    a module's wording as JonDash speaking.
+   *  - **Text, never markup.** Rendered as a string; no interpolation of HTML.
+   *  - **`default: true` is ignored for modules** and forced to false. A third party does not get
+   *    to pre-tick a box on a destructive screen. (Helpers are first-party and may default true.)
+   *  - **Ten questions maximum.** A module cannot make the confirmation unusable.
+   *  - **Bounded and best-effort**, like `readConfig`: throwing or hanging shows the uninstall
+   *    *without* questions rather than blocking it.
+   *
+   * A "yes" grants no capability the module did not already have — it is a prompt to use
+   * something the admin consented to at install, not a new permission.
+   */
+  uninstallQuestions?: () => Promise<UninstallQuestion[]>;
+};
+
+/** One yes/no question on the uninstall confirmation screen. */
+export type UninstallQuestion = {
+  /** Unique within the asking module or helper. Comes back as the key in `answers`. */
+  id: string;
+  /** The question, in plain language. Rendered as text. */
+  label: string;
+  /** What actually happens if they say yes — name the consequence, not the mechanism. */
+  detail?: string;
+  /** Pre-ticked. **Forced to false for modules**; honoured for helpers. */
+  default: boolean;
 };
 
 /** A module's installed record (mirrors the `Module` table row), for admin UI. */

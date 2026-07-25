@@ -75,6 +75,23 @@ go into core because a module can't spawn `ping`; under this model it would be a
 
    This is rule 2 in another shape: the narrow API is the point, and reaching around it returns the
    general escape hatch that rule exists to prevent.
+8. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
+   `uninstallQuestions()` puts yes/no questions on the confirmation screen and the answers arrive in
+   `onUninstall`. It exists because that hook is headless and runs *after* the admin has confirmed,
+   so anything needing a decision — *"also remove Docker Desktop?"*, *"withdraw the Windows
+   permissions this holds?"* — had nowhere to be asked. Doing either automatically is wrong (it is
+   the admin's machine); doing neither silently is also wrong.
+
+   **The risk is that a MODULE is third-party code putting text on a core admin screen**, so core
+   constrains it and the constraints live in `lib/uninstall-questions.ts`, not in the callers:
+   every question is **attributed** to whoever asked; label and detail render as **text, never
+   markup**; **a module's `default: true` is forced to false** (a third party does not pre-tick a
+   box on a destructive screen — helpers, being first-party, keep theirs); **ten questions maximum**;
+   and the call is **bounded and best-effort**, so a module that throws or hangs shows the uninstall
+   *without* its questions rather than making itself unremovable.
+
+   A "yes" grants nothing new — it is a prompt to use something the admin already consented to at
+   install.
 
 ## Shape
 

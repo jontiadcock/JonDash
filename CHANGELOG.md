@@ -9,6 +9,23 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.1-beta.7] — 2026-07-25
+
+### Added
+- **Add-ons can now ask you something when you remove them.** Questions appear on the
+  confirmation screen, so you answer while you're still there rather than the add-on guessing.
+  The case it was built for: *"also remove Docker Desktop?"* when the Docker module goes —
+  removing it automatically would be wrong, since it's your software and probably in use, but
+  quietly leaving it behind isn't right either.
+  - **Every question says who asked it.** A module's wording is its own, not JonDash's, and the
+    screen makes that clear.
+  - **A module can't pre-tick anything.** Boxes start unticked on a screen whose job is
+    confirming something you can't undo. Add-ons that ship with JonDash may set a default; ones
+    you installed may not.
+  - Ten questions maximum, and text only — a module can't put formatting or links on the screen.
+  - **A broken module can't make itself unremovable.** If asking fails or hangs, you get the
+    uninstall without its questions rather than no uninstall at all.
+
 ## [1.7.1-beta.6] — 2026-07-25
 
 ### Added

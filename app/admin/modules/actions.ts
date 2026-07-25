@@ -34,6 +34,8 @@ import {
 } from "@/lib/modules/rebuild";
 import { setModuleGroups } from "@/lib/modules/visibility";
 import { ensureHelpersFor, pruneUnusedHelpers } from "@/lib/helpers/install";
+import { answersFor, collectUninstallQuestions } from "@/lib/uninstall-questions";
+import type { AttributedQuestion } from "@/lib/uninstall-questions";
 import { syncAllHelperChannels } from "@/lib/helpers/channel";
 import { readChannel } from "@/lib/update-channel";
 import { compareVersions } from "@/lib/version";
@@ -79,8 +81,13 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
   const defs = ids.map((id) => getModuleDef(id)).filter((d): d is NonNullable<typeof d> => !!d);
   if (defs.length === 0) return;
 
+  // Ticked boxes from the confirmation screen, namespaced `<kind>:<id>:<questionId>` so one
+  // module cannot read or forge an answer belonging to another, or to a helper.
+  const ticked = formData.getAll("answer").map(String).filter(Boolean);
+
   for (const def of defs) {
-    await uninstallModule(def); // purge data first, while its definition is still loadable
+    // purge data first, while its definition is still loadable
+    await uninstallModule(def, answersFor("module", def.id, ticked));
     await audit("admin.module.uninstall", { detail: def.id });
     removeModuleFiles(def.id);
   }
@@ -90,7 +97,7 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
   // its history intact rather than starting from nothing.
   // Async now: a helper gets to release anything it created outside JonDash (an OS grant, a
   // scheduled task) before its files go — nothing else can reach that state afterwards.
-  const droppedHelpers = await pruneUnusedHelpers(defs.map((d) => d.id));
+  const droppedHelpers = await pruneUnusedHelpers(defs.map((d) => d.id), ticked);
   if (droppedHelpers.length > 0) {
     await audit("admin.helper.remove", { detail: `${droppedHelpers.join(", ")} (no longer needed)` });
   }
@@ -427,4 +434,15 @@ export async function saveModuleSettingsAction(
   }
   revalidatePath(`/admin/modules/${def.id}`);
   return { ok: true };
+}
+
+/**
+ * Questions to put on the uninstall confirmation, for the modules about to be removed and any
+ * helper that removal would prune. Called from the client the moment the admin opens the
+ * confirmation, so the answers can be collected while they are still there — `onUninstall` runs
+ * headless and far too late to ask anything.
+ */
+export async function uninstallQuestionsAction(ids: string[]): Promise<AttributedQuestion[]> {
+  await gate();
+  return collectUninstallQuestions(ids.filter(Boolean).map(String));
 }

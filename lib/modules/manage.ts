@@ -56,8 +56,12 @@ export async function disableModule(def: ModuleDefinition): Promise<void> {
   }
 }
 
-export async function uninstallModule(def: ModuleDefinition): Promise<void> {
-  if (def.onUninstall) await def.onUninstall(buildModuleContext(def, [], null));
+export async function uninstallModule(
+  def: ModuleDefinition,
+  /** Replies to the module's `uninstallQuestions`, keyed by question id. */
+  answers: Record<string, boolean> = {},
+): Promise<void> {
+  if (def.onUninstall) await def.onUninstall(buildModuleContext(def, [], null), answers);
   await dropModuleTables(def.id); // drop mod_<id>_* + migration records
   await purgeModuleData(def.id); // settings + generic store
   await prisma.module.deleteMany({ where: { id: def.id } });
