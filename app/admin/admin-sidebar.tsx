@@ -24,9 +24,11 @@ export function AdminSidebar({ groups }: { groups: Group[] }) {
       {groups.map((g, i) => (
         <div key={g.label ?? i} className="flex flex-col gap-1">
           {g.label && (
+            // A section heading, not a link — smaller and bolder than the items,
+            // wide-tracked, on a divider. Kept in step with the mobile drawer.
             <div
-              className="px-3 pb-1 text-xs font-medium uppercase"
-              style={{ color: "var(--muted)", letterSpacing: "0.06em" }}
+              className="border-t px-3 pt-3 pb-1 text-[10px] font-bold uppercase"
+              style={{ color: "var(--muted)", borderColor: "var(--border)", letterSpacing: "0.12em", opacity: 0.85 }}
             >
               {g.label}
             </div>

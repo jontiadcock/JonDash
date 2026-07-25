@@ -114,9 +114,12 @@ export function AdminNav({ groups }: { groups: Group[] }) {
                   {groups.map((g, i) => (
                     <div key={g.label ?? i} className="flex flex-col gap-1">
                       {g.label && (
+                        // A section heading, not an option: smaller and bolder than the
+                        // links, wide-tracked, and sitting on a divider so it can't be
+                        // mistaken for something tappable.
                         <div
-                          className="px-3 pb-1 text-xs font-medium uppercase"
-                          style={{ color: "var(--muted)", letterSpacing: "0.06em" }}
+                          className="mt-1 border-t px-3 pt-3 pb-1 text-[10px] font-bold uppercase"
+                          style={{ color: "var(--muted)", borderColor: "var(--border)", letterSpacing: "0.12em", opacity: 0.85 }}
                         >
                           {g.label}
                         </div>

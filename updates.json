@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.0-beta.2",
+      "date": "2026-07-25",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: UI rework phase 2 - make it yours. You can now rename the app under Admin > Settings > Branding: the name shows in the header and the browser tab, and the square mark takes its first letter. New authenticator enrolments use the new name, while entries already in your authenticator keep the old name and keep working, because the underlying secret never changes. You can also set your own accent colour - a hex colour of your choice replaces the default purple on buttons, links and highlights in both light and dark mode, and text on the accent switches between black and white automatically so it stays readable whatever you pick; leave it blank for the default. Also: the section headings in the Settings navigation (Server settings, Security) now sit on a divider and are smaller, bolder and wider-spaced, so they read as headings rather than as options you can tap - on both the mobile slide-out and the desktop sidebar."
+    },
+    {
       "version": "1.7.0-beta.1",
       "date": "2026-07-25",
       "type": "minor",

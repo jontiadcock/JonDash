@@ -9,6 +9,24 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.0-beta.2] — 2026-07-25
+
+**UI rework — phase 2: make it yours.** You can now rename the app and set your own accent colour.
+
+### Added
+- **Rename the app.** *Admin → Settings → Branding* sets the name shown in the header and the browser
+  tab, and the square mark takes its first letter. New authenticator enrolments use the new name too —
+  **entries already in your authenticator keep the old name and keep working**, because the underlying
+  secret never changes.
+- **Set your own accent colour.** A hex colour of your choice replaces the default purple on buttons,
+  links and highlights, in both light and dark mode. Text on the accent automatically switches between
+  black and white so it stays readable whatever colour you pick. Leave it blank for the default.
+
+### Changed
+- **Section headings in the Settings navigation are clearer.** *Server settings* and *Security* now sit on
+  a divider and are smaller, bolder and wider-spaced, so they read as headings rather than as options you
+  can tap — on both the mobile slide-out and the desktop sidebar.
+
 ## [1.7.0-beta.1] — 2026-07-25
 
 **UI rework — phase 1 of several.** The look and layout are being refreshed in stages; nothing about your

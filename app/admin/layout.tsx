@@ -5,6 +5,7 @@ import { AdminNav } from "./admin-nav";
 import { AdminSidebar } from "./admin-sidebar";
 import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
+import { BrandMark } from "@/app/components/branding";
 import { getAppVersion } from "@/lib/update";
 
 export default async function AdminLayout({
@@ -55,12 +56,7 @@ export default async function AdminLayout({
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link href="/admin" className="flex min-w-0 items-center gap-2 font-semibold">
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-                J
-              </span>
-              <span className="truncate">
-                JonDash<span className="hidden sm:inline"> Settings</span>
-              </span>
+              <BrandMark suffix={<span className="hidden sm:inline"> Settings</span>} />
             </Link>
             <span className="hidden text-xs sm:inline" style={{ color: "var(--muted)" }}>v{version}</span>
             {/* Mobile nav: the grouped sidebar is hidden below md, so surface a hamburger

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
+import { BrandMark } from "@/app/components/branding";
 
 export default async function AppLayout({
   children,
@@ -22,10 +23,7 @@ export default async function AppLayout({
       >
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:px-4">
           <Link href="/dashboard" className="flex min-w-0 items-center gap-2 font-semibold">
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-              J
-            </span>
-            <span className="truncate">JonDash</span>
+            <BrandMark />
           </Link>
           <div className="flex flex-none items-center gap-2 sm:gap-3">
             {canAccessAdmin && (

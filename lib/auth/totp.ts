@@ -7,7 +7,24 @@ import { prisma } from "@/lib/db";
 // Allow a small time drift window (previous/next 30s step).
 authenticator.options = { window: 1 };
 
-const ISSUER = "JonDash";
+const DEFAULT_ISSUER = "JonDash";
+
+/**
+ * The label authenticator apps show for this instance. Follows the rebranding app name
+ * (CORE-06) so a renamed install enrols under its own name.
+ *
+ * **Only affects NEW enrolments.** The issuer is baked into the `otpauth://` URI at scan
+ * time, so entries already in someone's authenticator keep the old label — and keep working,
+ * because the shared secret is unchanged. Renaming never invalidates an existing enrolment.
+ */
+async function issuer(): Promise<string> {
+  try {
+    const { getAppName } = await import("@/lib/settings");
+    return (await getAppName()) || DEFAULT_ISSUER;
+  } catch {
+    return DEFAULT_ISSUER;
+  }
+}
 
 /** RFC 6238 time step in seconds — otplib's default, and what our codes assume. */
 const TOTP_PERIOD_SECONDS = 30;
@@ -23,7 +40,7 @@ export function generateTotpSecret(): string {
 
 /** otpauth:// URI + PNG data URL for enrolment (QR shown to the user). */
 export async function buildTotpEnrolment(email: string, secret: string) {
-  const otpauth = authenticator.keyuri(email, ISSUER, secret);
+  const otpauth = authenticator.keyuri(email, await issuer(), secret);
   const qrDataUrl = await qrcode.toDataURL(otpauth, { margin: 1, width: 220 });
   return { otpauth, qrDataUrl };
 }

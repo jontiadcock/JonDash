@@ -13,7 +13,7 @@ type FieldKind = "string" | "int";
 
 // Which admin page a setting is surfaced on. "general" = the Settings page
 // (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
-export type SettingGroup = "general" | "sessions" | "audit" | "updates";
+export type SettingGroup = "general" | "sessions" | "audit" | "updates" | "branding";
 
 type SettingDef<T> = {
   label: string;
@@ -34,6 +34,29 @@ export const SETTINGS = {
     default: "",
     schema: z.string().max(280),
     group: "general",
+  } as SettingDef<string>,
+
+  // Rebranding (CORE-06). Instance-wide, admin-set; the defaults keep a fresh
+  // install recognisably JonDash until changed.
+  "branding.appName": {
+    label: "App name",
+    help: "Shown in the header, the browser tab, and new authenticator enrolments. Existing authenticator entries keep the old name.",
+    kind: "string",
+    default: "JonDash",
+    schema: z.string().trim().min(1, "Enter a name.").max(40),
+    group: "branding",
+  } as SettingDef<string>,
+
+  "branding.accent": {
+    label: "Accent colour",
+    help: "A hex colour like #4f46e5 for buttons and highlights, or blank for the default. Used in both light and dark mode.",
+    kind: "string",
+    default: "",
+    schema: z
+      .string()
+      .trim()
+      .regex(/^$|^#[0-9a-fA-F]{6}$/, "Use a 6-digit hex colour like #4f46e5, or leave blank."),
+    group: "branding",
   } as SettingDef<string>,
 
   "session.lifetimeDays": {
@@ -167,6 +190,12 @@ async function readValue<K extends SettingKey>(
 
 export async function getLoginMessage(): Promise<string> {
   return readValue("login.message");
+}
+export async function getAppName(): Promise<string> {
+  return readValue("branding.appName");
+}
+export async function getAccentColor(): Promise<string> {
+  return readValue("branding.accent");
 }
 export async function getSessionLifetimeMs(): Promise<number> {
   return (await readValue("session.lifetimeDays")) * 24 * 60 * 60 * 1000;

@@ -55,6 +55,28 @@ export async function saveUpdateChannelAction(
   return { ok: true, channel: raw };
 }
 
+/**
+ * Save the branding settings (app name, accent colour) — CORE-06.
+ *
+ * Kept separate from the general save so the audit entry names it as a branding change, and
+ * so a validation error in one section doesn't discard the other's input. Revalidates the
+ * layout because the name and accent render in every header.
+ */
+export async function updateBrandingAction(
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("settings.manage");
+
+  const { errors, changed } = await applySettingsFormDetailed(formData, settingKeysByGroup("branding"));
+  if (Object.keys(errors).length > 0) return { errors };
+
+  await audit("settings.branding.updated", { userId: admin.id, detail: changed.join(", ") || "no change" });
+  revalidatePath("/", "layout"); // header brand + tab title live in the root layout
+  return { success: "Branding saved." };
+}
+
 /** Save the general (non-critical) settings on the Settings page. */
 export async function updateSettingsAction(
   _prev: SettingsState,

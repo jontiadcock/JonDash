@@ -76,21 +76,24 @@ MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0), MOD-09/10 (v1.5.2); MOD-1
 9. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
    (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
    by the owner** — move it freely
-10. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
+10. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
+   back to it; **no compatibility work, just a warning + disclaimer** ("this may break your JonDash").
+   Owner request 2026-07-25. **Position not yet confirmed by the owner** — move it freely
+11. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-11. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+12. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-12. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+13. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-13. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+14. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-14. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-15. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+15. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+16. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-16. 🌅 **OPS-03 — VHD appliance**
-17. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+17. 🌅 **OPS-03 — VHD appliance**
+18. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -419,6 +422,22 @@ enforcement is real — installs are refused — only the visual cue is missing.
 piece of module-UI work rather than tracking it.
 
 ### OPS — Platform, packaging & operations
+
+#### OPS-17 · Revert to a chosen version ("custom version") — ⏳ Planned
+Owner request 2026-07-25. Let an admin pick **any** published version and roll the install back (or
+forward) to it from Admin → Updates, rather than only taking the newest on their channel.
+
+**Deliberately unguarded, by owner decision.** No compatibility checking, no migration reconciliation, no
+"is this sensible" logic — the whole safety story is a **warning and disclaimer** the admin must accept:
+*"this may break your JonDash."* That keeps the feature small; it is the owner's install and their call.
+
+- Reuses what already exists: the updater can fetch any tag, and **OPS-10's snapshot/auto-revert** remains
+  the backstop if the chosen version won't boot.
+- **The honest risk to state in the warning:** going *backwards* past a database migration is the one thing
+  the snapshot can't always undo — an older build may not understand a newer schema. Say so plainly rather
+  than implying a clean rollback.
+- Keep it out of the way of the normal update path (it isn't an "update"), and audit which version was
+  chosen and by whom.
 
 #### OPS-16 · Back up & restore a module's own data tables — ⏳ Planned
 Owner request 2026-07-25 (asked "does backup cover module data?"). **Partly, today.** A backup
