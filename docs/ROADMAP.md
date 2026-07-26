@@ -102,6 +102,9 @@ another session's work while nothing blocks it.
    (added 2026-07-24) — move it freely
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
+17b. ⏳ **SEC-07 — Service accounts (an identity nobody can log in as)** — owner decision 2026-07-26,
+   requested by the add-ons session for the MCP helper but **deliberately generic**. Not blocking them.
+   **Position not set by the owner.** Carries a lockout edge: `hasActiveAdmin()` must count humans only
 18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
    and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
    HTTP API. Nothing needs it today — see the catalog entry before building it
@@ -210,6 +213,39 @@ this entry is now the only surviving description — treat the design notes belo
   password + 2FA login, and this adds a new externally-reachable authenticated surface to a security-first
   app that currently has none. There is no user-facing pressure for it — the cost of getting it wrong is
   much higher than the cost of waiting.
+
+#### SEC-07 · Service accounts — an identity nobody can log in as — ⏳ Planned (owner decision, 2026-07-26)
+An identity that holds permissions and appears in the audit log, but has **no login surface at all**.
+Created alongside a user ("Create service account"), and **generic on purpose**: the owner considered an
+MCP-specific version and chose this, so any helper can bind to one and core stays ignorant of individual
+add-ons, as it is everywhere else.
+
+**Why:** a helper that mints a key for an agent must bind it to a JonDash identity to inherit RBAC. Today
+that has to be a real person's account, so the agent's identity is also a live login surface with a
+password, MFA and a reset path it never needs; the audit log blames a person for what an agent did; and
+revoking the agent means locking out the human.
+
+**"Cannot log in" has to be total** — a half-closed door is worse than none:
+- **No password.** Not a blank one — no credential any comparison can satisfy.
+- **Refused at sign-in *before* any password check**, so the account cannot be probed for existence.
+- No setup token, no password reset, no MFA enrolment, no recovery codes.
+- Cannot be promoted to a normal account, nor a normal account converted into one.
+- **Visibly a service account wherever users are listed** — not a person with an odd name.
+
+**⚠ THE LOCKOUT EDGE — verified in code 2026-07-26, and it is not a counting nicety.** There is **no
+explicit "at least one admin" guard** in this app. The invariant is held implicitly by *"you cannot
+delete or disable yourself"* (`app/admin/actions.ts`). The real exposure is
+**`hasActiveAdmin()` in `lib/auth/bootstrap.ts`**, which counts `role: ADMIN, status: ACTIVE` and is the
+sole gate on the **first-run recovery wizard** — it is consulted by `app/page.tsx`, `app/login/page.tsx`
+and six times in `app/welcome/actions.ts`.
+
+So if a service account can hold `ADMIN` and be `ACTIVE`, then once every human admin is gone the wizard
+**never appears**, and nobody can sign in as the account keeping it quiet. The install is permanently
+unrecoverable — the owner's one absolute red line. **`hasActiveAdmin()` must count humans only**, and that
+single predicate is the whole fix. Any future explicit admin-count guard inherits the same requirement.
+
+**Useful, not essential:** disable/delete in one action, and a way for a helper to learn it happened so it
+can drop keys bound to that identity.
 
 #### Security hardening backlog (from `docs/SECURITY-REVIEW.md`)
 Dummy-argon2 on unknown-user login (timing), `poweredByHeader:false`, TOTP replay
