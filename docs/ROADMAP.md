@@ -102,11 +102,7 @@ another session's work while nothing blocks it.
    (added 2026-07-24) — move it freely
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-**NEXT UP.** ▶️ **SEC-07 — Service accounts (an identity nobody can log in as)** — owner decision
-2026-07-26, placed **ahead of everything** the same day because it **blocks the add-ons MCP helper**,
-which cannot ship at all until it exists. Deliberately generic, not MCP-specific. Carries a lockout
-edge: `hasActiveAdmin()` must count humans only. Scope includes both requested extras (one-action
-disable/delete, and a signal a helper can use to drop bound keys).
+✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
 18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
    and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
    HTTP API. Nothing needs it today — see the catalog entry before building it
@@ -216,7 +212,18 @@ this entry is now the only surviving description — treat the design notes belo
   app that currently has none. There is no user-facing pressure for it — the cost of getting it wrong is
   much higher than the cost of waiting.
 
-#### SEC-07 · Service accounts — an identity nobody can log in as — ▶️ NEXT (owner decision, 2026-07-26)
+#### SEC-07 · Service accounts — an identity nobody can log in as — ✅ Shipped v1.7.3-beta.1 (2026-07-26)
+
+**Shipped as specified.** `lib/auth/service-accounts.ts` holds the single definition of "is this a
+login?"; `countHumanAdmins()` is the lockout guard and the only thing `hasActiveAdmin()` calls.
+Sign-in, setup-link completion and admin reset all refuse. `listBindableAccounts()` /
+`resolveBindableAccount()` are the helper surface; `onIdentityRemoved` is the hygiene hook;
+`getEffectivePermissionsUncached` is exported with `cache()` as a thin wrapper. 19 tests in
+`tests/unit/service-accounts.test.ts`, plus a live pass: created one through the form, confirmed the
+badge, confirmed sign-in answers exactly like an unknown address, and confirmed that with only an
+ACTIVE ADMIN service account left both `/` and `/login` still redirect to the recovery wizard.
+
+Original specification below.
 
 > **BLOCKING.** The add-ons session's MCP helper cannot ship until this exists. The owner decided its keys
 > bind to service accounts **only** — no interim where an agent binds to a real person's account —
