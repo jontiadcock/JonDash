@@ -255,8 +255,24 @@ describe.runIf(onWindows)("elevate shim: the flags that would mean arbitrary cod
     expect(run(["--action", "install", "--manager", "choco", "--package", "X"])).toBe(2);
   });
 
-  it("accepts a well-formed id, and status needs no elevation", () => {
-    // status is a read: it must never prompt, which is what makes polling for progress viable.
-    expect(run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"])).toBe(0);
-  });
+  it(
+    "accepts a well-formed id, and status needs no elevation",
+    () => {
+      // status is a read: it must never prompt, which is what makes polling for progress viable.
+      //
+      // **This is the only case in this block that reaches winget** — every other one is refused
+      // by the shim's own grammar before winget is touched. It first went red on CI for that
+      // reason: winget's cold start on a windows-latest runner is far longer than vitest's 5s
+      // default, and a runner may not have App Installer at all.
+      //
+      // So the assertion is deliberately a SET, not `toBe(0)`. What this test owns is the shim's
+      // behaviour: 0 means winget answered, 7 (ExitNoManager) means winget isn't installed — both
+      // prove the id got PAST the grammar and that `status` returned without elevating. Only
+      // 2 (ExitUsage) would disprove it. Asserting 0 was really asserting "the CI runner has a
+      // warm winget", which is not a property of this codebase.
+      const code = run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"]);
+      expect([0, 7], `got ${code}; 2 would mean the grammar rejected a valid id`).toContain(code);
+    },
+    30_000,
+  );
 });
