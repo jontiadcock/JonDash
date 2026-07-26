@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { isServiceAccount } from "@/lib/auth/service-accounts";
 import { verifyPassword, verifyDecoyPassword } from "@/lib/auth/password";
 import { consumeTotpForUser } from "@/lib/auth/totp";
 import { consumeBackupCode, backupCodeStatus } from "@/lib/auth/backup-codes";
@@ -40,7 +41,16 @@ export async function loginPasswordAction(
   if (!emailParsed.success || !password) return generic;
 
   const user = await prisma.user.findUnique({ where: { email: emailParsed.data } });
-  if (!user || !user.passwordHash || user.status !== "ACTIVE") {
+  // A SERVICE ACCOUNT is refused here (SEC-07) — first, before any credential comparison, and
+  // down the same decoy path as an unknown address so it answers in the same time with the same
+  // words. It is therefore not probeable: nobody can discover that a service account exists, or
+  // what it is called, by watching this endpoint.
+  //
+  // It would already fall into this branch via `!user.passwordHash`, since a service account has
+  // none. That is deliberately not what we rely on — a null hash is an absence, and an absence can
+  // be filled in by a later code path that never heard of service accounts. The flag is a
+  // statement of intent and survives that.
+  if (!user || isServiceAccount(user) || !user.passwordHash || user.status !== "ACTIVE") {
     // Spend the same argon2 work we would have spent on a real hash, so an
     // unregistered address doesn't answer faster than a wrong password.
     return await verifyDecoyPassword(password).then(() => generic);

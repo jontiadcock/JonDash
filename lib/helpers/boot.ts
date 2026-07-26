@@ -100,3 +100,30 @@ export async function bootHelpers(): Promise<void> {
     }
   }
 }
+
+/**
+ * Tell every installed helper that a service account was deleted (SEC-07).
+ *
+ * **Hygiene, not safety.** See `onIdentityRemoved` in `types.ts`: a helper's real protection is
+ * re-resolving the account on every call and failing closed, which holds whether or not this
+ * runs. So every failure mode here is deliberately swallowed — the account is already gone, and
+ * a helper that throws or hangs must not be able to block or reverse a deletion.
+ *
+ * Bounded per helper and isolated per helper, for the same reason boot is: one badly-behaved
+ * helper cannot be allowed to hold up an admin action on the identity page.
+ */
+export async function notifyIdentityRemoved(accountId: string): Promise<void> {
+  for (const def of getAllHelpers()) {
+    if (!def.onIdentityRemoved) continue;
+    try {
+      await Promise.race([
+        def.onIdentityRemoved(bootContext(def), accountId),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("onIdentityRemoved timed out")), BOOT_BUDGET_MS),
+        ),
+      ]);
+    } catch (e) {
+      console.error(`[helpers] "${def.id}" onIdentityRemoved failed:`, e);
+    }
+  }
+}

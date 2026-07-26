@@ -1,18 +1,31 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { countHumanAdmins } from "@/lib/auth/service-accounts";
 
-/** Whether an admin has finished setup. Drives the first-run wizard. */
+/**
+ * Whether an admin has finished setup. Drives the first-run wizard.
+ *
+ * **Counts HUMANS only (SEC-07).** This function is the sole gate on the recovery wizard, so if a
+ * service account could satisfy it, an install whose last human admin was deleted would show the
+ * login page forever — with nobody able to sign in, and the wizard that exists to rescue exactly
+ * that situation permanently suppressed by an account that cannot itself be used.
+ *
+ * The delegation lives in `service-accounts.ts` so there is one definition of "human", not a
+ * `isServiceAccount: false` clause copied into every future admin-count query.
+ */
 export async function hasActiveAdmin(): Promise<boolean> {
-  const count = await prisma.user.count({
-    where: { role: "ADMIN", status: "ACTIVE" },
-  });
-  return count > 0;
+  return (await countHumanAdmins()) > 0;
 }
 
-/** The admin currently mid-way through first-run setup, if any. */
+/**
+ * The admin currently mid-way through first-run setup, if any.
+ *
+ * A service account is never `PENDING_SETUP` — it has no setup to complete — but the filter is
+ * explicit rather than assumed, because "it can't happen" is how it eventually happens.
+ */
 export async function getPendingAdmin() {
   return prisma.user.findFirst({
-    where: { role: "ADMIN", status: "PENDING_SETUP" },
+    where: { role: "ADMIN", status: "PENDING_SETUP", isServiceAccount: false },
     orderBy: { createdAt: "asc" },
   });
 }

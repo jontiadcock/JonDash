@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   createUserAction,
+  createServiceAccountAction,
   resetAccessAction,
   createLinkAction,
   updateLinkAction,
@@ -111,6 +112,62 @@ export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
       </form>
       {state.error && <p className="form-error mt-2">{state.error}</p>}
       {state.setupUrl && <SetupLinkBox url={state.setupUrl} />}
+    </div>
+  );
+}
+
+/**
+ * Create a service account (SEC-07).
+ *
+ * Notice what this form does **not** have: no email field, no setup link on success. Both absences
+ * are the feature. An email box would invite a real address and imply a mailbox; a setup link is
+ * the thing that turns an identity into a login, and there is deliberately no code path that could
+ * produce one here.
+ */
+export function CreateServiceAccountForm({ isAdmin = true }: { isAdmin?: boolean }) {
+  const [state, action, pending] = useActionState(createServiceAccountAction, initial);
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state.ok) ref.current?.reset();
+  }, [state.ok]);
+
+  return (
+    <div>
+      <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="label" htmlFor="svc-name">
+            Name
+          </label>
+          <input
+            id="svc-name"
+            name="displayName"
+            type="text"
+            required
+            minLength={2}
+            maxLength={60}
+            className="input"
+            placeholder="e.g. AI assistant"
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="svc-role">
+            Access
+          </label>
+          <select id="svc-role" name="role" className="input" defaultValue="USER">
+            <option value="USER">User</option>
+            {isAdmin && <option value="ADMIN">Admin</option>}
+          </select>
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={pending}>
+          {pending ? "Creating…" : "Create"}
+        </button>
+      </form>
+      {state.error && <p className="form-error mt-2">{state.error}</p>}
+      {state.ok && (
+        <p className="mt-2 text-sm" style={{ color: "var(--primary)" }}>
+          Created. An add-on can now be pointed at it — there is nothing to send anyone.
+        </p>
+      )}
     </div>
   );
 }

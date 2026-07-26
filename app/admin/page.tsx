@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAdminArea, firstPermittedAdminPath } from "@/lib/auth/guards";
-import { CreateUserForm } from "./ui";
+import { CreateUserForm, CreateServiceAccountForm } from "./ui";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +35,24 @@ export default async function AdminHome() {
       </section>
 
       {canCreate && (
-        <section className="card p-6">
-          <h2 className="mb-4 text-lg font-semibold">Create a new user</h2>
-          <CreateUserForm isAdmin={admin.role === "ADMIN"} />
-        </section>
+        <div className="grid gap-6 md:grid-cols-2">
+          <section className="card p-6">
+            <h2 className="mb-4 text-lg font-semibold">Create a new user</h2>
+            <CreateUserForm isAdmin={admin.role === "ADMIN"} />
+          </section>
+          {/* Alongside creating a user, not hidden behind it (SEC-07). A service account is a
+              different kind of thing, so it gets its own card rather than a checkbox on the user
+              form — a flag there is one someone eventually ticks by mistake. */}
+          <section className="card p-6">
+            <h2 className="mb-1 text-lg font-semibold">Create a service account</h2>
+            <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+              An identity for an add-on to act as — it can hold permissions and appears in the audit
+              log, but <strong>nobody can ever sign in as it</strong>. No password, no authenticator,
+              no reset link.
+            </p>
+            <CreateServiceAccountForm isAdmin={admin.role === "ADMIN"} />
+          </section>
+        </div>
       )}
 
       <section className="card overflow-hidden">
@@ -46,7 +60,7 @@ export default async function AdminHome() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ color: "var(--muted)" }} className="text-left">
-                <th className="px-5 py-3 font-medium">Email</th>
+                <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Access</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Groups</th>
@@ -58,7 +72,20 @@ export default async function AdminHome() {
               {users.map((u) => (
                 <tr key={u.id} className="border-t" style={{ borderColor: "var(--border)" }}>
                   <td className="px-5 py-3 font-medium">
-                    {u.email}
+                    {/* A service account shows its NAME, never its generated handle — the handle is
+                        internal plumbing and showing it invites someone to treat it as an address.
+                        The badge is not decoration: "visibly a service account wherever users are
+                        listed" is part of the guarantee, so this must never read as a person with
+                        an odd name (SEC-07). */}
+                    {u.isServiceAccount ? (u.displayName ?? u.email) : u.email}
+                    {u.isServiceAccount && (
+                      <span
+                        className="ml-2 rounded px-1.5 py-0.5 text-xs font-semibold"
+                        style={{ background: "color-mix(in srgb, var(--primary) 16%, transparent)", color: "var(--primary)" }}
+                      >
+                        Service account
+                      </span>
+                    )}
                     {u.id === admin.id && (
                       <span
                         className="ml-2 rounded px-1.5 py-0.5 text-xs"

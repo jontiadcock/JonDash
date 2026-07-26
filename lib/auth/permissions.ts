@@ -62,18 +62,38 @@ export function parsePermissionsJson(json: string): Permission[] {
  * the permissions on their assigned access roles. Memoized per request so the
  * many per-page/per-action guard checks share one query.
  */
-export const getEffectivePermissions = cache(
-  async (user: Pick<User, "id" | "role">): Promise<Set<Permission>> => {
-    if (user.role === "ADMIN") return new Set(ALL_PERMISSIONS);
-    const roles = await prisma.accessRole.findMany({
-      where: { users: { some: { id: user.id } } },
-      select: { permissionsJson: true },
-    });
-    const out = new Set<Permission>();
-    for (const r of roles) for (const p of parsePermissionsJson(r.permissionsJson)) out.add(p);
-    return out;
-  },
-);
+export async function getEffectivePermissionsUncached(
+  user: Pick<User, "id" | "role">,
+): Promise<Set<Permission>> {
+  if (user.role === "ADMIN") return new Set(ALL_PERMISSIONS);
+  const roles = await prisma.accessRole.findMany({
+    where: { users: { some: { id: user.id } } },
+    select: { permissionsJson: true },
+  });
+  const out = new Set<Permission>();
+  for (const r of roles) for (const p of parsePermissionsJson(r.permissionsJson)) out.add(p);
+  return out;
+}
+
+/**
+ * The same answer, memoized per request. **This is the one to use inside a request** — pages,
+ * actions and guards all hit it many times per render and should share a single query.
+ *
+ * `cache()` is a thin wrapper over the uncached implementation above, so the two can never
+ * disagree: there is one body, reached two ways.
+ *
+ * **Why the uncached sibling exists (SEC-07, owner decision 2026-07-26).** A helper's listener
+ * runs outside any request — no React render, no request scope — and still needs to authorize.
+ * Measured rather than assumed: React's `cache()` called outside a render **neither throws nor
+ * memoizes**, so calling this one would work today, and the absent memoization is actually the
+ * safer behaviour (a process-wide permission cache shared across agents would be worse than none).
+ *
+ * But that is undocumented React internal behaviour, not a contract. If a future React made it
+ * throw, or memoize process-globally, authorization would break or leak — **silently**, in the one
+ * function where that matters most. So work outside a request calls
+ * `getEffectivePermissionsUncached` by name, and says so.
+ */
+export const getEffectivePermissions = cache(getEffectivePermissionsUncached);
 
 /** Does the user (ADMIN or via access roles) have this capability? */
 export async function userHasPermission(

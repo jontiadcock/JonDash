@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.3-beta.1",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: service accounts. You can now create an identity for an add-on to act as, alongside creating a person, and nobody can ever sign in as it - no password, no authenticator, no recovery codes, no setup link, and none of those can be added later. Until now an assistant had to borrow a real person's account, which meant the audit log blamed you for what it did and revoking the assistant meant locking yourself out; those are now separate things. It cannot be turned into a login: resetting access, completing a setup link and signing in are all refused, and a sign-in attempt answers exactly like an unknown address so nobody can discover one exists by trying. It also never counts as your last administrator - delete every real admin and the first-run recovery screen still appears, so an install cannot end up locked away behind an account nobody can use. Disable or delete one in a single action and any add-on holding a key for it drops that key."
+    },
+    {
       "version": "1.7.2",
       "date": "2026-07-26",
       "type": "minor",

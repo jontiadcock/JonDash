@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { isServiceAccount, serviceAccountLabel, serviceAccountHandle } from "@/lib/auth/service-accounts";
 import { getRequestOrigin } from "@/lib/request";
 import { requireAdmin, requirePermission, requireAnyPermission } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
@@ -11,6 +12,7 @@ import { revokeAllSessions } from "@/lib/auth/session";
 import { processIconUpload } from "@/lib/security/upload";
 import { deleteIcon } from "@/lib/icons";
 import { audit } from "@/lib/audit";
+import { notifyIdentityRemoved } from "@/lib/helpers/boot";
 import {
   createUserSchema,
   createLinkSchema,
@@ -75,6 +77,64 @@ export async function createUserAction(
   return { ok: true, setupUrl: await buildSetupUrl(token.raw) };
 }
 
+/**
+ * Create a **service account** (SEC-07) — an identity that holds permissions and shows up in the
+ * audit log, but that nobody can ever sign in as.
+ *
+ * Deliberately a **separate action** from `createUserAction` rather than a flag on it. Creating a
+ * login and creating a thing-that-is-not-a-login are different intents with different invariants,
+ * and folding them together is how a boolean ends up in a form where somebody eventually flips it
+ * by accident. Nothing here issues a setup token, a password or MFA — not "issues an empty one":
+ * the fields are never written at all.
+ *
+ * The admin supplies a NAME. The email handle is generated on a reserved non-routable suffix, so
+ * nobody is invited to type a real address and no service account can ever collide with a person's.
+ */
+export async function createServiceAccountAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  await assertSameOrigin();
+  // Same permission as creating a user: this mints an identity that can hold capabilities.
+  const admin = await requirePermission("users.manage");
+
+  const name = String(formData.get("displayName") ?? "").trim();
+  if (name.length < 2 || name.length > 60) {
+    return { error: "Give the service account a name between 2 and 60 characters." };
+  }
+  const role = String(formData.get("role") ?? "USER") === "ADMIN" ? "ADMIN" : "USER";
+  // Same escalation rule as a user: only a full admin mints an admin-level identity. It matters
+  // more here, if anything — an agent holding this never gets challenged for a second factor.
+  if (role === "ADMIN" && admin.role !== "ADMIN") {
+    return { error: "Only a full admin can create an admin-level service account." };
+  }
+
+  const existing = await prisma.user.findFirst({
+    where: { isServiceAccount: true, displayName: name },
+    select: { id: true },
+  });
+  if (existing) return { error: "A service account with that name already exists." };
+
+  const user = await prisma.user.create({
+    data: {
+      email: serviceAccountHandle(),
+      displayName: name,
+      role,
+      isServiceAccount: true,
+      // ACTIVE immediately: there is no setup to complete, and PENDING_SETUP would mean an
+      // identity waiting for a step that can never happen.
+      status: "ACTIVE",
+    },
+  });
+
+  await audit("admin.service_account.create", {
+    userId: admin.id,
+    detail: `${serviceAccountLabel(user)} · role ${role}`,
+  });
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 export async function resetAccessAction(
   _prev: AdminState,
   formData: FormData,
@@ -85,6 +145,13 @@ export async function resetAccessAction(
   const userId = String(formData.get("userId") ?? "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found." };
+  // SEC-07 — refuse outright on a service account. This is the sharpest promotion path in the
+  // app: it sets PENDING_SETUP and issues a working setup link, which is precisely how an
+  // identity acquires a password and MFA. Running it here would silently turn an
+  // unloggable-into identity into a login, and hand someone the link to finish the job.
+  if (isServiceAccount(user)) {
+    return { error: "A service account has no sign-in to reset." };
+  }
   // A delegate (non-admin) may not reset an ADMIN account.
   if (user.role === "ADMIN" && admin.role !== "ADMIN") {
     return { error: "Only a full admin can reset an admin account." };
@@ -125,14 +192,22 @@ export async function setUserStatusAction(formData: FormData): Promise<void> {
   // A delegate (non-admin) may not act on an ADMIN account.
   if (user.role === "ADMIN" && admin.role !== "ADMIN") return;
 
+  const label = serviceAccountLabel(user);
+
   if (disable) {
     await prisma.user.update({ where: { id: user.id }, data: { status: "DISABLED" } });
     await revokeAllSessions(user.id);
-    await audit("admin.user.disable", { userId: admin.id, detail: user.email });
-  } else if (user.passwordHash && user.totpSecretEnc) {
-    // Only re-activate if the account previously completed setup.
+    await audit("admin.user.disable", { userId: admin.id, detail: label });
+  } else if (isServiceAccount(user) || (user.passwordHash && user.totpSecretEnc)) {
+    // Only re-activate a PERSON if they previously completed setup — otherwise "enable" would
+    // produce an account that exists, looks active, and cannot be signed into.
+    //
+    // A SERVICE ACCOUNT is the deliberate exception (SEC-07): it has no password and no MFA by
+    // design, so the completed-setup test is one it can never pass. Without this branch, disabling
+    // one would be irreversible from the UI — the button would appear to do nothing, which is the
+    // worst kind of broken.
     await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE" } });
-    await audit("admin.user.enable", { userId: admin.id, detail: user.email });
+    await audit("admin.user.enable", { userId: admin.id, detail: label });
   }
   revalidatePath("/admin");
   revalidatePath(`/admin/users/${user.id}`);
@@ -152,9 +227,17 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   // A delegate (non-admin) may not delete an ADMIN account.
   if (user.role === "ADMIN" && admin.role !== "ADMIN") return;
 
+  const wasServiceAccount = isServiceAccount(user);
+
   for (const link of user.links) await deleteIcon(link.iconPath);
   await prisma.user.delete({ where: { id: user.id } }); // cascades sessions + links
-  await audit("admin.user.delete", { userId: admin.id, detail: user.email });
+  await audit("admin.user.delete", { userId: admin.id, detail: serviceAccountLabel(user) });
+
+  // Tell helpers AFTER the row is gone (SEC-07), so a helper that re-resolves during its own
+  // cleanup sees the truth rather than a row about to vanish. Best-effort by design — the
+  // identity is already deleted and every helper fails closed on the next call regardless, so
+  // nothing here can undo or delay the deletion.
+  if (wasServiceAccount) await notifyIdentityRemoved(user.id);
   revalidatePath("/admin");
   // The user's detail page no longer exists — send the admin back to the list.
   redirect("/admin");

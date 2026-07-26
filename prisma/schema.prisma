@@ -27,7 +27,25 @@ model User {
   role     Role       @default(USER)
   status   UserStatus @default(PENDING_SETUP)
 
-  // Set during account setup.
+  // SEC-07 — a service account: an identity that holds permissions and appears in the
+  // audit log, but that NOBODY can ever sign in as. Not a person with an odd name.
+  //
+  // Everything about "cannot log in" hangs off this one flag, so it is checked BEFORE any
+  // credential comparison (see lib/auth/service-accounts.ts) rather than relying on
+  // passwordHash being null — a null hash is an absence, and an absence can be filled in
+  // later by a code path that forgot.
+  //
+  // It also must never satisfy "an admin exists": hasActiveAdmin() gates the first-run
+  // recovery wizard, so an ACTIVE ADMIN service account would hide that wizard forever
+  // while being unreachable itself. That is a permanently unrecoverable install.
+  isServiceAccount Boolean @default(false)
+
+  // Human-facing label. Required for a service account (which has no meaningful email);
+  // optional for a person, whose email is their label. Helpers render this and never store
+  // it, so renaming is free.
+  displayName String?
+
+  // Set during account setup. Always null for a service account.
   passwordHash String?
 
   // TOTP secret, encrypted at rest (AES-256-GCM). Never store in plaintext.

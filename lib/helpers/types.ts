@@ -351,6 +351,26 @@ export type HelperDefinition = {
   onUninstall?: (ctx: HelperBootContext, answers: Record<string, boolean>) => Promise<void>;
 
   /**
+   * A **service account this helper may have bound credentials to has been deleted** (SEC-07).
+   *
+   * Fired after the identity is gone, with its id, so a helper can drop key rows and stop showing
+   * a credential that points at nothing.
+   *
+   * **This is hygiene. It is explicitly NOT the safety property, and must never be designed as
+   * one** — agreed with the add-ons session, 2026-07-26, in their words: *"the security property
+   * must not depend on a notification arriving."* The guarantee is that a helper **re-resolves the
+   * account on every call** via `resolveBindableAccount()` and fails closed when it returns `null`
+   * or a non-`ACTIVE` status. That holds whether or not this hook fires, runs, or exists.
+   *
+   * The distinction matters because this hook is best-effort by construction: bounded, isolated,
+   * and skipped entirely if the server is down when the deletion happens. A helper that treated it
+   * as the revocation mechanism would leave live credentials against a deleted identity the first
+   * time it silently didn't fire — which is exactly the failure the per-call check is there to
+   * make impossible.
+   */
+  onIdentityRemoved?: (ctx: HelperBootContext, accountId: string) => Promise<void>;
+
+  /**
    * Questions for the uninstall confirmation screen; the replies arrive in `onUninstall`.
    * Same mechanism as a module's, and the same rules — except that a helper is **first-party**,
    * so `default: true` is honoured here and forced to false for modules.

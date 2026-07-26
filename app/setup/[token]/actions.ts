@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { isServiceAccount } from "@/lib/auth/service-accounts";
 import { hashToken } from "@/lib/crypto";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import { consumeTotpForUser } from "@/lib/auth/totp";
@@ -22,6 +23,12 @@ export async function findPendingUserByToken(rawToken: string) {
     where: { setupTokenHash: hashToken(rawToken) },
   });
   if (!user) return null;
+  // SEC-07 — a service account can never complete a setup link, even holding a valid token.
+  // It should never have one (nothing issues it a token), so this is the belt to that braces:
+  // the setup flow is where an account acquires a password and MFA, i.e. exactly where a
+  // service account would become a login. Refuse it here rather than trusting that no future
+  // path ever mints a token for one.
+  if (isServiceAccount(user)) return null;
   if (user.status !== "PENDING_SETUP") return null;
   if (!user.setupTokenExpiresAt || user.setupTokenExpiresAt.getTime() < Date.now()) return null;
   return user;
