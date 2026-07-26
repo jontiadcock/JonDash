@@ -102,8 +102,9 @@ another session's work while nothing blocks it.
    (added 2026-07-24) — move it freely
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
-   owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
+18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
+   and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
+   HTTP API. Nothing needs it today — see the catalog entry before building it
 19. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 20. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
@@ -182,11 +183,17 @@ Map an IP/CIDR → an account logged in automatically without credentials (e.g. 
   trustworthy as the client IP behind it. Tracked in the bug tracker (**OPS-15**).
 
 #### SEC-06 · Scoped API tokens + read-first JSON API — 🧊 Backlog (low priority, owner decision 2026-07-23)
-An authenticated **`/api/v1`** for external clients, plus the token model behind it. Nothing inside JonDash
-needs this — it exists to unblock the separate **JonDash-MCP** server, which can currently do only an
-unauthenticated health check. **Full specification already written** and maintained by the MCP session:
-[JonDash-mcp/docs/API-CONTRACT.md](https://github.com/jontiadcock/JonDash-mcp/blob/main/docs/API-CONTRACT.md)
-— implement from that rather than re-deriving it.
+
+> **⚠ Its whole reason for existing has moved (2026-07-26).** This item existed to unblock a **separate
+> MCP server repo**, which has since been **retired and rebuilt as an add-on**. An add-on runs *inside*
+> JonDash and reaches it through the module context, so it does not need an HTTP API, a bearer token or a
+> scope model at all. **Nothing currently needs SEC-06.** Kept, not deleted, because an external client
+> may still want it one day — but it should not be built on the old rationale. Owner's call whether it
+> stays in the backlog or is retired.
+
+An authenticated **`/api/v1`** for external clients, plus the token model behind it. Nothing inside
+JonDash needs it. The original specification lived in the retired MCP repo and is no longer reachable, so
+this entry is now the only surviving description — treat the design notes below as the record.
 - **Token model:** an `ApiToken` row storing only a **SHA-256 hash** plus an 8-char display prefix; format
   `jd_` + 43 base64url chars. Shown once at mint, revocable, optional expiry.
 - **Authorization is an intersection, not a replacement:** effective permission =

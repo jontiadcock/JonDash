@@ -150,7 +150,6 @@ rather than opening a public issue.
 | ---------- | ---------- |
 | **[JonDash](https://github.com/jontiadcock/JonDash)** *(you are here)* | The dashboard itself — the app you install and run. |
 | **[JonDash-addons](https://github.com/jontiadcock/JonDash-addons)** | The official source of add-on **modules** and **helpers**, installed from inside JonDash. |
-| **[JonDash-mcp](https://github.com/jontiadcock/JonDash-mcp)** | An [MCP](https://modelcontextprotocol.io) server so an AI assistant can read and manage your instance. |
 
 ## Documentation
 
