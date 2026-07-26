@@ -162,7 +162,8 @@ files (`@/modules/<your-id>/…`) but never another module's.
 
 A **helper** is a first-party shared component that does things modules are forbidden to do themselves.
 Declare the ones you need and JonDash installs them with your module — the admin never installs a helper
-directly, and they're listed read-only under **Admin → Helpers**:
+directly, and they're listed read-only as **Shared capabilities** on **Admin → Addons** (1.7.2+; it was
+its own Admin → Helpers page before that):
 
 ```ts
 const mod: ModuleDefinition = { …, helpers: ["scheduler"] };

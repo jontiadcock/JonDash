@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.2-beta.1",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: a new Permissions page, and Modules and Helpers merged into one Addons section. Permissions answers two questions on one screen - what a single addon is allowed to do, and which addons can do a given thing. The second is the one that catches trouble ('what can reach my files?') and you could not work it out before without opening every addon in turn. Each permission is a switch you can turn off, and turning one off takes effect immediately - the addon keeps working, that one capability stops answering. Where a permission is limited to a list - which services, which folders - that list now sits on the same screen as the switch rather than somewhere else, because a limit you have to go and find is how the recent security problems happened. You pick entries from a browsable list rather than typing names exactly right, and where an addon offers a per-entry setting - this one may act without asking me each time - that sits on the entry it applies to. Helpers are no longer a separate menu item: they were never separately installable, so a second entry implied a control that did not exist. They appear as Shared capabilities on the Addons page, in their own list rather than mixed in with the addons you can install and remove."
+    },
+    {
       "version": "1.7.1",
       "date": "2026-07-26",
       "type": "minor",

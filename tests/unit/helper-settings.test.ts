@@ -18,7 +18,12 @@ import path from "node:path";
  */
 const ROOT = process.cwd();
 const ACTION = fs.readFileSync(path.join(ROOT, "app", "admin", "helpers", "actions.ts"), "utf8");
-const PAGE = fs.readFileSync(path.join(ROOT, "app", "admin", "helpers", "page.tsx"), "utf8");
+// The panel moved into Admin → Addons as its "Shared capabilities" section (CORE-10);
+// /admin/helpers is now a redirect, so the assertions follow the panel, not the old route.
+const PAGE = fs.readFileSync(
+  path.join(ROOT, "app", "admin", "modules", "shared-capabilities.tsx"),
+  "utf8",
+);
 const TYPES = fs.readFileSync(path.join(ROOT, "lib", "helpers", "types.ts"), "utf8");
 
 describe("the save channel is gated before the helper is reached", () => {

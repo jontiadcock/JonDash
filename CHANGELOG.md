@@ -9,6 +9,31 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.2-beta.1] — 2026-07-26
+
+### Added
+- **A Permissions page**, answering two questions on one screen: what a single addon is allowed
+  to do, and *which addons can do a given thing*. The second is the one that catches trouble —
+  "what can reach my files?" — and you couldn't work it out before without opening every addon
+  in turn.
+  - **Every permission is a switch.** Turning one off takes effect immediately: the addon keeps
+    working, that one capability stops answering.
+  - **Per addon, never per capability-provider.** Switching something off for one addon doesn't
+    touch another that happens to use the same underlying capability.
+  - **An addon can only ever lose permissions here, never gain ones it never asked for.**
+  - **Where a permission is limited to a list** — which services, which folders — that list now
+    sits on the same screen as the switch. A limit you have to go and find is how the recent
+    security problems happened. You pick from a browsable list rather than typing names exactly,
+    and where an addon offers a per-entry setting — "this one may act without asking me each
+    time" — that sits on the entry it applies to, not on another page.
+
+### Changed
+- **Modules and Helpers are now one "Addons" section.** Helpers were never separately
+  installable — they arrive with an addon that needs one and go when nothing does — so a second
+  menu entry implied a control that didn't exist. They appear as **Shared capabilities** on the
+  Addons page, in their own list rather than mixed in with the addons you can install and remove.
+  The old Helpers link still works; it takes you to the new place.
+
 ## [1.7.1] — 2026-07-26
 
 **Groundwork.** Nothing here changes JonDash on its own — it's the foundation that lets add-ons do

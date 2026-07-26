@@ -28,14 +28,20 @@ export default async function AdminLayout({
         { href: "/admin/backup", label: "Backup", show: perms.has("backups.manage") },
         { href: "/admin/network", label: "Network & HTTPS", show: perms.has("network.manage") },
         { href: "/admin/email", label: "Email", show: perms.has("email.manage") },
-        { href: "/admin/modules", label: "Modules", show: perms.has("modules.manage") },
-        { href: "/admin/helpers", label: "Helpers", show: perms.has("modules.manage") },
+        // One entry, not two. Helpers were never separately manageable — they arrive with a
+        // module that needs them and leave when nothing does — so a second nav item implied a
+        // control that did not exist. They now live in a section of this page instead.
+        { href: "/admin/modules", label: "Addons", show: perms.has("modules.manage") },
         { href: "/admin/server", label: "Server power", show: isAdmin },
       ],
     },
     {
       label: "Security",
       items: [
+        // Under Security, not beside Modules: the question it answers — "what can reach my
+        // files?" — is a security question, and it spans every module rather than belonging
+        // to any one of them.
+        { href: "/admin/permissions", label: "Permissions", show: perms.has("modules.manage") },
         { href: "/admin", label: "Users", show: perms.has("users.manage") || perms.has("users.reset") },
         { href: "/admin/service-groups", label: "Service Groups", show: perms.has("groups.manage") },
         { href: "/admin/sessions", label: "Sessions", show: perms.has("sessions.manage") },

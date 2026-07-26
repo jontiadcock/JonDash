@@ -10,6 +10,7 @@ import { ModulesList, type ModuleItem } from "./ui";
 import { ImportModuleForm } from "./import-form";
 import { FailedModuleNotice } from "./failed-notice";
 import { HelperGapNotice } from "./helper-gap-notice";
+import { SharedCapabilities } from "./shared-capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +52,13 @@ export default async function AdminModulesPage() {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Modules</h1>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Addons</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Optional add-ons that plug into JonDash. Enabling one only affects that module; disabling or
-          uninstalling it leaves the base app unchanged. Review the permissions a module requests before
-          you enable it.
+          Optional extras that plug into JonDash. Enabling one only affects that addon; disabling or
+          uninstalling it leaves the base app unchanged. Review the permissions an addon requests before
+          you enable it — and see{" "}
+          <Link href="/admin/permissions" style={{ color: "var(--primary)" }}>Permissions</Link> for what
+          everything currently holds.
         </p>
       </section>
       {failed && <FailedModuleNotice moduleId={failed.id} at={failed.at} />}
@@ -70,6 +73,12 @@ export default async function AdminModulesPage() {
       <ModulesList items={items} />
 
       <ImportModuleForm />
+
+      {/* Shared capabilities — the same page, a SEPARATE list, never mixed in with the modules
+          above. They cannot be installed or removed by hand: one arrives with a module that
+          needs it and goes when nothing does. Listing them as peers would imply a control that
+          does not exist, which is why this is its own section rather than more rows. */}
+      <SharedCapabilities />
     </div>
   );
 }

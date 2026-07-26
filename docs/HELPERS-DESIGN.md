@@ -76,9 +76,10 @@ go into core because a module can't spawn `ping`; under this model it would be a
    This is rule 2 in another shape: the narrow API is the point, and reaching around it returns the
    general escape hatch that rule exists to prevent.
 8. **A helper's module-facing API must contain NO mutators for admin-owned configuration.**
-   Read and request, never add, remove or approve. Admin-owned config is edited on
-   **Admin → Helpers** via `SettingsPanel` + `onSettingsSubmit`, behind a core permission check,
-   with no module in the path.
+   Read and request, never add, remove or approve. Admin-owned config is edited on a **core**
+   screen behind a core permission check, with no module in the path — since CORE-10 that means
+   **Admin → Permissions** for anything bounding a capability (declare `scope` on the capability
+   and core renders the editor), and `SettingsPanel` + `onSettingsSubmit` for everything else.
 
    **This is the rule that was missing, and the bug is the argument for it** (found by the owner,
    2026-07-26). `host-services` exposed `admin.add` on the surface a module could reach, because
@@ -99,7 +100,26 @@ go into core because a module can't spawn `ping`; under this model it would be a
    backup-manager's panel manages the approved roots. Less dangerous — a root is a folder, not a
    standing OS permission — but the same structure, and worth moving.
 
-9. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
+9. **Every capability with a read form and a write form declares both.** Owner rule, 2026-07-26:
+   *"ensure with all of it, there is a read only and full options."* `host-services:read` and
+   `host-services:control`, never one capability spanning the pair. Most modules only ever need to
+   look, and a combined capability forces the admin to grant the destructive half to obtain the
+   harmless one — which makes the switch on Admin → Permissions a choice between useless and too
+   much, and pushes people toward granting more than they meant to.
+
+   `scope` is per-capability, so the split costs nothing: a service approved read-only is simply in
+   the read scope and not the control one, with no flag to get wrong, and `mayPrompt` can be true
+   for one and false for the other. Core never sees the verbs, so it cannot enforce this — it is a
+   contract obligation on the helper author.
+
+10. **Where "allow everything" would reach JonDash's own data, it does — and the warning says so.**
+    Owner decision, 2026-07-26. `.data/`, `prisma/` and `bin/` hold the master encryption key, the
+    database and the elevation binaries. An "everything" switch that silently carved them out would
+    grant less than the words on screen; one that included them without saying would grant more.
+    Both are the same failure, because the sentence beside the switch is the only thing the admin
+    reads before agreeing. See `unbounded.warning` in `lib/helpers/types.ts`.
+
+11. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
    `uninstallQuestions()` puts yes/no questions on the confirmation screen and the answers arrive in
    `onUninstall`. It exists because that hook is headless and runs *after* the admin has confirmed,
    so anything needing a decision — *"also remove Docker Desktop?"*, *"withdraw the Windows

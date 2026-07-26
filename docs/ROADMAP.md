@@ -93,21 +93,26 @@ another session's work while nothing blocks it.
 13. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-14. ⏳ **CORE-09 — Modules page: search, filter, compact list** *(owner request 2026-07-26)* — the
+14. ⏳ **CORE-10 — Admin → Permissions + declarative capability contract** *(owner 2026-07-26)* — per
+   (module, capability) grants, both axes, switches and per-item sets on ONE screen. The contract
+   helpers declare against is the bulk of it and is CORE-owned. **Migration must carry existing OS
+   grants** (Scheduled Tasks live outside the DB) or admins get standing privileges with no UI to
+   revoke them. **Position not set by the owner**
+15. ⏳ **CORE-09 — Modules page: search, filter, compact list** *(owner request 2026-07-26)* — the
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
-15. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
+16. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
    the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
    (added 2026-07-24) — move it freely
-16. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
+17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-17. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
+18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — what the MCP server needs; **low priority by
    owner decision 2026-07-23**. Nothing in JonDash needs it; it unblocks a separate repo
-18. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
-19. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
+19. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
+20. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
-20. 🌅 **OPS-03 — VHD appliance**
-21. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
+21. 🌅 **OPS-03 — VHD appliance**
+22. 🌅 **OPS-15 — Publish the bug tracker + security reviews** — deliberately held back for now; see the
     catalog entry for why and for what has to be true first
 
 _(Known bugs are tracked separately by severity, in a bug tracker that is **not published yet** — see
@@ -868,6 +873,44 @@ restarts a hung service cannot wait for a human"*), and re-granting costs anothe
   re-deriving.
 - The add-ons session is **blocked on this only for its integration test**; their allowlist and spec
   proceed without it.
+
+#### CORE-10 · Admin → Permissions, and a declarative capability contract — ⏳ Planned (owner, 2026-07-26)
+Owner's proposal, handed to core to own. Fold **Admin → Helpers** into the modules page, and add a
+new **Admin → Permissions** listing every module against its capabilities as switches.
+
+**The design is right, and each point earns its place:**
+- **Grants are per (module, capability), never per helper.** A helper-level switch would silently
+  widen *every* module that declared that helper, including ones installed earlier for unrelated
+  reasons. The helper switch is the **ceiling**; each module holds its own grant inside it.
+- **Both axes are needed.** *"Which modules can restart services"* / *"which can read my files"* is
+  the view that catches trouble, and it cannot be reconstructed by clicking through modules one at
+  a time.
+- **Switches and per-item sets belong on ONE screen.** "Manage services" is a boolean; *which*
+  services is a set, as are approved paths. Splitting them puts the control that bounds a
+  capability somewhere other than where the admin looks — **which is precisely the bug just fixed
+  in host-services**. This is the load-bearing point, not a layout preference.
+- **Helpers are not peers of modules on the merged page.** They cannot be installed or removed by
+  hand, so a flat list implies a control that does not exist. Same page, separate sections.
+
+**The blocker, and it is core's:** for core to render permissions for *any* helper, helpers must
+declare their capabilities and per-item scopes in a shape core can drive. Today each ships a
+bespoke panel it wrote itself. **That contract is the bulk of the work.** Core owns it — it is a
+core type core must render generically, and a contract designed without real consumers gets
+rewritten twice. Shape it against the three helpers that exist (`host-services`, `filesystem`,
+`host-install`) rather than in the abstract.
+
+**MIGRATION IS THE PART THAT BITES.** Existing installs have approved services whose OS grants are
+**Scheduled Tasks living outside the database**. A permissions UI backed only by DB state would
+show nothing while those grants keep working — standing privileges with no way to revoke them,
+which is worse than the problem being solved. `--list` reads from Windows precisely so the truth
+can be recovered; the migration must use it.
+
+**Core's addition to the filesystem question** (owner has not decided; do not design around it).
+The add-ons session argued against an "all paths" switch because read-all reaches
+`.data/secrets.json` and the database. Agreed, and one step further: **JonDash's own `.data/`,
+`prisma/` and `bin/` should never be grantable to any module, whatever root is chosen.** Not a
+blocklist for awkward cases — a fixed carve-out, because a path set that can include the master
+key or `jondash-grant.exe` defeats the entire crypto and elevation posture in one grant.
 
 #### CORE-09 · Modules page: search, filter, and a compact list — ⏳ Planned (owner request 2026-07-26)
 The page renders every module as a full card, which was fine when there were two and is already
