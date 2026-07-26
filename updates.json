@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.3-beta.4",
+      "date": "2026-07-27",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: switching an add-on off now actually stops the shared component it uses. Until now those components started whenever they were installed, whether or not any add-on using them was switched on. For almost every one that made no difference, because they sit idle until an add-on calls them - but it mattered for the first one that holds a connection open, where turning the add-on off left the connection listening and nothing on screen said so. You could reasonably believe you had closed it when you had not. Found by the add-ons author while building it; their own component was already patched, and this fixes it for every add-on including ones not written yet, so nobody has to rediscover it. Database upgrades still run for everything installed whether switched on or not, so turning an add-on back on can never meet an out-of-date layout."
+    },
+    {
       "version": "1.7.3-beta.3",
       "date": "2026-07-27",
       "type": "minor",

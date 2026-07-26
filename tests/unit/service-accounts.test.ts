@@ -186,3 +186,39 @@ describe("the deletion hook is hygiene, never safety", () => {
     expect(ADMIN.indexOf("notifyIdentityRemoved(user.id)")).toBeGreaterThan(del);
   });
 });
+
+/**
+ * Helper lifecycle: an off switch that doesn't stop anything is the defect this guards (2026-07-27).
+ *
+ * For almost every helper it makes no difference — a helper does nothing until a module calls it.
+ * It matters entirely for a helper that holds a resource of its own, and the `mcp` helper (a
+ * listening socket) was the first. Reported by the add-ons session after switching their add-on off
+ * left the endpoint open.
+ */
+describe("a helper starts only when an enabled module needs it", () => {
+  const BOOT = read("lib/helpers/boot.ts");
+  const REG = read("lib/helpers/registry.ts");
+
+  it("gates onBoot on the ACTIVE set, not the installed set", () => {
+    expect(BOOT).toMatch(/if \(def\.onBoot && active\.has\(def\.id\)\)/);
+    expect(BOOT).toContain("await activeHelperIds()");
+  });
+
+  it("still migrates every INSTALLED helper, enabled or not", () => {
+    // The trap in the obvious version of this fix. Skipping migrations for a dormant helper leaves
+    // it meeting an old layout the moment someone re-enables the module — the failure modules hit
+    // before ensureModuleMigrations existed.
+    const start = BOOT.indexOf("export async function bootHelpers");
+    const body = BOOT.slice(start, BOOT.indexOf("\nexport ", start + 1));
+    const filter = body.indexOf("required.has(h.id)");
+    const migrate = body.indexOf("await runHelperMigrations(def)");
+    const gate = body.indexOf("active.has(def.id)");
+    expect(filter).toBeGreaterThan(-1);
+    expect(migrate).toBeGreaterThan(filter); // migration is inside the REQUIRED loop…
+    expect(gate).toBeGreaterThan(migrate); // …and the enabled gate comes after it
+  });
+
+  it("counts enabled modules, so a dormant helper cannot be started by an installed-but-off one", () => {
+    expect(REG).toMatch(/activeHelperIds[\s\S]*?getEnabledModules\(\)/);
+  });
+});

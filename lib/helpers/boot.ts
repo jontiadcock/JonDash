@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { getAllHelpers, allRequiredHelperIds } from "./registry";
+import { getAllHelpers, allRequiredHelperIds, activeHelperIds } from "./registry";
 import { helperTableName, runHelperMigrations } from "./migrate";
 import type { HelperBootContext, HelperDefinition } from "./types";
 
@@ -55,12 +55,29 @@ function bootContext(def: HelperDefinition): HelperBootContext {
 /**
  * Bring installed helpers up to date and start them. Idempotent per process — Next may
  * import this module more than once, and a second boot would double every timer.
+ *
+ * **Migrating and starting are separate decisions (2026-07-27), and the split is load-bearing.**
+ *
+ * - **Schema is brought current for every INSTALLED helper**, even one whose only consumer is
+ *   switched off. A disabled module can be re-enabled at any moment, and skipping its migrations
+ *   would leave the helper meeting a layout it was never written against — the failure modules hit
+ *   before `ensureModuleMigrations` existed. Migrations are idempotent and cheap; skipping them to
+ *   save nothing is how that bug comes back.
+ * - **`onBoot` runs only for a helper an ENABLED module depends on.** Until now enabled state never
+ *   entered this decision, which was invisible while every helper was dormant-until-called. It
+ *   stopped being invisible with the first helper that holds a **listening socket**: switching its
+ *   add-on off left the endpoint open, and nothing on screen said otherwise. Reported by the add-ons
+ *   session, who had already patched their own helper; the general case is the framework's, because
+ *   the next author of a socket- or timer-holding helper would hit it and might not notice.
+ *
+ * The failure this prevents is not a crash — it is an off switch that looks like it worked.
  */
 export async function bootHelpers(): Promise<void> {
   if (booted) return;
   booted = true;
 
   const required = allRequiredHelperIds();
+  const active = await activeHelperIds();
   const helpers = getAllHelpers().filter((h) => required.has(h.id));
 
   for (const def of helpers) {
@@ -85,7 +102,10 @@ export async function bootHelpers(): Promise<void> {
         },
       });
 
-      if (def.onBoot) {
+      // Started only if something enabled needs it — see the note on this function. A helper
+      // whose add-ons are all switched off stays migrated and dormant, which is what the switch
+      // is understood to mean.
+      if (def.onBoot && active.has(def.id)) {
         // Bounded: a helper that hangs here would hang the whole server's startup.
         await Promise.race([
           def.onBoot(bootContext(def)),

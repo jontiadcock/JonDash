@@ -77,9 +77,18 @@ go into core because a module can't spawn `ping`; under this model it would be a
    general escape hatch that rule exists to prevent.
 8. **A helper's module-facing API must contain NO mutators for admin-owned configuration.**
    Read and request, never add, remove or approve. Admin-owned config is edited on a **core**
-   screen behind a core permission check, with no module in the path — since CORE-10 that means
-   **Admin → Permissions** for anything bounding a capability (declare `scope` on the capability
-   and core renders the editor), and `SettingsPanel` + `onSettingsSubmit` for everything else.
+   screen behind a core permission check, with no module in the path. Since CORE-10 there are two
+   such screens, and **they are different pages** — the add-ons session got this wrong in three
+   user-facing strings before loading the page, so it is spelled out here:
+
+   | What | Where it renders | Declared as |
+   | ---- | ---------------- | ----------- |
+   | The set that **bounds a capability** — which services, which folders | **Admin → Permissions**, on the same card as that capability's on/off switch | `scope` on the `HelperCapability` |
+   | **Everything else** a helper needs configured | **Admin → Addons → Shared capabilities**, under that helper | `SettingsPanel` + `onSettingsSubmit` on the `HelperDefinition` |
+
+   Admin → Permissions is organised **per (module, capability)**, so a helper-wide setting has no
+   row to live on there. A helper's own panel belongs with the helper, which is the Shared
+   capabilities section of the Addons page (`app/admin/modules/shared-capabilities.tsx`).
 
    **This is the rule that was missing, and the bug is the argument for it** (found by the owner,
    2026-07-26). `host-services` exposed `admin.add` on the surface a module could reach, because
@@ -141,7 +150,26 @@ go into core because a module can't spawn `ping`; under this model it would be a
     and takes the build down with it. Floors so far: `label`/`risk`/`scope`/`browse`/`unbounded`/
     `itemToggle` → `1.7.2-beta.1`; `unbounded.option` → `1.7.2-beta.2`.
 
-12. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
+12. **A helper only STARTS when an enabled module needs it — and the schema is kept current either
+    way.** Two separate decisions in `bootHelpers()`, and conflating them breaks one or the other.
+
+    `onBoot` runs only for a helper some **enabled** module depends on. Migrations run for every
+    **installed** helper, enabled or not, because a disabled module can be re-enabled at any moment
+    and its helper must never meet a layout it wasn't written against.
+
+    **Why this needed stating** (add-ons session, 2026-07-27): for almost every helper the
+    distinction is invisible, since a helper does nothing until a module calls it — a disabled
+    module means a dormant helper by definition. It stops being invisible the moment a helper
+    **holds a resource of its own**: a listening socket, a file watcher, a timer with side effects.
+    The `mcp` helper was the first, and switching its add-on off left the endpoint open with nothing
+    on screen saying so. The admin had done nothing, and believed they had closed the door.
+
+    **If your helper holds anything, this is your rule.** Core now refuses to start you, which is
+    the safe direction — it can only ever leave a resource unopened, never open one that the add-on
+    switch would have closed. You should still fail closed yourself rather than assume core got
+    there first.
+
+13. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
    `uninstallQuestions()` puts yes/no questions on the confirmation screen and the answers arrive in
    `onUninstall`. It exists because that hook is headless and runs *after* the admin has confirmed,
    so anything needing a decision — *"also remove Docker Desktop?"*, *"withdraw the Windows

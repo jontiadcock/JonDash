@@ -32,10 +32,41 @@ export function dependentsOf(helperId: string): { id: string; name: string }[] {
     .map((m) => ({ id: m.id, name: m.name }));
 }
 
-/** Every helper id any installed module depends on. */
+/**
+ * Every helper id any **installed** module depends on — regardless of whether that module is
+ * switched on.
+ *
+ * This is the set whose **schema** must be kept current (see `bootHelpers`), because a disabled
+ * module can be re-enabled at any moment and its helper must not then meet an old layout. It is
+ * deliberately NOT the set that gets *started* — for that, see `activeHelperIds()`.
+ */
 export function allRequiredHelperIds(): Set<string> {
   const out = new Set<string>();
   for (const m of getAllModules()) for (const h of helperIdsOf(m.helpers)) out.add(h);
+  return out;
+}
+
+/**
+ * Every helper id an **enabled** module depends on — the set that may actually run.
+ *
+ * **Why this exists (add-ons session, 2026-07-27).** Until now `onBoot` ran for every *installed*
+ * helper, enabled state never entering the decision. For almost every helper that is correct: a
+ * helper does nothing until a module calls it, so a disabled module means a dormant helper by
+ * definition.
+ *
+ * It stops being correct the moment a helper **holds a resource of its own** — a listening socket,
+ * a watcher, a timer. The `mcp` helper is the first: switching its add-on off under Admin → Addons
+ * left the endpoint open and nothing on screen said so. An admin who believed they had closed the
+ * door had done nothing at all, which is the same defect class as a permission switch that doesn't
+ * revoke.
+ *
+ * Note it counts modules that are enabled **and installed**: a module row that doesn't exist yet
+ * has never been enabled, so its helper stays dormant until someone turns it on.
+ */
+export async function activeHelperIds(): Promise<Set<string>> {
+  const { getEnabledModules } = await import("@/lib/modules/registry");
+  const out = new Set<string>();
+  for (const m of await getEnabledModules()) for (const h of helperIdsOf(m.def.helpers)) out.add(h);
   return out;
 }
 

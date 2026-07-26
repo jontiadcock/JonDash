@@ -9,6 +9,20 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.3-beta.4] — 2026-07-27
+
+### Fixed
+- **Switching an add-on off now actually stops the shared component it uses.** Until now those
+  components started whenever they were installed, whether or not any add-on using them was
+  switched on. For almost every one that made no difference — they sit idle until an add-on calls
+  them. It mattered for the first one that **holds a connection open**: turning that add-on off
+  left the connection listening, and nothing on screen said so. You could reasonably believe you'd
+  closed it when you hadn't. Found by the add-ons author while building it.
+  - Their own component was already patched; this fixes it for **every** add-on, including ones not
+    written yet, so nobody has to rediscover it.
+  - Database upgrades still run for everything installed, switched on or not, so turning an add-on
+    back on can never meet an out-of-date layout.
+
 ## [1.7.3-beta.3] — 2026-07-27
 
 ### Changed

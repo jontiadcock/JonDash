@@ -103,9 +103,6 @@ another session's work while nothing blocks it.
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
-18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
-   and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
-   HTTP API. Nothing needs it today — see the catalog entry before building it
 19. 🧊 **OPS-06 — Optional skip of browser auto-open on launch** — reclassified from BUG-06
 20. 🌅 **MOD-07 — Modifications (core-modifying add-ons)** — reserved; the module framework must stay able
     to add it later
@@ -128,6 +125,7 @@ _(Known bugs are tracked separately by severity, in a bug tracker that is **not 
 | MOD-04 | Arrangeable dashboard (core tiles too) | Dropped by the owner, 2026-07-22. Per-user **module widget** sizing/ordering shipped in v1.4.0 and stays; arranging core service tiles is not wanted |
 | MOD-06 | Third-party addons (sandboxing / signing) | Dropped by the owner, 2026-07-22. Modules stay a **curated / self-built** feature — the install-time verifier plus permission consent is the security model, and it is documented as defence in depth, not a sandbox |
 | CORE-01 | "No / low recovery codes" reminder | Dropped by the owner, 2026-07-22 |
+| SEC-06 | Scoped API tokens + read-first JSON API (`/api/v1`) | **Retired by the owner, 2026-07-27.** It existed for one reason: an **external** MCP server had to authenticate across a process boundary. MCP is now a **helper running in-process**, so there is no boundary and nothing to authenticate — the add-ons session confirmed nothing they ship now or later needs it. Owner's standing position: if helpers + modules can carry it, it goes to archive and **does not come back out**. Retiring it rather than leaving it dormant is deliberate — a backlog item whose rationale has evaporated is one somebody eventually builds on the old reasoning. If an external client is ever wanted, that is a new item with its own justification, not this one revived |
 
 ---
 
@@ -182,35 +180,6 @@ Map an IP/CIDR → an account logged in automatically without credentials (e.g. 
   is trusted; every auto-login is audit-logged; rules are per-entry enable/disable.
 - **Do not start this before the trusted-proxy request resolver exists** — an IP→account rule is only as
   trustworthy as the client IP behind it. Tracked in the bug tracker (**OPS-15**).
-
-#### SEC-06 · Scoped API tokens + read-first JSON API — 🧊 Backlog (low priority, owner decision 2026-07-23)
-
-> **⚠ Its whole reason for existing has moved (2026-07-26).** This item existed to unblock a **separate
-> MCP server repo**, which has since been **retired and rebuilt as an add-on**. An add-on runs *inside*
-> JonDash and reaches it through the module context, so it does not need an HTTP API, a bearer token or a
-> scope model at all. **Nothing currently needs SEC-06.** Kept, not deleted, because an external client
-> may still want it one day — but it should not be built on the old rationale. Owner's call whether it
-> stays in the backlog or is retired.
-
-An authenticated **`/api/v1`** for external clients, plus the token model behind it. Nothing inside
-JonDash needs it. The original specification lived in the retired MCP repo and is no longer reachable, so
-this entry is now the only surviving description — treat the design notes below as the record.
-- **Token model:** an `ApiToken` row storing only a **SHA-256 hash** plus an 8-char display prefix; format
-  `jd_` + 43 base64url chars. Shown once at mint, revocable, optional expiry.
-- **Authorization is an intersection, not a replacement:** effective permission =
-  `token scopes ∩ getEffectivePermissions(user)`, evaluated per request. A token can never grant more than
-  the account it belongs to, and existing RBAC stays untouched.
-- **Scopes:** `status:read`, `services:read/write`, `groups:read`, `modules:read/write`, `users:read/write`,
-  `audit:read`, `sessions:read`. Read-first — writes are a later, opt-in tier.
-- **The same-origin/CSRF exemption is scoped to token-authenticated `/api/v1` handlers and nothing else** —
-  this is the part to get right, since widening it anywhere else would undo CSRF protection app-wide.
-- **Never returned by the API:** `passwordHash`, `totpSecretEnc`, `setupTokenHash`, `codeHash`,
-  `tokenHash`, session tokens. Deliberately excluded from the API surface entirely: applying updates,
-  restart/shutdown, backup export/restore, resetting access, deleting users.
-- **Why it's low:** a bearer token in an AI client's config is a weaker credential than an interactive
-  password + 2FA login, and this adds a new externally-reachable authenticated surface to a security-first
-  app that currently has none. There is no user-facing pressure for it — the cost of getting it wrong is
-  much higher than the cost of waiting.
 
 #### SEC-07 · Service accounts — an identity nobody can log in as — ✅ Shipped v1.7.3-beta.1 (2026-07-26)
 
