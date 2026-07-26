@@ -43,18 +43,21 @@ are hardening opportunities (mostly Low/Info), several already on the roadmap.
 
 ## Findings (hardening opportunities)
 
-| # | Sev | Finding | Recommendation |
-|---|-----|---------|----------------|
-| 1 | **Med** | **No account recovery** — lost authenticator = permanent lockout (no backup codes, no email reset yet). Availability risk. | 2FA **backup codes** (already next on roadmap) + email-based reset. |
-| 2 | Low | **Login timing enumeration** — unknown email returns fast (no hash), valid email runs argon2 (slow); timing can reveal valid addresses. | Run a **dummy argon2 verify** for unknown users to equalize timing. |
-| 3 | Low | **Update = trust concentration** — whoever controls `origin/main` gets code execution on the host via `git pull`. (Admin-only + same-origin — good.) | Verify **signed tags/commits** before applying; document the trust model; keep it launcher-supervised. |
-| 4 | Low | **Rate limiting is in-memory & per-IP** — resets on restart, single-instance only; behind a proxy, `X-Forwarded-For` must come from a *trusted* proxy or it's spoofable. | Note for the IP-policy features; consider a durable store + strict trusted-proxy parsing. |
-| 5 | Low | **No self-service session management** — 7-day sessions, no idle timeout, no user-visible "active sessions"/revoke, no token rotation on privilege change. | Session manager (already on roadmap). |
-| 6 | Low | **TOTP replay** — a code can be reused within its ~30–60s window (no last-step tracking). | Record last-used TOTP step per user and reject reuse. |
-| 7 | Info | CSP uses `style-src 'unsafe-inline'`; the icon route's stricter CSP is overridden by the global CSP (nosniff still applies). | Tighten later (hashed styles; let the icon route's headers win). Low risk. |
-| 8 | Info | Possible `X-Powered-By` fingerprinting header. | Set `poweredByHeader: false` in `next.config`. |
-| 9 | Info | `assertSameOrigin` throws (500-style) on server actions instead of a clean handled error. | Wrap for a graceful, consistent rejection. |
-| 10 | Info | Setup token TTL is 7 days and travels in a URL (already one-time; invalidated on completion). | Consider a shorter default TTL. |
+**Status column added 2026-07-26** — the findings themselves are untouched, as this report's header
+requires. Status was verified against the code, not against the changelog.
+
+| # | Sev | Finding | Recommendation | Status |
+|---|-----|---------|----------------|--------|
+| 1 | **Med** | **No account recovery** — lost authenticator = permanent lockout (no backup codes, no email reset yet). Availability risk. | 2FA **backup codes** (already next on roadmap) + email-based reset. | ✅ **Fixed** — backup codes shipped (`lib/auth/backup-codes.ts`, `BackupCode` table). Email-based reset is still queued as **OPS-02** |
+| 2 | Low | **Login timing enumeration** — unknown email returns fast (no hash), valid email runs argon2 (slow); timing can reveal valid addresses. | Run a **dummy argon2 verify** for unknown users to equalize timing. | ✅ **Fixed 1.6.1-beta.1** (BUG-44) — constant-work decoy hash in `lib/auth/password.ts` |
+| 3 | Low | **Update = trust concentration** — whoever controls `origin/main` gets code execution on the host via `git pull`. (Admin-only + same-origin — good.) | Verify **signed tags/commits** before applying; document the trust model; keep it launcher-supervised. | ⛔ **Still open.** Re-confirmed 2026-07-26: `scripts/update.mjs` fetches the tag archive over HTTPS with **no signature or checksum check** |
+| 4 | Low | **Rate limiting is in-memory & per-IP** — resets on restart, single-instance only; behind a proxy, `X-Forwarded-For` must come from a *trusted* proxy or it's spoofable. | Note for the IP-policy features; consider a durable store + strict trusted-proxy parsing. | ⛔ **Still open** — now tracked as **BUG-41** (headers trusted from any client) and **BUG-43** (lockout is remotely triggerable) |
+| 5 | Low | **No self-service session management** — 7-day sessions, no idle timeout, no user-visible "active sessions"/revoke, no token rotation on privilege change. | Session manager (already on roadmap). | ✅ **Fixed** — Admin → Sessions and per-account sessions shipped; idle timeout enabled by default in 1.6.1-beta.1 (BUG-52) |
+| 6 | Low | **TOTP replay** — a code can be reused within its ~30–60s window (no last-step tracking). | Record last-used TOTP step per user and reject reuse. | ✅ **Fixed 1.6.1-beta.1** (BUG-51) — `User.totpLastStep` |
+| 7 | Info | CSP uses `style-src 'unsafe-inline'`; the icon route's stricter CSP is overridden by the global CSP (nosniff still applies). | Tighten later (hashed styles; let the icon route's headers win). Low risk. | ⛔ **Still open** — tracked as **BUG-50** |
+| 8 | Info | Possible `X-Powered-By` fingerprinting header. | Set `poweredByHeader: false` in `next.config`. | ✅ **Fixed 1.6.1-beta.1** (BUG-46) — `poweredByHeader: false` |
+| 9 | Info | `assertSameOrigin` throws (500-style) on server actions instead of a clean handled error. | Wrap for a graceful, consistent rejection. | ⛔ **Still open** — related to **BUG-48** (malformed requests return 500 rather than 4xx) |
+| 10 | Info | Setup token TTL is 7 days and travels in a URL (already one-time; invalidated on completion). | Consider a shorter default TTL. | ❔ **Unverified this pass** |
 
 ## Not fully exercised live (code-verified / recommend re-test)
 

@@ -40,7 +40,7 @@ Sign-in is **password + authenticator code**. Updates are **one click, in the ap
   proxy needed (off by default).
 - **Outgoing email** — SMTP with an app password or OAuth2, set up in the app.
 - **Modules** — add features without touching the base app, with app-store-style permission
-  consent. See [Modules](#modules).
+  consent **you can revoke afterwards** from a single Permissions page. See [Modules](#modules).
 - **Zero-config** — database, encryption keys and site address are all set up on first run.
 
 **Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Prisma + SQLite.
@@ -89,9 +89,17 @@ automatically when it asks for more access than you approved, would go backwards
 would stop another module working — those wait for you, and the run records what it held back.
 
 **Helpers** are shared components that give modules a capability they can't have alone (for
-example, background work that starts with the server). They come **only from the official
-source**, arrive automatically with the module that needs them, and are listed read-only under
-Admin → Helpers. There is nothing to install or remove.
+example, background work that starts with the server, or restarting a Windows service). They
+come **only from the official source**, arrive automatically with the module that needs them,
+and go when nothing needs them. They're listed read-only as **Shared capabilities** on
+**Admin → Addons**. There is nothing to install or remove.
+
+**Consent isn't only at install time.** **Admin → Permissions** shows what every module is
+allowed to do, from two directions: *what can this one module do?* and *which modules can do
+this particular thing?* — the second is the one that answers "what can reach my files?".
+Each permission is a switch you can turn off at any time, and it takes effect immediately: the
+module keeps working, that one capability stops answering. Where a permission is limited to a
+list — which services, which folders — the list sits on the same screen as the switch.
 
 📖 **Building your own:** [docs/MODULES-AUTHORING.md](docs/MODULES-AUTHORING.md) — the full
 contract, permission list, testing process, and the AI prompt. Helper design:
@@ -153,6 +161,7 @@ rather than opening a public issue.
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Build queue and feature catalog — what's planned and what shipped |
 | [docs/MODULES-AUTHORING.md](docs/MODULES-AUTHORING.md) | Module contract, permissions, testing, AI prompt |
 | [docs/HELPERS-DESIGN.md](docs/HELPERS-DESIGN.md) | What helpers are and the rules they follow |
+| [docs/STYLES.md](docs/STYLES.md) | Designing a JonDash style — the look-and-feel contract |
 | [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md) | Security review and test report |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Project layout, developer commands, running the tests, CI |
 

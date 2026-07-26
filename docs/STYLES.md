@@ -68,8 +68,8 @@ The **palette layer** then overrides only the colours, and only for that style:
 Two attributes always beat one on specificity, so the palette wins without `!important` and without
 repeating anything structural.
 
-**Modern's `indigo` palette is the base**: it lives in `globals.css` as the plain `:root` tokens, and the
-other Modern palettes override from there. Every other style declares its own tokens in `styles.css`.
+**Modern's `indigo` palette is the base**: it lives in `app/globals.css` as the plain `:root` tokens, and the
+other Modern palettes override from there. Every other style declares its own tokens in `app/styles.css`.
 
 **Nothing else changes** — no per-page CSS, no conditional components, no JavaScript branching on the
 style. Every screen, and every installed **module**, is built from the same primitives (`.card`, `.btn`,
@@ -223,7 +223,7 @@ costume — the corners are right and it still *feels* like 2026.
 
 ### It reaches code we don't own
 
-Three Tailwind theme variables are re-pointed at these tokens in `globals.css`:
+Three Tailwind theme variables are re-pointed at these tokens in `app/globals.css`:
 
 ```css
 --default-transition-duration: var(--motion-fast);
@@ -251,7 +251,7 @@ replaces `.spinner` separately.
 ### Reduced motion
 
 `prefers-reduced-motion: reduce` zeroes `--motion-fast`, `--motion-slow` and `--motion-lift` globally,
-which reaches every consumer including modules. The block sits at the end of `globals.css` because it
+which reaches every consumer including modules. The block sits at the end of `app/globals.css` because it
 carries the same specificity as a style's own block and must therefore come later in source order.
 
 **The spinner is deliberately left running**, just slowed. It isn't decoration — it's the only signal that
@@ -259,7 +259,7 @@ the server is still working, and a frozen ring reads as "crashed" rather than "c
 
 **A style that replaces the busy indicator owns its reduced-motion behaviour**, because the global override
 adjusts `--motion-spin`, which a replaced animation no longer reads. XP and Terminal each slow their own
-keyframes in `styles.css`.
+keyframes in `app/styles.css`.
 
 ---
 

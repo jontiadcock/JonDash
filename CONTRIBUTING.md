@@ -24,9 +24,11 @@ app/
   setup/[token]/    a user completes their account from an invite link
   (app)/dashboard/  user service grid; (app)/account/ self-service
   (app)/m/[module]/ catch-all for module-provided pages, served at /m/<id>/…
-  admin/            Settings area: users, service-groups, sessions, audit, modules, helpers,
-                    backup, updates, network, email, access-roles, server power
-  api/              icons, backup export, update apply/status, server restart/shutdown, health
+  admin/            Settings area: users, service-groups, sessions, audit, addons (modules +
+                    helpers), permissions, backup, updates, network, email, access-roles,
+                    server power   (admin/helpers is a redirect to admin/modules)
+  api/              icons, backup export, update apply/status, server restart/shutdown,
+                    health, branding
 lib/
   auth/             password, totp, session, preauth, guards, bootstrap, permissions (RBAC)
   security/         csrf, upload processing, rate limit
@@ -34,8 +36,12 @@ lib/
   helpers/          install, registry, boot phase, reconciliation
   tls/              HTTPS / ACME (Let's Encrypt or bring-your-own cert)
   email/            outgoing SMTP / OAuth2
+  validation/       shared input validation
   backup.ts         full server backup + selective restore
-  config.ts crypto.ts db.ts settings.ts request.ts audit.ts icons.ts update*.ts server-control.ts
+  elevation.ts      the only path to privileged OS work — calls the signed helpers in bin/
+  permissions-view.ts  the data behind Admin → Permissions (both axes, from one read)
+  config.ts crypto.ts db.ts settings.ts request.ts audit.ts icons.ts styles.ts update*.ts
+  server-control.ts uninstall-questions.ts
 modules/            installed modules (kept across updates; empty in a fresh install)
 helpers/            installed helpers (kept across updates; empty in a fresh install)
 prisma/             schema, migrations

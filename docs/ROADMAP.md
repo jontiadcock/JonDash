@@ -628,6 +628,36 @@ cross-channel move as an update, since switching channel is a decision.
 `lib/update.ts` would need the same for the app itself. **Whatever writes this must invalidate those caches
 on a channel change — see BUG-37**, which was precisely that mistake.
 
+#### OPS-11 · Update/restart grace screen + Server power — ✅ Shipped v1.3.6-beta.1 (released in v1.4.0)
+_Catalog entry restored 2026-07-26: the ID was referenced in two places but had no entry of its own, so an
+old reference didn't resolve. Reconstructed from the release commit and the v1.3.6-beta.1 changelog._
+
+Applying an update or restarting now shows a **full-screen "please wait" cover** that waits for the server
+to come *reliably* back before returning to sign-in — refreshing a half-started server no longer briefly
+breaks remote access. It watches a lightweight health probe and reconnects on its own. Added **Restart &
+Shut down** controls under Admin → **Server power** (full-admin only, both confirm first; after a shutdown
+the dashboard can only be restarted from the server PC). An update or restart now **fully signs everyone
+out**, restarting login from the password step rather than a leftover 2-factor prompt.
+
+Later refined: an *intentional* restart keeps users signed in (v1.6.2) — shutdown remains the exception by
+design. The grace screen is reused by the module install/update/remove restart path.
+
+#### OPS-12 · Full server backup + selective restore — ✅ Shipped v1.3.7-beta.1 (released in v1.4.0)
+_Catalog entry restored 2026-07-26: `docs/BUGS.md` cites OPS-12 as the fix for BUG-04, but the ID appeared
+nowhere in this file. Reconstructed from the release commit and the v1.3.7-beta.1 changelog._
+
+A backup saves the **entire server** in one file — accounts, service groups, access roles, every setting,
+network/HTTPS configuration, icons, and (when encrypted) the encryption key. Setting a passphrase includes
+sign-in credentials, 2FA secrets and email settings, making it a complete migratable backup; without one
+those sensitive parts are left out. **Restore is selective** — pick which parts to bring back rather than
+all-or-nothing.
+
+Fixes **BUG-04**: restoring a backup used to break the authenticator, because TOTP secrets are encrypted
+with the master key and a restore brought the secrets without it. An encrypted backup now carries the key.
+
+Related later work: **BUG-25** (icons were left readable inside an "encrypted" backup — fixed
+v1.5.3-beta.6) and **OPS-15** (publishing `docs/BUGS.md`).
+
 #### OPS-13 · Email: bounded, diagnosable connection testing — ⏳ (exposed by BUG-21)
 BUG-21 is the hang; this is the reason a hang was possible to ship and impossible to act on. Fixing the
 timeouts stops the button spinning forever, but the admin is then told only *that* it failed — for an

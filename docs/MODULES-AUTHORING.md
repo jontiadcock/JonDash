@@ -52,7 +52,7 @@ const mod: ModuleDefinition = {
   version: "1.0.0",              // semver; you bump this to publish an update
   minAppVersion: "1.4.0",        // minimum JonDash version required
   permissions: ["network:outbound"],   // least privilege — see the list below
-  settings: [                    // optional; auto-rendered under Admin → Modules → Example
+  settings: [                    // optional; auto-rendered under Admin → Addons → Example
     { key: "apiUrl", label: "API URL", type: "string", default: "" },
     { key: "apiKey", label: "API key", type: "string", secret: true },  // encrypted at rest
   ],
@@ -125,7 +125,7 @@ than returning something falsy — never catch and ignore it.
 
 Declared settings are auto-rendered as a simple form. When you need more than that — a table, a wizard, a
 list with add/remove — export a `SettingsPanel` component from your definition. It renders in
-**Admin → Modules → *your module*, below the auto-generated fields**, so you can have both:
+**Admin → Addons → *your module*, below the auto-generated fields**, so you can have both:
 
 ```tsx
 // module.ts
@@ -325,7 +325,7 @@ definition. Use `currentColor` rather than fixed colours so it follows the user'
   Read data via `ctx` (server component) or fetch from your own page/api.
 - **Own pages** (`Page`): rendered at `/m/<id>/...`; receives the trailing path. Full CRUD screens go here.
 - **Settings**: list `settings` and the framework renders + stores them (secrets encrypted) — or ship a
-  custom `SettingsPanel` component. Appears under Admin → Modules → *your module*.
+  custom `SettingsPanel` component. Appears under Admin → Addons → *your module*.
 
 Everything is gated by JonDash's existing auth — you never implement login/sessions yourself. A module page
 runs behind the normal "must be signed in" guard; declare `adminOnly: true` if only admins should see it.
@@ -350,9 +350,9 @@ crypto/audit/email/users via declared permissions.
 ---
 
 ## Testing your module
-1. Put the folder at `modules/<id>/` (or import its ZIP via **Admin → Modules → Import**).
+1. Put the folder at `modules/<id>/` (or import its ZIP via **Admin → Addons → Import**).
 2. Rebuild + start (the launcher does this automatically on import; manually: `npm run build` then start).
-3. **Admin → Modules** → review the permission prompt → **Enable**.
+3. **Admin → Addons** → review the permission prompt → **Enable**.
 4. Verify: the widget renders on the dashboard; its settings save (reload — secrets shouldn't be readable in
    the DB); the page loads at `/m/<id>`; **Disable** hides the widget/page/settings; **Uninstall** removes
    its settings and drops its `mod_<id>_*` tables (confirm the baseline app is unchanged throughout).
@@ -360,7 +360,7 @@ crypto/audit/email/users via declared permissions.
 
 ## Packaging / publishing
 - **Import (sideload):** ZIP the module folder (so `module.ts` sits at the archive root) and import it in
-  **Admin → Modules → Import**. No repo needed.
+  **Admin → Addons → Import**. No repo needed.
 - **Repo (for sharing/updates):** put the module in a public GitHub repo with an `addons.json` manifest at
   its root listing each module's `id`, `name`, `description`, `version`, `minAppVersion`, `permissions`,
   `helpers`, `path` and the `tag` its archive is downloaded from. Bump `version` (semver) to publish an
@@ -379,7 +379,7 @@ sentences at the end describing the module you want. The prompt is self-containe
 to know anything about JonDash beforehand.
 
 > **Prefer a working example?** The official add-ons source publishes a **"Module template (for developers)"**
-> module — install it from Admin → Modules → Browse (beta channel) and you get a complete, working module
+> module — install it from Admin → Addons → Browse (beta channel) and you get a complete, working module
 > with a widget, a page, its own table, and add/delete forms built on `moduleAction`, plus its own
 > `AI-PROMPT.md`. Starting from that is usually faster than generating from scratch.
 
@@ -478,8 +478,14 @@ THE INSTALLER STATICALLY VERIFIES YOUR CODE AND WILL REFUSE IT IF IT:
   external service returns as hostile input (cap lengths, strip control characters before storing).
 
 PERMISSIONS (declare the least; each is shown to the admin as a warning at install):
-  network:outbound | crypto:use | audit:write | email:send
-  (These are ALL of them. Account, session and filesystem access are not available to modules.)
+  Core, always available:  network:outbound | crypto:use | audit:write | email:send
+  Helper-provided, named <helperId>:<verb> — available ONLY if you also declare that helper in
+  `helpers`, e.g. permissions: ["filesystem:write"] + helpers: ["filesystem"]. The installer
+  refuses a helper permission whose helper you did not declare. You cannot invent one: the helper
+  defines what it provides, so a made-up verb fails at install.
+  Account and session access are not available to modules at all, by any route.
+  The admin can switch any of these OFF after install (Admin -> Permissions); write code that
+  degrades gracefully when a capability stops answering rather than assuming it is permanent.
 
 HARD RULES
 - Only ADD; never modify the base app or its tables. Namespace every table you create as mod_<id>_*.
@@ -493,8 +499,8 @@ HARD RULES
 DELIVERABLES
 1. modules/<id>/module.ts  2. modules/<id>/MODULE.md  3. any widget.tsx / page.tsx / migrations/*.sql it
 needs, plus a "use server" actions file exporting moduleAction(...) wrappers if it has buttons or forms.
-Explain how to test it: put the folder in modules/<id>/ (or import the zipped folder via Admin → Modules →
-Import), rebuild + restart, enable it in Admin → Modules (approve the permission prompt), verify the
+Explain how to test it: put the folder in modules/<id>/ (or import the zipped folder via Admin → Addons →
+Import), rebuild + restart, enable it in Admin → Addons (approve the permission prompt), verify the
 widget/page/settings work, then confirm disabling hides it and uninstalling removes all its data.
 
 NOW BUILD THIS MODULE:
