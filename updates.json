@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.2",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "A new Permissions page, and Modules and Helpers merged into one Addons section. Permissions answers two questions on one screen - what a single addon is allowed to do, and which addons can do a given thing. The second is the one that catches trouble ('what can reach my files?') and you could not work it out before without opening every addon in turn. Each permission is a switch you can turn off, and turning one off takes effect immediately - the addon keeps working, that one capability stops answering. Where a permission is limited to a list - which services, which folders - that list now sits on the same screen as the switch, because a limit you have to go and find is how the recent security problems happened. You pick entries from a browsable list rather than typing names exactly right, and a per-entry setting like 'this one may act without asking me' sits on the entry it applies to. Where an addon can be given access to everything, that is a choice rather than a hidden default: turning it on reveals a second switch, 'exclude JonDash's own data', which starts on and covers the encryption key protecting your passwords and two-factor secrets, the database, and the files JonDash uses to ask Windows for administrator rights. Turning that one off is the step that asks you to confirm, because it is the direction that gives more away. Helpers are no longer a separate menu item: they were never separately installable, so a second entry implied a control that did not exist. They appear as Shared capabilities on the Addons page."
+    },
+    {
       "version": "1.7.2-beta.2",
       "date": "2026-07-26",
       "type": "minor",

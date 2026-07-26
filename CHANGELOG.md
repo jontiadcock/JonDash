@@ -9,6 +9,33 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.2] — 2026-07-26
+
+**A Permissions page, and Modules and Helpers merged into one Addons section.** Consolidates
+1.7.2-beta.1 and 1.7.2-beta.2 unchanged.
+
+Permissions answers two questions on one screen: what a single addon is allowed to do, and *which
+addons can do a given thing*. The second is the one that catches trouble — "what can reach my
+files?" — and you couldn't work it out before without opening every addon in turn.
+
+- **Every permission is a switch.** Turning one off takes effect immediately: the addon keeps
+  working, that one capability stops answering.
+- **Per addon.** Switching something off for one addon doesn't touch another using the same
+  underlying capability. An addon can only ever lose permissions here, never gain ones it never
+  asked for.
+- **What a permission is limited to sits on the same screen as the switch** — which services,
+  which folders. A limit you have to go and find is how the recent security problems happened.
+  You pick entries from a browsable list rather than typing names exactly right, and a per-entry
+  setting ("this one may act without asking me") sits on the entry it applies to.
+- **Where an addon can be given access to everything, that's a choice, not a hidden default.**
+  Turning it on reveals a second switch — "exclude JonDash's own data", starting on — covering the
+  encryption key protecting your passwords and 2FA secrets, the database, and the files JonDash
+  uses to ask Windows for administrator rights. Turning *that* off is the step that asks you to
+  confirm, because it's the direction that gives more away.
+- **Helpers are no longer a separate menu item.** They were never separately installable, so a
+  second entry implied a control that didn't exist. They appear as **Shared capabilities** on the
+  Addons page. The old Helpers link still works and takes you to the new place.
+
 ## [1.7.2-beta.2] — 2026-07-26
 
 ### Added
