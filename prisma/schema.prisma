@@ -45,6 +45,18 @@ model User {
   // it, so renaming is free.
   displayName String?
 
+  // What KIND of credential the add-on will issue against this identity — "apikey", "userpass"
+  // or null for "not sure yet". Descriptive only: JonDash never issues or holds the credential,
+  // so this is the admin's note to themselves about what an account was created for. Nothing
+  // enforces it, and the add-on's own page stays the source of truth.
+  credentialKind String?
+
+  // Set by core when a helper resolves this identity (SEC-07). Answers the question an admin
+  // actually has looking at a list of service accounts: "is this one still in use, and by what?"
+  // Without it a forgotten account is indistinguishable from a live one.
+  lastUsedAt        DateTime?
+  lastUsedByHelper  String?
+
   // Set during account setup. Always null for a service account.
   passwordHash String?
 

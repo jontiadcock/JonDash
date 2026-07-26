@@ -115,10 +115,16 @@ export async function createServiceAccountAction(
   });
   if (existing) return { error: "A service account with that name already exists." };
 
+  // Descriptive only — see the schema comment. Recorded so an admin returning in three months can
+  // remember what an account was created for; nothing in core reads it to make a decision.
+  const kindRaw = String(formData.get("credentialKind") ?? "");
+  const credentialKind = ["apikey", "userpass"].includes(kindRaw) ? kindRaw : null;
+
   const user = await prisma.user.create({
     data: {
       email: serviceAccountHandle(),
       displayName: name,
+      credentialKind,
       role,
       isServiceAccount: true,
       // ACTIVE immediately: there is no setup to complete, and PENDING_SETUP would mean an

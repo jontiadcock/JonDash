@@ -150,6 +150,18 @@ export function CreateServiceAccountForm({ isAdmin = true }: { isAdmin?: boolean
           />
         </div>
         <div>
+          <label className="label" htmlFor="svc-kind">
+            Credential
+          </label>
+          {/* Descriptive only. JonDash never issues or holds the credential, so this is the
+              admin's own note about what the account was created for. */}
+          <select id="svc-kind" name="credentialKind" className="input" defaultValue="">
+            <option value="">Not sure yet</option>
+            <option value="apikey">API key</option>
+            <option value="userpass">Username &amp; password</option>
+          </select>
+        </div>
+        <div>
           <label className="label" htmlFor="svc-role">
             Access
           </label>

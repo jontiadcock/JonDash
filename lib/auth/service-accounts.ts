@@ -137,11 +137,45 @@ export async function listBindableAccounts(): Promise<BindableAccount[]> {
  * Note it does **not** filter on status. A helper needs to distinguish "disabled" from "gone" to
  * report a useful error, so status is returned and the caller fails closed on anything but ACTIVE.
  */
-export async function resolveBindableAccount(id: string): Promise<BindableAccount | null> {
+export async function resolveBindableAccount(
+  id: string,
+  helperId?: string,
+): Promise<BindableAccount | null> {
   const r = await prisma.user.findFirst({
     where: { id: String(id), isServiceAccount: true },
-    select: { id: true, displayName: true, email: true, status: true, role: true },
+    select: {
+      id: true, displayName: true, email: true, status: true, role: true,
+      lastUsedAt: true,
+    },
   });
   if (!r) return null;
+  if (helperId) void stampUsage(r.id, String(helperId), r.lastUsedAt);
   return { id: r.id, displayName: r.displayName ?? r.email, status: r.status, role: r.role };
+}
+
+/** Don't write on every single call — a busy agent would otherwise generate one UPDATE per request. */
+const USAGE_STAMP_INTERVAL_MS = 60_000;
+
+/**
+ * Record that a helper used this identity, for the "last used / by what" line on its page.
+ *
+ * **Fire-and-forget, throttled, and never able to affect the answer.** It is called with `void`
+ * from `resolveBindableAccount`, which is on the authorization path: a failure to write a
+ * cosmetic timestamp must never turn into a failure to authorize, and a slow write must never
+ * become latency on every agent request. So it is not awaited and its errors are swallowed.
+ *
+ * Throttled to once a minute per account because the precision that matters is "today vs three
+ * months ago" — the question this answers is *"is this account still in use, or did I forget it?"*,
+ * not *"what was the exact second?"*.
+ */
+async function stampUsage(id: string, helperId: string, lastUsedAt: Date | null): Promise<void> {
+  if (lastUsedAt && Date.now() - lastUsedAt.getTime() < USAGE_STAMP_INTERVAL_MS) return;
+  try {
+    await prisma.user.update({
+      where: { id },
+      data: { lastUsedAt: new Date(), lastUsedByHelper: helperId },
+    });
+  } catch {
+    /* cosmetic — never let this break an authorization path */
+  }
 }

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.3-beta.2",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: a service account now tells you what it is for. The first version created an account you could not sign in as and then showed you nothing about it, which made it indistinguishable from one created by mistake and forgotten. Its page now has a 'How this account is used' panel showing what kind of credential it is for, when it was last used and which add-on used it - and an account nothing has touched says so plainly. It is now explicit, both when you create one and on its page, that the key lives in the add-on rather than in JonDash: JonDash never sees it, cannot show it to you and cannot re-issue it, so to see, re-issue or revoke a key you go to that add-on's own settings page, named for you where we know which add-on it is. You can also record what kind of credential an account is for when creating it. Disable now says what it actually does - 'cuts off every add-on' - because that single action stops every add-on using the identity, since they re-check it on every request and you never have to hunt down individual keys. Sections that cannot apply to a service account are gone: no Service Groups, no Personal services, no Reset access. A person's account is unchanged."
+    },
+    {
       "version": "1.7.3-beta.1",
       "date": "2026-07-26",
       "type": "minor",

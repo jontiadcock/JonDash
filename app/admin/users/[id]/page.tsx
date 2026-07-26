@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { isServiceAccount } from "@/lib/auth/service-accounts";
 import { requireAdminArea, firstPermittedAdminPath } from "@/lib/auth/guards";
 import { ResetAccessForm, CreateLinkForm, ConfirmSubmit } from "@/app/admin/ui";
 import {
@@ -39,6 +40,7 @@ export default async function ManageUserPage({
   if (!user) notFound();
 
   const isSelf = user.id === admin.id;
+  const isService = isServiceAccount(user);
   // A delegate (non-admin) can view but not act on an ADMIN account.
   const targetIsProtectedAdmin = user.role === "ADMIN" && !isFullAdmin;
 
@@ -58,11 +60,79 @@ export default async function ManageUserPage({
         <Link href="/admin" className="text-sm" style={{ color: "var(--muted)" }}>
           ← Back to users
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{user.email}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+          {isService ? (user.displayName ?? user.email) : user.email}
+        </h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {isService && "Service account · "}
           {user.role === "ADMIN" ? "Admin" : "User"} · {user.status.replace("_", " ").toLowerCase()}
         </p>
       </div>
+
+      {/* SEC-07 — what an admin actually needs to know about a service account, and could not see
+          at all in the first cut: what it is for, whether anything is still using it, and where
+          its credential lives. An identity with no sign-in and no detail is indistinguishable
+          from one that was created by mistake and forgotten. */}
+      {isService && (
+        <section className="card p-6">
+          <h2 className="mb-1 text-lg font-semibold">How this account is used</h2>
+          <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+            Nobody can sign in as this account. An add-on issues its own credential against it, and
+            <strong> that credential lives in the add-on, not here</strong> — JonDash never sees it,
+            cannot show it to you, and cannot re-issue it.
+          </p>
+          <p
+            className="mb-4 rounded-lg p-3 text-sm"
+            style={{ background: "var(--surface-2)" }}
+          >
+            <strong>To see, re-issue or revoke the key</strong>, open{" "}
+            {user.lastUsedByHelper ? (
+              <>
+                the <strong>{user.lastUsedByHelper}</strong> add-on&apos;s own settings page
+              </>
+            ) : (
+              <>the settings page of whichever add-on you pointed at this account</>
+            )}
+            , under{" "}
+            <Link href="/admin/modules" style={{ color: "var(--primary)" }}>
+              Addons
+            </Link>
+            . There is nothing to do on this page.
+          </p>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <div>
+              <dt style={{ color: "var(--muted)" }}>Credential</dt>
+              <dd className="mt-0.5 font-medium">
+                {user.credentialKind === "apikey"
+                  ? "API key"
+                  : user.credentialKind === "userpass"
+                    ? "Username & password"
+                    : "Not recorded"}
+              </dd>
+            </div>
+            <div>
+              <dt style={{ color: "var(--muted)" }}>Last used</dt>
+              <dd className="mt-0.5 font-medium">
+                {user.lastUsedAt ? user.lastUsedAt.toLocaleString() : "Never used"}
+              </dd>
+            </div>
+            <div>
+              <dt style={{ color: "var(--muted)" }}>Used by</dt>
+              <dd className="mt-0.5 font-medium">{user.lastUsedByHelper ?? "—"}</dd>
+            </div>
+          </dl>
+          {!user.lastUsedAt && (
+            <p className="mt-4 text-sm" style={{ color: "var(--warning)" }}>
+              No add-on has used this yet. Either it hasn&apos;t been pointed at one, or the add-on
+              hasn&apos;t run since it was created.
+            </p>
+          )}
+          <p className="mt-4 text-sm" style={{ color: "var(--muted)" }}>
+            <strong>To cut off every add-on at once</strong>, disable this account above. Add-ons
+            re-check it on every request and stop immediately — you don&apos;t need to find each key.
+          </p>
+        </section>
+      )}
 
       {/* Account controls */}
       <section className="card p-6">
@@ -74,14 +144,22 @@ export default async function ManageUserPage({
         ) : (
           <>
             <div className="flex flex-wrap items-start gap-3">
-              {canReset && <ResetAccessForm userId={user.id} />}
+              {/* Reset access is hidden for a service account: it clears a password and MFA and
+                  issues a setup link, none of which exist here. The action refuses anyway, so a
+                  visible button would be a control that looks like it works and doesn't. */}
+              {canReset && !isService && <ResetAccessForm userId={user.id} />}
 
               {canManage && !isSelf && (
                 <form action={setUserStatusAction}>
                   <input type="hidden" name="userId" value={user.id} />
                   <input type="hidden" name="disable" value={user.status === "DISABLED" ? "false" : "true"} />
-                  <button type="submit" className="btn btn-ghost">
-                    {user.status === "DISABLED" ? "Re-enable account" : "Disable account"}
+                  <button type="submit" className={isService && user.status !== "DISABLED" ? "btn btn-danger" : "btn btn-ghost"}>
+                    {/* For a service account this IS the revocation control — every add-on
+                        re-checks status per request and stops. Labelled for what it does rather
+                        than what the column is called. */}
+                    {user.status === "DISABLED"
+                      ? isService ? "Re-enable — add-ons can use this again" : "Re-enable account"
+                      : isService ? "Disable — cuts off every add-on" : "Disable account"}
                   </button>
                 </form>
               )}
@@ -154,8 +232,10 @@ export default async function ManageUserPage({
         </section>
       )}
 
-      {/* Service groups */}
-      {canManage && (
+      {/* Service groups — hidden for a service account (SEC-07): these decide which tiles appear
+          on someone's DASHBOARD, and a service account has no dashboard because it has no
+          session. Offering them implies a capability it does not have. */}
+      {canManage && !isService && (
         <section className="card p-6">
           <h2 className="mb-1 text-lg font-semibold">Service Groups</h2>
           <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
@@ -200,8 +280,8 @@ export default async function ManageUserPage({
         </section>
       )}
 
-      {/* Add personal service */}
-      {canManage && (
+      {/* Personal services — hidden for a service account, same reason as service groups. */}
+      {canManage && !isService && (
         <section className="card p-6">
           <h2 className="mb-1 text-lg font-semibold">Personal services</h2>
           <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>

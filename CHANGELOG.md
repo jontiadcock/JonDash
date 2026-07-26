@@ -9,6 +9,27 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.3-beta.2] — 2026-07-27
+
+### Changed — a service account now tells you what it's for
+The first cut created an account you couldn't sign in as and then showed you nothing about it, which
+made it indistinguishable from one created by mistake and forgotten.
+
+- **A new "How this account is used" panel** on the account: what kind of credential it's for, when
+  it was **last used**, and **which add-on** used it. An account nothing has touched says so.
+- **It's now explicit that the key lives in the add-on, not in JonDash** — said when you create the
+  account and again on its page. JonDash never sees the key, can't show it to you and can't
+  re-issue it; to see, re-issue or revoke one you go to that add-on's own settings page, and where
+  we know which add-on that is, it's named.
+- **Pick the credential type when creating one** — API key, username and password, or leave it. A
+  note to yourself about what the account was for; nothing depends on it.
+- **Disable now says what it actually does**: *"Disable — cuts off every add-on"*. That one action
+  stops every add-on using this identity, because they re-check it on every request — you don't
+  have to find each key.
+- **Sections that don't apply are gone.** A service account has no dashboard and no sign-in, so
+  Service Groups, Personal services and Reset access no longer appear on it. A person's account is
+  unchanged.
+
 ## [1.7.3-beta.1] — 2026-07-26
 
 ### Added

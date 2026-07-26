@@ -45,10 +45,17 @@ export default async function AdminHome() {
               form — a flag there is one someone eventually ticks by mistake. */}
           <section className="card p-6">
             <h2 className="mb-1 text-lg font-semibold">Create a service account</h2>
-            <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+            <p className="mb-2 text-sm" style={{ color: "var(--muted)" }}>
               An identity for an add-on to act as — it can hold permissions and appears in the audit
               log, but <strong>nobody can ever sign in as it</strong>. No password, no authenticator,
               no reset link.
+            </p>
+            {/* Said here as well as on the account page, because THIS is the moment someone
+                wonders "so where do I get the key?" — and finding no answer is what makes a
+                service account feel broken rather than deliberate. */}
+            <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+              Its key or password is issued by <strong>the add-on</strong>, not here — you&apos;ll
+              find it on that add-on&apos;s own settings page. JonDash never sees it.
             </p>
             <CreateServiceAccountForm isAdmin={admin.role === "ADMIN"} />
           </section>
