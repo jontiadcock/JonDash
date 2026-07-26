@@ -103,8 +103,9 @@ another session's work while nothing blocks it.
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 17b. ⏳ **SEC-07 — Service accounts (an identity nobody can log in as)** — owner decision 2026-07-26,
-   requested by the add-ons session for the MCP helper but **deliberately generic**. Not blocking them.
-   **Position not set by the owner.** Carries a lockout edge: `hasActiveAdmin()` must count humans only
+   **BLOCKING the add-ons MCP helper**, which cannot ship at all until this exists. Deliberately generic,
+   not MCP-specific. **Position still not set by the owner.** Carries a lockout edge:
+   `hasActiveAdmin()` must count humans only
 18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
    and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
    HTTP API. Nothing needs it today — see the catalog entry before building it
@@ -215,6 +216,14 @@ this entry is now the only surviving description — treat the design notes belo
   much higher than the cost of waiting.
 
 #### SEC-07 · Service accounts — an identity nobody can log in as — ⏳ Planned (owner decision, 2026-07-26)
+
+> **BLOCKING.** The add-ons session's MCP helper cannot ship until this exists. The owner decided its keys
+> bind to service accounts **only** — no interim where an agent binds to a real person's account —
+> because allowing real users now and restricting later would invalidate every key already minted, on a
+> security boundary. *Never allowing it is cheaper than taking it away.* They are building everything else
+> (listener, auth, key store, tools, settings page); the binding target is the sole dependency.
+> (Corrected 2026-07-26: first relayed as non-blocking, then reversed by the owner the same day.)
+
 An identity that holds permissions and appears in the audit log, but has **no login surface at all**.
 Created alongside a user ("Create service account"), and **generic on purpose**: the owner considered an
 MCP-specific version and chose this, so any helper can bind to one and core stays ignorant of individual
