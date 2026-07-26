@@ -102,10 +102,11 @@ another session's work while nothing blocks it.
    (added 2026-07-24) — move it freely
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
-17b. ⏳ **SEC-07 — Service accounts (an identity nobody can log in as)** — owner decision 2026-07-26,
-   **BLOCKING the add-ons MCP helper**, which cannot ship at all until this exists. Deliberately generic,
-   not MCP-specific. **Position still not set by the owner.** Carries a lockout edge:
-   `hasActiveAdmin()` must count humans only
+**NEXT UP.** ▶️ **SEC-07 — Service accounts (an identity nobody can log in as)** — owner decision
+2026-07-26, placed **ahead of everything** the same day because it **blocks the add-ons MCP helper**,
+which cannot ship at all until it exists. Deliberately generic, not MCP-specific. Carries a lockout
+edge: `hasActiveAdmin()` must count humans only. Scope includes both requested extras (one-action
+disable/delete, and a signal a helper can use to drop bound keys).
 18. 🧊 **SEC-06 — Scoped API tokens + read-first JSON API** — **low priority by owner decision 2026-07-23,
    and its reason to exist moved 2026-07-26**: the MCP server it was for is now an add-on, which needs no
    HTTP API. Nothing needs it today — see the catalog entry before building it
@@ -215,7 +216,7 @@ this entry is now the only surviving description — treat the design notes belo
   app that currently has none. There is no user-facing pressure for it — the cost of getting it wrong is
   much higher than the cost of waiting.
 
-#### SEC-07 · Service accounts — an identity nobody can log in as — ⏳ Planned (owner decision, 2026-07-26)
+#### SEC-07 · Service accounts — an identity nobody can log in as — ▶️ NEXT (owner decision, 2026-07-26)
 
 > **BLOCKING.** The add-ons session's MCP helper cannot ship until this exists. The owner decided its keys
 > bind to service accounts **only** — no interim where an agent binds to a real person's account —
@@ -253,8 +254,13 @@ So if a service account can hold `ADMIN` and be `ACTIVE`, then once every human 
 unrecoverable — the owner's one absolute red line. **`hasActiveAdmin()` must count humans only**, and that
 single predicate is the whole fix. Any future explicit admin-count guard inherits the same requirement.
 
-**Useful, not essential:** disable/delete in one action, and a way for a helper to learn it happened so it
-can drop keys bound to that identity.
+**In scope (owner, 2026-07-26 — both confirmed, not optional):** disable/delete in **one action**, and a
+way for a helper to learn it happened so it can drop keys bound to that identity.
+
+**Design the helper-facing surface WITH the add-ons session before building it** (owner, same day): what a
+helper receives to bind to, and what it sees when the account is deleted. **Futureproof it** — MCP is the
+first consumer, not the only one, so the shape should suit a helper that doesn't exist yet. That surface is
+far easier to agree now than to change once keys are minted against it.
 
 #### Security hardening backlog (from `docs/SECURITY-REVIEW.md`)
 Dummy-argon2 on unknown-user login (timing), `poweredByHeader:false`, TOTP replay
