@@ -9,6 +9,21 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.3-beta.3] — 2026-07-27
+
+### Changed
+- **One "Create an account" form, with a Type of Person or Service account.** It was two separate
+  cards; now it's one, and the fields change to suit what you're making — a person has an email, a
+  service account has a name (its handle is generated for it).
+
+### Removed
+- **The "credential type" choice when creating a service account.** It offered *API key* or
+  *username & password*, and the second could never be true: a service account has no password,
+  no add-on can give it one, and anything that signed in that way would be a login — the one thing
+  this feature exists to prevent. The credential is always issued and held by the add-on, so
+  labelling the account described the add-on's plumbing and invited exactly that confusion. Its
+  page still shows what matters: when it was last used, and by which add-on.
+
 ## [1.7.3-beta.2] — 2026-07-27
 
 ### Changed — a service account now tells you what it's for

@@ -81,8 +81,27 @@ export function SetupLinkBox({ url }: { url: string }) {
   );
 }
 
+/**
+ * One form for both kinds of account, switched by a **type** selector (owner, 2026-07-27).
+ *
+ * They were two separate cards at first, on the reasoning that a checkbox on the user form is one
+ * somebody eventually ticks by mistake. A *type selector* isn't that: it's an explicit choice with
+ * no default drift, and one place to look beats two cards that share a purpose. The fields swap
+ * with it rather than being disabled, so the form never shows a box that doesn't apply — a service
+ * account has no email to type (the handle is generated) and a person has no name field.
+ */
 export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
-  const [state, action, pending] = useActionState(createUserAction, initial);
+  const [kind, setKind] = useState<"person" | "service">("person");
+  const isService = kind === "service";
+
+  // Two actions behind one form. Deliberately NOT one action with a flag: creating a login and
+  // creating a thing-that-can-never-be-a-login have different invariants, and the service path
+  // must never be reachable by a payload that merely omits a field.
+  const [personState, personAction, personPending] = useActionState(createUserAction, initial);
+  const [svcState, svcAction, svcPending] = useActionState(createServiceAccountAction, initial);
+
+  const state = isService ? svcState : personState;
+  const pending = isService ? svcPending : personPending;
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state.ok) ref.current?.reset();
@@ -90,16 +109,54 @@ export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
 
   return (
     <div>
-      <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1">
-          <label className="label" htmlFor="new-email">
-            Email
+      <form
+        ref={ref}
+        action={isService ? svcAction : personAction}
+        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
+        <div>
+          <label className="label" htmlFor="new-kind">
+            Type
           </label>
-          <input id="new-email" name="email" type="email" required className="input" placeholder="user@example.com" />
+          <select
+            id="new-kind"
+            className="input"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as "person" | "service")}
+          >
+            <option value="person">Person</option>
+            <option value="service">Service account</option>
+          </select>
         </div>
+
+        {isService ? (
+          <div className="flex-1">
+            <label className="label" htmlFor="new-name">
+              Name
+            </label>
+            <input
+              id="new-name"
+              name="displayName"
+              type="text"
+              required
+              minLength={2}
+              maxLength={60}
+              className="input"
+              placeholder="e.g. AI assistant"
+            />
+          </div>
+        ) : (
+          <div className="flex-1">
+            <label className="label" htmlFor="new-email">
+              Email
+            </label>
+            <input id="new-email" name="email" type="email" required className="input" placeholder="user@example.com" />
+          </div>
+        )}
+
         <div>
           <label className="label" htmlFor="new-role">
-            Role
+            {isService ? "Access" : "Role"}
           </label>
           <select id="new-role" name="role" className="input" defaultValue="USER">
             <option value="USER">User</option>
@@ -107,79 +164,24 @@ export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
           </select>
         </div>
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Creating…" : "Create user"}
+          {pending ? "Creating…" : isService ? "Create service account" : "Create user"}
         </button>
       </form>
-      {state.error && <p className="form-error mt-2">{state.error}</p>}
-      {state.setupUrl && <SetupLinkBox url={state.setupUrl} />}
-    </div>
-  );
-}
 
-/**
- * Create a service account (SEC-07).
- *
- * Notice what this form does **not** have: no email field, no setup link on success. Both absences
- * are the feature. An email box would invite a real address and imply a mailbox; a setup link is
- * the thing that turns an identity into a login, and there is deliberately no code path that could
- * produce one here.
- */
-export function CreateServiceAccountForm({ isAdmin = true }: { isAdmin?: boolean }) {
-  const [state, action, pending] = useActionState(createServiceAccountAction, initial);
-  const ref = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.ok) ref.current?.reset();
-  }, [state.ok]);
-
-  return (
-    <div>
-      <form ref={ref} action={action} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1">
-          <label className="label" htmlFor="svc-name">
-            Name
-          </label>
-          <input
-            id="svc-name"
-            name="displayName"
-            type="text"
-            required
-            minLength={2}
-            maxLength={60}
-            className="input"
-            placeholder="e.g. AI assistant"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="svc-kind">
-            Credential
-          </label>
-          {/* Descriptive only. JonDash never issues or holds the credential, so this is the
-              admin's own note about what the account was created for. */}
-          <select id="svc-kind" name="credentialKind" className="input" defaultValue="">
-            <option value="">Not sure yet</option>
-            <option value="apikey">API key</option>
-            <option value="userpass">Username &amp; password</option>
-          </select>
-        </div>
-        <div>
-          <label className="label" htmlFor="svc-role">
-            Access
-          </label>
-          <select id="svc-role" name="role" className="input" defaultValue="USER">
-            <option value="USER">User</option>
-            {isAdmin && <option value="ADMIN">Admin</option>}
-          </select>
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Creating…" : "Create"}
-        </button>
-      </form>
-      {state.error && <p className="form-error mt-2">{state.error}</p>}
-      {state.ok && (
-        <p className="mt-2 text-sm" style={{ color: "var(--primary)" }}>
-          Created. An add-on can now be pointed at it — there is nothing to send anyone.
+      {isService && (
+        <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+          An identity for an add-on to act as. It holds permissions and appears in the audit log, but{" "}
+          <strong>nobody can ever sign in as it</strong> — and its key is issued by the add-on, not
+          here. JonDash never sees it.
         </p>
       )}
+      {state.error && <p className="form-error mt-2">{state.error}</p>}
+      {isService && state.ok && (
+        <p className="mt-2 text-sm" style={{ color: "var(--primary)" }}>
+          Created. Point an add-on at it — there is nothing to send anyone.
+        </p>
+      )}
+      {state.setupUrl && <SetupLinkBox url={state.setupUrl} />}
     </div>
   );
 }

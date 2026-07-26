@@ -45,11 +45,12 @@ model User {
   // it, so renaming is free.
   displayName String?
 
-  // What KIND of credential the add-on will issue against this identity — "apikey", "userpass"
-  // or null for "not sure yet". Descriptive only: JonDash never issues or holds the credential,
-  // so this is the admin's note to themselves about what an account was created for. Nothing
-  // enforces it, and the add-on's own page stays the source of truth.
-  credentialKind String?
+  // (A `credentialKind` column existed briefly in 1.7.3-beta.2 and was removed the same day.
+  // It offered "API key" or "username & password", and the second could never be true: a service
+  // account has no password and no add-on can create one, so anything that authenticated that way
+  // would be a login — the exact thing this feature forbids. The credential is always something
+  // the helper mints and holds, so labelling the identity described the helper's plumbing and
+  // invited that confusion. Owner: "drop it entirely, it will all be managed by helpers anyway".)
 
   // Set by core when a helper resolves this identity (SEC-07). Answers the question an admin
   // actually has looking at a list of service accounts: "is this one still in use, and by what?"

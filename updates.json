@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.3-beta.3",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: creating an account is now one form with a Type of Person or Service account, instead of two separate cards, and the fields change to suit what you are making - a person has an email, a service account has a name and its handle is generated for it. Also removed the 'credential type' choice when creating a service account. It offered API key or username and password, and the second could never be true: a service account has no password, no add-on can give it one, and anything that signed in that way would be a login, which is the one thing the feature exists to prevent. The credential is always issued and held by the add-on, so labelling the account described the add-on's plumbing rather than the account and invited exactly that confusion. The account's page still shows what actually matters - when it was last used and by which add-on."
+    },
+    {
       "version": "1.7.3-beta.2",
       "date": "2026-07-27",
       "type": "minor",

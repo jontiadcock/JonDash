@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAdminArea, firstPermittedAdminPath } from "@/lib/auth/guards";
-import { CreateUserForm, CreateServiceAccountForm } from "./ui";
+import { CreateUserForm } from "./ui";
 
 export const dynamic = "force-dynamic";
 
@@ -35,31 +35,13 @@ export default async function AdminHome() {
       </section>
 
       {canCreate && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <section className="card p-6">
-            <h2 className="mb-4 text-lg font-semibold">Create a new user</h2>
-            <CreateUserForm isAdmin={admin.role === "ADMIN"} />
-          </section>
-          {/* Alongside creating a user, not hidden behind it (SEC-07). A service account is a
-              different kind of thing, so it gets its own card rather than a checkbox on the user
-              form — a flag there is one someone eventually ticks by mistake. */}
-          <section className="card p-6">
-            <h2 className="mb-1 text-lg font-semibold">Create a service account</h2>
-            <p className="mb-2 text-sm" style={{ color: "var(--muted)" }}>
-              An identity for an add-on to act as — it can hold permissions and appears in the audit
-              log, but <strong>nobody can ever sign in as it</strong>. No password, no authenticator,
-              no reset link.
-            </p>
-            {/* Said here as well as on the account page, because THIS is the moment someone
-                wonders "so where do I get the key?" — and finding no answer is what makes a
-                service account feel broken rather than deliberate. */}
-            <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-              Its key or password is issued by <strong>the add-on</strong>, not here — you&apos;ll
-              find it on that add-on&apos;s own settings page. JonDash never sees it.
-            </p>
-            <CreateServiceAccountForm isAdmin={admin.role === "ADMIN"} />
-          </section>
-        </div>
+        <section className="card p-6">
+          {/* One card, one Type selector (owner, 2026-07-27). It was two cards; a single form with
+              an explicit type is fewer places to look, and swapping the fields means the form never
+              shows a box that does not apply to what you are creating. */}
+          <h2 className="mb-4 text-lg font-semibold">Create an account</h2>
+          <CreateUserForm isAdmin={admin.role === "ADMIN"} />
+        </section>
       )}
 
       <section className="card overflow-hidden">

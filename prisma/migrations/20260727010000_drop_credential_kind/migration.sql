@@ -1,0 +1,13 @@
+-- SEC-07 · remove `credentialKind`.
+--
+-- Added earlier the same day and withdrawn before it reached stable. It let an admin label a
+-- service account "API key" or "username & password", and the second could never be true: a
+-- service account has no password, no add-on can create one, and anything that authenticated
+-- that way would be a login — which is the one thing this feature exists to prevent. The
+-- credential is always minted and held by the helper, so the label described the helper's
+-- plumbing rather than the identity, and reading it invited exactly that misunderstanding.
+--
+-- Safe to drop: it was cosmetic, nothing read it to make a decision, and it only ever existed
+-- on 1.7.3-beta.2.
+-- AlterTable
+ALTER TABLE "User" DROP COLUMN "credentialKind";

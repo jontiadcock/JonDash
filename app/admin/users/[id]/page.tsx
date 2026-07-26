@@ -99,17 +99,11 @@ export default async function ManageUserPage({
             </Link>
             . There is nothing to do on this page.
           </p>
-          <dl className="grid gap-3 text-sm sm:grid-cols-3">
-            <div>
-              <dt style={{ color: "var(--muted)" }}>Credential</dt>
-              <dd className="mt-0.5 font-medium">
-                {user.credentialKind === "apikey"
-                  ? "API key"
-                  : user.credentialKind === "userpass"
-                    ? "Username & password"
-                    : "Not recorded"}
-              </dd>
-            </div>
+          {/* No "credential type" here. It existed briefly and was withdrawn: a service account's
+              credential is always something the add-on mints and holds, so labelling the identity
+              described the add-on's plumbing — and one of the options ("username & password") could
+              never be true, because a password would make this a login. */}
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt style={{ color: "var(--muted)" }}>Last used</dt>
               <dd className="mt-0.5 font-medium">
