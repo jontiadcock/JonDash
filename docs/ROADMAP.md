@@ -257,10 +257,57 @@ single predicate is the whole fix. Any future explicit admin-count guard inherit
 **In scope (owner, 2026-07-26 — both confirmed, not optional):** disable/delete in **one action**, and a
 way for a helper to learn it happened so it can drop keys bound to that identity.
 
-**Design the helper-facing surface WITH the add-ons session before building it** (owner, same day): what a
-helper receives to bind to, and what it sees when the account is deleted. **Futureproof it** — MCP is the
-first consumer, not the only one, so the shape should suit a helper that doesn't exist yet. That surface is
-far easier to agree now than to change once keys are minted against it.
+**Audit attribution (owner, 2026-07-26):** every action taken under a service account is **clearly
+attributed to that account** in the audit log — not to "a user", and never to a person. This was half the
+original justification: today the log reads *"jonti revoked session X"* when it was an agent.
+
+### The helper-facing surface — AGREED 2026-07-26 (owner decided each item)
+
+Designed with the add-ons session rather than handed over finished, and **futureproofed**: MCP is the
+first consumer, not the only one.
+
+- **A helper binds to an opaque, stable id and nothing else.** It stores the id and re-resolves on every
+  call. Never a name — names get renamed and a key bound to one breaks silently, the worst failure mode
+  for a credential. The id is **not** a foreign key in the helper's own tables: a helper must not
+  constrain core's `User` table, so it verifies rather than references.
+- **Core exposes a list of bindable accounts, and that list contains service accounts ONLY** — user
+  accounts never appear in it. The helper selects from that list, and refuses to bind to anything absent
+  from it. One source of truth: no separate `isServiceAccount()` that could disagree with the list.
+- **Exactly four fields are readable:** `id` (stored, stable), `displayName` (rendered at display time,
+  never stored by the helper, so renames are free), `status` (so a disabled account fails closed), and
+  `role` (because `getEffectivePermissions` takes `{ id, role }`). Deliberately no more — if the surface
+  ever grows a secret, a helper must not be able to read it.
+- **Deletion: a hook for hygiene, never for safety.** Core provides something like
+  `onIdentityRemoved(accountId)` so a helper can drop its key rows and stop listing a key that points at
+  nothing. **The security property must not depend on that notification arriving** — the helper
+  re-resolves per call and fails closed when the account is missing or not `ACTIVE`, and that stays true
+  regardless. Do not design the hook as load-bearing.
+- **Renaming stays possible.** Free, given the id/displayName split above.
+- **Re-pointing an existing key at a different account is NOT possible** and will not be offered.
+  Revoke and mint is one extra click and is honest; moving a key silently changes what an agent can do
+  with no signal to the agent or its operator.
+- **Any number of service accounts, and two helpers may share one.** No exclusivity constraint — someone
+  will reasonably want a read-only watcher and a privileged account at once. That kind of limit looks
+  tidy and blocks a real setup later.
+- **An account is never bound to a specific helper.** That would be core knowing about individual
+  add-ons again; the helper decides what it accepts.
+
+### `getEffectivePermissions` outside a request — owner chose (a), 2026-07-26
+
+`lib/auth/permissions.ts` wraps it in React's `cache()`. Every caller today is inside a request; a
+helper's listener (started from `onBoot`) has no request scope and no React render.
+
+**Measured, not assumed (2026-07-26):** `cache()` called outside a render **neither throws nor
+memoizes** — each call simply runs. So calling it as-is is safe *today*, and the absence of memoization
+is the safer behaviour anyway (a process-wide permission cache shared across agents would be worse than
+none).
+
+**But that is undocumented React internal behaviour, not a contract.** If a future React changed it —
+to throw, or to memoize process-globally — authorization would break or leak, silently, in the one
+function where that matters most. So: **export an uncached sibling** (`getEffectivePermissionsUncached`)
+and make `cache()` a thin wrapper over it. One implementation, two entry points, intent explicit. A few
+lines, and it futureproofs every helper that ever authorizes outside a request — which, given what
+helpers are for, will not only be MCP.
 
 #### Security hardening backlog (from `docs/SECURITY-REVIEW.md`)
 Dummy-argon2 on unknown-user login (timing), `poweredByHeader:false`, TOTP replay
