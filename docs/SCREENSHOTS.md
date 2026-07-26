@@ -55,6 +55,19 @@ riskier than the ordinary is called out in red.
 </tr>
 </table>
 
+## What an addon is allowed to do — and changing your mind
+
+Consent doesn't stop at install. **Permissions** answers two questions on one screen: what a
+single addon can do, and — the one that catches trouble — *which* addons can do a particular
+thing. You can't work that out by opening addons one at a time.
+
+Every permission is a switch. Turn one off and it applies immediately: the addon keeps working,
+that one capability stops answering. Where a permission is limited to a list — which services,
+which folders — **the list sits on the same card as the switch**, not on another page, so the
+limit is where you're already looking.
+
+<a href="images/permissions.png"><img src="images/permissions.png" width="100%" alt="The Permissions page listing each capability by risk, the addons holding it, and the services one of them is limited to"></a>
+
 ## Updates
 
 **One page for everything that updates** — JonDash itself, every module, and the helpers

@@ -20,7 +20,7 @@ Sign-in is **password + authenticator code**. Updates are **one click, in the ap
 </tr>
 </table>
 
-📷 **[See the full tour →](docs/SCREENSHOTS.md)** — 16 screenshots of every part of the interface.
+📷 **[See the full tour →](docs/SCREENSHOTS.md)** — 17 screenshots of every part of the interface.
 
 ## Features
 
