@@ -93,11 +93,7 @@ another session's work while nothing blocks it.
 13. ⏳ **OPS-14 — Tell a beta user when their channel is behind stable** — small, and closes a blind spot
    **core itself created** in v1.5.3-beta.9. **Position not yet confirmed by the owner** (added
    2026-07-24) — move it freely
-14. ⏳ **CORE-10 — Admin → Permissions + declarative capability contract** *(owner 2026-07-26)* — per
-   (module, capability) grants, both axes, switches and per-item sets on ONE screen. The contract
-   helpers declare against is the bulk of it and is CORE-owned. **Migration must carry existing OS
-   grants** (Scheduled Tasks live outside the DB) or admins get standing privileges with no UI to
-   revoke them. **Position not set by the owner**
+14. ✅ **CORE-10 — Admin → Permissions + declarative capability contract** — shipped v1.7.2-beta.1
 15. ⏳ **CORE-09 — Modules page: search, filter, compact list** *(owner request 2026-07-26)* — the
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
@@ -874,7 +870,7 @@ restarts a hung service cannot wait for a human"*), and re-granting costs anothe
 - The add-ons session is **blocked on this only for its integration test**; their allowlist and spec
   proceed without it.
 
-#### CORE-10 · Admin → Permissions, and a declarative capability contract — ⏳ Planned (owner, 2026-07-26)
+#### CORE-10 · Admin → Permissions, and a declarative capability contract — ✅ Shipped v1.7.2-beta.1 (2026-07-26)
 Owner's proposal, handed to core to own. Fold **Admin → Helpers** into the modules page, and add a
 new **Admin → Permissions** listing every module against its capabilities as switches.
 
@@ -899,18 +895,35 @@ core type core must render generically, and a contract designed without real con
 rewritten twice. Shape it against the three helpers that exist (`host-services`, `filesystem`,
 `host-install`) rather than in the abstract.
 
-**MIGRATION IS THE PART THAT BITES.** Existing installs have approved services whose OS grants are
-**Scheduled Tasks living outside the database**. A permissions UI backed only by DB state would
-show nothing while those grants keep working — standing privileges with no way to revoke them,
-which is worse than the problem being solved. `--list` reads from Windows precisely so the truth
-can be recovered; the migration must use it.
+**MIGRATION TURNED OUT NOT TO BITE — the contract dissolved it.** The worry was that approved
+services live as **Scheduled Tasks outside the database**, so a UI backed only by DB state would
+show nothing while those grants kept working. But `scope.list()` is answered by the *helper*, and
+`host-services` answers it from Windows via `--list`. So the page renders whatever the OS actually
+holds, with no DB copy to migrate and nothing to drift. Worth remembering as a shape: delegating
+the read to the component that owns the truth removed a migration entirely.
 
-**Core's addition to the filesystem question** (owner has not decided; do not design around it).
-The add-ons session argued against an "all paths" switch because read-all reaches
-`.data/secrets.json` and the database. Agreed, and one step further: **JonDash's own `.data/`,
-`prisma/` and `bin/` should never be grantable to any module, whatever root is chosen.** Not a
-blocklist for awkward cases — a fixed carve-out, because a path set that can include the master
-key or `jondash-grant.exe` defeats the entire crypto and elevation posture in one grant.
+**Owner decision on the filesystem question, 2026-07-26 — my proposal was overruled, and the
+record should say so.** I argued that JonDash's own `.data/`, `prisma/` and `bin/` should be a fixed
+carve-out no module could ever be granted. The owner decided the opposite: *"1 yes, give it a
+warning."* "Allow everything" means everything, **and the `unbounded.warning` must name what that
+reaches** — the master encryption key, the database, the elevation binaries.
+
+The reasoning is better than mine was. A carve-out makes the switch grant *less* than the words on
+screen, which is its own dishonesty, and it invites a module author to discover the boundary by
+hitting it rather than reading it. The control is the sentence the admin reads before agreeing, so
+that sentence has to be the whole truth. Recorded as rule 10 in `docs/HELPERS-DESIGN.md`.
+
+**Second owner decision, same day: read and write are always separate capabilities** — *"just
+ensure with all of it, there is a read only and full options."* A capability spanning both forces
+the admin to grant the destructive half to get the harmless one. Core cannot enforce it (it never
+sees the verbs), so it is a contract obligation on helper authors — rule 9.
+
+**What shipped.** Both axes; per (module, capability) switches; the bounding set on the same card;
+a browse picker so nobody types service names by hand; opt-in `unbounded` (confirm on, immediate
+off); `itemToggle` for per-entry settings like "may act without asking", requested by the add-ons
+session so it wouldn't need a `SettingsPanel` for one boolean. Helpers merged into **Addons** as
+"Shared capabilities"; `/admin/helpers` redirects. Enforcement needed no new code — `ctx.can()`
+already reads stored grants.
 
 #### CORE-09 · Modules page: search, filter, and a compact list — ⏳ Planned (owner request 2026-07-26)
 The page renders every module as a full card, which was fine when there were two and is already
