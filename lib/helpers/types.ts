@@ -118,10 +118,43 @@ export type HelperCapabilityScope = {
      * screen, and one that included them without saying would be a larger one. Both are the same
      * failure: the sentence beside the switch has to be the whole truth, because it is the only
      * thing the admin reads before agreeing.
+     *
+     * Where the protection is offered as a choice via `option` below, this warning describes the
+     * grant **without** it — the widest state the switch can reach.
      */
     warning: string;
     isOn: () => Promise<boolean>;
     set: (ctx: HelperSettingsContext, on: boolean) => Promise<HelperSettingsResult>;
+
+    /**
+     * One dependent boolean belonging to the unbounded grant — rendered under the switch and
+     * only while it is on.
+     *
+     * Exists for the owner's filesystem decision (2026-07-26): "everything" is available, and
+     * turning it on reveals **"exclude JonDash's own data"**, defaulting to protected. That is a
+     * better answer than either option core put to them, because it makes the sentence beside the
+     * switch true in *both* states instead of forcing a choice between a grant that quietly does
+     * less than it says and one that quietly does more.
+     *
+     * It belongs here rather than on `scope` or `itemToggle` because it qualifies the *grant*,
+     * not the list — it has no meaning while the capability is bounded, and it is not a member of
+     * anything. Without it the only home is a `SettingsPanel`, which would put half of what the
+     * capability reaches on a different screen from the switch that grants it: exactly the
+     * fragmentation CORE-10 exists to end.
+     *
+     * **The confirm asymmetry INVERTS for this one.** Everywhere else on the page, ON is the
+     * widening direction and therefore the one that asks. Here the option *protects*, so
+     * switching it OFF is what widens — and that is the direction core confirms. Getting this
+     * backwards would put the friction on the safe move and none on the dangerous one.
+     */
+    option?: {
+      /** What the protection does, e.g. "Exclude JonDash's own data". */
+      label: string;
+      /** Shown on the confirm step when switching the protection OFF — the widening direction. */
+      warning?: string;
+      isOn: () => Promise<boolean>;
+      set: (ctx: HelperSettingsContext, on: boolean) => Promise<HelperSettingsResult>;
+    };
   };
   /**
    * A switch on each member of the list, rather than on the capability as a whole.
@@ -243,6 +276,24 @@ export type HelperDefinition = {
   name: string;
   description: string;
   version: string;
+  /**
+   * The oldest JonDash this helper may be installed on.
+   *
+   * **Every optional field in this file is optional to OMIT, never optional to ADD.** A helper
+   * that leaves `label`/`risk`/`scope` off works on any core that has the rest of the contract.
+   * A helper that *declares* one does not merely look plainer on an older core — helpers compile
+   * into the app, so an unknown property is `TS2353` and a missing type is `TS2724`: a failed
+   * build and an install that will not start. Measured by the add-ons session against a 1.7.1
+   * clone, 2026-07-26, after core's own hand-off note called the fields "optional" without
+   * saying this.
+   *
+   * So adopting a contract addition is a hard `minAppVersion` bump, and **it propagates**: every
+   * consuming module needs the same floor, or it installs on an older core, pulls the helper in
+   * and takes the build down with it.
+   *
+   * Floors: `label`/`risk`/`scope`/`browse`/`unbounded`/`itemToggle` → `1.7.2-beta.1`;
+   * `unbounded.option` → `1.7.2-beta.2`.
+   */
   minAppVersion: string;
 
   /** Capabilities exposed to consuming modules. Empty for a helper that needs no consent

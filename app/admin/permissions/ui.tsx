@@ -9,6 +9,7 @@ import {
   setItemToggleAction,
   unboundedStateAction,
   setUnboundedAction,
+  setUnboundedOptionAction,
 } from "./actions";
 import type { ScopeItem, ScopeCandidate } from "@/lib/helpers/types";
 
@@ -527,13 +528,20 @@ function Picker({
  * shown verbatim, because only the helper knows what "everything" reaches; core's job is to make
  * sure it is read before the click rather than to paraphrase it.
  */
+type OptionState = { label: string; warning?: string; on: boolean };
+
 function Unbounded({ helperId, permission }: { helperId: string; permission: string }) {
-  const [state, setState] = useState<{ on: boolean; warning: string } | null>(null);
+  const [state, setState] = useState<{ on: boolean; warning: string; option: OptionState | null } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingOption, setConfirmingOption] = useState(false);
 
+  // Kept inline rather than extracted into a shared `load()`: the React Compiler rejects a
+  // component-scope function that calls setState being invoked from an effect
+  // (react-hooks/set-state-in-effect), and it can see through the extraction. Same reason the
+  // widget grid ended up keyed rather than synced in 1.7.0-beta.3.
   useEffect(() => {
     let live = true;
     unboundedStateAction(helperId, permission)
@@ -541,7 +549,7 @@ function Unbounded({ helperId, permission }: { helperId: string; permission: str
         if (!live) return;
         // A capability that is always bounded is the safer shape and entirely normal — show
         // nothing rather than an error.
-        if (r.ok) setState({ on: r.on, warning: r.warning });
+        if (r.ok) setState({ on: r.on, warning: r.warning, option: r.option });
         else setUnavailable(true);
       })
       .catch(() => live && setUnavailable(true));
@@ -557,6 +565,19 @@ function Unbounded({ helperId, permission }: { helperId: string; permission: str
     if (res.ok) setState((s) => (s ? { ...s, on } : s));
     else setError(res.error);
     setConfirming(false);
+    setBusy(false);
+  }
+
+  async function applyOption(on: boolean) {
+    setBusy(true);
+    setError(null);
+    const res = await setUnboundedOptionAction(helperId, permission, on);
+    if (!res.ok) setError(res.error);
+    setConfirmingOption(false);
+    // Re-read rather than assume: the helper owns this, so after a refusal the switch must show
+    // what is actually true, not what was clicked.
+    const fresh = await unboundedStateAction(helperId, permission);
+    if (fresh.ok) setState({ on: fresh.on, warning: fresh.warning, option: fresh.option });
     setBusy(false);
   }
 
@@ -602,6 +623,57 @@ function Unbounded({ helperId, permission }: { helperId: string; permission: str
           <button type="button" className="btn btn-ghost !py-1 text-xs" onClick={() => setConfirming(false)}>
             Cancel
           </button>
+        </div>
+      )}
+
+      {/* The dependent option — only while the grant it qualifies is actually on. Showing it
+          beneath a switched-off grant would imply a protection that is currently protecting
+          nothing. */}
+      {state.on && state.option && (
+        <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 flex-none"
+              checked={state.option.on}
+              disabled={busy}
+              onChange={(e) => {
+                // INVERTED on purpose. Everywhere else ON widens and therefore asks; this one
+                // protects, so switching it OFF is the widening step and the one that confirms.
+                if (e.target.checked) void applyOption(true);
+                else setConfirmingOption(true);
+              }}
+            />
+            <span className="flex flex-col gap-0.5">
+              <span style={{ color: state.option.on ? "var(--foreground)" : "var(--danger)" }}>
+                {state.option.label}
+              </span>
+              {!state.option.on && (
+                <span className="text-xs font-semibold" style={{ color: "var(--danger)" }}>
+                  Currently off — the grant above is at its widest.
+                </span>
+              )}
+            </span>
+          </label>
+
+          {confirmingOption && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs" style={{ color: "var(--danger)" }}>
+                {state.option.warning ?? "This removes the protection. Sure?"}
+              </span>
+              <button
+                type="button"
+                className="btn btn-danger !py-1 text-xs"
+                disabled={busy}
+                onClick={() => void applyOption(false)}
+              >
+                Remove the protection
+              </button>
+              <button type="button" className="btn btn-ghost !py-1 text-xs" onClick={() => setConfirmingOption(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
       {error && <span className="form-error text-xs">{error}</span>}

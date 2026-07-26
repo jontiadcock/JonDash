@@ -201,19 +201,82 @@ export async function setItemToggleAction(
   return result;
 }
 
-/** Whether the capability is currently granted with no list at all. Read; no prompt. */
+/**
+ * Whether the capability is currently granted with no list at all, plus the dependent option's
+ * declaration and state if it has one. Read; no prompt.
+ *
+ * One call rather than two: the option only means anything relative to the switch above it, and a
+ * second read could show a protection as on while the grant it qualifies had already changed.
+ */
 export async function unboundedStateAction(
   helperId: string,
   permission: string,
-): Promise<{ ok: true; on: boolean; warning: string } | { ok: false; error: string }> {
+): Promise<
+  | {
+      ok: true;
+      on: boolean;
+      warning: string;
+      option: { label: string; warning?: string; on: boolean } | null;
+    }
+  | { ok: false; error: string }
+> {
   await gate();
   const scope = findScope(helperId, permission);
   if (!scope?.unbounded) return { ok: false, error: "This capability is always limited to a list." };
   try {
-    return { ok: true, on: await scope.unbounded.isOn(), warning: scope.unbounded.warning };
+    const o = scope.unbounded.option;
+    return {
+      ok: true,
+      on: await scope.unbounded.isOn(),
+      warning: scope.unbounded.warning,
+      // Only the declaration and the state cross to the client; `set` never does.
+      option: o ? { label: o.label, warning: o.warning, on: await o.isOn() } : null,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Flip the dependent option under the unbounded switch — the filesystem helper's
+ * "exclude JonDash's own data".
+ *
+ * Audited as its own action for the same reason `setUnboundedAction` is: this is the difference
+ * between a module that can read every folder and one that can also read the master encryption
+ * key. "When did the protection come off" should be one search away, and it should not be buried
+ * inside a row about the grant that merely enabled it.
+ */
+export async function setUnboundedOptionAction(
+  helperId: string,
+  permission: string,
+  on: boolean,
+): Promise<HelperSettingsResult> {
+  const admin = await gate();
+  const def = getHelperDef(String(helperId));
+  const scope = findScope(helperId, permission);
+  const option = scope?.unbounded?.option;
+  if (!def || !option) return { ok: false, error: "This capability has no such option." };
+
+  const ctx = { helperId: def.id, user: { id: admin.id, email: admin.email, role: admin.role } };
+  let result: HelperSettingsResult;
+  try {
+    result = await option.set(ctx, Boolean(on));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await audit("admin.helper.unbounded.error", { userId: admin.id, detail: `${def.id} ${permission}: ${message}` });
+    return { ok: false, error: `${def.name} could not apply that: ${message}` };
+  }
+
+  // Worded so the log reads correctly without knowing which way the option points: OFF is the
+  // widening direction here, and the entry has to say so plainly.
+  await audit("admin.helper.unbounded.option", {
+    userId: admin.id,
+    detail: `${def.id} ${permission}: "${option.label}" ${on ? "ON (protection restored)" : "OFF (PROTECTION REMOVED)"} → ${
+      result.ok ? "applied" : `refused: ${result.error}`
+    }`,
+  });
+  revalidatePath("/admin/permissions");
+  return result;
 }
 
 /**

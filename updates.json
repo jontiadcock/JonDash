@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.2-beta.2",
+      "date": "2026-07-26",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: everything in 1.7.2-beta.1, plus a choice where an addon is given access to everything. Turning on 'allow everything' for something like file access now reveals a second switch underneath it - 'exclude JonDash's own data' - which starts on. That covers the encryption key that protects your passwords and two-factor secrets, the database, and the files JonDash uses to ask Windows for administrator rights. Leaving it on means everything except those; turning it off means genuinely everything, and it asks you to confirm before it will, because that is the direction that gives more away. The point is that the sentence next to the switch is true whichever way you set it - JonDash is not quietly excluding things you were told it would reach, and not quietly including the ones that matter most."
+    },
+    {
       "version": "1.7.2-beta.1",
       "date": "2026-07-26",
       "type": "minor",

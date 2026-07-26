@@ -112,14 +112,36 @@ go into core because a module can't spawn `ping`; under this model it would be a
    for one and false for the other. Core never sees the verbs, so it cannot enforce this — it is a
    contract obligation on the helper author.
 
-10. **Where "allow everything" would reach JonDash's own data, it does — and the warning says so.**
-    Owner decision, 2026-07-26. `.data/`, `prisma/` and `bin/` hold the master encryption key, the
-    database and the elevation binaries. An "everything" switch that silently carved them out would
-    grant less than the words on screen; one that included them without saying would grant more.
-    Both are the same failure, because the sentence beside the switch is the only thing the admin
-    reads before agreeing. See `unbounded.warning` in `lib/helpers/types.ts`.
+10. **Where "allow everything" would reach JonDash's own data, that is a CHOICE the admin makes —
+    never a silent carve-out and never a silent inclusion.** Owner decision, 2026-07-26, refined
+    after the add-ons session put the filesystem case up.
 
-11. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
+    `.data/`, `prisma/` and `bin/` hold the master encryption key, the database and the elevation
+    binaries. Core's first proposal was a fixed carve-out; the owner overruled it, because an
+    "everything" that quietly excluded them grants *less* than the words on screen. The final
+    shape, which is better than either option core put up: turning "everything" on reveals a
+    second switch — **"exclude JonDash's own data", defaulting to protected**. The sentence beside
+    the switch can then be true in **both** states.
+
+    Declared as `unbounded.option` (`lib/helpers/types.ts`). **The confirm asymmetry inverts for
+    it**: everywhere else ON widens and therefore asks, but the option protects, so switching it
+    OFF is the widening step and the one core confirms.
+
+11. **Every optional field in the contract is optional to OMIT, never optional to ADD.** Measured
+    by the add-ons session against a 1.7.1 clone, 2026-07-26, after core's own hand-off note said
+    "the new fields are optional" without this caveat.
+
+    A helper that leaves `label`/`risk`/`scope` off runs on any core that has the rest of the
+    contract. A helper that *declares* one does not merely look plainer on an older core — helpers
+    **compile into the app**, so an unknown property is `TS2353` and a missing type is `TS2724`:
+    a failed build and an install that will not start.
+
+    So adopting a contract addition is a hard `minAppVersion` bump, **and it propagates** — every
+    consuming module needs the same floor, or it installs on an older core, pulls the helper in,
+    and takes the build down with it. Floors so far: `label`/`risk`/`scope`/`browse`/`unbounded`/
+    `itemToggle` → `1.7.2-beta.1`; `unbounded.option` → `1.7.2-beta.2`.
+
+12. **A helper may ask the admin a question on uninstall — a module may too, under tighter rules.**
    `uninstallQuestions()` puts yes/no questions on the confirmation screen and the answers arrive in
    `onUninstall`. It exists because that hook is headless and runs *after* the admin has confirmed,
    so anything needing a decision — *"also remove Docker Desktop?"*, *"withdraw the Windows

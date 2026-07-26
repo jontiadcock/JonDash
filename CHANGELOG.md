@@ -9,6 +9,26 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.2-beta.2] — 2026-07-26
+
+### Added
+- **A choice where "allow everything" would reach JonDash's own data.** Turning the switch on now
+  reveals a second one beneath it — **"exclude JonDash's own data"**, starting on. That covers the
+  encryption key protecting your passwords and 2FA secrets, the database, and the files JonDash
+  uses to ask Windows for administrator rights.
+  - **Turning the protection OFF is the step that asks you to confirm**, not turning it on. It is
+    the direction that gives more away, and that is where the friction belongs.
+  - The point is that the sentence beside the switch is true whichever way it's set: JonDash isn't
+    quietly excluding things you were told it would reach, nor quietly including the ones that
+    matter most.
+
+### Fixed
+- **Documentation:** the helper contract's optional fields were described as "optional" without
+  saying that this means optional to *omit*, never optional to *add*. Helpers compile into the
+  app, so declaring a newer field on an older JonDash is a failed build, not a plainer screen.
+  Adopting a contract addition is a `minAppVersion` bump, and it propagates to every module that
+  uses the helper. Found and measured by the add-ons session.
+
 ## [1.7.2-beta.1] — 2026-07-26
 
 ### Added

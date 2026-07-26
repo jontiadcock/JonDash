@@ -138,3 +138,41 @@ describe("the per-item switch (itemToggle)", () => {
     expect(ACT).toMatch(/on \? "ON" : "OFF"/);
   });
 });
+
+describe("the dependent option under the unbounded switch", () => {
+  const UI = fs.readFileSync(path.join(process.cwd(), "app", "admin", "permissions", "ui.tsx"), "utf8");
+  const ACT = fs.readFileSync(path.join(process.cwd(), "app", "admin", "permissions", "actions.ts"), "utf8");
+
+  const block = UI.slice(UI.indexOf("function Unbounded"));
+
+  it("CONFIRMS THE OFF DIRECTION — the asymmetry is inverted here", () => {
+    // This is the one control on the page where ON is the safe direction: the option protects,
+    // so removing it is what widens the grant. Confirming the wrong way round would put the
+    // friction on the safe move and none on the dangerous one, which is worse than no confirm
+    // at all because it reads as though the dangerous move was checked.
+    expect(block).toMatch(/if \(e\.target\.checked\) void applyOption\(true\);\s*else setConfirmingOption\(true\);/);
+    // And the unbounded switch itself must still confirm the ON direction — the two coexist.
+    expect(block).toMatch(/if \(e\.target\.checked\) setConfirming\(true\);\s*else void apply\(false\)/);
+  });
+
+  it("renders only while the grant it qualifies is on", () => {
+    // A protection shown under a switched-off grant implies it is protecting something.
+    expect(block).toMatch(/state\.on && state\.option/);
+  });
+
+  it("re-reads state from the helper instead of trusting the click", () => {
+    expect(block).toMatch(/const fresh = await unboundedStateAction/);
+  });
+
+  it("audits it separately, and says which direction removed the protection", () => {
+    // "When did the protection come off" must not be buried in a row about the grant that
+    // merely enabled it.
+    expect(ACT).toContain("admin.helper.unbounded.option");
+    expect(ACT).toContain("PROTECTION REMOVED");
+  });
+
+  it("never sends the helper's setter to the client", () => {
+    const read = ACT.slice(ACT.indexOf("export async function unboundedStateAction"));
+    expect(read).toMatch(/label:\s*o\.label,\s*warning:\s*o\.warning,\s*on:\s*await o\.isOn\(\)/);
+  });
+});
