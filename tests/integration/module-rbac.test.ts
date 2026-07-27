@@ -2,13 +2,14 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
 import { visibleModuleIds, canViewModule, setModuleGroups } from "@/lib/modules/visibility";
 import {
-  setModuleSize,
-  moveModule,
-  getUserModuleLayout,
+  setItemSize,
+  reorderItems,
+  getUserLayout,
   applyLayoutOrder,
-  resetModuleLayout,
-  MAX_WIDTH,
-} from "@/lib/modules/layout";
+  resetItem,
+  itemKey,
+  GEOMETRY,
+} from "@/lib/dashboard/layout";
 
 // Module RBAC decides who can see a module's widget and reach its /m/<id> page, so it is
 // enforced server-side. These pin the rule that matters: NO groups = everyone (the
@@ -27,7 +28,7 @@ let outsider: { id: string };
 let groupId: string;
 
 async function cleanup() {
-  await prisma.moduleLayout.deleteMany();
+  await prisma.dashboardLayout.deleteMany();
   await prisma.module.deleteMany();
   await prisma.serviceRole.deleteMany();
   await prisma.user.deleteMany({ where: { email: { contains: "@rbac.test" } } });
@@ -93,51 +94,95 @@ describe("module visibility (Service Group RBAC)", () => {
   });
 });
 
-describe("per-user widget layout", () => {
-  it("saves size per user, so one person's layout never changes another's", async () => {
-    await setModuleSize(member.id, "open", 3, 2);
+describe("per-user dashboard layout", () => {
+  const mod = (id: string) => ({ kind: "module" as const, id });
+  const link = (id: string) => ({ kind: "link" as const, id });
 
-    const mine = await getUserModuleLayout(member.id);
-    expect(mine.get("open")).toMatchObject({ width: 3, height: 2 });
-    expect((await getUserModuleLayout(outsider.id)).size).toBe(0);
+  it("saves size per user, so one person's layout never changes another's", async () => {
+    await setItemSize(member.id, "module", "open", "wide", 3, 2);
+
+    const mine = await getUserLayout(member.id, "wide");
+    expect(mine.get(itemKey("module", "open"))).toMatchObject({ width: 3, height: 2 });
+    expect((await getUserLayout(outsider.id, "wide")).size).toBe(0);
   });
 
   it("clamps sizes to the grid instead of trusting the input", async () => {
-    await setModuleSize(member.id, "open", 99, -5);
-    expect((await getUserModuleLayout(member.id)).get("open")).toMatchObject({ width: MAX_WIDTH, height: 1 });
+    await setItemSize(member.id, "module", "open", "wide", 99, -5);
+    expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "open"))).toMatchObject({
+      width: GEOMETRY.wide.columns,
+      height: 1,
+    });
   });
 
-  it("reorders widgets and keeps the order stable", async () => {
-    const order = ["a", "b", "c"];
-    await moveModule(member.id, "c", "up", order);
+  it("resetting returns an item to the default", async () => {
+    await setItemSize(member.id, "module", "open", "wide", 3, 3);
+    await resetItem(member.id, "module", "open", "wide");
+    expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "open"))).toBeUndefined();
+  });
 
-    const layout = await getUserModuleLayout(member.id);
-    const sorted = applyLayoutOrder(
-      order.map((id) => ({ def: { id } })),
-      layout,
-    ).map((m) => m.def.id);
+  it("persists an arbitrary order, writing a row for items that had none", async () => {
+    await reorderItems(member.id, "wide", [mod("a"), mod("c"), mod("b")]);
+    const layout = await getUserLayout(member.id, "wide");
+    const sorted = applyLayoutOrder([mod("a"), mod("b"), mod("c")], layout).map((i) => i.id);
     expect(sorted).toEqual(["a", "c", "b"]);
   });
 
-  it("won't move past the ends", async () => {
-    const order = ["a", "b"];
-    await moveModule(member.id, "a", "up", order); // already first
-    expect((await getUserModuleLayout(member.id)).size).toBe(0); // nothing written
-  });
-
-  it("resetting returns a widget to the default", async () => {
-    await setModuleSize(member.id, "open", 3, 3);
-    await resetModuleLayout(member.id, "open");
-    expect((await getUserModuleLayout(member.id)).get("open")).toBeUndefined();
-  });
-
-  it("modules without a saved position keep their natural order, after positioned ones", async () => {
-    await moveModule(member.id, "b", "up", ["a", "b"]); // positions a and b
-    const layout = await getUserModuleLayout(member.id);
-    const sorted = applyLayoutOrder(
-      [{ def: { id: "a" } }, { def: { id: "b" } }, { def: { id: "zz" } }],
-      layout,
-    ).map((m) => m.def.id);
+  it("items without a saved position keep their natural order, after positioned ones", async () => {
+    await reorderItems(member.id, "wide", [mod("b"), mod("a")]);
+    const layout = await getUserLayout(member.id, "wide");
+    const sorted = applyLayoutOrder([mod("a"), mod("b"), mod("zz")], layout).map((i) => i.id);
     expect(sorted).toEqual(["b", "a", "zz"]);
+  });
+
+  /** CORE-11: one ordering has to span both kinds, or the merge means nothing. */
+  it("orders service tiles and module widgets in ONE sequence", async () => {
+    await reorderItems(member.id, "wide", [link("tile-2"), mod("open"), link("tile-1")]);
+    const layout = await getUserLayout(member.id, "wide");
+    const sorted = applyLayoutOrder([mod("open"), link("tile-1"), link("tile-2")], layout).map(
+      (i) => `${i.kind}:${i.id}`,
+    );
+    expect(sorted).toEqual(["link:tile-2", "module:open", "link:tile-1"]);
+  });
+
+  it("keeps a tile and a module of the same id apart", async () => {
+    await setItemSize(member.id, "module", "same", "wide", 3, 3);
+    await setItemSize(member.id, "link", "same", "wide", 1, 1);
+    const layout = await getUserLayout(member.id, "wide");
+    expect(layout.get(itemKey("module", "same"))).toMatchObject({ width: 3 });
+    expect(layout.get(itemKey("link", "same"))).toMatchObject({ width: 1 });
+  });
+
+  /** CORE-12: the whole point is that a phone and a desktop don't overwrite each other. */
+  it("keeps the two device profiles independent", async () => {
+    await setItemSize(member.id, "module", "open", "wide", 4, 2);
+    await setItemSize(member.id, "module", "open", "narrow", 1, 1);
+
+    expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "open"))).toMatchObject({
+      width: 4,
+      height: 2,
+    });
+    expect((await getUserLayout(member.id, "narrow")).get(itemKey("module", "open"))).toMatchObject({
+      width: 1,
+      height: 1,
+    });
+  });
+
+  it("reordering one profile leaves the other alone", async () => {
+    await reorderItems(member.id, "wide", [mod("a"), mod("b")]);
+    await reorderItems(member.id, "narrow", [mod("b"), mod("a")]);
+
+    const wide = applyLayoutOrder([mod("a"), mod("b")], await getUserLayout(member.id, "wide"));
+    const narrow = applyLayoutOrder([mod("a"), mod("b")], await getUserLayout(member.id, "narrow"));
+    expect(wide.map((i) => i.id)).toEqual(["a", "b"]);
+    expect(narrow.map((i) => i.id)).toEqual(["b", "a"]);
+  });
+
+  it("resetting one profile leaves the other alone", async () => {
+    await setItemSize(member.id, "module", "open", "wide", 3, 3);
+    await setItemSize(member.id, "module", "open", "narrow", 2, 2);
+    await resetItem(member.id, "module", "open", "narrow");
+
+    expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "open"))).toMatchObject({ width: 3 });
+    expect((await getUserLayout(member.id, "narrow")).get(itemKey("module", "open"))).toBeUndefined();
   });
 });

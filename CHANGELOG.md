@@ -9,6 +9,61 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.5] — 2026-07-27
+
+**One dashboard, arranged freely, using the whole screen.** CORE-11, CORE-12 and CORE-14 — all three
+came out of the owner testing beta.1.
+
+**CORE-11 — service tiles and module widgets share one grid and one ordering.** Reverses retired
+MOD-04 (dropped 2026-07-22 as "arranging core service tiles is not wanted"), asked for again after
+using the reworked arrange mode; retired IDs are never reused, hence a new one.
+
+The data model was the work. `ModuleLayout` became **`DashboardLayout`** with `kind` + `refId`, so one
+sequence spans two tables. **A user's arrangement could never be written to `Link.sortOrder`** — a
+`Link` with a `roleId` belongs to a service group and is visible to every member, so that would
+silently reorder the tile for all of them. It lives per user, keyed by link id, exactly as widgets
+always did. The layout actions gained the matching gate: a tile is checked against
+`getUserVisibleLinks` before anything is written, or a crafted request could both pollute a dashboard
+and answer *"does this id exist?"* for something the caller was never shown.
+
+**Geometry chosen so the merge itself rearranges nobody.** Tiles were 5-across and widgets 3, so the
+grid is **6 columns wide / 2 narrow** with a tile at 1 unit and a widget at 2 — a tile lands near its
+old size and a widget lands exactly on its old 3-across. The row track drops to 88px with widgets
+defaulting to 2 rows, so a tile stays compact instead of becoming a large empty square.
+
+**CORE-12 — a saved arrangement per device.** `profile` (`wide` / `narrow`) on the same table, keyed
+on the **viewport, not the user agent**: the viewport is what actually decides which grid renders,
+whereas a UA check is wrong for a narrowed desktop window, ambiguous for tablets, and not trustworthy.
+The breakpoint and the grid's `lg:` are one constant, so what you rearrange on a phone is always what
+gets saved for phones. **Writes read the live viewport rather than component state** — belt and
+braces, because a missed media-query event would otherwise file a change against the *other* device,
+which is precisely what this feature exists to prevent.
+
+**Back compat: the migration copies every existing row into BOTH profiles**, so nothing changes until
+someone deliberately arranges one differently. Backups carry a new top-level `dashboardLayouts` and
+still write the old per-module `layouts`, so an archive taken here restores into an older build and an
+older archive restores here. That block also moved *out* of the modules branch — now that it covers
+tiles, a backup with no modules would have thrown the whole arrangement away.
+
+**CORE-14 — the dashboard escapes the reading measure.** Every page was capped at `max-w-6xl`
+(1152px), which on a wide display squeezed the dashboard into the middle third. The cap is right for
+prose and wrong for a grid, so a page marks itself `data-wide-page` and `:has()` widens the shell —
+rather than removing it globally, which would make a 2000px-wide settings form worse than the problem.
+
+**Verified live:** 38 items (36 tiles + 2 widgets) in one 6-column grid at 88px rows with
+`max-width: none`; at 375px it becomes 2 columns with widgets full width and tiles two-up, matching the
+old behaviour exactly. **Not verified here:** the live *rotation* transition — this browser harness
+changes the viewport without dispatching `resize` or `matchMedia` `change` at all (probed: zero events
+across a genuine 375↔1034 change), so only a real browser can exercise it. Loading fresh at either
+size is correct.
+
+**Deferred:** the Session Length merge. Its design is settled, but it changes when people get signed
+out and needs a careful migration — appending that to the end of a long dashboard push is how such
+things go wrong. It's independent, so nothing waits on it.
+
+**Tests:** 487. The layout suite now covers one ordering across both kinds, a tile and a module of the
+same id staying apart, and the two profiles being genuinely independent for size, order and reset.
+
 ## [1.8.0-beta.4] — 2026-07-27
 
 **Fixed — BUG-59: resizing one widget changed its neighbour's height.** Found by the owner testing

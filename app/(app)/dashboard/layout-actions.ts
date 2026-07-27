@@ -3,62 +3,86 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
-import { setModuleSize, moveModule, reorderModules, resetModuleLayout } from "@/lib/modules/layout";
+import { setItemSize, reorderItems, resetItem, isProfile } from "@/lib/dashboard/layout";
+import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
+import { getUserVisibleLinks } from "@/lib/services";
 
 /**
- * Dashboard layout actions. Every one is scoped to the CALLER's own layout — the user id
- * comes from the session, never from the form — so one user can't rearrange another's
- * dashboard. The module id is checked against what this user is actually allowed to see,
- * so these can't be used to probe for the existence of a restricted module either.
+ * Dashboard layout actions (CORE-11 / CORE-12).
+ *
+ * Every one is scoped to the CALLER's own layout — the user id comes from the session, never
+ * from the form — so nobody can rearrange somebody else's dashboard.
+ *
+ * **Both kinds are checked against what this user can actually see.** For widgets that was
+ * always true; it matters just as much for service tiles, because a tile can belong to a
+ * service group. Without the check, a crafted request could write layout rows for a link the
+ * caller has no access to, which both pollutes their dashboard and answers "does this id
+ * exist?" for something they were never shown.
  */
-async function gate(moduleId: string): Promise<{ id: string; allowed: Set<string> } | null> {
+type Allowed = { id: string; modules: Set<string>; links: Set<string> };
+
+async function gate(): Promise<Allowed> {
   await assertSameOrigin();
   const user = await requireUser();
-  const allowed = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
-  if (!allowed.has(moduleId)) return null;
-  return { id: user.id, allowed };
+  const [modules, links] = await Promise.all([
+    visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" }),
+    getUserVisibleLinks(user.id),
+  ]);
+  return { id: user.id, modules, links: new Set(links.map((l) => l.id)) };
 }
 
-export async function setWidgetSizeAction(moduleId: string, width: number, height: number): Promise<void> {
-  const user = await gate(moduleId);
-  if (!user) return;
-  await setModuleSize(user.id, moduleId, width, height);
-  revalidatePath("/dashboard");
+function permits(allowed: Allowed, kind: DashboardKind, refId: string): boolean {
+  return kind === "module" ? allowed.modules.has(refId) : allowed.links.has(refId);
 }
 
-export async function moveWidgetAction(
-  moduleId: string,
-  direction: "up" | "down",
-  orderedIds: string[],
+/** An unrecognised profile falls back to `wide` rather than throwing — a layout write is not
+ *  worth failing a page over, and `wide` is the arrangement most people have. */
+function asProfile(v: string): DashboardProfile {
+  return isProfile(v) ? v : "wide";
+}
+
+function asKind(v: string): DashboardKind {
+  return v === "link" ? "link" : "module";
+}
+
+export async function setItemSizeAction(
+  kind: string,
+  refId: string,
+  profile: string,
+  width: number,
+  height: number,
 ): Promise<void> {
-  const user = await gate(moduleId);
-  if (!user) return;
-  // Only reorder within what this user can see, so a crafted list can't write layout rows
-  // for modules they have no access to.
-  const safeOrder = orderedIds.filter((id) => user.allowed.has(id));
-  await moveModule(user.id, moduleId, direction, safeOrder);
+  const allowed = await gate();
+  const k = asKind(kind);
+  if (!permits(allowed, k, refId)) return;
+  await setItemSize(allowed.id, k, refId, asProfile(profile), width, height);
   revalidatePath("/dashboard");
 }
 
 /**
- * Save a whole new order — what a drag-and-drop produces. Same gate as the rest: the user
- * comes from the session, and the order is filtered to modules this user may see, so a
- * crafted list can't write layout rows for anything restricted.
+ * Save a whole new order — what a drag or a move button produces.
+ *
+ * The submitted order is filtered to items this user may see before anything is written, so a
+ * crafted list can neither reorder nor create rows for anything restricted.
  */
-export async function reorderWidgetsAction(orderedIds: string[]): Promise<void> {
-  await assertSameOrigin();
-  const user = await requireUser();
-  const allowed = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
-  const safeOrder = orderedIds.filter((id) => allowed.has(id));
-  if (safeOrder.length === 0) return;
-  await reorderModules(user.id, safeOrder);
+export async function reorderItemsAction(
+  profile: string,
+  ordered: { kind: string; id: string }[],
+): Promise<void> {
+  const allowed = await gate();
+  const safe = ordered
+    .map((i) => ({ kind: asKind(i.kind), id: i.id }))
+    .filter((i) => permits(allowed, i.kind, i.id));
+  if (safe.length === 0) return;
+  await reorderItems(allowed.id, asProfile(profile), safe);
   revalidatePath("/dashboard");
 }
 
-export async function resetWidgetAction(moduleId: string): Promise<void> {
-  const user = await gate(moduleId);
-  if (!user) return;
-  await resetModuleLayout(user.id, moduleId);
+export async function resetItemAction(kind: string, refId: string, profile: string): Promise<void> {
+  const allowed = await gate();
+  const k = asKind(kind);
+  if (!permits(allowed, k, refId)) return;
+  await resetItem(allowed.id, k, refId, asProfile(profile));
   revalidatePath("/dashboard");
 }

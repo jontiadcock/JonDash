@@ -2,33 +2,33 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setWidgetSizeAction, resetWidgetAction } from "./layout-actions";
-import type { CellMetrics } from "./widget-grid";
+import { setItemSizeAction, resetItemAction } from "./layout-actions";
+import type { CellMetrics } from "./dashboard-grid";
+import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 
 const MIN_SPAN = 1;
-const MAX_SPAN = 3;
-const clamp = (n: number) => Math.min(MAX_SPAN, Math.max(MIN_SPAN, n));
+const MAX_HEIGHT = 6;
+const clampW = (n: number, columns: number) => Math.min(columns, Math.max(MIN_SPAN, n));
+const clampH = (n: number) => Math.min(MAX_HEIGHT, Math.max(MIN_SPAN, n));
 
 /**
- * Wraps a module's dashboard widget.
+ * Wraps one dashboard item — a service tile or a module widget (CORE-11).
  *
- * **Normally there is no chrome at all (CORE-08).** The widget is a thing you click to open,
- * and nothing of ours is painted over the module's own UI. The previous design revealed a
- * grip and a pencil on hover at `right-2 top-2` — exactly where a module puts its own "Open"
- * affordance, so ours won the click (BUG-53). Hover-revealed controls are also unreachable on
- * a touch screen, which can't hover.
+ * **Normally there is no chrome at all.** The item is a thing you click, and nothing of ours
+ * is painted over it. The previous design revealed controls on hover at `right-2 top-2`,
+ * exactly where a module puts its own "Open" (BUG-53) — and hover cannot happen on a touch
+ * screen at all. Arranging is an explicit mode instead, with its controls always visible.
  *
- * **Arranging is an explicit mode.** In it the controls are always visible: move buttons that
- * work by tap and keyboard, and a corner handle to drag-resize. Rare deliberate act, its own
- * mode — rather than chrome that has to hide from the other 99% of the time.
- *
- * The grid span is applied as an inline style, not a Tailwind class: class names built at
- * runtime aren't seen by the JIT compiler and would silently do nothing.
+ * The grid span is an inline style, not a Tailwind class: class names built at runtime aren't
+ * seen by the JIT compiler and would silently do nothing.
  */
-export function WidgetFrame({
-  moduleId,
+export function DashboardFrame({
+  kind,
+  refId,
   name,
   href,
+  external,
+  writeProfile,
   width,
   height,
   editing,
@@ -37,16 +37,21 @@ export function WidgetFrame({
   dragging,
   dropTarget,
   cellMetrics,
-  onDragStartWidget,
-  onDragEnterWidget,
-  onDragEndWidget,
-  onDropWidget,
+  onDragStartItem,
+  onDragEnterItem,
+  onDragEndItem,
+  onDropItem,
   onNudge,
   children,
 }: {
-  moduleId: string;
+  kind: DashboardKind;
+  refId: string;
   name: string;
   href: string | null;
+  external: boolean;
+  /** Reads the live viewport at save time — see the note in dashboard-grid.tsx. Never a
+   *  stored value, so a missed media-query event can't file a change against the wrong device. */
+  writeProfile: () => DashboardProfile;
   width: number;
   height: number;
   editing: boolean;
@@ -55,20 +60,20 @@ export function WidgetFrame({
   dragging: boolean;
   dropTarget: boolean;
   cellMetrics: () => CellMetrics | null;
-  onDragStartWidget: () => void;
-  onDragEnterWidget: () => void;
-  onDragEndWidget: () => void;
-  onDropWidget: () => void;
+  onDragStartItem: () => void;
+  onDragEnterItem: () => void;
+  onDragEndItem: () => void;
+  onDropItem: () => void;
   onNudge: (direction: "up" | "down") => void;
   children: React.ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  // While a corner drag is in flight the frame previews the size it would become, so the
-  // grid reflows under the pointer instead of jumping only once you let go.
+  // While a corner drag is in flight the frame previews the size it would become, so the grid
+  // reflows under the pointer instead of jumping only once you let go.
   const [preview, setPreview] = useState<{ w: number; h: number } | null>(null);
   // State, not a ref: it decides whether the frame is `draggable`, so it has to cause a
-  // re-render when it changes. A ref would leave HTML5 drag armed during a corner resize.
+  // re-render. A ref would leave HTML5 drag armed during a corner resize.
   const [resizing, setResizing] = useState(false);
 
   const w = preview?.w ?? width;
@@ -77,11 +82,9 @@ export function WidgetFrame({
   const run = (fn: () => Promise<void>) => startTransition(() => void fn());
 
   /**
-   * Turn a corner drag into span units.
-   *
-   * Pointer events rather than HTML5 drag: this needs a live position on every move, and a
-   * drag image would be nonsense for a resize. `setPointerCapture` keeps the moves coming
-   * even when the pointer leaves the handle, which it immediately does.
+   * Turn a corner drag into span units. Pointer events rather than HTML5 drag: this needs a
+   * live position on every move, and a drag image would be nonsense for a resize.
+   * `setPointerCapture` keeps the moves coming once the pointer leaves the handle.
    */
   function startResize(e: React.PointerEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -98,8 +101,8 @@ export function WidgetFrame({
     handle.setPointerCapture(e.pointerId);
 
     const move = (ev: PointerEvent) => {
-      const nextW = clamp(startW + Math.round((ev.clientX - startX) / metrics.colWidth));
-      const nextH = clamp(startH + Math.round((ev.clientY - startY) / metrics.rowHeight));
+      const nextW = clampW(startW + Math.round((ev.clientX - startX) / metrics.colWidth), metrics.columns);
+      const nextH = clampH(startH + Math.round((ev.clientY - startY) / metrics.rowHeight));
       setPreview((p) => (p && p.w === nextW && p.h === nextH ? p : { w: nextW, h: nextH }));
     };
 
@@ -111,10 +114,10 @@ export function WidgetFrame({
       setResizing(false);
       setPreview((p) => {
         if (p && (p.w !== startW || p.h !== startH)) {
-          run(() => setWidgetSizeAction(moduleId, p.w, p.h));
+          run(() => setItemSizeAction(kind, refId, writeProfile(), p.w, p.h));
         }
-        // Keep the preview until the server render lands, or the tile snaps back to its old
-        // size for a frame and reads as the save having failed.
+        // Hold the preview until the server render lands, or the item snaps back for a frame
+        // and reads as the save having failed.
         return p;
       });
     };
@@ -124,15 +127,20 @@ export function WidgetFrame({
     handle.addEventListener("pointercancel", finish);
   }
 
-  /**
-   * Click anywhere on the widget to open it — except on something of the module's own that
-   * is already interactive, which keeps working as its author intended.
+  /*
+   * Click-to-open is for MODULE widgets only.
+   *
+   * A service tile already renders its own anchor covering the whole tile, so a second click
+   * target here would be redundant — and `router.push` to an external URL is the wrong
+   * navigation entirely. Leaving the tile's own link to do its job is both simpler and correct.
    */
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (editing || !href) return;
+    if (editing || external || !href) return;
     if ((e.target as HTMLElement).closest("a,button,input,select,textarea,label,[role='button']")) return;
     router.push(href);
   }
+
+  const clickable = !editing && !external && !!href;
 
   return (
     <div
@@ -141,56 +149,54 @@ export function WidgetFrame({
         gridColumn: `span ${w}`,
         gridRow: `span ${h}`,
         opacity: dragging ? 0.4 : 1,
-        outline: dropTarget ? "2px dashed var(--primary)" : editing ? "1px dashed var(--border-strong)" : undefined,
+        outline: dropTarget
+          ? "2px dashed var(--primary)"
+          : editing
+            ? "1px dashed var(--border-strong)"
+            : undefined,
         outlineOffset: dropTarget || editing ? "4px" : undefined,
-        cursor: !editing && href ? "pointer" : undefined,
+        cursor: clickable ? "pointer" : undefined,
       }}
       onClick={handleClick}
-      // Reorder-by-drag stays, but only while arranging, and never while a corner resize is
-      // in flight — the two gestures start the same way and would otherwise race.
+      // Reorder-by-drag stays, but only while arranging, and never during a corner resize —
+      // the two gestures start the same way and would otherwise race.
       draggable={editing && !resizing}
-      onDragStart={onDragStartWidget}
-      onDragEnter={onDragEnterWidget}
+      onDragStart={onDragStartItem}
+      onDragEnter={onDragEnterItem}
       onDragOver={(e) => e.preventDefault()} // required for a drop to be allowed
       onDrop={(e) => {
         e.preventDefault();
-        onDropWidget();
+        onDropItem();
       }}
-      onDragEnd={onDragEndWidget}
+      onDragEnd={onDragEndItem}
     >
       {/*
-        The real, focusable way in. The container's onClick is a pointer convenience and is
-        invisible to a keyboard or a screen reader, so navigation must not depend on it — and
-        wrapping the whole widget in an <a> is not available, because a module may render its
-        own links and buttons inside.
+        The real, focusable way in for a module widget. The container's onClick is a pointer
+        convenience and is invisible to a keyboard or a screen reader, so navigation must not
+        depend on it — and wrapping the whole thing in an <a> isn't available, because a module
+        may render its own links and buttons inside. A service tile needs none of this: its own
+        anchor is already the focusable target.
       */}
-      {href && !editing && (
-        <a href={href} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-20">
+      {clickable && (
+        <a href={href!} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-20">
           Open {name}
         </a>
       )}
 
       {/*
-        Three things at once, and the combination is the point.
-
-        `[&>*]:min-h-full` is the second half of BUG-55: the row track gives the frame a real
-        height, but a module's own root doesn't necessarily fill it, so a short widget left its
-        cell part-empty. `min-h-full` rather than `h-full` so a SHORT widget stretches while a
-        TALL one is still allowed to be its natural height inside the scroller.
-
-        `overflow-auto` + `min-h-0` is what makes the fixed row track (BUG-59) safe. The owner's
-        rule is that modules conform to the dashboard's box and content spilling out is bad module
-        design — but the frame scrolls rather than clipping, because silently hiding a module's
-        content is worse than showing it can't fit: the author sees the overflow, and nothing
-        becomes unreachable for the user. `min-h-0` is required — a flex child will not shrink
-        below its content without it, and the scroller would never engage.
+        `overflow-auto` + `min-h-0` is what makes the fixed row track safe: an item conforms to
+        the box the dashboard gives it, but scrolls rather than clipping, because silently
+        hiding a module's content is worse than showing it doesn't fit. `min-h-0` is required —
+        a flex child won't shrink below its content without it and the scroller never engages.
+        `min-h-full` rather than `h-full` so a SHORT item stretches to fill while a TALL one
+        keeps its natural height inside the scroller.
       */}
       <div className="min-h-0 flex-1 overflow-auto [&>*]:min-h-full">{children}</div>
 
       {editing && (
         <>
           <div
-            className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-lg border p-1 text-xs"
+            className="absolute left-1 top-1 z-10 flex items-center gap-1 rounded-lg border p-1 text-xs"
             style={{ background: "var(--background)", borderColor: "var(--border)" }}
           >
             <button
@@ -221,7 +227,7 @@ export function WidgetFrame({
               disabled={pending}
               onClick={() => {
                 setPreview(null);
-                run(() => resetWidgetAction(moduleId));
+                run(() => resetItemAction(kind, refId, writeProfile()));
               }}
               className="rounded px-2 py-1"
               style={{ color: "var(--muted)" }}
@@ -232,22 +238,24 @@ export function WidgetFrame({
           </div>
 
           {/*
-            Bottom-right, where a resize handle is expected. Also keyboard-operable: arrow keys
-            step the span, because a drag is worth nothing to anyone not using a pointer.
+            Bottom-right, where a resize handle is expected — and arrow-key operable, because a
+            drag is worth nothing to anyone not using a pointer, which on a phone is everyone.
           */}
           <button
             type="button"
             onPointerDown={startResize}
             onKeyDown={(e) => {
+              const metrics = cellMetrics();
+              const columns = metrics?.columns ?? 6;
               const dw = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
               const dh = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
               if (!dw && !dh) return;
               e.preventDefault();
-              const nw = clamp(w + dw);
-              const nh = clamp(h + dh);
+              const nw = clampW(w + dw, columns);
+              const nh = clampH(h + dh);
               if (nw === w && nh === h) return;
               setPreview({ w: nw, h: nh });
-              run(() => setWidgetSizeAction(moduleId, nw, nh));
+              run(() => setItemSizeAction(kind, refId, writeProfile(), nw, nh));
             }}
             className="absolute bottom-1 right-1 z-10 h-6 w-6 cursor-nwse-resize rounded"
             style={{ background: "var(--surface-2)", color: "var(--muted)", touchAction: "none" }}

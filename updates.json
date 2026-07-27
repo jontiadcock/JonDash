@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.5",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: one dashboard, arranged how you like it, and it finally uses your whole screen. Your service tiles and your module widgets used to be two separate grids that could not be mixed - tiles on top, modules underneath, and no way to put a module between two tiles. They are now a single grid you arrange together: press Arrange, move anything anywhere, resize it, done. Your existing arrangement is kept, and tiles and widgets come out the size they were, so nothing is shuffled by the change itself. The dashboard also no longer sits in a narrow column in the middle of a wide monitor - it stretches to the room available, while pages that are mostly text keep their comfortable reading width, because a settings form two thousand pixels wide would be worse than the problem. And your phone now remembers its own arrangement, separate from your computer's. Rearranging on a small screen no longer reorders your desktop, and the other way round. Both start out identical, so nothing changes until you deliberately arrange one of them differently. Anything that does not fit its box scrolls inside itself rather than pushing the rest of the dashboard around."
+    },
+    {
       "version": "1.8.0-beta.4",
       "date": "2026-07-27",
       "type": "patch",

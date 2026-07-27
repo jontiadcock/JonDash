@@ -1071,6 +1071,20 @@ window resizing then land in the right profile on their own.
 and the ← → move buttons mean up/down — the narrow layout needs its own arrange affordances rather
 than the desktop ones shrunk.
 
+#### CORE-14 · The dashboard uses the screen it is given — ⏳ Planned (owner request 2026-07-27)
+`app/(app)/layout.tsx` caps every page at `max-w-6xl` (1152px) and centres it. On a wide display the
+dashboard is squeezed into the middle third with a large empty margin either side — reported with a
+screenshot on a ~2000px screen.
+
+**The cap is correct for reading and wrong for a dashboard.** A 72rem measure is what keeps prose and
+forms at a legible line length; a grid of tiles has no equivalent constraint and simply wants the
+room. Removing it globally would make a 2000px-wide settings form worse than the problem being
+solved — so the dashboard runs wide while text and form pages keep their measure.
+
+**Pairs with CORE-11.** The owner's report — *"modules only appear in the middle of the screen, and
+should be completely optional about where they are placed"* — is one complaint with two causes: the
+container is too narrow, and placement is not free. Fixing either alone leaves it half solved.
+
 #### CORE-13 · Drop the free-form accent colour; ship many more palettes — ⏳ Planned (owner request 2026-07-27)
 Remove Modern's arbitrary hex accent (`branding.accent`) and replace the choice with a much larger
 set of designed palettes.

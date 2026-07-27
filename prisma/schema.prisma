@@ -95,7 +95,7 @@ model User {
   accessRoles AccessRole[] @relation("UserAccessRoles")
 
   @@index([status])
-  moduleLayouts   ModuleLayout[]
+  dashboardLayouts DashboardLayout[]
 }
 
 // A named bundle of admin capabilities (permissions). Assigning an access role
@@ -305,24 +305,43 @@ model ModuleMigration {
   @@index([moduleId])
 }
 
-/// Per-user dashboard layout for a module's widget (MOD-04 groundwork): each user sizes
-/// and orders module widgets for themselves, so one person's arrangement never changes
-/// anyone else's. Absent row = the module's default size at the end of the list.
-model ModuleLayout {
+/// Per-user dashboard layout — for module widgets AND service tiles (CORE-11), and now
+/// per device profile (CORE-12).
+///
+/// Size and position are stored PER USER, so arranging your own dashboard never changes
+/// anyone else's. That is not merely a nicety for tiles: a Link with a `roleId` belongs to
+/// a service group and is visible to every member, so writing a user's arrangement into
+/// `Link.sortOrder` would silently reorder that tile for all of them. The arrangement has
+/// to live here, keyed by the link's id, exactly as it always has for widgets.
+///
+/// Absent row = default size, ordered after everything that has one, so the feature stays
+/// invisible until somebody uses it.
+model DashboardLayout {
   id        String @id @default(cuid())
   userId    String
-  moduleId  String
-  /// Width in dashboard grid columns (1 = compact, up to 4 = full width).
+  /// What this row positions: "module" (a widget) or "link" (a service tile). Kept as a
+  /// discriminator rather than two nullable FKs so one ordering can span both.
+  kind      String @default("module")
+  /// The module id, or the Link id — resolved by `kind`. Deliberately NOT a foreign key:
+  /// a module id is not a row in any table, so one of the two kinds could never satisfy a
+  /// constraint. Rows for things that no longer exist are simply ignored on read.
+  refId     String
+  /// Which device profile this arrangement belongs to (CORE-12): "wide" (the multi-column
+  /// grid) or "narrow" (the single-column one). Keyed on VIEWPORT rather than user agent —
+  /// the viewport is what actually decides which grid renders, whereas a UA string is wrong
+  /// for a narrowed desktop window, ambiguous for tablets, and not trustworthy anyway.
+  profile   String @default("wide")
+  /// Width in dashboard grid columns.
   width     Int    @default(1)
-  /// Height in grid rows (1 = standard, larger = taller).
+  /// Height in grid rows.
   height    Int    @default(1)
   /// Position on the dashboard; lower sorts first.
   sortOrder Int    @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, moduleId])
-  @@index([userId])
+  @@unique([userId, profile, kind, refId])
+  @@index([userId, profile])
 }
 
 /// An installed helper (MOD-08). Helpers are FIRST-PARTY ONLY — installable solely from

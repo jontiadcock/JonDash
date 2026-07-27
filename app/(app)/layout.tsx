@@ -16,12 +16,25 @@ export default async function AppLayout({
   const canAccessAdmin = (await getEffectivePermissions(user)).size > 0;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    /*
+     * CORE-14 — a page may opt out of the reading measure.
+     *
+     * `max-w-6xl` (1152px) is what keeps prose and forms at a legible line length, and it is
+     * right for almost every page here. It is wrong for the dashboard: a grid of tiles has no
+     * such constraint and simply wants the room, so on a wide display the whole dashboard was
+     * squeezed into the middle third with a large empty margin either side.
+     *
+     * Rather than remove the cap globally — which would make a 2000px-wide settings form worse
+     * than the problem — a page marks itself with `data-wide-page` and `:has()` widens the
+     * shell around it. The header widens with it, or the brand and account menu would sit in a
+     * narrow column above a full-width page and read as misalignment.
+     */
+    <div className="group/shell min-h-screen flex flex-col has-[[data-wide-page]]:w-full">
       <header
         className="sticky top-0 z-10 border-b backdrop-blur"
         style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--background) 85%, transparent)" }}
       >
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:px-4">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 group-has-[[data-wide-page]]/shell:max-w-none sm:px-4">
           <Link href="/dashboard" className="flex min-w-0 items-center gap-2 font-semibold">
             <BrandMark />
           </Link>
@@ -35,7 +48,7 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 group-has-[[data-wide-page]]/shell:max-w-none sm:py-8">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

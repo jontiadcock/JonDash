@@ -17,8 +17,8 @@ const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p),
 
 const GLOBALS = read("app", "globals.css");
 const STYLES = read("app", "styles.css");
-const GRID = read("app", "(app)", "dashboard", "widget-grid.tsx");
-const FRAME = read("app", "(app)", "dashboard", "widget-frame.tsx");
+const GRID = read("app", "(app)", "dashboard", "dashboard-grid.tsx");
+const FRAME = read("app", "(app)", "dashboard", "dashboard-frame.tsx");
 
 /** Crude but sufficient: split on `}` so each chunk holds one rule's declarations. */
 function blocks(css: string): string[] {
@@ -125,7 +125,7 @@ describe("the widget grid gives a row span something to multiply", () => {
     expect(GRID, "a growable row track lets widgets push each other around (BUG-59)").not.toMatch(
       /auto-rows-\[minmax\(/,
     );
-    expect(GRID).toMatch(/auto-rows-\[[\d.]+rem\]/);
+    expect(GRID).toMatch(/auto-rows-\[[\d.]+(px|rem)\]/);
   });
 
   it("lets a widget scroll rather than clipping it", () => {

@@ -6,8 +6,14 @@ import { getEnabledModules } from "@/lib/modules/registry";
 import { buildModuleContext } from "@/lib/modules/context";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { ensureModuleMigrations } from "@/lib/modules/manage";
-import { getUserModuleLayout, applyLayoutOrder } from "@/lib/modules/layout";
-import { WidgetGrid, type WidgetItem } from "./widget-grid";
+import {
+  getUserLayout,
+  applyLayoutOrder,
+  spanFor,
+  PROFILES,
+  type DashboardProfile,
+} from "@/lib/dashboard/layout";
+import { DashboardGrid, type DashboardItem, type ProfileArrangement } from "./dashboard-grid";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -23,36 +29,78 @@ export default async function DashboardPage() {
   const allowedWidgets = (await getEnabledModules()).filter(
     (s) => s.def.DashboardWidget && (!s.def.adminOnly || isAdmin) && visible.has(s.def.id),
   );
-  // Each user arranges their own dashboard; without a saved layout nothing changes.
-  const layout = await getUserModuleLayout(user.id);
-  const widgets = applyLayoutOrder(allowedWidgets, layout);
 
-  // Each widget is rendered here (it's a server component — it may query, and must stay off
-  // the client) and handed to the grid as a node, so the grid can reorder without them
-  // becoming client code.
-  const widgetItems: WidgetItem[] = widgets.map((s) => {
-    const Widget = s.def.DashboardWidget!;
-    const ctx = buildModuleContext(s.def, s.granted, {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
-    const size = layout.get(s.def.id);
-    return {
-      id: s.def.id,
-      name: s.def.name,
-      width: size?.width ?? 1,
-      height: size?.height ?? 1,
-      // Clicking a widget opens the module's own page (CORE-08) — but only where there is
-      // one. A module may ship a widget and nothing else, and a card that looks clickable
-      // and does nothing is worse than one that plainly isn't.
-      href: s.def.Page ? `/m/${s.def.id}` : null,
-      node: <Widget ctx={ctx} />,
+  /*
+   * ONE list, tiles and widgets together (CORE-11). Each is rendered here — a widget is a
+   * server component that may query, and a tile needs the icon URL — and handed to the grid
+   * as a node, so the grid can reorder without either becoming client code.
+   */
+  const items: DashboardItem[] = [
+    ...links.map((link) => ({
+      kind: "link" as const,
+      id: link.id,
+      name: link.title,
+      href: link.url,
+      external: true,
+      node: (
+        <ServiceTile
+          title={link.title}
+          url={link.url}
+          iconSrc={link.iconPath ? `/api/icons/${link.id}?v=${link.updatedAt.getTime()}` : null}
+        />
+      ),
+    })),
+    ...allowedWidgets.map((s) => {
+      const Widget = s.def.DashboardWidget!;
+      const ctx = buildModuleContext(s.def, s.granted, {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      });
+      return {
+        kind: "module" as const,
+        id: s.def.id,
+        name: s.def.name,
+        // Clicking opens the module's own page — but only where there is one. A card that
+        // looks clickable and does nothing is worse than one that plainly isn't.
+        href: s.def.Page ? `/m/${s.def.id}` : null,
+        external: false,
+        node: <Widget ctx={ctx} />,
+      };
+    }),
+  ];
+
+  /*
+   * BOTH profiles are computed server-side and sent down (CORE-12).
+   *
+   * Which one applies is a client fact — it depends on the viewport, which the server cannot
+   * see. Sending both means the client can switch without a round trip, and rotating a phone
+   * or dragging a window across the breakpoint is instant.
+   *
+   * **Honest limit:** the server has to render *something*, and it renders `wide`. A narrow
+   * client corrects on mount, so someone whose two arrangements have actually diverged sees one
+   * reflow on first load. The alternative — a cookie carrying the profile — costs a round trip
+   * on first visit and is wrong for the visit where it was set. Since both profiles start
+   * identical (the migration copies one into the other), the reflow only appears once someone
+   * has deliberately made them differ, which is exactly when they would expect two layouts.
+   */
+  const arrangements = {} as Record<DashboardProfile, ProfileArrangement>;
+  for (const profile of PROFILES) {
+    const layout = await getUserLayout(user.id, profile);
+    const ordered = applyLayoutOrder(items, layout);
+    arrangements[profile] = {
+      order: ordered.map((i) => ({ kind: i.kind, id: i.id })),
+      spans: Object.fromEntries(
+        ordered.map((i) => [`${i.kind}:${i.id}`, spanFor(i.kind, i.id, profile, layout)]),
+      ),
     };
-  });
+  }
 
   return (
-    <div>
+    // `data-wide-page` releases the shell's reading measure (CORE-14) — see app/(app)/layout.tsx.
+    // A dashboard is a grid, not prose: it has no line length to protect and simply wants the
+    // screen it was given.
+    <div data-wide-page>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Your services</h1>
@@ -67,7 +115,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {links.length === 0 ? (
+      {items.length === 0 ? (
         <div className="card flex flex-col items-center justify-center p-12 text-center">
           <p className="font-medium">No services yet</p>
           {isAdmin ? (
@@ -86,34 +134,13 @@ export default async function DashboardPage() {
           )}
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {links.map((link) => (
-            <li key={link.id}>
-              <ServiceTile
-                title={link.title}
-                url={link.url}
-                iconSrc={
-                  link.iconPath
-                    ? `/api/icons/${link.id}?v=${link.updatedAt.getTime()}`
-                    : null
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {widgets.length > 0 && (
-        <section className="mt-8">
-          {/* The heading lives inside the grid now: it shares a row with the Arrange toggle,
-              which is client state (CORE-08).
-              Keyed on the SET of visible modules (sorted, so a reorder isn't a new key):
-              installing or removing one re-seeds the grid; dragging leaves it mounted. */}
-          <WidgetGrid
-            key={widgetItems.map((w) => w.id).sort().join(",")}
-            items={widgetItems}
-          />
-        </section>
+        /* Keyed on the SET of items (sorted, so a reorder isn't a new key): adding or removing
+           one re-seeds the grid; rearranging leaves it mounted and keeps the optimistic order. */
+        <DashboardGrid
+          key={items.map((i) => `${i.kind}:${i.id}`).sort().join(",")}
+          items={items}
+          arrangements={arrangements}
+        />
       )}
     </div>
   );

@@ -129,7 +129,33 @@ type BackupData = {
     autoUpdate: boolean;
     grantedPermissions: string;
     records: { key: string; valueJson: string; secret: boolean }[];
+    /**
+     * DEPRECATED as of CORE-11 — kept written and kept read.
+     *
+     * Widget arrangements used to live per module. They now live in `dashboardLayouts` below,
+     * because one ordering spans widgets and service tiles and a tile's layout has no module
+     * to nest under. This field is still WRITTEN (module rows, wide profile only) so a backup
+     * taken here restores into an older build, and still READ on restore so an older backup
+     * restores here.
+     */
     layouts: { userId: string; width: number; height: number; sortOrder: number }[];
+  }[];
+  /**
+   * The whole dashboard arrangement — widgets AND service tiles, per device profile
+   * (CORE-11 / CORE-12). Top-level rather than nested under modules, because a `link` row
+   * belongs to no module.
+   *
+   * Absent in backups taken before this existed; those are reconstructed from each module's
+   * `layouts` on restore.
+   */
+  dashboardLayouts?: {
+    userId: string;
+    kind: string;
+    refId: string;
+    profile: string;
+    width: number;
+    height: number;
+    sortOrder: number;
   }[];
   audit?: { action: string; userId: string | null; ip: string | null; detail: string | null; createdAt: string }[];
 };
@@ -255,7 +281,7 @@ export async function buildBackupData(includeSensitive: boolean): Promise<Backup
   if (modules.length) {
     const [records, layouts] = await Promise.all([
       prisma.moduleRecord.findMany({ orderBy: [{ moduleId: "asc" }, { key: "asc" }] }),
-      prisma.moduleLayout.findMany({ orderBy: [{ moduleId: "asc" }, { sortOrder: "asc" }] }),
+      prisma.dashboardLayout.findMany({ orderBy: [{ refId: "asc" }, { sortOrder: "asc" }] }),
     ]);
     data.modules = modules.map((m) => ({
       id: m.id,
@@ -272,9 +298,30 @@ export async function buildBackupData(includeSensitive: boolean): Promise<Backup
         // key needed to read it back (BUG-04). Otherwise it restores as undecryptable junk.
         .filter((r) => includeSensitive || !r.secret)
         .map((r) => ({ key: r.key, valueJson: r.valueJson, secret: r.secret })),
+      // Deprecated shape, still written: module rows from the WIDE profile only, which is
+      // what an older build understands. It restores this backup into a pre-CORE-11 JonDash
+      // rather than that install silently losing every widget arrangement.
       layouts: layouts
-        .filter((l) => l.moduleId === m.id)
+        .filter((l) => l.kind === "module" && l.refId === m.id && l.profile === "wide")
         .map((l) => ({ userId: l.userId, width: l.width, height: l.height, sortOrder: l.sortOrder })),
+    }));
+  }
+
+  // The real arrangement: both kinds, both profiles, top-level because a service tile's
+  // layout belongs to no module. Written independently of `modules` — a dashboard can be
+  // arranged with no modules installed at all, and that arrangement is still worth keeping.
+  const allLayouts = await prisma.dashboardLayout.findMany({
+    orderBy: [{ profile: "asc" }, { sortOrder: "asc" }],
+  });
+  if (allLayouts.length) {
+    data.dashboardLayouts = allLayouts.map((l) => ({
+      userId: l.userId,
+      kind: l.kind,
+      refId: l.refId,
+      profile: l.profile,
+      width: l.width,
+      height: l.height,
+      sortOrder: l.sortOrder,
     }));
   }
 
@@ -627,7 +674,10 @@ export async function applyRestore(
       // that doesn't have a module installed leaves its settings waiting for it, which is
       // the useful behaviour: install the module and its configuration is already there.
       await tx.moduleRecord.deleteMany({});
-      await tx.moduleLayout.deleteMany({});
+      // Only the OLD-format path clears layouts here; the new one owns that in its own block
+      // below. Without this condition an old backup would append to the existing arrangement
+      // and collide on the unique index.
+      if (!data.dashboardLayouts) await tx.dashboardLayout.deleteMany({});
 
       const validUserIds = new Set((await tx.user.findMany({ select: { id: true } })).map((u) => u.id));
       for (const m of data.modules) {
@@ -648,13 +698,67 @@ export async function applyRestore(
             data: { moduleId: m.id, key: r.key, valueJson: r.valueJson, secret: r.secret },
           });
         }
-        for (const l of m.layouts) {
-          // A layout belongs to a user; drop it if that user didn't come back.
-          if (!validUserIds.has(l.userId)) continue;
-          await tx.moduleLayout.create({
-            data: { moduleId: m.id, userId: l.userId, width: l.width, height: l.height, sortOrder: l.sortOrder },
-          });
+        /*
+         * Only for a backup taken BEFORE `dashboardLayouts` existed. A newer archive carries
+         * the real arrangement top-level and this deprecated copy alongside it; reading both
+         * would write each module row twice and hit the unique index.
+         *
+         * An old row is module-only and had no notion of a device profile, so it is restored
+         * into BOTH — matching the schema migration, and for the same reason: one layout used
+         * to serve every screen size, so putting it in `wide` alone would silently discard the
+         * arrangement on a phone.
+         */
+        if (!data.dashboardLayouts) {
+          for (const l of m.layouts) {
+            // A layout belongs to a user; drop it if that user didn't come back.
+            if (!validUserIds.has(l.userId)) continue;
+            for (const profile of ["wide", "narrow"] as const) {
+              await tx.dashboardLayout.create({
+                data: {
+                  userId: l.userId,
+                  kind: "module",
+                  refId: m.id,
+                  profile,
+                  width: l.width,
+                  height: l.height,
+                  sortOrder: l.sortOrder,
+                },
+              });
+            }
+          }
         }
+      }
+
+    }
+
+    /*
+     * The dashboard arrangement, restored on its OWN — not inside the modules branch.
+     *
+     * Since CORE-11 it covers service tiles as well as widgets, so it is not module data: a
+     * backup with no modules at all can still carry a perfectly good arrangement of tiles, and
+     * nesting this under `modules` would have silently thrown that away. It is gated on either
+     * category because it spans both, and the delete happens here so it runs exactly once
+     * however many of them were selected.
+     */
+    if ((restore("modules") || restore("users")) && data.dashboardLayouts) {
+      await tx.dashboardLayout.deleteMany({});
+      const layoutUserIds = new Set((await tx.user.findMany({ select: { id: true } })).map((u) => u.id));
+      for (const l of data.dashboardLayouts) {
+        if (!layoutUserIds.has(l.userId)) continue;
+        // A row naming a module or link that didn't come back is harmless — nothing renders
+        // it — so it is kept rather than dropped: reinstalling that module restores its
+        // place, the same reasoning as keeping a helper's data across an uninstall.
+        await tx.dashboardLayout.create({
+          data: {
+            userId: l.userId,
+            kind: l.kind === "link" ? "link" : "module",
+            refId: l.refId,
+            profile: l.profile === "narrow" ? "narrow" : "wide",
+            width: l.width,
+            height: l.height,
+            sortOrder: l.sortOrder,
+          },
+        });
       }
     }
 
