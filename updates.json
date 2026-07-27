@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.7.3",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Service accounts - an identity for an add-on, that nobody can ever sign in as. Create one under Users by picking 'Service account' as the type, alongside creating a person. It can hold permissions and appears in the audit log under its own name, but it has no password, no authenticator, no recovery codes and no setup link, and none of those can be added to it later. Previously an assistant had to borrow a real person's account, which meant the audit log blamed you for what it did and revoking the assistant meant locking yourself out; those are now separate things. It cannot be turned into a login: resetting access, completing a setup link and signing in are all refused, and a sign-in attempt answers exactly like an unknown address so nobody can discover one exists by trying. It never counts as your last administrator either - delete every real admin and the first-run recovery screen still appears, so an install cannot end up locked away behind an account nobody can use. Its page shows when it was last used and by which add-on, and says plainly that the key lives in the add-on rather than in JonDash, which never sees it and cannot re-issue it. Disabling the account cuts off every add-on at once. Also fixed: switching an add-on off now actually stops the shared component it uses, which mattered for the first one that holds a connection open."
+    },
+    {
       "version": "1.7.3-beta.4",
       "date": "2026-07-27",
       "type": "patch",

@@ -9,6 +9,34 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.7.3] — 2026-07-27
+
+**Service accounts — an identity for an add-on, that nobody can ever sign in as.** Consolidates the
+four 1.7.3 betas unchanged.
+
+Create one under **Users** — pick *Service account* as the type, alongside creating a person. It can
+hold permissions and it appears in the audit log under its own name, but it has **no password, no
+authenticator, no recovery codes and no setup link**, and none of those can be added to it later.
+
+- **An add-on acts as *it*, not as you.** Previously an assistant had to borrow a real person's
+  account, so the audit log blamed you for what it did, and revoking the assistant meant locking
+  yourself out. Those are now separate things.
+- **It cannot be turned into a login.** Resetting access, completing a setup link and signing in are
+  all refused — and a sign-in attempt answers exactly like an unknown address, so nobody can
+  discover a service account exists by trying.
+- **It never counts as your last administrator.** Delete every real admin and the first-run recovery
+  screen still appears, so an install can't end up locked away behind an account nobody can use.
+- **Its page tells you what it's for** — when it was last used and by which add-on — and says
+  plainly that the key lives in the add-on, not in JonDash. JonDash never sees it, can't show it to
+  you and can't re-issue it.
+- **One button cuts off every add-on**: disabling the account stops them all, because they re-check
+  it on every request.
+
+### Fixed
+- **Switching an add-on off now actually stops the shared component it uses.** It mattered for the
+  first component that holds a connection open — turning the add-on off left it listening, with
+  nothing on screen saying so.
+
 ## [1.7.3-beta.4] — 2026-07-27
 
 ### Fixed
