@@ -171,13 +171,21 @@ export function WidgetFrame({
       )}
 
       {/*
-        `[&>*]:h-full` is the second half of BUG-55. The row track (BUG-54) gives the frame a
-        real height, but a module's own root element doesn't necessarily fill it — so a short
-        widget left its cell part-empty and the grid looked ragged even once the rows were
-        uniform. Documented for authors in docs/MODULES-AUTHORING.md: a widget root should
-        expect to be stretched, and lay itself out accordingly.
+        Three things at once, and the combination is the point.
+
+        `[&>*]:min-h-full` is the second half of BUG-55: the row track gives the frame a real
+        height, but a module's own root doesn't necessarily fill it, so a short widget left its
+        cell part-empty. `min-h-full` rather than `h-full` so a SHORT widget stretches while a
+        TALL one is still allowed to be its natural height inside the scroller.
+
+        `overflow-auto` + `min-h-0` is what makes the fixed row track (BUG-59) safe. The owner's
+        rule is that modules conform to the dashboard's box and content spilling out is bad module
+        design — but the frame scrolls rather than clipping, because silently hiding a module's
+        content is worse than showing it can't fit: the author sees the overflow, and nothing
+        becomes unreachable for the user. `min-h-0` is required — a flex child will not shrink
+        below its content without it, and the scroller would never engage.
       */}
-      <div className="flex-1 [&>*]:h-full">{children}</div>
+      <div className="min-h-0 flex-1 overflow-auto [&>*]:min-h-full">{children}</div>
 
       {editing && (
         <>

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.4",
+      "date": "2026-07-27",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fix: resizing one dashboard widget no longer changes the size of another. Making a widget taller could nudge an unrelated one next to it slightly smaller, which was introduced by the previous beta's fix for the Height setting. The rows were allowed to grow to fit whatever was in them, and a widget covering several rows spreads its contents across all of them - so changing one widget quietly re-sized rows it shared with its neighbour, and the neighbour moved. Rows are now a fixed height, so making something taller adds exactly that much and nothing else on the dashboard shifts. Widgets sharing a row are now genuinely the same height, which is what was wanted in the first place. A widget with more content than fits its box now scrolls inside itself rather than stretching the dashboard around it."
+    },
+    {
       "version": "1.8.0-beta.3",
       "date": "2026-07-27",
       "type": "patch",

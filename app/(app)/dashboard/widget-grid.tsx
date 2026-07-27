@@ -136,19 +136,29 @@ export function WidgetGrid({ items }: { items: WidgetItem[] }) {
       )}
 
       {/*
-        `auto-rows-[minmax(11rem,auto)]` is what makes the Height setting mean anything (BUG-54).
+        A row track is what makes the Height setting mean anything (BUG-54) — without one, implicit
+        rows are content-sized, so a `grid-row: span 2` spans two rows with no independent height to
+        add and the setting moved nothing at all.
 
-        Without a row track, implicit rows are content-sized: each widget generates its own row,
-        and a `grid-row: span 2` then spans two rows that have no independent height to add — so
-        the setting saved, re-rendered, and moved nothing at all.
+        **FIXED, not `minmax(…, auto)` — that was BUG-59.** A growable track sizes itself to its
+        content, and a widget spanning several rows spreads its content across all of them. So one
+        widget resizing silently re-sized the tracks it *shared* with its neighbours: taking Host
+        vitals from 1×1 to 1×2 spread its content over two rows, row 1 shrank, and the unrelated
+        widget spanning rows 1–3 lost exactly that height.
 
-        `minmax(base, auto)` rather than a fixed height on purpose: a span now multiplies a real
-        11rem base, while a widget whose content genuinely needs more room still grows instead of
-        being clipped. Clipping a module's own UI to enforce a tidy grid is the worse trade.
+        Content-sized tracks cannot also be independent of content — the two goals are in direct
+        tension, and independence is the one that matters here. With a fixed track a span is purely
+        multiplicative: widgets sharing a row are genuinely identical heights (the honest version of
+        BUG-55), and nothing a module does can move its neighbour.
+
+        Owner's call, 2026-07-27: *"modules should conform to rules given by the dashboard — if text
+        gets cut off, that would be bad module design."* The dashboard sets the box; overflow is the
+        module's problem. The frame still SCROLLS rather than clipping, so an author sees the
+        overflow and no content becomes unreachable — see the note in widget-frame.tsx.
       */}
       <div
         ref={gridRef}
-        className="grid grid-cols-1 gap-4 auto-rows-[minmax(11rem,auto)] sm:grid-cols-2 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-4 auto-rows-[11rem] sm:grid-cols-2 lg:grid-cols-3"
       >
         {ordered.map((item, index) => (
           <WidgetFrame

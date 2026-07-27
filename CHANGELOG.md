@@ -9,6 +9,37 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.4] — 2026-07-27
+
+**Fixed — BUG-59: resizing one widget changed its neighbour's height.** Found by the owner testing
+beta.1. Taking a 1×1 widget to 1×2 made an unrelated 2×3 widget beside it shrink slightly.
+
+**My regression, from beta.1's own fix.** `grid-auto-rows: minmax(11rem, auto)` lets a track grow to
+fit content, and a widget spanning N rows spreads its content across all N — so a span change
+re-sized tracks *shared* with a neighbour. A tall widget spanning row 1 forced row 1 tall; spanning
+rows 1–2 spread the same content over two tracks, row 1 shrank, and the widget spanning rows 1–3 lost
+exactly that height. Neither widget was wrong; the tracks moved under both.
+
+I chose `auto` to avoid clipping a module's UI, and that choice is what caused it — content-sized
+tracks cannot also be independent of content. The track is now **fixed**, so a span is purely
+multiplicative: nothing a module does can move its neighbour, and widgets sharing a row are genuinely
+identical heights, which is the honest version of BUG-55.
+
+**Owner's rule, 2026-07-27:** *"modules should conform to rules given by the dashboard — if text gets
+cut off, that would be bad module design."* So the dashboard sets the box. The frame still **scrolls**
+rather than clipping, because silently hiding a module's content is worse than showing it doesn't fit:
+the author sees the overflow and nothing becomes unreachable. `min-h-full` rather than `h-full` on the
+child, so a short widget still stretches while a tall one keeps its natural height inside the scroller.
+
+Verified against the owner's exact arrangement: a 2×3 widget held at **560px** through a neighbour's
+1×1 → 1×2 resize (it moved before), and the overflowing widget scrolls internally.
+
+**Also logged, not built:** **BUG-60** — the glass styles still scroll poorly, and the owner's testing
+is what separated it from the beta.1 fix. Modern improved "significantly", and *only* Crystal and Aero
+remain slow, because those two set a real blur (18px/14px) rather than the zero blur beta.1 removed.
+That cost is inherent to the effect and scales with card count, which is why Browse modules is worst.
+**Owner's decision: log it and move on, change no other style** — deferred, not dropped.
+
 ## [1.8.0-beta.3] — 2026-07-27
 
 **CI only — no application code changed from beta.2.**

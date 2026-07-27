@@ -628,7 +628,15 @@ diagnostics.
 - **No sensitive data:** logs must never contain the encryption key, `.env`/secrets, passwords,
   tokens, session tokens, or DB contents — redact anything sensitive. **Gitignore `logs/`** (never pushed).
 
-#### OPS-06 · Optional skip of browser auto-open on launch — 🧊 Backlog (reclassified from BUG-06, 2026-07-20)
+#### OPS-06 · Optional skip of browser auto-open on launch — ▶️ Scheduled into 1.8.0 (owner request 2026-07-27)
+
+**Out of backlog and into the 1.8.0 UI-rework release**, grouped with the update/launcher work
+because it is the same file and the same boot path. Two routes, deliberately: a `.data` flag written
+by an in-app toggle (survives updates, for "stop doing this now that I'm set up"), and a
+`JONDASH_NO_BROWSER` env var for a headless box that must never open one *before* anyone can reach
+the UI — a UI-only switch cannot be set by someone who can't see the window it opened.
+
+Original entry below.
 An improvement, not a defect: `start-dashboard.bat` opens the browser on first launch
 (`start "" "%DISPLAYURL%"`) with no way to disable it for a headless / remote-server setup. Add an
 opt-out the launcher checks before opening — a `.data` flag, a launcher argument, or an env var
@@ -1033,6 +1041,48 @@ off); `itemToggle` for per-entry settings like "may act without asking", request
 session so it wouldn't need a `SettingsPanel` for one boolean. Helpers merged into **Addons** as
 "Shared capabilities"; `/admin/helpers` redirects. Enforcement needed no new code — `ctx.can()`
 already reads stored grants.
+
+#### CORE-11 · One dashboard — service tiles and module widgets in the same arrangeable grid — ⏳ Planned (owner request 2026-07-27)
+Merge the service-tile grid and the module-widget grid so everything on the dashboard is arranged
+together, in one ordering.
+
+**This reverses a retired decision, deliberately.** MOD-04 ("arrangeable dashboard, core tiles too")
+was dropped by the owner on 2026-07-22, with the note that arranging core service tiles was not
+wanted. Asked for again on 2026-07-27 after using the reworked arrange mode. Retired IDs are never
+reused, hence a new one.
+
+**The hard part is not the dragging.** A service tile and a module widget are different objects: a
+tile is small, fixed-size and iconic, with its own `sortOrder` on `Link`; a widget is 1–3 grid cells
+and renders arbitrary module content, ordered by `ModuleLayout`. One grid means one ordering across
+two tables, and deciding whether a tile can be resized like a widget or stays a fixed unit.
+
+#### CORE-12 · A separate saved dashboard layout per device — ⏳ Planned (owner request 2026-07-27)
+Rearranging the dashboard on a phone must not reorder it on the PC. Today `ModuleLayout` is per-user
+only, so the two fight.
+
+**Key it on VIEWPORT, not user agent.** The owner suggested UA; viewport is the better signal because
+it is what actually decides which layout renders. A UA check gets it wrong for a desktop window
+resized narrow — mobile grid, desktop arrangement — is ambiguous for tablets, and UA strings are
+neither stable nor trustworthy. Proposal: `ModuleLayout` gains a `profile` column, `narrow` (the
+1-column grid) and `wide` (2–3 columns), with the client stating which it is saving. Rotation and
+window resizing then land in the right profile on their own.
+
+**Also in scope: arranging on a phone is currently impractical.** At one column, width is meaningless
+and the ← → move buttons mean up/down — the narrow layout needs its own arrange affordances rather
+than the desktop ones shrunk.
+
+#### CORE-13 · Drop the free-form accent colour; ship many more palettes — ⏳ Planned (owner request 2026-07-27)
+Remove Modern's arbitrary hex accent (`branding.accent`) and replace the choice with a much larger
+set of designed palettes.
+
+**Why it's the right trade:** a palette is a *designed* set — accent, ring, danger, warning, success,
+surfaces — checked for contrast against its style. A lone hex dropped into that can clash with every
+other colour in the style and there is nothing to stop it; the setting offered freedom the design
+system could not honour.
+
+**Decide at build time:** what happens to an install that has a custom accent set. Ignoring the
+stored value is simplest, but it changes how their app looks the moment they update, which is
+user-visible and needs saying plainly in the release notes rather than being discovered.
 
 #### CORE-09 · Modules page: search, filter, and a compact list — ⏳ Planned (owner request 2026-07-26)
 The page renders every module as a full card, which was fine when there were two and is already

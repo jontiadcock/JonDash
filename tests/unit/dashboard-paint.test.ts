@@ -112,7 +112,31 @@ describe("the widget grid gives a row span something to multiply", () => {
    * moved nothing.
    */
   it("declares an auto-rows track", () => {
-    expect(GRID, "widget grid has no grid-auto-rows track").toMatch(/auto-rows-\[minmax\(/);
+    expect(GRID, "widget grid has no grid-auto-rows track").toMatch(/auto-rows-\[/);
+  });
+
+  /**
+   * BUG-59: the track must be FIXED. A growable track (`minmax(x, auto)`) sizes itself to its
+   * content, and a widget spanning several rows spreads its content across all of them — so one
+   * widget resizing silently re-sized the tracks it shared with a neighbour, and an unrelated
+   * widget changed height. Content-sized tracks cannot also be independent of content.
+   */
+  it("uses a fixed row height, so one widget cannot resize another", () => {
+    expect(GRID, "a growable row track lets widgets push each other around (BUG-59)").not.toMatch(
+      /auto-rows-\[minmax\(/,
+    );
+    expect(GRID).toMatch(/auto-rows-\[[\d.]+rem\]/);
+  });
+
+  it("lets a widget scroll rather than clipping it", () => {
+    // The owner's rule is that a module conforms to the dashboard's box — but the frame scrolls
+    // instead of clipping, because silently hiding content is worse than showing it doesn't fit.
+    // `min-h-0` is load-bearing: a flex child won't shrink below its content without it, and the
+    // scroller would never engage.
+    expect(FRAME, "frame does not scroll its overflow").toMatch(/overflow-auto/);
+    expect(FRAME, "without min-h-0 the flex child never shrinks and overflow-auto is inert").toMatch(
+      /min-h-0/,
+    );
   });
 
   it("still applies the span the setting produces", () => {
@@ -120,9 +144,16 @@ describe("the widget grid gives a row span something to multiply", () => {
     expect(FRAME).toMatch(/gridColumn:\s*`span \$\{w\}`/);
   });
 
-  /** BUG-55: a short widget left its cell part-empty because the module's root didn't fill it. */
+  /**
+   * BUG-55: a short widget left its cell part-empty because the module's root didn't fill it.
+   * `min-h-full` rather than `h-full` — a short widget must stretch, while a tall one is still
+   * allowed its natural height inside the scroller rather than being pinned to the frame.
+   */
   it("stretches the module's own root to the frame", () => {
-    expect(FRAME, "widget frame does not stretch its child").toMatch(/\[&>\*\]:h-full/);
+    expect(FRAME, "widget frame does not stretch its child").toMatch(/\[&>\*\]:min-h-full/);
+    expect(FRAME, "h-full would pin a tall widget and defeat the scroller").not.toMatch(
+      /\[&>\*\]:h-full/,
+    );
   });
 });
 
