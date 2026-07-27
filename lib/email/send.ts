@@ -195,12 +195,36 @@ export async function sendTestEmail(to: string): Promise<SendResult> {
     return { ok: false, error: `Connecting to ${target} failed.\n\n${explainMailError(raw)}` };
   }
 
+  // Branded (1.8.0). The test email is the one message every install sends, so it is also the
+  // one that proves the template renders in whatever client the admin actually uses — which is
+  // worth more than a plain-text send that tells them nothing about the rest of their mail.
+  const { renderBrandedEmail, currentBrand } = await import("./template");
+  const brand = await currentBrand();
+  const body = renderBrandedEmail({
+    appName: brand.appName,
+    accent: brand.accent,
+    title: "Test email",
+    text:
+      `This is a test from your ${brand.appName} server.\n` +
+      `If you're reading it, outgoing mail is working.`,
+    lists: [
+      {
+        heading: "How it was sent",
+        rows: [
+          // `describeTarget` already names the host, port, TLS mode and how it authenticated —
+          // including whether certificate checking was off, which must never be quietly dropped.
+          { label: "Connection", value: target },
+        ],
+      },
+    ],
+    footer: `You're receiving this because someone pressed "Send test email" in your server's settings.`,
+  });
+
   const res = await sendMail({
     to,
-    subject: "JonDash test email",
-    text:
-      "This is a test email from your JonDash dashboard.\n\n" +
-      "If you received it, outgoing email is configured correctly.",
+    subject: `${brand.appName} test email`,
+    text: body.text,
+    html: body.html,
   });
   return res.ok
     ? res

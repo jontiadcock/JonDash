@@ -9,6 +9,46 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.10] — 2026-07-27
+
+**Branded email — design C2, first pass.** `lib/email/template.ts` renders the shell; the test email
+is the first thing through it.
+
+**The app's own CSS is unavailable here, and that shapes everything.** Mail clients strip `<style>`
+blocks and have no idea what a CSS custom property is, so the token system the whole app is built on
+cannot be used — every rule is inlined as a literal. The palette is resolved to concrete hex at send
+time, which is what lets **one** template cover all 140 style × palette combinations instead of 140
+hand-built ones.
+
+**Light ground regardless of palette**, deliberately: a good number of clients override a dark
+background and leave the light text on it, producing an unreadable message — the one failure worse
+than looking plain. Branding arrives through the accent rule, the wordmark and the call to action.
+
+**A custom accent beats the palette's**, because that is what the person chose and what the app
+paints with; an email using the palette colour would look like a different product to its own
+dashboard. `STYLE_SETTINGS` decides whether the current style offers one at all, so a value stored
+under a previous style doesn't resurface.
+
+**`readableOn()`** picks black or white for the CTA by WCAG relative luminance. Not decoration:
+palette accents run from `#000000` (Paper · Ink) to `#f5e600` (Brutalist · Yellow), and a button
+hardcoded to white text is invisible on half of them.
+
+**Every message carries a real plain-text alternative**, built from the same inputs rather than by
+stripping the HTML.
+
+**A drift guard, and it earns its place.** `lib/styles.ts` describes its palette colours as a
+*mirror* of `app/styles.css` — a second source of truth with nothing checking it. Now every one of
+the 20 palettes is asserted to have its accent present in the stylesheets. The failure it prevents is
+specific and slow: emails going out in a colour the app stopped using, months after a palette edit
+nobody would connect it to. All 20 agree today.
+
+**Still to come in this release:** the rest of JonDash's own messages, the module-facing
+`ctx.email.send()` shape (D4), the repeating list slot for add-on digests, and the canonical base URL
+that CTA paths resolve against.
+
+**Tests:** 534 (was 504). The new ones cover markup injection through the body, list rows, the CTA
+URL and the app name — a module supplying any of those must not be able to forge JonDash's own mail.
+
 ## [1.8.0-beta.9] — 2026-07-27
 
 **The Email page, as asked for.**

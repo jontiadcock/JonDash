@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.10",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: JonDash's email now looks like JonDash. The test email arrives properly laid out, carrying your instance's name and your chosen accent colour, rather than as a bare block of text. It works for every one of the seven styles and twenty colour choices without a separate design for each, because the colours are worked out when the message is sent. The background stays light whatever palette you use - a fair number of mail apps override a dark background and leave the light text sitting on it, which produces a message you cannot read, and that is worse than one that looks plain. Every message still carries a plain-text version built from the same content, for anyone reading mail without formatting. This first pass covers JonDash's own test email; the rest of its messages, and the ability for add-ons to send through the same design, follow in a later beta."
+    },
+    {
       "version": "1.8.0-beta.9",
       "date": "2026-07-27",
       "type": "minor",
