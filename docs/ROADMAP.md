@@ -745,7 +745,25 @@ with the master key and a restore brought the secrets without it. An encrypted b
 Related later work: **BUG-25** (icons were left readable inside an "encrypted" backup — fixed
 v1.5.3-beta.6) and **OPS-15** (publishing `docs/BUGS.md`).
 
-#### OPS-13 · Email: bounded, diagnosable connection testing — ⏳ (exposed by BUG-21)
+#### OPS-13 · Email: bounded, diagnosable connection testing — ✅ Already satisfied (verified 2026-07-27)
+
+**Scheduled into 1.8.0, then found to be already built.** The owner scoped it down on 2026-07-27 —
+*"just going to relay the error that is received and provide that to the requester so they can
+diagnose"* — and that is precisely what ships today:
+
+- `sendTestEmail` (`lib/email/send.ts`) separates *couldn't connect* from *connected but the send was
+  refused*, which are different fixes, and returns the **raw provider error verbatim** prefixed with
+  the stage and the host/port actually used.
+- `explainMailError` appends a cause where the error text is known to be misleading (a TLS-on-the-
+  wrong-port mismatch, an untraceable certificate, a withdrawn refresh token, a relay refusing the
+  recipient) — always *after* the raw text, never instead of it.
+- The UI renders it with `white-space: pre-wrap`, without which the whole thing collapses into one
+  run-on line and reads as a bare error code.
+- BUG-21's original defect — a send that hung forever with no diagnosis — was fixed in v1.5.3-beta.1.
+
+Nothing was built for this in 1.8.0. Recorded here so it is not scheduled a third time.
+
+Original specification below.
 BUG-21 is the hang; this is the reason a hang was possible to ship and impossible to act on. Fixing the
 timeouts stops the button spinning forever, but the admin is then told only *that* it failed — for an
 integration with this many external moving parts (OAuth consent, tenant policy, blocked ports, expired

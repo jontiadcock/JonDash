@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.9",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: the Email page is clearer. The provider preset dropdown is gone - it filled in a server address and port you then had to understand anyway, and said nothing about the thing people actually get stuck on, which is that Gmail and Outlook want a special app password rather than your normal one, and that Microsoft 365 turns SMTP off per mailbox until you turn it on. In its place, links at the foot of the page to each provider's own instructions - which stay correct when a provider changes a hostname, where anything copied into JonDash would quietly go stale. The password field is now just called Password, because that is what it is for a self-hosted mail server, and it now says plainly that it is stored encrypted along with the rest of your mail settings - which was already true and simply never shown."
+    },
+    {
       "version": "1.8.0-beta.8",
       "date": "2026-07-27",
       "type": "patch",

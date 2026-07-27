@@ -9,6 +9,34 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.9] — 2026-07-27
+
+**The Email page, as asked for.**
+
+**Provider preset removed** (owner: *"it will just cause confusion"*). It filled in a host and port
+you had to understand anyway, and said nothing about what people actually get stuck on: that Gmail and
+Outlook want a purpose-made app password rather than your account password, and that Microsoft 365
+disables SMTP AUTH per mailbox by default — the single most common cause of a test that never connects.
+
+**Replaced with links to each provider's own instructions**, at the foot of the page. Those stay
+correct when a provider changes a hostname; anything copied into JonDash goes quietly stale. Four:
+Gmail app passwords, Outlook.com app passwords, M365 SMTP AUTH, and M365 direct send (which points
+back at the existing **Mail relay** mode).
+
+**"App password" → "Password"**, and it now says it's stored encrypted. That was already true — the
+whole email config is a single encrypted `Setting` row — and the screen never said so, which is why
+the owner asked for it. The old label also described what two specific providers happen to call
+theirs; a self-hosted relay just has a password.
+
+**OPS-13 needed nothing — it was already built.** Scheduled into this release, then verified as
+already shipping: `sendTestEmail` separates *couldn't connect* from *connected but the send was
+refused*, returns the **raw provider error verbatim** prefixed with the stage and the host it actually
+used, appends a cause only where the raw text is known to mislead, and the UI renders it `pre-wrap` —
+without which the whole thing collapses into one run-on line. Recorded in the roadmap as satisfied so
+it isn't scheduled a third time.
+
+**Tests:** 504, unchanged — this is presentation, and the behaviour underneath already had coverage.
+
 ## [1.8.0-beta.8] — 2026-07-27
 
 **Fixes from the owner's testing of betas 5–7.**

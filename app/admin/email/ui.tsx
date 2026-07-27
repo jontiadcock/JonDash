@@ -7,7 +7,6 @@ import {
   disconnectOAuthAction,
   type EmailState,
 } from "./actions";
-import { PROVIDER_PRESETS } from "@/lib/email/constants";
 
 type ConfigView = {
   enabled: boolean;
@@ -44,14 +43,6 @@ export function EmailSettings({
   const [secure, setSecure] = useState(config.secure);
   const [allowUntrusted, setAllowUntrusted] = useState(config.allowUntrustedCert);
   const [provider, setProvider] = useState<ConfigView["provider"]>(config.provider);
-
-  function applyPreset(key: string) {
-    const p = PROVIDER_PRESETS[key];
-    if (!p) return;
-    setHost(p.host);
-    setPort(String(p.port));
-    setSecure(p.secure);
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -110,19 +101,12 @@ export function EmailSettings({
           style={{ display: mode === "password" || mode === "relay" ? undefined : "none" }}
           className="flex flex-col gap-4"
         >
-          <div style={{ display: mode === "password" ? undefined : "none" }}>
-            <label className="label" htmlFor="preset">Provider preset</label>
-            <select id="preset" defaultValue="" onChange={(e) => applyPreset(e.target.value)} className="input">
-              <option value="">Choose to auto-fill host/port…</option>
-              {Object.entries(PROVIDER_PRESETS).map(([k, p]) => (
-                <option key={k} value={k}>{p.label}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-              Gmail and Outlook/Hotmail require an <strong>app password</strong> (create one in your
-              account&apos;s security settings; needs 2-step verification enabled).
-            </p>
-          </div>
+          {/* The provider preset dropdown was removed in 1.8.0 (owner: "it will just cause
+              confusion"). It filled in a host and port you then had to understand anyway, and
+              said nothing about the part people actually get stuck on — that Gmail and Outlook
+              need an app password rather than your real one. The links at the foot of the page
+              carry that instead, pointing at each provider's own instructions, which stay right
+              when a provider changes its host. */}
           {mode === "relay" && (
             <div className="rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)" }}>
               <p>
@@ -184,15 +168,25 @@ export function EmailSettings({
             )}
           </div>
           <div style={{ display: mode === "password" ? undefined : "none" }}>
-            <label className="label" htmlFor="password">App password</label>
+            {/* "Password", not "App password" (1.8.0). The old label described what Gmail and
+                Outlook happen to call theirs, which is neither universal nor JonDash's business
+                — a self-hosted relay just has a password. Which providers need a special one is
+                said in the setup links at the foot of the page. */}
+            <label className="label" htmlFor="password">Password</label>
             <input
               id="password"
               name="password"
               type="password"
               autoComplete="new-password"
-              placeholder={config.hasPassword ? "•••••••• (unchanged — type to replace)" : "app password"}
+              placeholder={config.hasPassword ? "•••••••• (unchanged — type to replace)" : "password"}
               className="input"
             />
+            {/* This was already true and the screen never said so, which is why the owner asked
+                for it to be made true. The whole email config is one encrypted Setting row. */}
+            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+              Stored encrypted, along with the rest of your mail settings. JonDash never shows it
+              again — type a new one to replace it.
+            </p>
           </div>
         </div>
 
@@ -266,6 +260,73 @@ export function EmailSettings({
 
       <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
         <TestEmailForm defaultTo={adminEmail} />
+      </div>
+
+      {/*
+        Replaces the provider preset (1.8.0). A preset filled in a host and port and said nothing
+        about the part people actually get stuck on — that Gmail and Outlook want a purpose-made
+        app password rather than your account password, and that Microsoft 365 disables SMTP AUTH
+        per mailbox by default. Linking each provider's own instructions also survives them
+        changing a hostname, which a hardcoded preset does not.
+      */}
+      <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
+        <h3 className="mb-1 text-sm font-semibold">Setting up a common provider</h3>
+        <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
+          Each of these needs something specific of you before SMTP will work at all. Their own
+          instructions stay current; anything JonDash copied here would not.
+        </p>
+        <ul className="flex flex-col gap-2 text-sm">
+          <li>
+            <a
+              href="https://support.google.com/accounts/answer/185833"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--primary)" }}
+            >
+              Gmail — create an app password
+            </a>
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {" "}— needs 2-step verification on first. Your normal password will not work.
+            </span>
+          </li>
+          <li>
+            <a
+              href="https://support.microsoft.com/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--primary)" }}
+            >
+              Outlook.com / Hotmail — create an app password
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://learn.microsoft.com/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--primary)" }}
+            >
+              Microsoft 365 — enable SMTP AUTH
+            </a>
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {" "}— off by default per mailbox, which is the usual cause of a test that never
+              connects.
+            </span>
+          </li>
+          <li>
+            <a
+              href="https://learn.microsoft.com/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--primary)" }}
+            >
+              Microsoft 365 — direct send, no account needed
+            </a>
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {" "}— use <strong>Mail relay</strong> above for this.
+            </span>
+          </li>
+        </ul>
       </div>
     </div>
   );
