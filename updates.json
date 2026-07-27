@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.2",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "important",
+      "summary": "Beta: two controls that looked like they worked and did not, plus clearer names in the Security menu. Permissions is now Addon Permissions, because it is entirely about what an ADD-ON may do - and it sat one line above Access Roles, which is about what a PERSON may do. Access Roles is now Admin Roles and has moved directly under Service Groups, since both answer the same question about a person: one for services, one for admin powers. Fixed, and this is the important one: a permission you turned OFF on the Addon Permissions page came back on its own. Switching an add-on off and on again was enough, and so was updating it - the full set it originally asked for was written back every time, while the page carried on showing the capability as off. A revocation that any routine action quietly undoes is worse than no switch at all. Turning something off now stays off: an add-on keeps exactly what you have left it, loses anything its new version no longer asks for, and gains nothing without the approval screen asking you first. Fixed: admin roles could be assigned to an administrator, where they did nothing whatsoever. The tick-boxes saved, stayed ticked and had no effect, because an administrator already holds every capability - so anyone who unticked things believing they had limited that account had not. Those tick-boxes are replaced with a plain statement, for administrators and for service accounts. Anything already assigned is kept rather than thrown away, so changing the account back to a normal user restores exactly what it had. Also corrected a help note under Idle timeout that claimed a session lasts 'its full 7-day lifetime' - it stopped being true the moment anyone changed the setting above it, and read as a fact rather than a stale default."
+    },
+    {
       "version": "1.8.0-beta.1",
       "date": "2026-07-27",
       "type": "minor",

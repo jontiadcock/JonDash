@@ -12,7 +12,7 @@ import { listHelpersForAdmin } from "@/lib/helpers/registry";
  *
  * The two pages merged because a separate "Helpers" nav entry advertised management that was
  * never available. What is genuinely per-helper — its settings panel — stays here; what is
- * per (module, capability) lives on Admin → Permissions.
+ * per (module, capability) lives on Admin → Addon Permissions.
  */
 export async function SharedCapabilities() {
   const session = await requirePermission("modules.manage");
@@ -30,7 +30,7 @@ export async function SharedCapabilities() {
         the filesystem. They come with JonDash, arrive automatically with an addon that needs one, and
         go when nothing does. You can&apos;t add or remove them by hand. What each addon is allowed to
         use is on{" "}
-        <Link href="/admin/permissions" style={{ color: "var(--primary)" }}>Permissions</Link>.
+        <Link href="/admin/permissions" style={{ color: "var(--primary)" }}>Addon Permissions</Link>.
       </p>
 
       {inUse.map(({ def, installed, installedVersion, dependents }) => (

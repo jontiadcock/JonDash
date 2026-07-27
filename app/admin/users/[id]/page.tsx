@@ -179,21 +179,45 @@ export default async function ManageUserPage({
         )}
       </section>
 
-      {/* Access roles (delegated admin) — full admin only */}
+      {/* Admin roles (delegated admin) — full admin only */}
       {isFullAdmin && (
         <section className="card p-6">
-          <h2 className="mb-1 text-lg font-semibold">Access Roles</h2>
+          <h2 className="mb-1 text-lg font-semibold">Admin Roles</h2>
           <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
             Grant this user specific admin powers without making them a full admin. Manage the
             roles themselves on the{" "}
             <Link href="/admin/access-roles" className="underline">
-              Access Roles
+              Admin Roles
             </Link>{" "}
             page.
           </p>
-          {allAccessRoles.length === 0 ? (
+          {/*
+            BUG-57. `getEffectivePermissions` returns ALL_PERMISSIONS on its first line for an
+            ADMIN, so every role assigned to one was silently ignored — while the tick-boxes
+            saved, persisted and redrew as ticked. A control that appears to constrain a
+            privileged account and does not is worse than no control at all.
+
+            The stored rows are deliberately LEFT ALONE rather than cleared (owner decision,
+            2026-07-27): demoting this account back to USER restores whatever was assigned,
+            where clearing on save would silently discard it.
+          */}
+          {user.role === "ADMIN" || isService ? (
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              No access roles exist yet.
+              {user.role === "ADMIN"
+                ? "This is an admin account, so it already holds every capability — an admin role could not add or remove anything. Change the account to a normal user to delegate specific powers instead."
+                : "Admin roles don't apply to a service account. What it may do comes from the add-on holding its key, and from its account type."}
+              {assignedAccessRoleIds.size > 0 && (
+                <>
+                  {" "}
+                  {assignedAccessRoleIds.size} role
+                  {assignedAccessRoleIds.size === 1 ? " is" : "s are"} still recorded against it and
+                  will apply again if it becomes a normal user.
+                </>
+              )}
+            </p>
+          ) : allAccessRoles.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              No admin roles exist yet.
             </p>
           ) : (
             <form action={setUserAccessRolesAction} className="flex flex-col gap-3">

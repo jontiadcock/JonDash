@@ -18,7 +18,30 @@ import { moduleFilesExist } from "./install";
  */
 
 export async function enableModule(def: ModuleDefinition): Promise<void> {
-  const granted = grantsForModule(def);
+  const declared = grantsForModule(def);
+
+  /*
+   * BUG-56. A capability revoked on Admin → Addon Permissions must STAY revoked.
+   *
+   * This used to write the full declared set in both branches of the upsert, so a plain
+   * disable → enable round trip silently restored everything the admin had turned off — while
+   * the Permissions page, shipped the same day, promised the change "takes effect immediately".
+   * A revocation that any routine action quietly undoes is worse than no switch at all,
+   * because the screen still shows the capability as off.
+   *
+   * First enable takes the full declared set: that is exactly what the consent screen showed.
+   * Every later enable INTERSECTS instead — keep what the admin currently has, drop anything the
+   * new version no longer declares, and add nothing. Adding is not this function's job: a
+   * permission that is new in an update has its own consent gate, which is the right place to
+   * ask (owner decision, 2026-07-27 — an update never re-grants something you revoked).
+   */
+  const existing = await prisma.module.findUnique({
+    where: { id: def.id },
+    select: { grantedPermissions: true },
+  });
+  const current = existing ? parseGrants(existing.grantedPermissions) : null;
+  const granted = current ? declared.filter((p) => current.includes(p)) : declared;
+
   await runModuleMigrations(def); // create mod_<id>_* tables before onEnable runs
   // Where it came from is only knowable from the install record — a ModuleDefinition
   // says nothing about its repo or channel. Applied on UPDATE too, so a row written by

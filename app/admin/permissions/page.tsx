@@ -22,7 +22,9 @@ export default async function AdminPermissionsPage() {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Permissions</h1>
+        {/* Must match the nav label in app/admin/layout.tsx — the nav and the heading are two
+            separate declarations of the same name, and nothing catches them disagreeing. */}
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Addon Permissions</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           What each module is allowed to do, and what it&apos;s limited to. Turning something off takes
           effect immediately — the module keeps working, but that capability stops answering.

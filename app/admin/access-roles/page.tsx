@@ -16,7 +16,8 @@ export default async function AccessRolesPage() {
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Access Roles</h1>
+        {/* Must match the nav label in app/admin/layout.tsx — see the note there. */}
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Admin Roles</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Bundles of admin capabilities. Assign an access role to a user to delegate specific
           admin powers without making them a full admin. Only full admins can manage these.

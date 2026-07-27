@@ -120,7 +120,10 @@ export const SETTINGS = {
 
   "session.idleTimeoutMinutes": {
     label: "Idle timeout (minutes)",
-    help: "Sign out sessions inactive for this long. Defaults to 120 (2 hours). Set 0 to disable — but then a session lasts its full 7-day lifetime however long it sits unused.",
+    // The old wording said "its full 7-day lifetime", which stopped being true the moment
+    // anyone changed Session lifetime — it read as a fact while being a stale default. Point
+    // at the other setting by name instead, so it cannot go out of date again.
+    help: "Sign out sessions inactive for this long. Defaults to 120 (2 hours). Set 0 to disable — but then an untouched session survives for the whole of Session lifetime above, however long it sits unused.",
     kind: "int",
     // Non-zero by default: with 0, an untouched session survived the whole 7-day
     // absolute lifetime, and a server restart was the only thing that reliably

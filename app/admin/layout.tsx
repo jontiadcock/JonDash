@@ -41,12 +41,17 @@ export default async function AdminLayout({
         // Under Security, not beside Modules: the question it answers — "what can reach my
         // files?" — is a security question, and it spans every module rather than belonging
         // to any one of them.
-        { href: "/admin/permissions", label: "Permissions", show: perms.has("modules.manage") },
+        // "Addon Permissions", not "Permissions": this page is entirely about what an ADD-ON may
+        // do, and sat one line above "Access Roles", which is about what a PERSON may do. Two
+        // unrelated things, near-identical names. Renaming both is what separates them.
+        { href: "/admin/permissions", label: "Addon Permissions", show: perms.has("modules.manage") },
         { href: "/admin", label: "Users", show: perms.has("users.manage") || perms.has("users.reset") },
         { href: "/admin/service-groups", label: "Service Groups", show: perms.has("groups.manage") },
+        // Directly under Service Groups: both answer "what is this PERSON allowed to reach?",
+        // one for services and one for admin capabilities, so they belong next to each other.
+        { href: "/admin/access-roles", label: "Admin Roles", show: isAdmin },
         { href: "/admin/sessions", label: "Sessions", show: perms.has("sessions.manage") },
         { href: "/admin/audit", label: "Audit", show: perms.has("audit.view") },
-        { href: "/admin/access-roles", label: "Access Roles", show: isAdmin },
       ],
     },
   ]

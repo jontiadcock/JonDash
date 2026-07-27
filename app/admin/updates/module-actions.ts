@@ -11,6 +11,7 @@ import { browseAvailableModules, SourceError } from "@/lib/modules/sources";
 import { installModuleFromSource, InstallError } from "@/lib/modules/install";
 import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } from "@/lib/modules/rebuild";
 import { getModuleUpdateStatus, clearModuleUpdateCache } from "@/lib/modules/updates";
+import { parseGrants } from "@/lib/modules/permissions";
 import { ensureHelpersFor } from "@/lib/helpers/install";
 
 export type ModuleUpdateState = { ok?: boolean; error?: string };
@@ -135,14 +136,33 @@ export async function applyModuleUpdates(
         }
       }
 
-      // The verifier has just confirmed the package's code declares exactly these, so
-      // this is the set the admin was shown and approved.
+      /*
+       * BUG-56, second site. The verifier has just confirmed the package declares exactly
+       * `entry.permissions` — but writing that set wholesale silently restores anything the
+       * admin revoked on Admin → Addon Permissions, which is the same defect as the enable path.
+       *
+       * So: keep what they currently hold, drop anything this version no longer declares, and
+       * add ONLY the permissions that are new in this version *and* were explicitly consented
+       * to a moment ago. That consent is the gate above (`permissionsAdded` + `consented`), so
+       * this adds exactly what the admin just approved and nothing else. A revoked permission
+       * that is merely re-declared by a new version stays revoked (owner decision, 2026-07-27).
+       */
+      const row = await prisma.module.findUnique({
+        where: { id },
+        select: { grantedPermissions: true },
+      });
+      const current = row ? parseGrants(row.grantedPermissions) : [];
+      const approvedNow = consented.has(id) ? info.permissionsAdded : [];
+      const nextGrants = entry.permissions.filter(
+        (p) => current.includes(p) || approvedNow.includes(p),
+      );
+
       await prisma.module.updateMany({
         where: { id },
         data: {
           version: entry.version,
           name: entry.name || info.name,
-          grantedPermissions: JSON.stringify(entry.permissions),
+          grantedPermissions: JSON.stringify(nextGrants),
         },
       });
 

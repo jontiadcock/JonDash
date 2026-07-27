@@ -30,7 +30,7 @@ export default async function ManageAccessRolePage({
     <div className="flex flex-col gap-8">
       <div>
         <Link href="/admin/access-roles" className="text-sm" style={{ color: "var(--muted)" }}>
-          ← Back to access roles
+          ← Back to admin roles
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">{role.name}</h1>

@@ -510,6 +510,27 @@ export async function setUserAccessRolesAction(formData: FormData): Promise<void
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return;
 
+  /*
+   * BUG-57. Refuse on an ADMIN or a service account, and refuse HERE rather than only hiding
+   * the form.
+   *
+   * `getEffectivePermissions` short-circuits to ALL_PERMISSIONS for an ADMIN, so a role
+   * assigned to one has never had any effect — the page now says so, and a page that states a
+   * rule while the action still accepts the write is a page telling the truth by luck. The
+   * form is gone, so the only thing that can reach this is a crafted request.
+   *
+   * Note what this does NOT do: it does not clear the stored rows. Demoting the account to a
+   * normal user must restore whatever was assigned (owner decision, 2026-07-27), and clearing
+   * on save would silently discard it.
+   */
+  if (user.role === "ADMIN" || isServiceAccount(user)) {
+    await audit("admin.user.accessroles.refused", {
+      userId: admin.id,
+      detail: `${user.email}: ${user.role === "ADMIN" ? "admin already holds every capability" : "service account"}`,
+    });
+    return;
+  }
+
   const accessRoleIds = formData
     .getAll("accessRoleIds")
     .map((v) => String(v))

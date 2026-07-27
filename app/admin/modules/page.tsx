@@ -57,7 +57,7 @@ export default async function AdminModulesPage() {
           Optional extras that plug into JonDash. Enabling one only affects that addon; disabling or
           uninstalling it leaves the base app unchanged. Review the permissions an addon requests before
           you enable it — and see{" "}
-          <Link href="/admin/permissions" style={{ color: "var(--primary)" }}>Permissions</Link> for what
+          <Link href="/admin/permissions" style={{ color: "var(--primary)" }}>Addon Permissions</Link> for what
           everything currently holds.
         </p>
       </section>

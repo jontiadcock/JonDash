@@ -9,6 +9,49 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.2] — 2026-07-27
+
+**Two controls that looked like they worked and didn't, plus clearer names under Security.**
+
+**Renames.** Permissions → **Addon Permissions**; Access Roles → **Admin Roles**, moved directly
+under Service Groups. The two sat one line apart with near-identical names while answering
+unrelated questions — one about what an *add-on* may do, one about what a *person* may do. Admin
+Roles now sits beside Service Groups because both are "what is this person allowed to reach?".
+The nav label and each page's own heading are separate declarations with nothing checking they
+agree, so both were changed together and a test asserts the new names.
+
+**Fixed — BUG-56: a revoked permission came back on its own.** `enableModule` wrote
+`grantsForModule(def)` — the full declared set — in **both** branches of its upsert, so a plain
+disable → enable round trip silently restored everything an admin had turned off on the
+Permissions page, which promises the change "takes effect immediately". `applyModuleUpdates` did
+the same on update. Now both **intersect** instead: keep what the admin currently holds, drop
+anything the new version no longer declares, add nothing. The update path additionally grants only
+permissions that are **new in that version and were explicitly consented to** at the gate that
+already exists — so re-declaring a revoked permission is not re-consenting to it (owner decision,
+2026-07-27). First enable still takes the full set, which is exactly what the consent screen showed.
+
+**Fixed — BUG-57: admin roles assigned to an admin did nothing.** `getEffectivePermissions`
+short-circuits to `ALL_PERMISSIONS` on its first line for an ADMIN, so every assigned role was
+ignored — while the tick-boxes saved, persisted and redrew as ticked. Someone could reasonably
+conclude they had scoped an admin's powers by unticking things. They had not. The tick-boxes are
+replaced with a plain statement for an ADMIN or a service account, **and `setUserAccessRolesAction`
+now refuses the write** — hiding the form alone would leave the page stating a rule the action
+still accepted. The stored rows are deliberately **not cleared**: demoting the account back to a
+normal user restores whatever was assigned (owner decision), and the page says so.
+
+**Also:** the help text under Idle timeout claimed a session lasts "its full 7-day lifetime" while
+the field above it read 30 — it stopped being true the moment anyone changed that setting, and read
+as a fact rather than a stale default. It now names the other setting instead of quoting a number.
+
+**Deferred, needs a decision:** merging Session lifetime and Idle timeout into one "Session Length".
+Those are two different security properties — an absolute cap stops a stolen token being kept alive
+indefinitely, an idle window signs out an unattended browser — and one number cannot express both
+without dropping one or hiding a derived value. Raised rather than guessed, since the standing rule
+is to ask before changing anything governing sessions.
+
+**Tests:** 481 (was 468). The BUG-56 set is behavioural — it performs the actual disable → enable
+round trip that used to undo a revocation.
+
 ## [1.8.0-beta.1] — 2026-07-27
 
 **The dashboard is cheaper to draw, and arranging it is now an explicit mode.** First of the
