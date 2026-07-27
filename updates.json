@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.3",
+      "date": "2026-07-27",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: nothing changes in the app - this fixes a test that could fail for reasons that had nothing to do with JonDash. Several of the checks that verify the Windows permission tool run it for real and wait on Windows itself to answer, and Windows can take longer than the test was allowed on a cold build machine. One of those checks was given more time when it first went red; the others were left as they were, so today a different one failed the same way while the identical code had passed an hour earlier. They now all share one realistic time limit, so a genuinely stuck test still fails and a slow machine no longer does. If you are on 1.8.0-beta.2 the app itself is unchanged."
+    },
+    {
       "version": "1.8.0-beta.2",
       "date": "2026-07-27",
       "type": "minor",

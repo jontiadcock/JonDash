@@ -9,6 +9,22 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.3] — 2026-07-27
+
+**CI only — no application code changed from beta.2.**
+
+`tests/unit/elevation.test.ts:164` (`--run` against a missing grant, which queries Task Scheduler)
+timed out at vitest's 5s default on `windows-latest`, while ubuntu passed and the identical file had
+passed an hour earlier on beta.1. So beta.2's tag carries a red run it cannot clear on its own.
+
+**Fixed as a class, not as a line.** Every test in that file which spawns `jondash-grant.exe` or
+`jondash-elevate.exe` is waiting on a Windows subsystem whose cold-start time is a property of the
+runner, not of this codebase. The winget case hit exactly this in 1.7.x and was given its own 30s
+timeout — and the four siblings that spawn the same way were left on the default, which is why a
+different one tripped today. The budget is now set **once for the file** (`vi.setConfig`), and the
+per-test override is removed so there is one rule rather than two. A genuine hang still fails; it
+just takes 30s to say so.
+
 ## [1.8.0-beta.2] — 2026-07-27
 
 **Two controls that looked like they worked and didn't, plus clearer names under Security.**

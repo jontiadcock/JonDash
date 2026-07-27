@@ -1,7 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+
+/**
+ * FILE-LEVEL timeout, and it belongs at the file level rather than on individual tests.
+ *
+ * Every test here that spawns `jondash-grant.exe` or `jondash-elevate.exe` is waiting on a
+ * Windows subsystem — Task Scheduler, winget — whose COLD-START time on a CI runner is not a
+ * property of this codebase. Vitest's 5s default measures the runner, not the code.
+ *
+ * This was learned twice. The winget case (bottom of the file) went red first and was given its
+ * own 30s timeout; the four sibling tests that spawn the same way were left on the default, and
+ * on 2026-07-27 a different one — `--run` against a missing grant, which queries Task Scheduler —
+ * timed out on windows-latest while ubuntu passed and the identical file had passed an hour
+ * earlier. Fixing the one that trips, each time it trips, is how that recurs.
+ *
+ * So the budget is set once, for the whole file. A genuine hang still fails, 30s later; what it
+ * no longer does is fail because a runner was cold.
+ */
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * OPS-18. Two things nothing else would notice:
@@ -255,24 +273,19 @@ describe.runIf(onWindows)("elevate shim: the flags that would mean arbitrary cod
     expect(run(["--action", "install", "--manager", "choco", "--package", "X"])).toBe(2);
   });
 
-  it(
-    "accepts a well-formed id, and status needs no elevation",
-    () => {
-      // status is a read: it must never prompt, which is what makes polling for progress viable.
-      //
-      // **This is the only case in this block that reaches winget** — every other one is refused
-      // by the shim's own grammar before winget is touched. It first went red on CI for that
-      // reason: winget's cold start on a windows-latest runner is far longer than vitest's 5s
-      // default, and a runner may not have App Installer at all.
-      //
-      // So the assertion is deliberately a SET, not `toBe(0)`. What this test owns is the shim's
-      // behaviour: 0 means winget answered, 7 (ExitNoManager) means winget isn't installed — both
-      // prove the id got PAST the grammar and that `status` returned without elevating. Only
-      // 2 (ExitUsage) would disprove it. Asserting 0 was really asserting "the CI runner has a
-      // warm winget", which is not a property of this codebase.
-      const code = run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"]);
-      expect([0, 7], `got ${code}; 2 would mean the grammar rejected a valid id`).toContain(code);
-    },
-    30_000,
-  );
+  it("accepts a well-formed id, and status needs no elevation", () => {
+    // status is a read: it must never prompt, which is what makes polling for progress viable.
+    //
+    // **This is the only case in this block that reaches winget** — every other one is refused by
+    // the shim's own grammar before winget is touched. (Its timeout is now the file-level one; see
+    // the note at the top.)
+    //
+    // The assertion is deliberately a SET, not `toBe(0)`. What this test owns is the shim's
+    // behaviour: 0 means winget answered, 7 (ExitNoManager) means winget isn't installed — both
+    // prove the id got PAST the grammar and that `status` returned without elevating. Only
+    // 2 (ExitUsage) would disprove it. Asserting 0 was really asserting "the CI runner has a warm
+    // winget", which is not a property of this codebase.
+    const code = run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"]);
+    expect([0, 7], `got ${code}; 2 would mean the grammar rejected a valid id`).toContain(code);
+  });
 });
