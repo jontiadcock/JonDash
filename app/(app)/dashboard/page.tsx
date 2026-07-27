@@ -43,6 +43,10 @@ export default async function DashboardPage() {
       name: s.def.name,
       width: size?.width ?? 1,
       height: size?.height ?? 1,
+      // Clicking a widget opens the module's own page (CORE-08) — but only where there is
+      // one. A module may ship a widget and nothing else, and a card that looks clickable
+      // and does nothing is worse than one that plainly isn't.
+      href: s.def.Page ? `/m/${s.def.id}` : null,
       node: <Widget ctx={ctx} />,
     };
   });
@@ -101,8 +105,9 @@ export default async function DashboardPage() {
 
       {widgets.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Modules</h2>
-          {/* Keyed on the SET of visible modules (sorted, so a reorder isn't a new key):
+          {/* The heading lives inside the grid now: it shares a row with the Arrange toggle,
+              which is client state (CORE-08).
+              Keyed on the SET of visible modules (sorted, so a reorder isn't a new key):
               installing or removing one re-seeds the grid; dragging leaves it mounted. */}
           <WidgetGrid
             key={widgetItems.map((w) => w.id).sort().join(",")}

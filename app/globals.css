@@ -42,6 +42,25 @@
   --border-width: 1px;
   --shadow-control: 0 1px 2px color-mix(in srgb, var(--primary) 30%, transparent);
   --surface-blur: 0px;
+  /*
+   * What `.card` actually hands to `backdrop-filter` — and it must be `none`, not
+   * `blur(0px)`, for any opaque style.
+   *
+   * `blur(0px)` is NOT the same as `none`. A non-`none` backdrop-filter creates a stacking
+   * context and promotes the element to its own compositor layer, then makes the compositor
+   * read back and re-filter the backdrop on every frame anything moves — for a blur radius of
+   * zero, i.e. no visible difference at all. Measured on a seeded dashboard (1.8.0-beta.1):
+   * 37 promoted layers covering 97% of the viewport, in a style whose `--surface-blur` is 0.
+   *
+   * So this token exists alongside `--surface-blur` rather than being derived from it: CSS
+   * cannot drop a declaration based on a variable's value, and `blur(var(--surface-blur))`
+   * is always a filter even when the radius is nothing.
+   *
+   * **A style that sets `--surface-blur` must set this to match** (see docs/STYLES.md).
+   * `--surface-blur` is kept because it is part of the published token contract and an
+   * installed module may read it.
+   */
+  --surface-backdrop: none;
   --surface-gradient: none;
   --font-weight-strong: 600;
   --shadow-hover: 0 2px 4px rgba(16, 24, 40, 0.06), 0 12px 32px rgba(16, 24, 40, 0.1);
@@ -123,7 +142,7 @@ body {
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(var(--surface-blur));
+  backdrop-filter: var(--surface-backdrop);
 }
 
 /*
@@ -236,7 +255,22 @@ summary:focus-visible {
   }
 }
 .page-fade {
-  animation: page-fade-in var(--motion-slow) var(--motion-ease) both;
+  /*
+   * `backwards`, deliberately NOT `both`.
+   *
+   * `both` retains the final keyframe forever, so this element kept a `transform` for the
+   * entire life of the page — long after a 220ms animation finished. A non-`none` transform
+   * on the page wrapper does two bad things permanently: it promotes the whole page content
+   * to its own compositor layer, and it becomes the containing block for every descendant
+   * `position: fixed` — which is precisely how BUG-23 trapped full-screen overlays inside the
+   * content column. That was fixed by portalling the overlays; the transform that caused it
+   * was left in place, and the note at the time said the next one added would re-break it.
+   *
+   * `backwards` fills the first keyframe BEFORE the animation starts (so there is still no
+   * flash of un-faded content) and applies no fill after it ends — so the transform reverts
+   * to `none` the moment the entrance completes. Same animation, nothing retained.
+   */
+  animation: page-fade-in var(--motion-slow) var(--motion-ease) backwards;
 }
 
 /*
@@ -248,9 +282,16 @@ summary:focus-visible {
   transition: transform var(--motion-fast) var(--motion-ease),
     box-shadow var(--motion-fast) var(--motion-ease);
 }
-.lift:hover {
-  transform: translateY(var(--motion-lift));
-  box-shadow: var(--shadow-hover);
+/*
+ * Pointer-only (CORE-08). On a touch screen `:hover` latches after a tap and stays until you
+ * touch something else, so a tapped tile sat visibly raised with no way to un-raise it. Gating
+ * on a device that actually has a hovering pointer means touch gets a clean press instead.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .lift:hover {
+    transform: translateY(var(--motion-lift));
+    box-shadow: var(--shadow-hover);
+  }
 }
 
 /*

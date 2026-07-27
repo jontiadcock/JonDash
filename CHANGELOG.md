@@ -9,6 +9,54 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.1] — 2026-07-27
+
+**The dashboard is cheaper to draw, and arranging it is now an explicit mode.** First of the
+1.8.0 UI rework betas, aimed squarely at jankiness.
+
+**Two rendering faults, both found by measuring rather than reading.** A seeded 36-tile dashboard
+was profiled before anything was changed, which ruled out the two usual suspects immediately —
+245 DOM nodes and a 155 ms load are not the problem — and pointed at compositing:
+
+- **`backdrop-filter` was applied to every `.card` regardless of style.** `--surface-blur` is `0px`
+  in the global default and in 4 of the 7 styles, but `blur(0px)` is **not** `none`: it still creates
+  a stacking context, still promotes the element to its own compositor layer, and still makes the
+  compositor read back and re-filter the backdrop on every frame anything moves. Measured: **37
+  promoted layers covering 97% of the viewport**, for no visible difference. Now driven by a new
+  `--surface-backdrop` token that is `none` unless a style opts in — Crystal and Aero are unchanged.
+  After the fix the same page has **1** (the sticky header, at a real 8px blur, which is correct).
+- **`.page-fade` used `animation-fill-mode: both`**, retaining the final keyframe's `transform` on a
+  full-page element permanently. That promotes the whole page to its own layer and makes it the
+  containing block for every descendant `position: fixed` — the documented root cause of **BUG-23**,
+  which was fixed by portalling the overlays while leaving the transform in place. Now `backwards`:
+  same entrance, no flash, and the transform reverts to `none` when it finishes.
+
+**CORE-08 — widget interaction rework.** Arranging is a mode you turn on, not chrome that appears on
+hover. Hover cannot happen on a touch screen, and the controls were positioned exactly where a module
+puts its own affordance. Normally the whole widget is a click target that opens the module's page —
+with a real focusable link for keyboard and screen-reader users, since a container `onClick` is
+invisible to both. In Arrange mode: move buttons, a size readout, Reset, and a corner handle that
+resizes by drag **or arrow key**. A module with no page of its own is correctly not clickable.
+
+**Fixed — BUG-54: the widget Height setting did nothing.** `widget-grid.tsx` had no `grid-auto-rows`,
+so implicit rows were content-sized and the `grid-row: span N` set by the frame multiplied nothing.
+The setting saved, re-rendered and moved nothing. Now `minmax(11rem, auto)` — a span multiplies a real
+base, while a widget that genuinely needs more room still grows rather than being clipped. Verified
+live: height 1 → 2 took a widget from 590px to 782px.
+
+**Fixed — BUG-55**: widgets in a row are a uniform height, and the frame stretches a module's own root
+so a short widget fills its cell. **BUG-53** is closed by CORE-08 — with no chrome in normal use,
+there is nothing left to overlap a module's "Open".
+
+**Also:** `.lift:hover` is now behind `@media (hover: hover) and (pointer: fine)`, so a tapped tile no
+longer stays visibly raised on touch. And `eslint.config.mjs` now ignores `WORKING/**` — it already
+intended to ignore the test sandbox, but `.testbed/**` only ever matched the repo root, and the sandbox
+moved inside `WORKING/` when the working folder came into the checkout. A testbed's build output was
+being linted as source, contributing **611 errors**; lint is clean again.
+
+**Tests:** 468 (was 456). The 12 new ones are source-level on purpose — every defect here is a missing
+or wrong declaration, which renders correctly and so is invisible to a behavioural test.
+
 ## [1.7.3] — 2026-07-27
 
 **Service accounts — an identity for an add-on, that nobody can ever sign in as.** Consolidates the

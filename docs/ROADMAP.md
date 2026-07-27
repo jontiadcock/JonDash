@@ -72,10 +72,8 @@ another session's work while nothing blocks it.
    `.sh` mirroring the `.bat`'s supervisor **contract** (exit codes 10/11/12/13), not just `node`. Also
    swap PowerShell `Expand-Archive` for `fflate` (already a dependency), privileged ports for HTTPS, and a
    case-sensitive build pass. **Position not confirmed by the owner** — move it freely
-3. ⏳ **CORE-08 — Dashboard widget interaction rework** *(owner-directed 2026-07-25)* — click the widget to
-   open it, pointer-only hover highlight from the style tokens, and an explicit **edit mode** carrying move
-   (as a tappable button, not a hover grip) and **drag-the-corners resize → save**. Closes BUG-53/54/55.
-   Straight after CORE-07 so it's built against the finished token set
+3. ✅ **CORE-08 — Dashboard widget interaction rework** — shipped **v1.8.0-beta.1**, 2026-07-27. Closed
+   BUG-53/54/55 with it
 4. ⏳ **SEC-04 — Session lifecycle hardening**
 5. ⏳ **SEC-05 — Trusted-IP auto-login**
 6. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
@@ -1054,7 +1052,23 @@ each module can do. Hiding it behind an expander is reasonable; hiding it *by ac
 making the page tidier is not. Whatever the collapsed row shows, a module holding a dangerous
 permission should still be identifiable without expanding it.
 
-#### CORE-08 · Dashboard widget interaction rework — ⏳ Planned (owner-directed 2026-07-25)
+#### CORE-08 · Dashboard widget interaction rework — ✅ Shipped v1.8.0-beta.1 (2026-07-27)
+
+**Shipped as specified.** Arranging is an explicit mode (`Arrange` / `Done arranging`) rather than
+chrome revealed on hover — hover cannot happen on a touch screen, and the old cluster sat exactly
+where a module puts its own affordance. Normally the whole widget is a click target opening the
+module's page, with a real focusable `sr-only` link beside it because a container `onClick` is
+invisible to a keyboard and a screen reader. Edit mode carries move buttons, a size readout, Reset,
+and a corner handle that resizes by pointer drag **or arrow key**. A module shipping no `Page` gets
+`href: null` and is correctly not clickable. Hover lift moved behind
+`@media (hover: hover) and (pointer: fine)`.
+
+Cell geometry for the drag is **measured from the live grid** rather than duplicated as a constant —
+the column count changes with the breakpoint and the row height comes from `auto-rows`, so a copy
+here would silently disagree with the CSS the first time either moved.
+
+Closed **BUG-53** (chrome no longer exists in normal use), **BUG-54** and **BUG-55**. Original
+specification below.
 Owner feedback after using the drag-and-drop dashboard: the arranging works, the *interaction model*
 doesn't. Controls are hover-revealed (so they don't exist on touch), they overlap widget content, and the
 widget itself isn't clickable. The fix is a mode, not more buttons.

@@ -120,6 +120,7 @@
   --radius-control: 999px;
   --border-width: 1px;
   --surface-blur: 18px;
+  --surface-backdrop: blur(18px);
   --surface-gradient: linear-gradient(145deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.28) 100%);
   --font-weight-strong: 600;
   --shadow-hover: 0 8px 20px rgba(20, 30, 60, 0.14), 0 24px 56px rgba(20, 30, 60, 0.18);
@@ -160,7 +161,7 @@
 }
 :root[data-style="crystal"] .btn-ghost {
   background: var(--surface-2);
-  backdrop-filter: blur(var(--surface-blur));
+  backdrop-filter: var(--surface-backdrop);
 }
 
 /* Neon: committed dark, so it overrides the adaptive base in BOTH schemes. The
@@ -245,6 +246,7 @@
   --radius-control: 5px;
   --border-width: 1px;
   --surface-blur: 14px;
+  --surface-backdrop: blur(14px);
   --surface-gradient: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.06));
   --font-sans: "Segoe UI", Tahoma, Verdana, sans-serif;
   --font-weight-strong: 600;
@@ -348,6 +350,7 @@
   --radius-control: 3px;
   --border-width: 1px;
   --surface-blur: 0px;
+  --surface-backdrop: none;
   --surface-gradient: none;
   --font-sans: Tahoma, Verdana, Geneva, sans-serif;
   --font-weight-strong: 700;
@@ -462,6 +465,7 @@
   --radius-control: 0px;
   --border-width: 1px;
   --surface-blur: 0px;
+  --surface-backdrop: none;
   --surface-gradient: none;
   --font-sans: ui-monospace, Consolas, "Courier New", monospace;
   --font-weight-strong: 700;
@@ -530,6 +534,7 @@
   --radius-control: 0px;
   --border-width: 3px;
   --surface-blur: 0px;
+  --surface-backdrop: none;
   --surface-gradient: none;
   --font-weight-strong: 800;
   --shadow-hover: 8px 8px 0 #000000;
@@ -587,6 +592,7 @@
   --radius-control: 0px;
   --border-width: 1px;
   --surface-blur: 0px;
+  --surface-backdrop: none;
   --surface-gradient: none;
   --font-sans: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
   --font-weight-strong: 700;

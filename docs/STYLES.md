@@ -114,7 +114,8 @@ hybrid rather than an obvious failure.
 | `--shadow` | Card elevation |
 | `--shadow-hover` | Elevation for a `.lift` card under the cursor (§6) |
 | `--shadow-control` | Button elevation |
-| `--surface-blur` | Backdrop blur for translucent styles; `0` for opaque ones |
+| `--surface-blur` | Backdrop blur *radius* for translucent styles; `0` for opaque ones |
+| `--surface-backdrop` | What `.card` actually passes to `backdrop-filter`. **Must be `none` for an opaque style — never `blur(0px)`.** A style that sets `--surface-blur` sets this to match |
 | `--surface-gradient` | Optional gradient overlay for a surface; `none` when flat |
 | `--font-sans` | UI typeface |
 | `--font-weight-strong` | What "bold" means here |

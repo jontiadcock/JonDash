@@ -314,6 +314,15 @@ height (1–3 grid columns/rows) for your widget, and their choice doesn't affec
   width, so your "wide" layout must still work narrow.
 - **Put the detail on your page, not in the widget.** If it doesn't fit at 1×1, that's a signal it belongs
   at `/m/<id>`. The widget's job is to be glanceable and to link through.
+- **Your root element is stretched to fill the frame** (since 1.8.0-beta.1). The frame sets `height: 100%`
+  on your widget's outermost element, so lay that element out expecting the full cell — a `flex` column,
+  or a card with `height: 100%` — rather than assuming it wraps its content. Widgets sharing a row are a
+  uniform height, so a short one that doesn't fill leaves a visible gap under it (BUG-55).
+- **The whole widget is clickable.** In normal use, clicking anywhere on your widget opens `/m/<id>` —
+  except on something of yours that is already interactive (a link, button, input, label or
+  `role="button"`), which behaves exactly as you wrote it. You don't need to add your own "Open" link,
+  though one is harmless. **A module with no `Page` is not clickable at all**, which is correct: a card
+  that looks clickable and does nothing is worse than one that plainly isn't.
 
 A module may also ship an **icon** — a small component (typically an inline SVG) on `icon` in its
 definition. Use `currentColor` rather than fixed colours so it follows the user's light/dark theme.

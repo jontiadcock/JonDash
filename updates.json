@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.1",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the dashboard is cheaper to draw, and arranging it is now something you turn on. Two faults were making every page more expensive to scroll than it needed to be, and both were invisible because nothing looked wrong. Every panel carried a backdrop blur even in the styles that have no blur at all - and a blur of zero is not free, it still makes the browser take a full pass over everything behind that panel. On a dashboard of 36 tiles that was 37 separate layers covering the whole screen, for no visible difference whatsoever. The page content also kept a leftover transform forever after its fade-in had finished, which kept the entire page on its own layer permanently. Both are gone, and the styles that genuinely use frosted glass - Crystal and Aero - look exactly as they did. Arranging your widgets is now a mode: press Arrange, move and resize, press Done. Previously the controls appeared when you hovered over a widget, which does not work on a touch screen at all, and they sat exactly where a module puts its own Open button so they took the click instead of it. The rest of the time a widget is simply something you click to open. In Arrange mode each widget gets move buttons, a size readout and a corner you can drag to resize; the arrow keys work on that corner too, so it is not mouse-only. Fixed: the widget Height setting did nothing whatsoever. The grid had no row height for a taller widget to span, so choosing Height 2 saved your choice, redrew the page and changed nothing at all. Widgets sharing a row are also a consistent height now, and a short widget fills the space it was given instead of leaving a gap under it."
+    },
+    {
       "version": "1.7.3",
       "date": "2026-07-27",
       "type": "minor",

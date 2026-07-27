@@ -14,7 +14,14 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Local build/test sandbox (core-testbed-isolation): a full copy of the app + its build
     // output, which must never be linted (or typechecked) as if it were source.
+    //
+    // BOTH paths are needed. `.testbed/**` only ever matched the repo root, and the sandbox
+    // moved to `WORKING/.testbed` when the working folder came inside the checkout — so from
+    // that point a testbed's `.next` chunks were being linted as source, adding hundreds of
+    // problems that belonged to generated code. `WORKING/**` matches the .gitignore entry, so
+    // anything else put in the working folder is covered too.
     ".testbed/**",
+    "WORKING/**",
   ]),
   {
     // Allow intentionally-unused args/vars prefixed with _ (e.g. useActionState's
