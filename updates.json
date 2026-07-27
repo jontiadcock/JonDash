@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.7",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: the update list now shows what will actually happen, and you can stop JonDash opening a browser when it starts. On Admin > Updates everything waiting is ticked when the page loads, and the button says how many are ticked. Before, the boxes all appeared UNTICKED and the button said 'Update all' - so the page showed you five things not selected above a button that would update all five, which reasonably reads as being unable to choose between JonDash and your add-ons. You always could; the screen never showed it. Untick JonDash and only the add-ons update, untick everything and the button greys out rather than quietly doing the lot. Separately: JonDash opens a browser the first time it starts on a machine, which is unwanted on a server you reach from somewhere else. There is now a switch for it under Admin > Server power. For a machine you cannot see the screen of at all, set the JONDASH_NO_BROWSER environment variable instead - a switch inside JonDash is no help until you can already reach JonDash."
+    },
+    {
       "version": "1.8.0-beta.6",
       "date": "2026-07-27",
       "type": "minor",

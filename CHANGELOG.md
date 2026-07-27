@@ -9,6 +9,40 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.7] — 2026-07-27
+
+**Start of group 4 — updates and launcher.** Two items that need nothing from anyone else; the
+auto-update rework (BUG-61) is held until the owner settles what *"unless someone clicks yes"* means,
+since a console prompt versus an in-app one changes the shape rather than a detail.
+
+**Fixed — the update list showed the opposite of what it would do.** Everything eligible now starts
+**ticked**, the label is always `Update selected (N)`, and the button is **disabled at zero**.
+
+The old code stored the *inclusions* and treated an empty set as "act on everything", so the page
+rendered N **unticked** boxes above a button reading "Update all" that would update all N. An unticked
+box means "not included" everywhere else, and the owner reasonably concluded JonDash and the add-ons
+couldn't be picked apart. They always could — every row has had its own checkbox since 1.7.0; the UI
+simply never showed it.
+
+Now it stores the **exclusions**, which also fixes a subtler thing: press *Check now* and anything
+newly discovered arrives ticked like everything else, whereas storing inclusions would have left a new
+item silently outside a button claiming to update the selection. Unticking the last row leaves a
+disabled button rather than making the control vanish, which reads as a broken page.
+
+**OPS-06 — the browser auto-open can be switched off.** Out of backlog at the owner's request.
+`.data/no-browser`, written by a toggle on **Admin → Server power**, and `JONDASH_NO_BROWSER` as an
+environment variable. **Both, deliberately:** the toggle is the "I'm set up now, stop doing this"
+case and survives updates because `.data` is preserved — but it is no use whatsoever on a headless
+box, because a switch inside JonDash cannot be reached by somebody who can't see the window it just
+opened. Worth noting it only ever fired on a *first* launch, not on every restart.
+
+**Verified live:** the sole available update renders ticked with the button enabled; unticking it
+gives `Update selected (0)`, disabled, with the row still on screen.
+
+**Tests:** 503. The update-selection ones are source-level — nothing misbehaved, the screen just
+disagreed with itself, so no behavioural test would have caught it. The launcher ones cover both
+opt-out routes and assert no unguarded browser launch survives.
+
 ## [1.8.0-beta.6] — 2026-07-27
 
 **Session lifetime + Idle timeout become one "Session length".** The last item of group 3, held back

@@ -192,7 +192,23 @@ echo     Close this window to stop the dashboard.
 echo   ============================================================
 echo.
 
-if "%~2"=="first" start "" "%DISPLAYURL%"
+REM ----------------------------------------------------------------------------
+REM OPS-06: opening a browser is opt-OUT, by two routes that serve different moments.
+REM
+REM   .data\no-browser        - written by the toggle on Admin -> Server power. This is the
+REM                             "I'm set up now, stop doing this" case. .data is preserved by
+REM                             the updater, so the choice survives an update.
+REM   JONDASH_NO_BROWSER      - an environment variable, and the ONLY thing that helps a
+REM                             headless or unattended box: a switch inside the app cannot be
+REM                             set by somebody who cannot see the window it just opened.
+REM
+REM Note this only ever fired on a FIRST launch anyway (%~2 == "first"), not on every restart.
+REM ----------------------------------------------------------------------------
+set "OPENBROWSER=1"
+if defined JONDASH_NO_BROWSER set "OPENBROWSER="
+if exist ".data\no-browser" set "OPENBROWSER="
+if "%~2"=="first" if defined OPENBROWSER start "" "%DISPLAYURL%"
+if "%~2"=="first" if not defined OPENBROWSER call :log start no-browser "browser auto-open is switched off"
 call :log start starting "launching the supervised server for v%APPVER%"
 REM The supervisor owns the running server: it captures crashes to logs\, restarts
 REM on an unexpected crash (with a crash-loop guard), and reports the outcome via its

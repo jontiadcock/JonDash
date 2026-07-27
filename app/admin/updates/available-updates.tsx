@@ -84,7 +84,20 @@ export function AvailableUpdates({
     }
   }
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /*
+   * DESELECTED, not selected — everything eligible starts ticked.
+   *
+   * The old version stored the opposite and treated an empty set as "act on everything", so the
+   * page showed N *unticked* boxes above a button that would update all N. An unticked box means
+   * "not included" everywhere else in the world, and the owner reasonably read it as being unable
+   * to pick JonDash and the add-ons separately — you always could, the UI just never showed it.
+   *
+   * Storing the exclusions rather than the inclusions also survives a refresh correctly: press
+   * "Check now", and anything newly discovered arrives ticked like everything else, while a row
+   * you deliberately unticked stays unticked. Storing inclusions would have left a new item
+   * silently excluded from a button that says "Update selected".
+   */
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
   const [consented, setConsented] = useState<Set<string>>(new Set());
   const [state, action, pending] = useActionState<SelectionState, FormData>(updateSelectedAction, {});
   const { overlay, start, stop } = useRebuildWatch();
@@ -99,7 +112,7 @@ export function AvailableUpdates({
   );
 
   function toggle(it: AvailableItem) {
-    setSelected((prev) => {
+    setDeselected((prev) => {
       const next = new Set(prev);
       const k = key(it);
       if (next.has(k)) next.delete(k);
@@ -108,16 +121,22 @@ export function AvailableUpdates({
     });
   }
 
-  const chosen = selectable.filter((it) => selected.has(key(it)));
-  // Nothing ticked = act on everything selectable — including JonDash itself, which is what
-  // "Update all" ought to mean. It used to quietly skip core and update only the add-ons.
-  const effective = chosen.length > 0 ? chosen : selectable;
+  const isTicked = (it: AvailableItem) => !deselected.has(key(it));
+
+  /*
+   * `chosen` IS what happens — there is no longer a fallback where an empty selection quietly
+   * means "everything". The tick boxes and the button now always agree, which is the whole fix:
+   * unticking JonDash to update only the add-ons is a visible act rather than something you had
+   * to guess at.
+   */
+  const effective = selectable.filter(isTicked);
   const coreChosen = effective.some((it) => it.kind === "core");
   const addons = effective.filter((it) => it.kind !== "core");
   // Core AND add-ons: run as one chained job — JonDash first, then the add-ons after it
   // restarts (a module's new version may need the newer JonDash, never the reverse).
   const chained = coreChosen && addons.length > 0;
-  const label = chosen.length > 0 ? `Update selected (${chosen.length})` : "Update all";
+  const label = `Update selected (${effective.length})`;
+  const nothingChosen = effective.length === 0;
 
   /** Start the chained run: write down the add-ons, then apply core. */
   async function applyAll() {
@@ -188,7 +207,7 @@ export function AvailableUpdates({
                     <input
                       type="checkbox"
                       className="mt-1"
-                      checked={selected.has(k)}
+                      checked={!disabled && isTicked(it)}
                       onChange={() => toggle(it)}
                       disabled={disabled || pending}
                       aria-label={`Update ${it.name}`}
@@ -270,7 +289,12 @@ export function AvailableUpdates({
             }
           />
           <div>
-            <button type="button" className="btn btn-primary" onClick={chained ? applyAll : applyCore}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={chained ? applyAll : applyCore}
+              disabled={nothingChosen}
+            >
               {chained ? label : "Update JonDash"}
             </button>
             {coreError && <span className="form-error ml-3">{coreError}</span>}
@@ -287,7 +311,9 @@ export function AvailableUpdates({
             )}
           </p>
         </div>
-      ) : effective.length > 0 ? (
+      ) : selectable.length > 0 ? (
+        /* Keyed on `selectable`, not `effective`: unticking the last row must leave a disabled
+           button rather than making the whole control vanish, which reads as the page breaking. */
         <form action={action} className="flex flex-col gap-2">
           {effective.map((it) => (
             <input key={key(it)} type="hidden" name={it.kind === "helper" ? "helperId" : "moduleId"} value={it.id} />
@@ -296,15 +322,27 @@ export function AvailableUpdates({
             .filter((it) => consented.has(key(it)))
             .map((it) => <input key={`c-${key(it)}`} type="hidden" name="consent" value={it.id} />)}
 
-          <RestartWarning
-            what={`Update ${effective.length} item${effective.length === 1 ? "" : "s"}: ${effective
-              .map((it) => it.name)
-              .join(", ")}. Their stored data is kept.`}
-          />
+          {effective.length > 0 && (
+            <RestartWarning
+              what={`Update ${effective.length} item${effective.length === 1 ? "" : "s"}: ${effective
+                .map((it) => it.name)
+                .join(", ")}. Their stored data is kept.`}
+            />
+          )}
           <div className="flex items-center gap-3">
-            <button type="submit" className="btn btn-primary" disabled={pending} onClick={start}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={pending || nothingChosen}
+              onClick={start}
+            >
               {pending ? "Updating…" : label}
             </button>
+            {nothingChosen && (
+              <span className="text-sm" style={{ color: "var(--muted)" }}>
+                Tick something to update.
+              </span>
+            )}
             {state.error && <span className="form-error">{state.error}</span>}
           </div>
         </form>
