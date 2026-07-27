@@ -9,6 +9,43 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.6] — 2026-07-27
+
+**Session lifetime + Idle timeout become one "Session length".** The last item of group 3, held back
+from beta.5 deliberately — it changes when people get signed out, and appending that to the end of a
+long dashboard push is how such things go wrong.
+
+**Why one and not two.** The pair overlapped confusingly: switching the idle timeout off quietly made
+the absolute lifetime the only thing ending a session, and the help text under it asserted a "7-day
+lifetime" that stopped being true the moment anyone changed the field above it (corrected in beta.2).
+
+**The idle window is the one worth exposing** — it's what people mean by "how long do I stay signed
+in". **The absolute cap is not discarded**, which was the risk in merging: without it a stolen token
+can be kept alive indefinitely, because the idle window resets on every use. It survives as
+`SESSION_ABSOLUTE_CAP_DAYS = 365`, a constant rather than a second control, stated on the page.
+
+**A picker, not a number box.** One field now has to express both "2 hours" and "30 days", and an
+input reading `43200` tells nobody anything. Presets from 1 hour to 90 days, and the two genuinely
+bad answers — a few seconds, or effectively never — are no longer a typo away. A migrated value that
+matches no preset is added to the list and shown as *"(your current setting)"*, so an upgrade never
+silently presents a different number as if it were yours.
+
+**Migration in SQL (`20260727230000_session_length`), and nobody's session changes length.** Had an
+idle timeout → kept exactly. Had it switched **off** → the absolute lifetime becomes the new window,
+because that was the only thing ending their sessions and anything else would sign them out sooner
+than before. Neither → the shipped 120-minute default. Guarded by `NOT EXISTS`, so it never
+overwrites a choice made after upgrading. The legacy rows are deliberately left in place — a
+migration that destroys its own inputs can't be checked afterwards.
+
+**Verified against a real database, every branch:** idle-wins-over-lifetime, idle-off-uses-lifetime,
+the owner's own 30-days-with-idle-off (→ 43200 minutes, unchanged), fresh install, idle-with-no-
+lifetime-row, and a re-run leaving a later choice alone. Then live: the page shows one control, the
+migrated value selected as "30 days", and both old fields gone.
+
+**Tests:** 490. The new ones pin the property the merge could have quietly lost — that no setting can
+raise the absolute ceiling, and that the legacy rows stop influencing anything once the merged value
+exists.
+
 ## [1.8.0-beta.5] — 2026-07-27
 
 **One dashboard, arranged freely, using the whole screen.** CORE-11, CORE-12 and CORE-14 — all three

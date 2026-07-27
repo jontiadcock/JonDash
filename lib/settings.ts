@@ -109,17 +109,51 @@ export const SETTINGS = {
     hidden: true, // shown under its style, not in the general branding form
   } as SettingDef<string>,
 
+  /**
+   * How long you stay signed in WITHOUT using JonDash — the one session control (1.8.0).
+   *
+   * This replaced two settings that overlapped confusingly: an absolute "Session lifetime
+   * (days)" and an "Idle timeout (minutes)" that could be switched off, at which point the
+   * lifetime silently became the only thing ending a session.
+   *
+   * **The idle window is the one worth exposing**, because it is what people actually mean by
+   * "how long do I stay signed in". The absolute cap is not discarded — it survives as a fixed
+   * ceiling (`SESSION_ABSOLUTE_CAP_DAYS`), so a session still cannot live forever no matter how
+   * often it is used, which is what stops a stolen token being kept alive indefinitely. It is
+   * stated in the help text rather than being a second control nobody could relate to the first.
+   *
+   * Hidden from the generic form: the Sessions page renders a purpose-built picker, because a
+   * raw minutes box that has to express both "2 hours" and "30 days" is a bad control.
+   */
+  "session.lengthMinutes": {
+    label: "Session length",
+    help: "How long you stay signed in without using JonDash.",
+    kind: "int",
+    default: 120,
+    schema: z.coerce.number().int().min(5).max(525600), // 5 minutes … 365 days
+    group: "sessions",
+    hidden: true,
+  } as SettingDef<number>,
+
+  /**
+   * LEGACY, superseded by `session.lengthMinutes` (1.8.0). Kept in the registry rather than
+   * deleted: existing installs have rows for these, and the migration that derives the new
+   * value reads them. Hidden, and nothing else consults them.
+   */
   "session.lifetimeDays": {
-    label: "Session lifetime (days)",
-    help: "How long a login stays valid before requiring sign-in again. 1–365.",
+    label: "Session lifetime (days) — replaced by Session length",
+    help: "Legacy. Superseded by Session length; kept so an existing value can be migrated.",
     kind: "int",
     default: 7,
     schema: z.coerce.number().int().min(1).max(365),
     group: "sessions",
+    hidden: true,
   } as SettingDef<number>,
 
+  /** LEGACY, superseded by `session.lengthMinutes` (1.8.0). See the note there. */
   "session.idleTimeoutMinutes": {
-    label: "Idle timeout (minutes)",
+    hidden: true,
+    label: "Idle timeout (minutes) — replaced by Session length",
     // The old wording said "its full 7-day lifetime", which stopped being true the moment
     // anyone changed Session lifetime — it read as a fact while being a stale default. Point
     // at the other setting by name instead, so it cannot go out of date again.
@@ -305,11 +339,45 @@ export async function getLogoFilename(fresh = false): Promise<string> {
   if (fresh) cache.delete("branding.logo");
   return readValue("branding.logo");
 }
-export async function getSessionLifetimeMs(): Promise<number> {
-  return (await readValue("session.lifetimeDays")) * 24 * 60 * 60 * 1000;
+/**
+ * The absolute ceiling on a session, in days — a constant, not a setting (1.8.0).
+ *
+ * Merging the two session controls into one could have quietly dropped this, and it is the
+ * property that matters most: without an absolute cap, a stolen token can be kept alive
+ * indefinitely by an attacker who simply keeps using it, because the idle window keeps
+ * resetting. A year is generous enough that nobody legitimately notices and short enough that
+ * a session cannot outlive the machine it was created on.
+ *
+ * Stated in the Session length help text rather than being a second control, because two
+ * numbers that interact was exactly the confusion this replaced.
+ */
+export const SESSION_ABSOLUTE_CAP_DAYS = 365;
+
+/**
+ * How long a session survives WITHOUT use — the single "Session length" (1.8.0).
+ *
+ * **Migration lives in SQL, not here** (`20260727230000_session_length`): an install that had
+ * an idle timeout keeps it; one that had it switched off keeps the absolute lifetime it was
+ * relying on instead, so nobody's session silently gets shorter *or* longer on upgrade. Doing
+ * it once in a migration rather than deriving on every read means the value is visible in the
+ * settings table and can be changed afterwards without the old rows haunting it.
+ */
+export async function getSessionLengthMs(): Promise<number> {
+  return (await readValue("session.lengthMinutes")) * 60 * 1000;
 }
+
+/** The absolute expiry stamped on a new session. Fixed — see SESSION_ABSOLUTE_CAP_DAYS. */
+export async function getSessionLifetimeMs(): Promise<number> {
+  return SESSION_ABSOLUTE_CAP_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * The idle window enforced on every request. Now the same number as Session length — the two
+ * concepts merged, and this name is kept because that is what the check in `lib/auth/session.ts`
+ * is doing.
+ */
 export async function getIdleTimeoutMs(): Promise<number> {
-  return (await readValue("session.idleTimeoutMinutes")) * 60 * 1000; // 0 => disabled
+  return getSessionLengthMs();
 }
 export async function getAuditRetentionDays(): Promise<number> {
   return readValue("audit.retentionDays");

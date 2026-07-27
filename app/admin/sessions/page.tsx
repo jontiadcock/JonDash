@@ -1,10 +1,10 @@
 import { requirePermission } from "@/lib/auth/guards";
 import { getCurrentSession } from "@/lib/auth/session";
 import { listAllSessions } from "@/lib/sessions";
-import { listSettings } from "@/lib/settings";
+import { getSessionLengthMs, SESSION_ABSOLUTE_CAP_DAYS } from "@/lib/settings";
 import { SessionsList } from "@/app/components/sessions-list";
-import { SettingsForm } from "@/app/admin/settings/ui";
-import { revokeSessionAction, saveSessionSettingsAction } from "./actions";
+import { SessionLengthForm } from "./session-length-form";
+import { revokeSessionAction } from "./actions";
 
 // Security-sensitive listing; never statically cached.
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function AdminSessionsPage() {
   await requirePermission("sessions.manage");
   const current = await getCurrentSession();
   const sessions = await listAllSessions(current?.id ?? null);
-  const settings = await listSettings("sessions");
+  const lengthMinutes = Math.round((await getSessionLengthMs()) / 60000);
 
   return (
     <div className="flex flex-col gap-6">
@@ -30,9 +30,9 @@ export default async function AdminSessionsPage() {
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Session settings</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          How long sign-ins stay valid, and when idle sessions are signed out.
+          How long a sign-in lasts.
         </p>
-        <SettingsForm settings={settings} action={saveSessionSettingsAction} saveLabel="Save session settings" />
+        <SessionLengthForm current={lengthMinutes} capDays={SESSION_ABSOLUTE_CAP_DAYS} />
       </section>
     </div>
   );

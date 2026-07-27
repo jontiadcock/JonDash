@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.6",
+      "date": "2026-07-27",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: one setting for how long you stay signed in, instead of two that overlapped. There used to be a 'Session lifetime' in days and an 'Idle timeout' in minutes, and the way they interacted was genuinely confusing - switching the idle one off quietly made the lifetime the only thing ending a session, and the help text under it referred to a seven-day lifetime that stopped being true the moment you changed the setting above it. There is now a single 'Session length': how long you stay signed in without using JonDash. Keep using it and you stay signed in; leave it longer than that and you sign in again. It is a list of sensible choices from one hour to ninety days rather than a box of minutes, because a box that has to hold both 'two hours' and 'thirty days' tells you nothing. Nothing about your current setting changes on update: if you had an idle timeout it is kept exactly, and if you had it switched off then your old lifetime becomes the new window, so no session gets shorter or longer than it was. The absolute limit has not gone away - it is now fixed at 365 days and stated on the page, so a sign-in still cannot last forever even if it is used every single day, which is what stops a stolen session being kept alive indefinitely."
+    },
+    {
       "version": "1.8.0-beta.5",
       "date": "2026-07-27",
       "type": "minor",
