@@ -36,6 +36,13 @@ const key = (kind: DashboardKind, id: string) => `${kind}:${id}`;
 const WIDE_QUERY = "(min-width: 1024px)";
 
 /**
+ * Only used for the very first server-rendered paint, before the grid can be measured. Any
+ * value is wrong at some window size — that is the whole reason the real one is measured — so
+ * this is simply a plausible column width that avoids a visible jump on a typical desktop.
+ */
+const FALLBACK_ROW_PX = 160;
+
+/**
  * The dashboard grid — service tiles and module widgets in ONE arrangement (CORE-11), saved
  * separately per device profile (CORE-12).
  *
@@ -143,8 +150,8 @@ export function DashboardGrid({
 
   /**
    * Measure a cell from the live grid rather than hardcoding it. The column count changes with
-   * the breakpoint and the row height comes from `auto-rows`, so a duplicated constant here
-   * would silently disagree with the CSS the first time either moved.
+   * the breakpoint and the row height is now derived from it, so a duplicated constant here
+   * would silently disagree with what is on screen.
    */
   const cellMetrics = useCallback((): CellMetrics | null => {
     const el = gridRef.current;
@@ -156,8 +163,39 @@ export function DashboardGrid({
     return {
       columns,
       colWidth: (el.clientWidth - colGap * (columns - 1)) / columns + colGap,
-      rowHeight: (parseFloat(cs.gridAutoRows) || 88) + rowGap,
+      rowHeight: (parseFloat(cs.gridAutoRows) || FALLBACK_ROW_PX) + rowGap,
     };
+  }, []);
+
+  /*
+   * SQUARE CELLS — the row height tracks the measured column width (owner, 2026-07-27).
+   *
+   * A fixed row height could never be square, because the columns are fluid: at one window
+   * width a 1×1 was a squat landscape box, at another it was portrait, and no combination of
+   * spans reliably produced a square. The owner's ask was exactly that — "small or large,
+   * square, rectangle, whatever I want" — and that only works if one unit is one unit in both
+   * directions.
+   *
+   * It has to be measured rather than declared: CSS can size a row from its content or from a
+   * fixed value, but not from the width of a column it doesn't know. Recomputed on resize via
+   * ResizeObserver, which also covers the window changing without a `resize` event — the exact
+   * gap that made the profile switch untestable in the browser harness.
+   */
+  const [rowPx, setRowPx] = useState<number | null>(null);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const columns = Math.max(1, cs.gridTemplateColumns.split(" ").filter(Boolean).length);
+      const colGap = parseFloat(cs.columnGap) || 0;
+      const w = (el.clientWidth - colGap * (columns - 1)) / columns;
+      if (w > 0) setRowPx(Math.round(w));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   return (
@@ -183,15 +221,22 @@ export function DashboardGrid({
       )}
 
       {/*
-        A FIXED row track (BUG-59). A growable one sizes itself to its content, and an item
-        spanning several rows spreads its content across all of them — so resizing one item
-        silently re-sized the rows it shared with a neighbour, and the neighbour moved.
-        Content-sized tracks cannot also be independent of content, and independence is what
-        matters here: a span is now purely multiplicative and nothing can push anything else.
+        The row track is FIXED (BUG-59) and SQUARE (owner, 2026-07-27).
+
+        Fixed, because a growable track sizes itself to its content and an item spanning several
+        rows spreads its content across all of them — so resizing one item silently re-sized the
+        rows it shared with a neighbour, and the neighbour moved. Content-sized tracks cannot
+        also be independent of content, and independence is what matters here.
+
+        Square, because the columns are fluid: with a constant row height a 1×1 was landscape at
+        one window width and portrait at another, and no combination of spans gave a reliable
+        square. `rowPx` is the measured column width, so one unit is one unit in both directions
+        and N×N is genuinely a square.
       */}
       <div
         ref={gridRef}
-        className="grid grid-cols-2 gap-4 auto-rows-[88px] lg:grid-cols-6"
+        className="grid grid-cols-2 gap-4 lg:grid-cols-6"
+        style={{ gridAutoRows: `${rowPx ?? FALLBACK_ROW_PX}px` }}
       >
         {ordered.map((item, index) => {
           const k = key(item.kind, item.id);

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.8",
+      "date": "2026-07-27",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta fixes from testing. Dashboard tiles are now SQUARE: one grid unit is the same size across as it is down, so a 2x2 is genuinely a square and you can make anything the shape you want by combining them. Before, the rows were a fixed height while the columns stretched with the window, so the same setting looked like a wide letterbox on one screen and a tall box on another. Widgets no longer get a scrollbar when their contents do not fit - anything too big for its box is simply cut off, and it is the add-on's job to lay itself out for the space it has been given. Fixed: choosing a new Session length appeared to do nothing. It saved correctly every time, but the box on screen snapped back to the old value until you reloaded the page, which looked exactly like a failed save. It now shows what you picked, tells you when there is an unsaved change, and the Save button stays greyed out until there is something to save. Also added 365 days as the longest Session length, matching the absolute limit."
+    },
+    {
       "version": "1.8.0-beta.7",
       "date": "2026-07-27",
       "type": "minor",

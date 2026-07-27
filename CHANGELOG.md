@@ -9,6 +9,47 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.8] — 2026-07-27
+
+**Fixes from the owner's testing of betas 5–7.**
+
+**Grid cells are now SQUARE.** The row height is the **measured column width**, so one unit is one
+unit in both directions, N×N is genuinely a square, and any shape composes from spans — which was the
+ask: *"I should be able to make the modules small or large, square, rectangle, whatever I want."*
+
+It has to be measured, not declared. The columns are fluid, so a constant row height is landscape at
+one window width and portrait at another; CSS can size a row from its content or from a fixed value,
+but not from the width of a column it doesn't know. A `ResizeObserver` on the grid recomputes it —
+which also covers the window changing without a `resize` event, the exact gap that made the profile
+switch untestable in the browser harness. `GEOMETRY` no longer carries a row height at all, rather
+than keeping a second source of truth that is wrong at every width except one.
+
+**Widgets clip instead of scrolling.** Owner's call, reversing mine: *"if something can't be presented,
+it should be cut off and the module needs to manage the sizings correctly."* I'd argued hiding content
+was worse than showing it doesn't fit — in a dashboard that's the wrong trade. A scrollbar inside a
+tile is noise on every item to rescue the rare one that overflows, and it lets a badly sized widget
+look acceptable instead of obviously wrong. The widget root is now pinned to the frame's height so an
+author lays out against a box they can see. **This changes what every existing widget must do** — it's
+on the add-ons hand-off list.
+
+**Fixed — saving a Session length looked like it did nothing.** It saved correctly every time, but the
+select was uncontrolled with `defaultValue`, which only seeds on mount: the action revalidated, the
+server sent the new value, and the DOM kept showing the old one until a reload. Indistinguishable from
+a failed save. Now controlled, re-seeding when the server's value genuinely changes, with an explicit
+*"Not saved yet"* and the Save button disabled until something is actually different.
+
+**Added 365 days** as the longest Session length — the same as `SESSION_ABSOLUTE_CAP_DAYS`, because
+beyond that the idle window could never be reached and an option that can never take effect is worse
+than no option.
+
+**Also logged, not built: BUG-63 — Shut down restarts the server *and* installs an update.** Two
+faults; the update half is BUG-61, and the restart half is worse and separate — a server that comes
+back after being told to stop cannot be taken out of service at all. Scheduled with BUG-61.
+
+**Tests:** 504. The paint suite now strips comments before matching — these files explain the rules
+they follow, so a `not.toMatch` over raw source matches the sentence saying the bad thing isn't there.
+That's BUG-39's trap, and it caught me three times in this one file.
+
 ## [1.8.0-beta.7] — 2026-07-27
 
 **Start of group 4 — updates and launcher.** Two items that need nothing from anyone else; the

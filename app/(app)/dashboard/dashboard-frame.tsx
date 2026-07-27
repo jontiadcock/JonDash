@@ -184,14 +184,21 @@ export function DashboardFrame({
       )}
 
       {/*
-        `overflow-auto` + `min-h-0` is what makes the fixed row track safe: an item conforms to
-        the box the dashboard gives it, but scrolls rather than clipping, because silently
-        hiding a module's content is worse than showing it doesn't fit. `min-h-0` is required —
-        a flex child won't shrink below its content without it and the scroller never engages.
-        `min-h-full` rather than `h-full` so a SHORT item stretches to fill while a TALL one
-        keeps its natural height inside the scroller.
+        `overflow-hidden`, NOT `overflow-auto` — the owner's call, 2026-07-27.
+        *"if something can't be presented, it should be cut off and the module needs to manage
+        the sizings correctly."*
+        I originally chose a scroller on the grounds that hiding content is worse than showing
+        it doesn't fit. In a dashboard that's the wrong trade: a scrollbar inside a tile is
+        noise on every single item to rescue the rare one that overflows, and it lets a badly
+        sized widget look acceptable instead of obviously wrong. Clipping makes the author's
+        problem visible, which is where it belongs — the contract in
+        docs/MODULES-AUTHORING.md says a widget is resized by the user and must adapt.
+
+        `min-h-0` is still required: without it a flex child refuses to shrink below its content
+        and the clip never engages. `[&>*]:h-full` pins the child to the frame so a widget can
+        lay itself out against a known height rather than overflowing one it can't see.
       */}
-      <div className="min-h-0 flex-1 overflow-auto [&>*]:min-h-full">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden [&>*]:h-full">{children}</div>
 
       {editing && (
         <>

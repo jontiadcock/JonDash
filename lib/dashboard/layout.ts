@@ -47,13 +47,14 @@ export function isProfile(v: unknown): v is DashboardProfile {
  * tile at 1 unit lands close to its old 5-across and a widget at 2 units lands exactly on its
  * old 3-across. Narrow keeps the old behaviour precisely: tiles two-up, widgets full width.
  *
- * `rowPx` is deliberately smaller than the 176px widgets used alone, because a tile is short —
- * a widget's default height of 2 rows plus the gap reproduces its old size, while a tile at 1
- * row stays compact instead of becoming a large empty square.
+ * **There is no row height here on purpose.** A cell is SQUARE — the row height is the measured
+ * column width, computed in the browser (`dashboard-grid.tsx`), because the columns are fluid
+ * and CSS cannot size a row from the width of a column. A constant here would be a second
+ * source of truth that is wrong at every window size except one.
  */
-export const GEOMETRY: Record<DashboardProfile, { columns: number; rowPx: number }> = {
-  wide: { columns: 6, rowPx: 88 },
-  narrow: { columns: 2, rowPx: 88 },
+export const GEOMETRY: Record<DashboardProfile, { columns: number }> = {
+  wide: { columns: 6 },
+  narrow: { columns: 2 },
 };
 
 /** Default span for each kind, per profile. */

@@ -17,8 +17,18 @@ const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p),
 
 const GLOBALS = read("app", "globals.css");
 const STYLES = read("app", "styles.css");
-const GRID = read("app", "(app)", "dashboard", "dashboard-grid.tsx");
-const FRAME = read("app", "(app)", "dashboard", "dashboard-frame.tsx");
+
+/**
+ * Comments stripped before matching. These files EXPLAIN the rules they follow — "`overflow-hidden`,
+ * NOT `overflow-auto`" — so a `not.toMatch` over the raw source matches the very sentence saying the
+ * bad thing isn't there. That is BUG-39's trap, and it has now caught me three times in this file
+ * alone, which is exactly why the stripping lives at the top rather than in each assertion.
+ */
+const stripComments = (s: string) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+const GRID = stripComments(read("app", "(app)", "dashboard", "dashboard-grid.tsx"));
+const FRAME = stripComments(read("app", "(app)", "dashboard", "dashboard-frame.tsx"));
 
 /** Crude but sufficient: split on `}` so each chunk holds one rule's declarations. */
 function blocks(css: string): string[] {
@@ -111,8 +121,8 @@ describe("the widget grid gives a row span something to multiply", () => {
    * two rows that have no independent height — the Height setting saved, re-rendered, and
    * moved nothing.
    */
-  it("declares an auto-rows track", () => {
-    expect(GRID, "widget grid has no grid-auto-rows track").toMatch(/auto-rows-\[/);
+  it("declares a row track", () => {
+    expect(GRID, "grid has no gridAutoRows").toMatch(/gridAutoRows/);
   });
 
   /**
@@ -123,18 +133,30 @@ describe("the widget grid gives a row span something to multiply", () => {
    */
   it("uses a fixed row height, so one widget cannot resize another", () => {
     expect(GRID, "a growable row track lets widgets push each other around (BUG-59)").not.toMatch(
-      /auto-rows-\[minmax\(/,
+      /auto-rows-\[minmax\(|gridAutoRows:\s*["'`]?minmax/,
     );
-    expect(GRID).toMatch(/auto-rows-\[[\d.]+(px|rem)\]/);
+    expect(GRID, "the row height must be a concrete pixel value").toMatch(/gridAutoRows: `\$\{.*\}px`/);
   });
 
-  it("lets a widget scroll rather than clipping it", () => {
-    // The owner's rule is that a module conforms to the dashboard's box — but the frame scrolls
-    // instead of clipping, because silently hiding content is worse than showing it doesn't fit.
-    // `min-h-0` is load-bearing: a flex child won't shrink below its content without it, and the
-    // scroller would never engage.
-    expect(FRAME, "frame does not scroll its overflow").toMatch(/overflow-auto/);
-    expect(FRAME, "without min-h-0 the flex child never shrinks and overflow-auto is inert").toMatch(
+  /**
+   * Owner, 2026-07-27: a cell must be SQUARE, so N×N is genuinely a square and sizes compose
+   * predictably. The columns are fluid, so a constant row height is landscape at one window
+   * width and portrait at another — it has to be the *measured* column width.
+   */
+  it("derives the row height from the measured column width", () => {
+    expect(GRID, "row height is not measured — a constant can never be square").toMatch(
+      /ResizeObserver/,
+    );
+    expect(GRID).toMatch(/setRowPx/);
+  });
+
+  it("clips an oversized widget rather than scrolling it", () => {
+    // Owner's call: "if something can't be presented, it should be cut off and the module needs
+    // to manage the sizings correctly." A scrollbar inside a tile is noise on every item to
+    // rescue the rare one that overflows, and it lets a badly sized widget look acceptable.
+    expect(FRAME, "a scroller is back inside the frame").not.toMatch(/overflow-auto/);
+    expect(FRAME).toMatch(/overflow-hidden/);
+    expect(FRAME, "without min-h-0 the flex child never shrinks and the clip is inert").toMatch(
       /min-h-0/,
     );
   });
@@ -149,11 +171,10 @@ describe("the widget grid gives a row span something to multiply", () => {
    * `min-h-full` rather than `h-full` — a short widget must stretch, while a tall one is still
    * allowed its natural height inside the scroller rather than being pinned to the frame.
    */
-  it("stretches the module's own root to the frame", () => {
-    expect(FRAME, "widget frame does not stretch its child").toMatch(/\[&>\*\]:min-h-full/);
-    expect(FRAME, "h-full would pin a tall widget and defeat the scroller").not.toMatch(
-      /\[&>\*\]:h-full/,
-    );
+  it("pins the module's own root to the frame", () => {
+    // `h-full` rather than `min-h-full` now that the frame clips: a widget should lay itself out
+    // against a known height, not overflow one it cannot see.
+    expect(FRAME, "widget frame does not size its child").toMatch(/\[&>\*\]:h-full/);
   });
 });
 
