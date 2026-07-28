@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
-import { setItemSize, placeItems, resetItem, isProfile } from "@/lib/dashboard/layout";
+import { setItemSize, placeItems, isProfile } from "@/lib/dashboard/layout";
 import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { getUserVisibleLinks } from "@/lib/services";
@@ -80,10 +80,14 @@ export async function placeItemsAction(
   revalidatePath("/dashboard");
 }
 
-export async function resetItemAction(kind: string, refId: string, profile: string): Promise<void> {
-  const allowed = await gate();
-  const k = asKind(kind);
-  if (!permits(allowed, k, refId)) return;
-  await resetItem(allowed.id, k, refId, asProfile(profile));
-  revalidatePath("/dashboard");
-}
+/*
+ * `resetItemAction` went with the Reset button it existed for (owner, 2026-07-28).
+ *
+ * Removed rather than left in place: an exported server action is a real HTTP endpoint whether or
+ * not anything calls it, so an orphan is dead surface that outlives the reason for it. It was
+ * properly guarded — session, same-origin, and the same per-item visibility check as everything
+ * here — so this is tidiness, not a fix.
+ *
+ * `resetItem` in `lib/dashboard/layout.ts` stays. It is covered by tests and is the natural API to
+ * re-expose if a reset ever returns; it is only the endpoint that has gone.
+ */

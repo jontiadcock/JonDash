@@ -340,31 +340,14 @@ export function DashboardGrid({
     prevRects.current = now;
   }, [placements, dragKey]);
 
-  /**
-   * Move one cell. Drives the arrange buttons — which are the keyboard and touch path, and the
-   * only way to arrange for anyone who can't drag at all.
+  /*
+   * The one-cell nudge that drove the ←↑↓→ buttons is gone with them (owner, 2026-07-28). Removed
+   * rather than left unused: an exported-looking helper with no caller reads as something that
+   * still works, and the next person would wire a button to it without knowing why it went.
    *
-   * Four directions now rather than "earlier/later": once a position is a cell rather than a
-   * place in a queue, moving something *later* has no meaning, and up and down are exactly what
-   * free placement makes possible.
+   * It is a dozen clicks to cross an eighteen-column grid, which is what made it useless once a
+   * drag could place an item anywhere in one gesture.
    */
-  function nudge(k: string, direction: "left" | "right" | "up" | "down") {
-    const from = placements.get(k);
-    if (!from) return;
-    const metrics = cellMetrics();
-    const dx = direction === "left" ? -1 : direction === "right" ? 1 : 0;
-    const dy = direction === "up" ? -1 : direction === "down" ? 1 : 0;
-    const next = { col: from.col + dx, row: from.row + dy, width: from.width, height: from.height };
-    if (next.col < 0 || next.row < 0) return;
-    if (metrics && next.col + next.width > metrics.columns) return;
-    if (next.row > MAX_ROWS) return;
-    // Same rule as the drag: land only where there is room.
-    for (const [otherKey, other] of placements) {
-      if (otherKey === k) continue;
-      if (overlaps(next, other)) return;
-    }
-    commit(new Map(placements).set(k, next));
-  }
 
   /**
    * Measure a cell from the live grid rather than hardcoding it. The column count changes with
@@ -484,7 +467,6 @@ export function DashboardGrid({
               registerEl={registerFrame}
               cellMetrics={cellMetrics}
               onGrab={(e) => beginDrag(k, e)}
-              onNudge={(dir) => nudge(k, dir)}
             >
               {item.node}
             </DashboardFrame>

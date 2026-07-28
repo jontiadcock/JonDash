@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.15",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: a tidier arrange mode. The little arrow buttons and Reset have gone from each tile while you are arranging - only the size badge stays. The arrows moved a tile one square at a time, which is a lot of clicking now that you can simply drag a tile wherever you want it. Worth knowing: moving a tile is now done by dragging only. Resizing still works from the keyboard using the corner handle."
+    },
+    {
       "version": "1.8.0-beta.14",
       "date": "2026-07-28",
       "type": "minor",

@@ -9,6 +9,22 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.15] — 2026-07-28
+
+**The arrange controls are just the size now.** The ←↑↓→ buttons and Reset are gone; the `3×3` badge
+stays. The arrows moved an item one cell at a time, which made sense while a position was a place in
+a queue — against free placement on an eighteen-column grid it is a dozen clicks to do what a drag
+does in one gesture, and they filled most of the chrome on a small tile.
+
+**The cost, stated rather than buried:** those buttons were the only way to *move* a tile without a
+pointer, so moving is now drag-only. Resizing keeps its non-pointer path — the corner handle is
+arrow-key operable — and the move capability could come back as arrow keys on a focused tile, with
+no buttons, if it is ever wanted.
+
+The server action behind Reset went with it. An exported server action is a live endpoint whether or
+not anything calls it, so leaving an orphan would have been half a removal; it was properly guarded,
+so this is tidiness rather than a fix.
+
 ## [1.8.0-beta.14] — 2026-07-28
 
 **The launcher no longer updates JonDash — ever.**

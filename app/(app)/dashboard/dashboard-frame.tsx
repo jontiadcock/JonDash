@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setItemSizeAction, resetItemAction } from "./layout-actions";
+import { setItemSizeAction } from "./layout-actions";
 import type { CellMetrics } from "./dashboard-grid";
 // `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
 import { MIN_SPAN, MAX_HEIGHT, type DashboardKind, type DashboardProfile } from "@/lib/dashboard/geometry";
@@ -44,7 +44,6 @@ export function DashboardFrame({
   registerEl,
   cellMetrics,
   onGrab,
-  onNudge,
   children,
 }: {
   kind: DashboardKind;
@@ -69,11 +68,12 @@ export function DashboardFrame({
   cellMetrics: () => CellMetrics | null;
   /** Named `onGrab`, not `onDragStart` — that is a real DOM handler, and this is not it. */
   onGrab: (e: React.PointerEvent) => void;
-  onNudge: (direction: "left" | "right" | "up" | "down") => void;
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  // The pending flag went with the Reset button — it was the only thing that used it. A resize
+  // shows its own result through `preview`, so it needs no busy state of its own.
+  const [, startTransition] = useTransition();
   // While a corner drag is in flight the frame previews the size it would become, so the grid
   // reflows under the pointer instead of jumping only once you let go.
   const [preview, setPreview] = useState<{ w: number; h: number } | null>(null);
@@ -255,60 +255,29 @@ export function DashboardFrame({
 
       {editing && (
         <>
-          {/* `data-arrange-control` — the frame's own chrome. Everything NOT carrying this
-              marker is draggable surface, which is what makes a service tile and a module
-              widget behave identically: neither is special-cased, the controls are. */}
+          {/*
+            Just the size, now (owner, 2026-07-28: *"remove the left right up down buttons as they
+            are useless now, and the reset button — just the x by x is fine to stay"*).
+
+            The four arrows moved an item one cell at a time, which made sense while a position was
+            a place in a queue. Against free placement on an eighteen-column grid it is a dozen
+            clicks to do what a drag does in one gesture, and they took up most of the chrome.
+
+            **The honest cost, recorded rather than hidden:** they were the only way to MOVE a tile
+            without a pointer, so moving is now drag-only. Resizing keeps its non-pointer path —
+            the corner handle below is arrow-key operable — and the capability could return as
+            arrow keys on a focused tile, with no buttons, if it is ever wanted.
+
+            `data-arrange-control` stays: this sits ON the tile, and chrome overlaying an item
+            should not be a handle for dragging it.
+          */}
           <div
             data-arrange-control
-            className="absolute left-1 top-1 z-10 flex items-center gap-1 rounded-lg border p-1 text-xs"
-            style={{ background: "var(--background)", borderColor: "var(--border)" }}
+            className="absolute left-1 top-1 z-10 rounded-lg border px-2 py-1 font-mono text-xs"
+            style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--muted)" }}
+            aria-hidden
           >
-            {/*
-              Four directions, because a position is now a cell rather than a place in a queue —
-              "move later" has no meaning once you can leave a gap, and up/down is precisely what
-              free placement adds. This is also the ONLY way to arrange without a pointer, so it
-              has to express everything a drag can.
-
-              Never disabled: whether a move is possible depends on what is in the way, which the
-              grid knows and this component does not. A move with nowhere to go is simply ignored,
-              which is better than a button that looks broken because a neighbour happens to be
-              adjacent.
-            */}
-            {(
-              [
-                ["left", "←"],
-                ["up", "↑"],
-                ["down", "↓"],
-                ["right", "→"],
-              ] as const
-            ).map(([dir, glyph]) => (
-              <button
-                key={dir}
-                type="button"
-                onClick={() => onNudge(dir)}
-                className="rounded px-1.5 py-1"
-                style={{ border: "1px solid var(--border-strong)" }}
-                aria-label={`Move ${name} ${dir}`}
-              >
-                {glyph}
-              </button>
-            ))}
-            <span className="px-1 font-mono" style={{ color: "var(--muted)" }} aria-hidden>
-              {w}×{h}
-            </span>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                setPreview(null);
-                run(() => resetItemAction(kind, refId, writeProfile()));
-              }}
-              className="rounded px-2 py-1"
-              style={{ color: "var(--muted)" }}
-              aria-label={`Reset ${name} to its default size`}
-            >
-              Reset
-            </button>
+            {w}×{h}
           </div>
 
           {/*
