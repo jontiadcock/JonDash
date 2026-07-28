@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.13",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: arrange your dashboard however you like. A tile's position is now an actual place on the grid rather than a spot in a queue, so you can put one icon at the top and another at the bottom with empty space between them, and it stays that way. Dragging is much calmer too - while you move something, nothing else on the dashboard shifts around, and the layout only changes when you let go. Two things that were broken are fixed: service tiles could not be dragged at all (only module widgets could), and hovering over a service cut off the top of its card. The arrange arrows now move an item up and down as well as left and right, which is the only way to rearrange without a mouse. Your existing dashboard is untouched by the upgrade - it keeps the arrangement it already had until you move something."
+    },
+    {
       "version": "1.8.0-beta.12",
       "date": "2026-07-28",
       "type": "minor",

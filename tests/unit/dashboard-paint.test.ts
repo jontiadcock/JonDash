@@ -161,9 +161,11 @@ describe("the widget grid gives a row span something to multiply", () => {
     );
   });
 
-  it("still applies the span the setting produces", () => {
-    expect(FRAME).toMatch(/gridRow:\s*`span \$\{h\}`/);
-    expect(FRAME).toMatch(/gridColumn:\s*`span \$\{w\}`/);
+  it("still applies the span the setting produces, from an explicit cell", () => {
+    // Free placement (1.8.0): a span alone would let CSS choose the cell. Both halves matter —
+    // the start pins where it is, the span how big it is.
+    expect(FRAME).toMatch(/gridRow:\s*`\$\{row \+ 1\} \/ span \$\{h\}`/);
+    expect(FRAME).toMatch(/gridColumn:\s*`\$\{col \+ 1\} \/ span \$\{w\}`/);
   });
 
   /**
@@ -228,18 +230,23 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
   });
 
   /**
-   * Owner, 2026-07-28: *"other ones will vanish off screen as if the one I'm moving has forced
-   * them off, if I'm moving a big tile."*
+   * Free placement (1.8.0) — a drag lands on a CELL, and swapping is gone entirely.
    *
-   * Two causes, both about size. A module widget is four times a tile's area, so merely brushing
-   * its edge was enough to reorder — and because a wide item that no longer fits its row pushes
-   * everything after it down, one accidental swap moved small tiles most of a screen. FLIP then
-   * inverted that: the tile was placed at its old position, frequently outside the viewport, and
-   * animated back in, which reads as vanishing rather than as moving.
+   * Owner, 2026-07-28: *"I want to be able to arrange the grid in any way I want… one icon at the
+   * top, and one at the bottom, not directly next to each other"*, and separately that the
+   * previous model *"still doesn't feel super natural"*. Both come from the same place: while the
+   * position was an ordering, moving one item forced every item after it to shuffle along, so the
+   * grid churned continuously under a gesture that had not finished — and a gap was not
+   * expressible at all.
    */
-  it("reorders only once the pointer is past the target's centre", () => {
-    expect(GRID, "any contact with a target still triggers a reorder").toMatch(/pastCentre/);
-    expect(GRID, "the centre test must pick an axis rather than assume one").toMatch(/sameRow/);
+  it("moves an item to a cell rather than swapping it with a neighbour", () => {
+    expect(GRID, "the swap-based reorder is back").not.toMatch(/splice\(to, 0/);
+    expect(GRID, "a drag must resolve to a grid cell").toMatch(/candidateCell/);
+  });
+
+  it("refuses a cell that is already occupied", () => {
+    // Without this, two items can be placed on top of each other and one becomes unreachable.
+    expect(GRID, "the drag does not test for collisions").toMatch(/overlaps\(/);
   });
 
   it("does not animate a tile across more than a screen", () => {
@@ -248,12 +255,56 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
     );
   });
 
+  /**
+   * A service tile and a module widget must MOVE identically (owner, 2026-07-28: *"make sure
+   * that the module and service moving mechanism is the same"*).
+   *
+   * They always shared one component and one drag function — but two accidents in the markup
+   * around each kind made them behave differently anyway:
+   *
+   *  - the drag handler bailed on `closest("a")` to protect the arrange controls, and a service
+   *    tile *is* an `<a>` filling the whole frame, so no service could be dragged at all;
+   *  - the tile carried its own `lift`, so once the frame gained one (beta.11) a tile lifted
+   *    twice and the inner lift was clipped by the frame's `overflow-hidden`.
+   *
+   * Neither was kind-specific *code*. Both were shared rules that happened to match one kind, so
+   * the guard is that the drag path contains no per-kind branching and excludes by marker.
+   */
+  it("excludes controls by marker, never by tag name", () => {
+    expect(FRAME, "a tag-name exclusion catches a service tile's own anchor").not.toMatch(
+      /closest\("button,a,/,
+    );
+    expect(FRAME, "the arrange controls are not marked").toMatch(/data-arrange-control/);
+    // Both the nudge cluster and the resize handle carry it, plus the two checks that read it.
+    const marks = FRAME.match(/data-arrange-control/g) ?? [];
+    expect(marks.length, "expected the marker on both controls and in both guards").toBeGreaterThanOrEqual(4);
+  });
+
+  it("has no per-kind branching anywhere in the drag path", () => {
+    // `external` is legitimate — it decides how an item OPENS, not how it moves. Anything
+    // comparing `kind` inside the frame would be a genuine fork in the move behaviour.
+    expect(FRAME, "the frame branches on kind — services and modules would diverge").not.toMatch(
+      /kind\s*===|kind\s*!==/,
+    );
+    expect(GRID, "the grid branches on kind while dragging").not.toMatch(/kind\s*===|kind\s*!==/);
+  });
+
+  it("lets exactly one thing own the hover lift", () => {
+    // Two lifts stack, and the inner one is clipped by the frame — that is what sliced the top
+    // off a hovered service tile.
+    const tile = stripComments(read("app", "components", "service-tile.tsx"));
+    expect(tile, "ServiceTile lifts as well as its frame — the top gets clipped").not.toMatch(
+      /className="[^"]*\blift\b/,
+    );
+    expect(FRAME, "the frame must be the one that lifts").toMatch(/\blift\b/);
+  });
+
   it("saves once, when the drag ends", () => {
     // Dragging across six items would otherwise fire six writes, and the arrangements passed
     // through on the way were never something the user asked for.
-    // `reorderItemsAction(` — the call, not the import line above it.
-    const moves = GRID.match(/reorderItemsAction\(/g) ?? [];
-    expect(moves.length, "reorderItemsAction is called from more than one place").toBe(1);
+    // `placeItemsAction(` — the call, not the import line above it.
+    const moves = GRID.match(/placeItemsAction\(/g) ?? [];
+    expect(moves.length, "placeItemsAction is called from more than one place").toBe(1);
   });
 });
 

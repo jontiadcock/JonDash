@@ -10,6 +10,8 @@ import {
   getUserLayout,
   applyLayoutOrder,
   spanFor,
+  packLayout,
+  GEOMETRY,
   PROFILES,
   type DashboardProfile,
 } from "@/lib/dashboard/layout";
@@ -87,12 +89,27 @@ export default async function DashboardPage() {
   const arrangements = {} as Record<DashboardProfile, ProfileArrangement>;
   for (const profile of PROFILES) {
     const layout = await getUserLayout(user.id, profile);
+    /*
+     * Every item gets a concrete cell here, on the server (free placement, 1.8.0).
+     *
+     * Stored positions win; anything without one — a newly added service, or every item on an
+     * install that has just upgraded — is packed into the first free space in the saved order.
+     * Doing it here rather than leaving it to CSS auto-placement means the browser and the
+     * server agree on exactly which cells are occupied, which is what lets a drag test a
+     * candidate cell for collisions without measuring anything.
+     */
     const ordered = applyLayoutOrder(items, layout);
+    const placements = packLayout(
+      ordered.map((i) => {
+        const span = spanFor(i.kind, i.id, profile, layout);
+        const saved = layout.get(`${i.kind}:${i.id}`);
+        return { kind: i.kind, id: i.id, ...span, col: saved?.col ?? null, row: saved?.row ?? null };
+      }),
+      GEOMETRY[profile].columns,
+    );
     arrangements[profile] = {
       order: ordered.map((i) => ({ kind: i.kind, id: i.id })),
-      spans: Object.fromEntries(
-        ordered.map((i) => [`${i.kind}:${i.id}`, spanFor(i.kind, i.id, profile, layout)]),
-      ),
+      placements: Object.fromEntries(placements),
     };
   }
 

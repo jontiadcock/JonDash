@@ -30,16 +30,21 @@ export {
   GEOMETRY,
   DEFAULT_SPAN,
   MAX_HEIGHT,
+  MAX_ROWS,
   MIN_SPAN,
   itemKey,
+  overlaps,
+  packLayout,
   type DashboardKind,
   type DashboardProfile,
+  type Placement,
 } from "./geometry";
 
 import {
   DEFAULT_SPAN,
   GEOMETRY,
   MAX_HEIGHT,
+  MAX_ROWS,
   itemKey,
   type DashboardKind,
   type DashboardProfile,
@@ -51,6 +56,9 @@ export type LayoutEntry = {
   width: number;
   height: number;
   sortOrder: number;
+  /** Explicit grid cell, or null to be packed into the first free space. Always both or neither. */
+  col: number | null;
+  row: number | null;
 };
 
 function clamp(n: number, min: number, max: number): number {
@@ -65,7 +73,7 @@ export async function getUserLayout(
 ): Promise<Map<string, LayoutEntry>> {
   const rows = await prisma.dashboardLayout.findMany({
     where: { userId, profile },
-    select: { kind: true, refId: true, width: true, height: true, sortOrder: true },
+    select: { kind: true, refId: true, width: true, height: true, sortOrder: true, col: true, row: true },
   });
   return new Map(
     rows
@@ -135,37 +143,44 @@ async function nextSortOrder(userId: string, profile: DashboardProfile): Promise
 }
 
 /**
- * Persist an arbitrary order for this user, in one profile.
+ * Persist an explicit cell for every visible item, in one profile.
  *
- * Writes the WHOLE visible order — not just the moved item — so items that never had a saved
- * row get one and positions stay consistent afterwards. `ordered` is what the user is actually
- * looking at, so the result matches the rendered order rather than a server-side guess.
+ * **The whole arrangement, not just the item that moved.** Most items have no stored position
+ * until somebody drags something — they are packed into the first free space on read — so
+ * writing only the moved one would leave the rest free to shuffle the next time anything was
+ * added or removed. Writing them all freezes what the user is actually looking at, which is the
+ * only interpretation of "I put it there" that survives the next change.
  *
- * The caller is responsible for having filtered `ordered` to items this user may see.
+ * `placements` comes from the browser, so it matches the rendered grid rather than a server-side
+ * guess. Values are clamped rather than trusted: a column beyond the grid, or a negative row,
+ * would otherwise store a position that can never be rendered.
+ *
+ * The caller is responsible for having filtered `placements` to items this user may see.
  */
-export async function reorderItems(
+export async function placeItems(
   userId: string,
   profile: DashboardProfile,
-  ordered: { kind: DashboardKind; id: string }[],
+  placements: { kind: DashboardKind; id: string; col: number; row: number }[],
 ): Promise<void> {
-  if (ordered.length === 0) return;
+  if (placements.length === 0) return;
+  const columns = GEOMETRY[profile].columns;
   const existing = await getUserLayout(userId, profile);
+
   await prisma.$transaction(
-    ordered.map((item, index) => {
+    placements.map((item, index) => {
       const prev = existing.get(itemKey(item.kind, item.id));
       const fallback = DEFAULT_SPAN[profile][item.kind];
+      const width = prev?.width ?? fallback.width;
+      const height = prev?.height ?? fallback.height;
+      // A column is bounded by the grid; a row is not, because empty space below the last item
+      // is a legitimate place to put something — that is the point of free placement. The cap
+      // only stops a corrupt value generating a page thousands of rows tall.
+      const col = clamp(item.col, 0, Math.max(0, columns - width));
+      const row = clamp(item.row, 0, MAX_ROWS);
       return prisma.dashboardLayout.upsert({
         where: { userId_profile_kind_refId: { userId, profile, kind: item.kind, refId: item.id } },
-        create: {
-          userId,
-          profile,
-          kind: item.kind,
-          refId: item.id,
-          width: prev?.width ?? fallback.width,
-          height: prev?.height ?? fallback.height,
-          sortOrder: index,
-        },
-        update: { sortOrder: index },
+        create: { userId, profile, kind: item.kind, refId: item.id, width, height, sortOrder: index, col, row },
+        update: { col, row, sortOrder: index },
       });
     }),
   );

@@ -9,6 +9,41 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.13] — 2026-07-28
+
+**Put things where you want them.** A tile's position is now a **cell**, not a place in a queue —
+so one icon can sit at the top and another at the bottom with nothing in between, and a gap is a
+perfectly good arrangement rather than something the grid closes up behind you.
+
+This also replaces the model that never felt right. While position was an ordering, moving one item
+forced every item after it to shuffle along, so the grid churned continuously under a gesture that
+hadn't finished. Now **nothing else moves at all**: the item you're holding follows the pointer, the
+rest stay exactly where they are, and the layout changes once, when you let go. A cell that's
+already occupied is refused rather than overlapped, and the item holds the last free cell it passed
+through.
+
+The arrange arrows become four directions — up and down are precisely what free placement adds, and
+"move later" means nothing once you can leave a gap. They remain the only way to arrange without a
+pointer.
+
+Positions are stored per device profile as before, and an install upgrading to this version looks
+exactly as it did: everything is packed into the arrangement it already had, and only starts being
+stored as explicit positions once something is actually moved.
+
+**Service tiles could not be dragged at all.** The drag handler skipped anything inside a link, to
+protect the arrange controls — and a service tile *is* a link filling the whole frame, so every grab
+on one was ignored while module widgets worked fine. Controls are now excluded by an explicit
+marker, so nothing is special-cased per kind and both behave identically.
+
+**Hovering a service clipped the top off its card.** The tile carried its own hover lift from before
+the frame had one; once the frame gained a lift so widgets would rise too, tiles lifted twice, and
+the inner lift moved the card inside a container that clips. The frame is now the only thing that
+lifts.
+
+**Back to top now appears on every page**, including sign-in, first-run setup, the recovery-code
+page and a module's own page — several of which are long on a phone, and the last of which an
+add-on author controls the length of entirely.
+
 ## [1.8.0-beta.12] — 2026-07-28
 
 Three things the owner found testing beta.11.

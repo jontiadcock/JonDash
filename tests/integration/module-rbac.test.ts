@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { visibleModuleIds, canViewModule, setModuleGroups } from "@/lib/modules/visibility";
 import {
   setItemSize,
-  reorderItems,
+  placeItems,
   getUserLayout,
   applyLayoutOrder,
   resetItem,
@@ -120,28 +120,61 @@ describe("per-user dashboard layout", () => {
     expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "open"))).toBeUndefined();
   });
 
-  it("persists an arbitrary order, writing a row for items that had none", async () => {
-    await reorderItems(member.id, "wide", [mod("a"), mod("c"), mod("b")]);
+  it("persists an explicit cell, writing a row for items that had none", async () => {
+    await placeItems(member.id, "wide", [
+      { ...mod("a"), col: 0, row: 0 },
+      { ...mod("c"), col: 6, row: 4 },
+    ]);
     const layout = await getUserLayout(member.id, "wide");
-    const sorted = applyLayoutOrder([mod("a"), mod("b"), mod("c")], layout).map((i) => i.id);
-    expect(sorted).toEqual(["a", "c", "b"]);
+    expect(layout.get(itemKey("module", "a"))).toMatchObject({ col: 0, row: 0 });
+    expect(layout.get(itemKey("module", "c"))).toMatchObject({ col: 6, row: 4 });
   });
 
-  it("items without a saved position keep their natural order, after positioned ones", async () => {
-    await reorderItems(member.id, "wide", [mod("b"), mod("a")]);
+  /**
+   * Free placement's whole point: a gap is a legitimate arrangement. An item at row 20 with
+   * nothing between it and the top must come back exactly as stored — anything that "tidies up"
+   * on read would quietly undo what the user did.
+   */
+  it("keeps a deliberate gap rather than closing it", async () => {
+    // Column 12 rather than 15: a module's default width is 6, and 18 columns leave 12 as the
+    // furthest it can start. Asking for 15 is correctly clamped — a 6-wide item at column 15
+    // would run off the grid — which is what the next test covers.
+    await placeItems(member.id, "wide", [
+      { ...mod("a"), col: 0, row: 0 },
+      { ...mod("b"), col: 12, row: 20 },
+    ]);
+    const layout = await getUserLayout(member.id, "wide");
+    expect(layout.get(itemKey("module", "b"))).toMatchObject({ col: 12, row: 20 });
+  });
+
+  it("clamps a column past the edge of the grid instead of storing it", async () => {
+    await placeItems(member.id, "wide", [{ ...mod("a"), col: 999, row: -4 }]);
+    const at = (await getUserLayout(member.id, "wide")).get(itemKey("module", "a"))!;
+    expect(at.col).toBeLessThanOrEqual(GEOMETRY.wide.columns - 1);
+    expect(at.col).toBeGreaterThanOrEqual(0);
+    expect(at.row).toBe(0);
+  });
+
+  /** CORE-11: one arrangement has to span both kinds, or the merge means nothing. */
+  it("places service tiles and module widgets in ONE arrangement", async () => {
+    await placeItems(member.id, "wide", [
+      { ...link("tile-2"), col: 0, row: 0 },
+      { ...mod("open"), col: 3, row: 0 },
+      { ...link("tile-1"), col: 0, row: 9 },
+    ]);
+    const layout = await getUserLayout(member.id, "wide");
+    expect(layout.get(itemKey("link", "tile-2"))).toMatchObject({ col: 0, row: 0 });
+    expect(layout.get(itemKey("module", "open"))).toMatchObject({ col: 3, row: 0 });
+    expect(layout.get(itemKey("link", "tile-1"))).toMatchObject({ col: 0, row: 9 });
+  });
+
+  /** Anything never placed still has to appear — packed after what has been positioned. */
+  it("still orders items that have no stored position", async () => {
+    await placeItems(member.id, "wide", [{ ...mod("b"), col: 0, row: 0 }]);
     const layout = await getUserLayout(member.id, "wide");
     const sorted = applyLayoutOrder([mod("a"), mod("b"), mod("zz")], layout).map((i) => i.id);
-    expect(sorted).toEqual(["b", "a", "zz"]);
-  });
-
-  /** CORE-11: one ordering has to span both kinds, or the merge means nothing. */
-  it("orders service tiles and module widgets in ONE sequence", async () => {
-    await reorderItems(member.id, "wide", [link("tile-2"), mod("open"), link("tile-1")]);
-    const layout = await getUserLayout(member.id, "wide");
-    const sorted = applyLayoutOrder([mod("open"), link("tile-1"), link("tile-2")], layout).map(
-      (i) => `${i.kind}:${i.id}`,
-    );
-    expect(sorted).toEqual(["link:tile-2", "module:open", "link:tile-1"]);
+    expect(sorted[0]).toBe("b");
+    expect(sorted).toHaveLength(3);
   });
 
   it("keeps a tile and a module of the same id apart", async () => {
@@ -167,14 +200,18 @@ describe("per-user dashboard layout", () => {
     });
   });
 
-  it("reordering one profile leaves the other alone", async () => {
-    await reorderItems(member.id, "wide", [mod("a"), mod("b")]);
-    await reorderItems(member.id, "narrow", [mod("b"), mod("a")]);
+  it("placing in one profile leaves the other alone", async () => {
+    await placeItems(member.id, "wide", [{ ...mod("a"), col: 9, row: 3 }]);
+    await placeItems(member.id, "narrow", [{ ...mod("a"), col: 0, row: 7 }]);
 
-    const wide = applyLayoutOrder([mod("a"), mod("b")], await getUserLayout(member.id, "wide"));
-    const narrow = applyLayoutOrder([mod("a"), mod("b")], await getUserLayout(member.id, "narrow"));
-    expect(wide.map((i) => i.id)).toEqual(["a", "b"]);
-    expect(narrow.map((i) => i.id)).toEqual(["b", "a"]);
+    expect((await getUserLayout(member.id, "wide")).get(itemKey("module", "a"))).toMatchObject({
+      col: 9,
+      row: 3,
+    });
+    expect((await getUserLayout(member.id, "narrow")).get(itemKey("module", "a"))).toMatchObject({
+      col: 0,
+      row: 7,
+    });
   });
 
   it("resetting one profile leaves the other alone", async () => {

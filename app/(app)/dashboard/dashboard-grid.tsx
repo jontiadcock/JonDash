@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { DashboardFrame } from "./dashboard-frame";
-import { reorderItemsAction } from "./layout-actions";
+import { placeItemsAction } from "./layout-actions";
 // `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
-import { DEFAULT_SPAN, type DashboardKind, type DashboardProfile } from "@/lib/dashboard/geometry";
+import {
+  DEFAULT_SPAN,
+  MAX_ROWS,
+  overlaps,
+  type DashboardKind,
+  type DashboardProfile,
+  type Placement,
+} from "@/lib/dashboard/geometry";
 
 export type DashboardItem = {
   kind: DashboardKind;
@@ -20,8 +27,8 @@ export type DashboardItem = {
 export type Span = { width: number; height: number };
 export type ProfileArrangement = {
   order: { kind: DashboardKind; id: string }[];
-  /** Keyed `kind:id`. */
-  spans: Record<string, Span>;
+  /** Every visible item's cell and size, keyed `kind:id`. Computed server-side — see the page. */
+  placements: Record<string, Placement>;
 };
 
 /** Measured geometry of one grid cell, so a pointer drag becomes span units. */
@@ -98,6 +105,17 @@ export function DashboardGrid({
 
   const arrangement = arrangements[profile];
   const [order, setOrder] = useState(() => arrangements.wide.order.map((i) => key(i.kind, i.id)));
+  /**
+   * Where every item sits, as grid cells (free placement, 1.8.0).
+   *
+   * Separate from `order`, which is now only the DOM order — it decides tab order and nothing
+   * visual, because every item is placed explicitly. That separation is what makes dragging calm:
+   * moving one item changes one entry here and **nothing else moves at all**, where the previous
+   * ordering model had to reflow every item after the one you touched.
+   */
+  const [placements, setPlacements] = useState<Map<string, Placement>>(
+    () => new Map(Object.entries(arrangements.wide.placements)),
+  );
   const [editing, setEditing] = useState(false);
   const [, startTransition] = useTransition();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -119,121 +137,105 @@ export function DashboardGrid({
   if (seededFor !== profile) {
     setSeededFor(profile);
     setOrder(arrangement.order.map((i) => key(i.kind, i.id)));
+    setPlacements(new Map(Object.entries(arrangement.placements)));
   }
 
   const byKey = new Map(items.map((i) => [key(i.kind, i.id), i]));
   const ordered = order.map((k) => byKey.get(k)).filter((i): i is DashboardItem => !!i);
 
-  function commit(next: string[]) {
-    setOrder(next);
-    const payload = next
-      .map((k) => byKey.get(k))
-      .filter((i): i is DashboardItem => !!i)
-      .map((i) => ({ kind: i.kind as string, id: i.id }));
-    startTransition(() => void reorderItemsAction(writeProfile(), payload));
+  /**
+   * Save the WHOLE arrangement, not just the item that moved.
+   *
+   * Most items have no stored position until somebody drags something — they are packed into the
+   * first free space on read — so writing only the moved one would leave every other item free to
+   * shuffle the next time anything was added or removed. Writing them all freezes what the user
+   * is looking at, which is the only reading of "I put it there" that survives the next change.
+   */
+  function commit(next: Map<string, Placement>) {
+    setPlacements(next);
+    const payload = [...next.entries()]
+      .map(([k, p]) => ({ item: byKey.get(k), p }))
+      .filter((e): e is { item: DashboardItem; p: Placement } => !!e.item)
+      .map(({ item, p }) => ({ kind: item.kind as string, id: item.id, col: p.col, row: p.row }));
+    startTransition(() => void placeItemsAction(writeProfile(), payload));
+  }
+
+  /**
+   * Where an item would land, given how far it has been dragged. `null` when that cell is not
+   * available — off the grid, or already occupied.
+   *
+   * The candidate is computed from the item's ORIGIN plus the distance travelled, in whole cells,
+   * rather than from wherever the pointer happens to be. That keeps the grab point under your
+   * finger: pick a tile up by its corner and it stays held by that corner, instead of jumping so
+   * that the pointer sits at its centre.
+   */
+  function candidateCell(
+    from: Placement,
+    dx: number,
+    dy: number,
+    current: Map<string, Placement>,
+    self: string,
+  ): Placement | null {
+    const metrics = cellMetrics();
+    if (!metrics) return null;
+    const col = from.col + Math.round(dx / metrics.colWidth);
+    const row = from.row + Math.round(dy / metrics.rowHeight);
+    if (col < 0 || col + from.width > metrics.columns) return null;
+    if (row < 0 || row > MAX_ROWS) return null;
+
+    const candidate = { col, row, width: from.width, height: from.height };
+    for (const [otherKey, other] of current) {
+      if (otherKey === self) continue;
+      if (overlaps(candidate, other)) return null;
+    }
+    return candidate;
   }
 
   /*
-   * Pointer-driven dragging.
+   * Pointer-driven dragging, onto a CELL (free placement, 1.8.0).
    *
-   * The item follows the cursor and everything else moves out of its way WHILE you are still
-   * holding it — which is the whole difference from the native drag-and-drop this replaced. That
-   * API paints its own drag image (the grey box with a URL in it), cannot be styled, ignores
-   * touch entirely, and only reports coarse enter/leave events, so there is nothing to reflow
-   * against until the moment you let go.
+   * Owner: *"I want to be able to arrange the grid in any way I want… one icon at the top, and
+   * one at the bottom, not directly next to each other."* That is not expressible as an ordering,
+   * so the drag no longer asks "which item am I over, and should we swap" — it asks "which cell
+   * am I over, and is it free". An item is simply put where you put it, gaps and all.
    *
-   * The order is updated live but NOT saved until the pointer comes up: dragging across six
-   * items would otherwise fire six writes, and the intermediate arrangements were never
-   * something the user asked for.
+   * It also answers *"still doesn't feel super natural"* about the previous model, and for a
+   * structural reason rather than a cosmetic one: swapping meant every item after the one you
+   * held had to shuffle along as you moved, so the grid churned continuously under a gesture that
+   * had not finished. Here **nothing else moves at all** — the held item follows the pointer, the
+   * rest stay exactly where they are, and the layout changes once, when you let go.
+   *
+   * The last valid cell is kept while you are over an occupied one, so dragging *across* a
+   * neighbour to reach the space beyond it works rather than being refused halfway.
    */
   function beginDrag(k: string, e: React.PointerEvent) {
     const startX = e.clientX;
     const startY = e.clientY;
+    const origin = placements.get(k);
+    if (!origin) return;
 
     /*
-     * The working order is a plain closure variable, not state or a ref.
-     *
-     * It has to be readable synchronously inside `pointermove` — state would be a render behind,
-     * and a ref written during render is both illegal and a lie about where the truth lives.
-     * `beginDrag` is defined during render, so it closes over the order as it was at pointerdown,
-     * which is exactly the arrangement the user grabbed.
+     * A plain closure variable, not state or a ref: it has to be readable synchronously inside
+     * `pointermove`, state would be a render behind, and a ref written during render is both
+     * illegal and a lie about where the truth lives. `beginDrag` is defined during render, so it
+     * closes over the arrangement as it was at pointerdown — exactly what the user grabbed.
      */
-    let working = order;
+    let working = placements;
 
     setDragKey(k);
     setDragDelta({ x: 0, y: 0 });
 
     const move = (ev: PointerEvent) => {
-      setDragDelta({ x: ev.clientX - startX, y: ev.clientY - startY });
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      setDragDelta({ x: dx, y: dy });
 
-      /*
-       * Hit-test against each item's LAYOUT box, not its painted rectangle.
-       *
-       * The question being asked is "which cell of the grid is the pointer over". A painted
-       * rectangle answers a different question, and the two disagree for exactly as long as a
-       * FLIP animation is running: `getBoundingClientRect` includes the transform, so a
-       * mid-flight item reports a position somewhere between the cell it left and the cell it is
-       * going to. Drag faster than 180ms and every subsequent hit test aims at a rectangle that
-       * is nowhere in particular — which scrambled the order rather than merely mis-aiming.
-       *
-       * `offsetLeft`/`offsetTop` are immune to transforms, so they always give the real cell.
-       * They are measured from the nearest positioned ancestor, which the grid and its children
-       * share, so subtracting the grid's own offset gives a common origin — and the pointer is
-       * put in that same space via the grid's rect, which is safe because the GRID is never
-       * transformed, only the items inside it.
-       */
-      const gridEl = gridRef.current;
-      if (!gridEl) return;
-      const gr = gridEl.getBoundingClientRect();
-      const px = ev.clientX - gr.left;
-      const py = ev.clientY - gr.top;
-
-      let targetKey: string | null = null;
-      let targetCentre = { x: 0, y: 0 };
-      for (const [otherKey, el] of frames.current) {
-        if (otherKey === k) continue;
-        const left = el.offsetLeft - gridEl.offsetLeft;
-        const top = el.offsetTop - gridEl.offsetTop;
-        if (px >= left && px <= left + el.offsetWidth && py >= top && py <= top + el.offsetHeight) {
-          targetKey = otherKey;
-          targetCentre = { x: left + el.offsetWidth / 2, y: top + el.offsetHeight / 2 };
-          break;
-        }
-      }
-      if (!targetKey) return;
-
-      const from = working.indexOf(k);
-      const to = working.indexOf(targetKey);
-      if (from === -1 || to === -1 || from === to) return;
-
-      /*
-       * Swap only once the pointer is PAST the target's centre, in the direction of the move.
-       *
-       * Touching any part of a target used to be enough, and a module widget is four times the
-       * area of a service tile — so brushing one edge of a big widget reordered the whole grid,
-       * and because a wide item that no longer fits its row pushes everything after it onto the
-       * next row, small tiles visibly flew a long way for a gesture that had barely started.
-       * The owner: *"other ones will vanish off screen as if the one I'm moving has forced them
-       * off, if I'm moving a big tile."*
-       *
-       * The axis is chosen by where the target actually sits rather than fixed: items on the same
-       * row are passed horizontally, items on another row vertically.
-       */
-      const sameRow = Math.abs(targetCentre.y - py) < Math.abs(targetCentre.x - px);
-      const forward = to > from;
-      const pastCentre = sameRow
-        ? forward
-          ? px > targetCentre.x
-          : px < targetCentre.x
-        : forward
-          ? py > targetCentre.y
-          : py < targetCentre.y;
-      if (!pastCentre) return;
-
-      const next = [...working];
-      next.splice(to, 0, ...next.splice(from, 1)); // move, don't swap
-      working = next;
-      setOrder(next);
+      const next = candidateCell(origin, dx, dy, working, k);
+      if (!next) return; // off the grid or occupied — hold the last good cell
+      const at = working.get(k);
+      if (at && at.col === next.col && at.row === next.row) return;
+      working = new Map(working).set(k, next);
+      setPlacements(working);
     };
 
     const end = () => {
@@ -309,16 +311,32 @@ export function DashboardGrid({
       });
     }
     prevRects.current = now;
-  }, [order, dragKey]);
+  }, [placements, dragKey]);
 
-  /** Move one place. Drives the arrange buttons, which are also the keyboard and touch path. */
-  function nudge(k: string, direction: "up" | "down") {
-    const next = [...order];
-    const from = next.indexOf(k);
-    const to = direction === "up" ? from - 1 : from + 1;
-    if (from === -1 || to < 0 || to >= next.length) return;
-    [next[from], next[to]] = [next[to], next[from]];
-    commit(next);
+  /**
+   * Move one cell. Drives the arrange buttons — which are the keyboard and touch path, and the
+   * only way to arrange for anyone who can't drag at all.
+   *
+   * Four directions now rather than "earlier/later": once a position is a cell rather than a
+   * place in a queue, moving something *later* has no meaning, and up and down are exactly what
+   * free placement makes possible.
+   */
+  function nudge(k: string, direction: "left" | "right" | "up" | "down") {
+    const from = placements.get(k);
+    if (!from) return;
+    const metrics = cellMetrics();
+    const dx = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+    const dy = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+    const next = { col: from.col + dx, row: from.row + dy, width: from.width, height: from.height };
+    if (next.col < 0 || next.row < 0) return;
+    if (metrics && next.col + next.width > metrics.columns) return;
+    if (next.row > MAX_ROWS) return;
+    // Same rule as the drag: land only where there is room.
+    for (const [otherKey, other] of placements) {
+      if (otherKey === k) continue;
+      if (overlaps(next, other)) return;
+    }
+    commit(new Map(placements).set(k, next));
   }
 
   /**
@@ -387,9 +405,11 @@ export function DashboardGrid({
 
       {editing && (
         <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+          Drag anything anywhere — leave gaps if you want to. The arrows move one square at a time,
+          and the bottom-right corner resizes.{" "}
           {profile === "narrow"
-            ? "Move things with the arrows. This arrangement is saved for narrow screens only — your desktop layout is untouched."
-            : "Move things with the arrows, or drag the bottom-right corner to resize. Saved for wide screens only; your phone layout is untouched."}
+            ? "Saved for narrow screens only — your desktop layout is untouched."
+            : "Saved for wide screens only — your phone layout is untouched."}
         </p>
       )}
 
@@ -411,10 +431,13 @@ export function DashboardGrid({
         className="grid grid-cols-[repeat(6,minmax(0,1fr))] gap-2 lg:grid-cols-[repeat(18,minmax(0,1fr))]"
         style={{ gridAutoRows: `${rowPx ?? FALLBACK_ROW_PX}px` }}
       >
-        {ordered.map((item, index) => {
+        {ordered.map((item) => {
           const k = key(item.kind, item.id);
           const fallback = DEFAULT_SPAN[profile][item.kind];
-          const span = arrangement.spans[k] ?? fallback;
+          // Every item has a cell — the server packs anything without a stored one, so there is
+          // no auto-placed case to fall back to. The default span still covers an item that
+          // appeared between the server render and this one.
+          const at = placements.get(k) ?? { col: 0, row: 0, ...fallback };
           return (
             <DashboardFrame
               key={k}
@@ -424,11 +447,11 @@ export function DashboardGrid({
               href={item.href}
               external={item.external}
               writeProfile={writeProfile}
-              width={span.width}
-              height={span.height}
+              col={at.col}
+              row={at.row}
+              width={at.width}
+              height={at.height}
               editing={editing}
-              isFirst={index === 0}
-              isLast={index === ordered.length - 1}
               dragging={dragKey === k}
               dragDelta={dragKey === k ? dragDelta : null}
               registerEl={registerFrame}

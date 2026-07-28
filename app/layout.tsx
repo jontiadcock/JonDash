@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BrandingStyle, appName, logoFilename, styleId, paletteId } from "@/app/components/branding";
+import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,18 @@ export default async function RootLayout({
       <body className="min-h-full">
         <BrandingStyle />
         {children}
+        {/*
+          EVERY page, not just the signed-in ones (owner, 2026-07-28: *"make this permanent on
+          all pages after you scroll down on a mobile"*). It lived in the app and admin layouts,
+          which left it off sign-in, first-run setup, the recovery-code page and a module's own
+          page — several of which are long on a phone, and the last of which a module author
+          controls the length of entirely.
+
+          Here rather than nested: it is fixed to the viewport, so an ancestor with a transform
+          would silently become its containing block and it would scroll away with the content
+          (BUG-23). The body has none, and there is nowhere higher to put it.
+        */}
+        <ScrollToTop />
       </body>
     </html>
   );

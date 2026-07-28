@@ -335,8 +335,15 @@ model DashboardLayout {
   width     Int    @default(1)
   /// Height in grid rows.
   height    Int    @default(1)
-  /// Position on the dashboard; lower sorts first.
+  /// Order used to pack anything without an explicit position; lower goes first.
   sortOrder Int    @default(0)
+  /// Explicit grid column, 0-based, or null to be packed into the first free space.
+  /// Free placement (1.8.0): a position is data, not a consequence of order, so an item can sit
+  /// anywhere with gaps around it. Nullable so an upgrading install keeps its existing
+  /// arrangement until someone actually moves something.
+  col       Int?
+  /// Explicit grid row, 0-based, or null. Always set or cleared together with `col`.
+  row       Int?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

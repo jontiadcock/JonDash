@@ -34,11 +34,11 @@ export function DashboardFrame({
   href,
   external,
   writeProfile,
+  col,
+  row,
   width,
   height,
   editing,
-  isFirst,
-  isLast,
   dragging,
   dragDelta,
   registerEl,
@@ -55,11 +55,12 @@ export function DashboardFrame({
   /** Reads the live viewport at save time — see the note in dashboard-grid.tsx. Never a
    *  stored value, so a missed media-query event can't file a change against the wrong device. */
   writeProfile: () => DashboardProfile;
+  /** Explicit grid cell, 0-based (free placement). Every item has one — see dashboard-grid.tsx. */
+  col: number;
+  row: number;
   width: number;
   height: number;
   editing: boolean;
-  isFirst: boolean;
-  isLast: boolean;
   dragging: boolean;
   /** How far this item has been dragged from where it started, or null when it isn't. */
   dragDelta: { x: number; y: number } | null;
@@ -68,7 +69,7 @@ export function DashboardFrame({
   cellMetrics: () => CellMetrics | null;
   /** Named `onGrab`, not `onDragStart` — that is a real DOM handler, and this is not it. */
   onGrab: (e: React.PointerEvent) => void;
-  onNudge: (direction: "up" | "down") => void;
+  onNudge: (direction: "left" | "right" | "up" | "down") => void;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -149,16 +150,21 @@ export function DashboardFrame({
   return (
     <div
       /*
-       * `lift` in BOTH modes (owner, 2026-07-27): service tiles rose on hover while arranging
-       * and module widgets did not, because a tile carries its own `lift` internally while the
-       * frame only applied one outside edit mode. The inconsistency read as modules being less
-       * interactive than tiles in the very mode where you are handling both.
+       * **The frame is the ONLY thing that lifts on hover, for both kinds.**
+       *
+       * Tiles used to rise while arranging and widgets did not, because a tile carried its own
+       * `lift` internally and the frame applied one only outside edit mode. Moving it here fixed
+       * that (owner, 2026-07-27) but left a tile lifting *twice* — and the inner lift moved it
+       * inside a container that clips, so hovering a tile sliced the top off its card
+       * (owner, 2026-07-28). `ServiceTile` no longer lifts; this is the one place that decides.
        */
       ref={(el) => registerEl(`${kind}:${refId}`, el)}
       className={`group relative flex flex-col rounded-xl transition ${dragging ? "" : "lift"}`}
       style={{
-        gridColumn: `span ${w}`,
-        gridRow: `span ${h}`,
+        // An explicit cell, not just a span (free placement, 1.8.0). `gridColumnStart` is
+        // 1-based, the stored value is 0-based — the +1 is the whole difference between them.
+        gridColumn: `${col + 1} / span ${w}`,
+        gridRow: `${row + 1} / span ${h}`,
         outline: editing ? "1px dashed var(--border-strong)" : undefined,
         outlineOffset: editing ? "4px" : undefined,
         cursor: clickable ? "pointer" : editing ? "grab" : undefined,
@@ -183,15 +189,35 @@ export function DashboardFrame({
       /*
        * Drag starts from anywhere on the item while arranging — not from a grip.
        *
-       * Excluded: the arrange controls and the resize handle. Those are `button`s inside the
-       * frame, and without this check grabbing the corner to resize would also start a move, so
-       * the two gestures would race and the item would jump away from the cursor.
+       * **Excluded by marker, not by tag name.** This used to bail on
+       * `closest("button,a,input,select,textarea")`, which was meant to protect the arrange
+       * controls and the resize handle. But a service tile *is* an `<a>` filling the whole
+       * frame, so every pointerdown on a service hit the anchor and no service tile could be
+       * dragged at all — while modules, which have no such anchor, dragged fine. Owner-reported
+       * 2026-07-28.
+       *
+       * `data-arrange-control` names the two things that genuinely must not start a move: the
+       * nudge cluster and the resize handle. Grabbing the corner would otherwise start a move
+       * as well as a resize, and the two gestures would fight over the pointer.
        */
       onPointerDown={(e) => {
         if (!editing || resizing || e.button !== 0) return;
-        if ((e.target as HTMLElement).closest("button,a,input,select,textarea")) return;
+        if ((e.target as HTMLElement).closest("[data-arrange-control]")) return;
         e.preventDefault();
         onGrab(e);
+      }}
+      /*
+       * While arranging, a tile is something you MOVE, not something you follow.
+       *
+       * `preventDefault` on pointerdown does not stop the click that follows, so without this a
+       * service tile's anchor still navigated — and since the anchor opens in a new tab, a drag
+       * that started on one would land you on the service instead of rearranging it.
+       */
+      onClickCapture={(e) => {
+        if (!editing) return;
+        if ((e.target as HTMLElement).closest("[data-arrange-control]")) return;
+        e.preventDefault();
+        e.stopPropagation();
       }}
     >
       {/*
@@ -226,30 +252,44 @@ export function DashboardFrame({
 
       {editing && (
         <>
+          {/* `data-arrange-control` — the frame's own chrome. Everything NOT carrying this
+              marker is draggable surface, which is what makes a service tile and a module
+              widget behave identically: neither is special-cased, the controls are. */}
           <div
+            data-arrange-control
             className="absolute left-1 top-1 z-10 flex items-center gap-1 rounded-lg border p-1 text-xs"
             style={{ background: "var(--background)", borderColor: "var(--border)" }}
           >
-            <button
-              type="button"
-              disabled={isFirst}
-              onClick={() => onNudge("up")}
-              className="rounded px-2 py-1"
-              style={{ border: "1px solid var(--border-strong)", opacity: isFirst ? 0.4 : 1 }}
-              aria-label={`Move ${name} earlier`}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              disabled={isLast}
-              onClick={() => onNudge("down")}
-              className="rounded px-2 py-1"
-              style={{ border: "1px solid var(--border-strong)", opacity: isLast ? 0.4 : 1 }}
-              aria-label={`Move ${name} later`}
-            >
-              →
-            </button>
+            {/*
+              Four directions, because a position is now a cell rather than a place in a queue —
+              "move later" has no meaning once you can leave a gap, and up/down is precisely what
+              free placement adds. This is also the ONLY way to arrange without a pointer, so it
+              has to express everything a drag can.
+
+              Never disabled: whether a move is possible depends on what is in the way, which the
+              grid knows and this component does not. A move with nowhere to go is simply ignored,
+              which is better than a button that looks broken because a neighbour happens to be
+              adjacent.
+            */}
+            {(
+              [
+                ["left", "←"],
+                ["up", "↑"],
+                ["down", "↓"],
+                ["right", "→"],
+              ] as const
+            ).map(([dir, glyph]) => (
+              <button
+                key={dir}
+                type="button"
+                onClick={() => onNudge(dir)}
+                className="rounded px-1.5 py-1"
+                style={{ border: "1px solid var(--border-strong)" }}
+                aria-label={`Move ${name} ${dir}`}
+              >
+                {glyph}
+              </button>
+            ))}
             <span className="px-1 font-mono" style={{ color: "var(--muted)" }} aria-hidden>
               {w}×{h}
             </span>
@@ -274,6 +314,7 @@ export function DashboardFrame({
           */}
           <button
             type="button"
+            data-arrange-control
             onPointerDown={startResize}
             onKeyDown={(e) => {
               const metrics = cellMetrics();

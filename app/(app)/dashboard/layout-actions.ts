@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
-import { setItemSize, reorderItems, resetItem, isProfile } from "@/lib/dashboard/layout";
+import { setItemSize, placeItems, resetItem, isProfile } from "@/lib/dashboard/layout";
 import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { getUserVisibleLinks } from "@/lib/services";
@@ -61,21 +61,22 @@ export async function setItemSizeAction(
 }
 
 /**
- * Save a whole new order — what a drag or a move button produces.
+ * Save where everything sits — what a drag or a move button produces (free placement, 1.8.0).
  *
- * The submitted order is filtered to items this user may see before anything is written, so a
- * crafted list can neither reorder nor create rows for anything restricted.
+ * The submitted list is filtered to items this user may see before anything is written, so a
+ * crafted request can neither move nor create rows for anything restricted. Columns and rows are
+ * clamped in `placeItems`, so a hostile coordinate cannot store a position that will not render.
  */
-export async function reorderItemsAction(
+export async function placeItemsAction(
   profile: string,
-  ordered: { kind: string; id: string }[],
+  placements: { kind: string; id: string; col: number; row: number }[],
 ): Promise<void> {
   const allowed = await gate();
-  const safe = ordered
-    .map((i) => ({ kind: asKind(i.kind), id: i.id }))
-    .filter((i) => permits(allowed, i.kind, i.id));
+  const safe = placements
+    .map((i) => ({ kind: asKind(i.kind), id: i.id, col: Math.trunc(i.col), row: Math.trunc(i.row) }))
+    .filter((i) => permits(allowed, i.kind, i.id) && Number.isFinite(i.col) && Number.isFinite(i.row));
   if (safe.length === 0) return;
-  await reorderItems(allowed.id, asProfile(profile), safe);
+  await placeItems(allowed.id, asProfile(profile), safe);
   revalidatePath("/dashboard");
 }
 

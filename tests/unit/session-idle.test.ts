@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { prisma } from "@/lib/db";
 import { getIdleTimeoutMs } from "@/lib/settings";
 
 // BUG-52: the idle timeout shipped as 0, i.e. disabled, so an untouched session survived
@@ -13,6 +14,20 @@ import { getIdleTimeoutMs } from "@/lib/settings";
 // far more permissive than before.
 
 describe("idle session timeout (BUG-52)", () => {
+  /*
+   * Make "nothing configured" actually true, rather than hoping.
+   *
+   * These assertions are about the DEFAULT, and the suite shares one database — so
+   * `tests/integration/settings.test.ts`, which legitimately writes `session.lengthMinutes`,
+   * decided whether this passed depending on which file happened to run first. It was silently
+   * order-dependent from the day it was written and only surfaced when an unrelated new test
+   * file shifted the order (2026-07-28). A test that asserts a default has to establish that
+   * there is no stored value; anything else is testing whatever ran before it.
+   */
+  beforeEach(async () => {
+    await prisma.setting.deleteMany({ where: { key: { startsWith: "session." } } });
+  });
+
   it("is enabled out of the box, with nothing configured", async () => {
     const ms = await getIdleTimeoutMs();
     expect(ms).toBeGreaterThan(0);
