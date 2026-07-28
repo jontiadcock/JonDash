@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { SaveBar, useFormDirty } from "@/app/components/save-bar";
 import { uploadLogoAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
 
@@ -11,10 +12,11 @@ import type { SettingsFormState } from "@/lib/settings";
  */
 export function LogoForm({ current }: { current: string }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(uploadLogoAction, {});
+  const { dirty, dirtyProps, generation } = useFormDirty(state);
   const error = state.errors?.["branding.logo"];
 
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form action={action} {...dirtyProps} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         {current ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -34,7 +36,11 @@ export function LogoForm({ current }: { current: string }) {
             none
           </span>
         )}
+        {/* Keyed on `generation` so the chosen file clears once it has been uploaded. React's
+            post-action form reset used to do this, and that reset is now cancelled — it was
+            also snapping every other settings control back to its pre-save value. */}
         <input
+          key={`logo-${generation}`}
           type="file"
           name="logo"
           accept="image/png,image/jpeg,image/webp,image/gif"
@@ -48,18 +54,22 @@ export function LogoForm({ current }: { current: string }) {
         browser-tab icon. Without one, the square mark shows your app name&apos;s first letter.
       </p>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="btn btn-primary text-sm" disabled={pending}>
-          {pending ? "Uploading…" : "Upload logo"}
-        </button>
+      {/* "Upload" is disabled until a file is chosen; "Remove" isn't, because removing the
+          existing logo has nothing to do with whether you've picked a new one. */}
+      <SaveBar
+        dirty={dirty}
+        pending={pending}
+        success={state.success}
+        error={error}
+        label="Upload logo"
+        savingLabel="Uploading…"
+      >
         {current && (
           <button type="submit" name="remove" value="1" className="btn btn-ghost text-sm" disabled={pending}>
             Remove
           </button>
         )}
-        {error && <span className="form-error">{error}</span>}
-        {state.success && <span className="text-sm" style={{ color: "var(--muted)" }}>{state.success}</span>}
-      </div>
+      </SaveBar>
     </form>
   );
 }

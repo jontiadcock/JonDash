@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import {
   saveEmailConfigAction,
   sendTestEmailAction,
@@ -37,18 +38,39 @@ export function EmailSettings({
   adminEmail: string;
 }) {
   const [state, action, pending] = useActionState(saveEmailConfigAction, initial);
-  const [mode, setMode] = useState(config.mode);
-  const [host, setHost] = useState(config.host);
-  const [port, setPort] = useState(String(config.port));
-  const [secure, setSecure] = useState(config.secure);
-  const [allowUntrusted, setAllowUntrusted] = useState(config.allowUntrustedCert);
-  const [provider, setProvider] = useState<ConfigView["provider"]>(config.provider);
+  const { dirty, dirtyProps, generation } = useFormDirty(state);
+
+  /*
+   * `useServerValue`, not `useState` — these re-seed when the server's value changes.
+   *
+   * With plain `useState` each of these took its value once, at mount, and never again. After a
+   * save revalidated, whatever the server came back with was ignored, so the screen could sit
+   * there showing a mode that wasn't the stored one until you reloaded — which is exactly the
+   * "needs a refresh" the owner reported for the relay setting.
+   */
+  const [mode, setMode] = useServerValue(config.mode);
+  const [host, setHost] = useServerValue(config.host);
+  const [port, setPort] = useServerValue(String(config.port));
+  const [secure, setSecure] = useServerValue(config.secure);
+  const [allowUntrusted, setAllowUntrusted] = useServerValue(config.allowUntrustedCert);
+  const [provider, setProvider] = useServerValue<ConfigView["provider"]>(config.provider);
+  const [enabled, setEnabled] = useServerValue(config.enabled);
+  const [user, setUser] = useServerValue(config.user);
+  const [fromName, setFromName] = useServerValue(config.fromName);
+  const [fromAddress, setFromAddress] = useServerValue(config.fromAddress);
+  const [clientId, setClientId] = useServerValue(config.oauthClientId);
 
   return (
     <div className="flex flex-col gap-8">
-      <form action={action} className="flex flex-col gap-5">
+      <form action={action} {...dirtyProps} className="flex flex-col gap-5">
         <label className="flex items-center gap-3">
-          <input type="checkbox" name="enabled" defaultChecked={config.enabled} className="h-4 w-4" />
+          <input
+            type="checkbox"
+            name="enabled"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="h-4 w-4"
+          />
           <span className="text-sm font-medium">Enable outgoing email</span>
         </label>
 
@@ -72,7 +94,15 @@ export function EmailSettings({
               Account email address{" "}
               {mode === "relay" && <span style={{ color: "var(--muted)" }}>(not needed)</span>}
             </label>
-            <input id="user" name="user" type="email" defaultValue={config.user} placeholder="you@example.com" className="input" />
+            <input
+              id="user"
+              name="user"
+              type="email"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+              placeholder="you@example.com"
+              className="input"
+            />
             {mode === "relay" && (
               <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
                 A relay has no account to sign in with. Leave this blank — set the{" "}
@@ -85,13 +115,28 @@ export function EmailSettings({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="fromName">From name</label>
-            <input id="fromName" name="fromName" defaultValue={config.fromName} placeholder="JonDash" className="input" />
+            <input
+              id="fromName"
+              name="fromName"
+              value={fromName}
+              onChange={(e) => setFromName(e.target.value)}
+              placeholder="JonDash"
+              className="input"
+            />
           </div>
           <div>
             <label className="label" htmlFor="fromAddress">
               From address <span style={{ color: "var(--muted)" }}>(defaults to the account)</span>
             </label>
-            <input id="fromAddress" name="fromAddress" type="email" defaultValue={config.fromAddress} placeholder="you@example.com" className="input" />
+            <input
+              id="fromAddress"
+              name="fromAddress"
+              type="email"
+              value={fromAddress}
+              onChange={(e) => setFromAddress(e.target.value)}
+              placeholder="you@example.com"
+              className="input"
+            />
           </div>
         </div>
 
@@ -173,7 +218,11 @@ export function EmailSettings({
                 — a self-hosted relay just has a password. Which providers need a special one is
                 said in the setup links at the foot of the page. */}
             <label className="label" htmlFor="password">Password</label>
+            {/* Keyed on `generation` so it remounts empty once a save completes. It used to be
+                cleared by React's post-action form reset, which is now cancelled — that reset
+                was also snapping every other control back to its pre-save value. */}
             <input
+              key={`password-${generation}`}
               id="password"
               name="password"
               type="password"
@@ -215,11 +264,18 @@ export function EmailSettings({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="oauthClientId">Client ID</label>
-              <input id="oauthClientId" name="oauthClientId" defaultValue={config.oauthClientId} className="input font-mono text-xs" />
+              <input
+                id="oauthClientId"
+                name="oauthClientId"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                className="input font-mono text-xs"
+              />
             </div>
             <div>
               <label className="label" htmlFor="oauthClientSecret">Client secret</label>
               <input
+                key={`client-secret-${generation}`}
                 id="oauthClientSecret"
                 name="oauthClientSecret"
                 type="password"
@@ -249,13 +305,13 @@ export function EmailSettings({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={pending}>
-            {pending ? "Saving…" : "Save email settings"}
-          </button>
-          {state.ok && <span className="text-sm" style={{ color: "var(--primary)" }}>Saved.</span>}
-          {state.error && <span className="form-error">{state.error}</span>}
-        </div>
+        <SaveBar
+          dirty={dirty}
+          pending={pending}
+          success={state.ok ? "Saved." : null}
+          error={state.error}
+          label="Save email settings"
+        />
       </form>
 
       <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
@@ -334,11 +390,22 @@ export function EmailSettings({
 
 function TestEmailForm({ defaultTo }: { defaultTo: string }) {
   const [state, action, pending] = useActionState(sendTestEmailAction, initial);
+  // Controlled, so a typed recipient survives the send. React resets an uncontrolled field once
+  // a form action completes, which meant every test snapped back to the admin's own address —
+  // exactly when you want to retry against the address that just failed.
+  const [to, setTo] = useServerValue(defaultTo);
   return (
     <form action={action} className="flex flex-col gap-3">
       <label className="label" htmlFor="test-to">Send a test email to</label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input id="test-to" name="to" type="email" defaultValue={defaultTo} className="input sm:max-w-xs" />
+        <input
+          id="test-to"
+          name="to"
+          type="email"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          className="input sm:max-w-xs"
+        />
         <button type="submit" className="btn btn-ghost" disabled={pending}>
           {pending ? "Sending…" : "Send test email"}
         </button>

@@ -125,6 +125,28 @@ export const SETTINGS = {
    * Hidden from the generic form: the Sessions page renders a purpose-built picker, because a
    * raw minutes box that has to express both "2 hours" and "30 days" is a bad control.
    */
+  /**
+   * The address this JonDash is reached at from outside — for links in EMAIL (1.8.0).
+   *
+   * Not derived from the request, on purpose. JonDash builds absolute URLs from
+   * `x-forwarded-host`, which any client can send and nothing validates (BUG-41). On a settings
+   * page a forged header shows a wrong link to somebody already signed in and looking at it; in
+   * an email it puts an attacker's link, branded as JonDash, into an inbox where it is trusted
+   * and long-lived. Blank means links are simply omitted — see `lib/app-url.ts` for why guessing
+   * is the one thing that must not happen.
+   */
+  "app.publicUrl": {
+    label: "Public address",
+    help: "Where people reach this JonDash from outside — e.g. https://dash.example.com. Used for links in email. Leave blank and emails simply won't include buttons, which is safer than guessing.",
+    kind: "string",
+    default: "",
+    schema: z
+      .string()
+      .trim()
+      .regex(/^$|^https?:\/\/[^\s/]+\/?$/, "Use a full address like https://dash.example.com, with no path."),
+    group: "general",
+  } as SettingDef<string>,
+
   "session.lengthMinutes": {
     label: "Session length",
     help: "How long you stay signed in without using JonDash.",
@@ -238,23 +260,37 @@ export const SETTINGS = {
 
 export type SettingKey = keyof typeof SETTINGS;
 
-const CACHE_TTL_MS = 30_000;
-const cache = new Map<string, { value: unknown; exp: number }>();
+/**
+ * **There is no settings cache any more, and that is the fix (1.8.0-beta.11).**
+ *
+ * There used to be a module-level `Map` with a 30-second TTL, which `writeSetting` cleared on
+ * save. It could not work, and the codebase already knew why: **Next gives server actions and
+ * page renders separate module instances**, so the `cache.delete` performed inside an action
+ * ran against the action's own copy of this Map and never reached the one the page reads from.
+ * The page then re-rendered from a stale entry for up to 30 seconds.
+ *
+ * The symptom was reported repeatedly and looked like several different bugs: choosing a new
+ * Session length and watching the control snap back; saving mail settings and having to refresh
+ * before the change showed. It was one cause. A previous fix worked around it for a single
+ * setting by adding a `fresh` flag to the logo getter — a hint that the cache, not the callers,
+ * was the problem.
+ *
+ * Nothing replaces it. A per-render memo (React's `cache()`) would still be wrong here, because
+ * a server action and the re-render it triggers can share a request scope — so the write would
+ * again be invisible to the render that follows it. These are a handful of tiny rows in a local
+ * SQLite file, indexed by a unique key; reading them per call costs almost nothing, and being
+ * right about what an admin just saved is worth considerably more than that.
+ */
 
-/** Drop the in-memory settings cache (used by tests for isolation). */
+/** No-op, kept so tests and existing callers need no change. There is nothing to clear. */
 export function clearSettingsCache(): void {
-  cache.clear();
+  /* intentionally empty — see the note above */
 }
 
 async function readValue<K extends SettingKey>(
   key: K,
 ): Promise<(typeof SETTINGS)[K]["default"]> {
   const def = SETTINGS[key];
-  const cached = cache.get(key);
-  if (cached && cached.exp > Date.now()) {
-    return cached.value as (typeof SETTINGS)[K]["default"];
-  }
-
   let value = def.default;
   try {
     const row = await prisma.setting.findUnique({
@@ -269,7 +305,6 @@ async function readValue<K extends SettingKey>(
     // Fall back to default on any read/parse error.
   }
 
-  cache.set(key, { value, exp: Date.now() + CACHE_TTL_MS });
   return value as (typeof SETTINGS)[K]["default"];
 }
 
@@ -335,8 +370,16 @@ export async function getPaletteId(): Promise<string> {
   return readValue("branding.palette");
 }
 
-export async function getLogoFilename(fresh = false): Promise<string> {
-  if (fresh) cache.delete("branding.logo");
+/**
+ * The logo's stored filename.
+ *
+ * `fresh` is now a no-op and kept only so existing callers compile. It existed to punch through
+ * the 30-second settings cache, because the logo route and the upload action held separate
+ * copies of it — the upload succeeded, the header updated, and the image itself kept 404ing for
+ * up to half a minute. That workaround was the clearest sign the cache was the problem rather
+ * than its callers; the cache is gone, so every read is fresh and the flag has nothing to do.
+ */
+export async function getLogoFilename(_fresh = false): Promise<string> {
   return readValue("branding.logo");
 }
 /**
@@ -378,6 +421,10 @@ export async function getSessionLifetimeMs(): Promise<number> {
  */
 export async function getIdleTimeoutMs(): Promise<number> {
   return getSessionLengthMs();
+}
+/** Raw `app.publicUrl` as stored. `lib/app-url.ts` normalises and validates it. */
+export async function getPublicUrlSetting(): Promise<string> {
+  return readValue("app.publicUrl");
 }
 export async function getAuditRetentionDays(): Promise<number> {
   return readValue("audit.retentionDays");
@@ -519,6 +566,7 @@ export async function writeSetting(key: string, rawInput: string): Promise<strin
     create: { scope: "global", ownerId: "", key, valueJson: stored, secret: !!def.secret },
     update: { valueJson: stored, secret: !!def.secret },
   });
-  cache.delete(key);
+  // No cache to invalidate — see the note above `readValue`. The invalidation that used to live
+  // here is exactly what could not work across module instances.
   return null;
 }

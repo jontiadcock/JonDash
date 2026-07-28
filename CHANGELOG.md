@@ -9,6 +9,72 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.11] — 2026-07-28
+
+**"I click Save and it reverts" — found, and it was never what anyone thought.**
+
+React 19 calls `form.reset()` once a form action resolves. A reset restores every control to its
+**server-rendered** default, so the setting you just changed snaps back to the value the page loaded
+with — and because React's own state still holds your new value, React sees nothing changed and
+never rewrites the screen. Measured live: after saving, React's value read `1440` while the input
+read `480`. **The save had worked every single time; only the display lied.**
+
+That makes a **controlled** field the case that breaks, which is why converting these forms from
+`defaultValue` to controlled (beta.8) changed nothing at all, and why removing the settings cache
+(also this beta — a real bug, but a different one) did not fix it either. `reset` is a cancelable
+event, so `preventDefault()` on it is the whole fix. It ships as part of `dirtyProps`, so a form is
+protected by spreading one object rather than by everyone remembering. Write-only fields — passwords,
+client secrets, file pickers — relied on that reset to clear themselves, and are keyed on a
+generation counter instead.
+
+**Every savable setting now says "Not saved yet."** One shared `SaveBar` across email, general
+settings, appearance, logo, network, update schedule, session length, module settings and module
+visibility — the save button is live only when there is something to save, and a "Saved." never
+appears next to a field you have since edited.
+
+**Dragging is rebuilt on pointer events.** The native HTML5 drag painted a grey ghost box that cannot
+be styled away, ignored touch entirely, and reported only coarse enter/leave — so nothing could move
+out of the way until you let go. Now the item follows the cursor and the rest reflow around it live,
+with a FLIP animation, one save when you release, and touch support.
+
+Two failures found by testing it rather than by reading it:
+
+- The FLIP release ran inside `requestAnimationFrame`, which **does not run in a hidden or
+  backgrounded tab** — so items kept their inverted transform permanently, sitting visibly displaced.
+  It is now released synchronously after a forced style flush: animated when frames are being
+  produced, correct when they are not.
+- Hit-testing used `getBoundingClientRect`, which **includes the in-flight animation**. Drag faster
+  than the 180ms reflow and every test aimed at a rectangle that was nowhere in particular, which
+  scrambled the order rather than merely mis-aiming. It now tests layout position, which no transform
+  can move.
+
+**A new service tile appears on the dashboard immediately.** Creating a link revalidated only the
+admin page — editing and deleting a link already revalidated `/dashboard`, but creating one never
+had, so the one case where you are certainly looking for a change was the one that showed none.
+
+**Tiles go three times smaller.** The grid runs at 3× resolution (18 columns wide, 6 narrow) with
+defaults grown to match, so nothing changes size on upgrade and 1×1 becomes a genuinely small,
+genuinely square tile — 68px against a 219px default, measured. Existing layouts are multiplied by
+three in a migration. The frame's own height ceiling, a stale `6` that silently refused to grow an
+item past six rows, now comes from the shared geometry.
+
+**Module widgets rise on hover while arranging**, as service tiles already did.
+
+**Add-ons can send through the branded shell** — the second half of beta.10's email work.
+`ctx.email.send` takes `title`, `lists` and a `cta`, and the body is escaped, so a module can lay a
+message out properly but cannot forge JonDash's own mail.
+
+**A new `Public address` setting** (Admin → Settings) is where email links are resolved from. With
+nothing set, a message simply carries no button rather than a guessed address: a forged
+`x-forwarded-host` is considerably worse in an email, which outlives the request, than on a page.
+
+**The settings cache is gone.** A module-level map with a 30-second TTL that `writeSetting` cleared —
+except a server action and the page render it triggers are **separate module instances**, so the
+clear never reached the reader. It made saved settings appear not to have saved for up to half a
+minute, and an earlier fix had worked around it for one getter with a `fresh` flag. Nothing replaces
+it: these are a handful of small rows in a local SQLite file, and being right about what an admin
+just saved is worth more than the read. (Not the cause of the revert above — see BUG-64.)
+
 ## [1.8.0-beta.10] — 2026-07-27
 
 **Branded email — design C2, first pass.** `lib/email/template.ts` renders the shell; the test email

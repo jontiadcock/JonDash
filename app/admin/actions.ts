@@ -255,10 +255,22 @@ async function processOptionalIcon(formData: FormData): Promise<
   return { ok: true, filename: result.filename };
 }
 
-/** Revalidate the page that owns a link (a user's page or a service group's page). */
+/**
+ * Revalidate everything a link change is visible on.
+ *
+ * **`/dashboard` was missing, and that was a real bug** (owner-reported 2026-07-27: "I just added
+ * a personal service and cannot see the new tile"). Every link action revalidated the admin page
+ * it was performed on and nothing else, so the dashboard — the page the tile actually appears on —
+ * kept serving its previous render. The tile was created correctly every time; it just wasn't
+ * shown until something else happened to invalidate the route.
+ *
+ * A role link is revalidated for everyone, because it belongs to a service group rather than to
+ * one person: the tile appears on every member's dashboard, so every member's view is stale.
+ */
 function revalidateLinkOwner(link: { userId: string | null; roleId: string | null }) {
   if (link.userId) revalidatePath(`/admin/users/${link.userId}`);
   if (link.roleId) revalidatePath(`/admin/service-groups/${link.roleId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function createLinkAction(
@@ -296,7 +308,10 @@ export async function createLinkAction(
   });
 
   await audit("admin.link.create", { userId: admin.id, detail: `${owner.email}: ${parsed.data.title}` });
-  revalidatePath(`/admin/users/${userId}`);
+  // CREATE has to revalidate the dashboard too — this was the owner's "added a personal service
+  // and cannot see the new tile" (1.8.0-beta.11). Editing and deleting a link already did it;
+  // creating one never had, so a brand-new tile was the one case that stayed invisible.
+  revalidateLinkOwner({ userId, roleId: null });
   return { ok: true };
 }
 
@@ -472,7 +487,8 @@ export async function createRoleLinkAction(
   });
 
   await audit("admin.role.link.create", { userId: admin.id, detail: `${role.name}: ${parsed.data.title}` });
-  revalidatePath(`/admin/service-groups/${roleId}`);
+  // Same gap as createLinkAction — a group's new tile appears on every member's dashboard.
+  revalidateLinkOwner({ userId: null, roleId });
   return { ok: true };
 }
 

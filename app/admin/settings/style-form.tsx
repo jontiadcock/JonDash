@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveStyleAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
 import { stylesByFamily, findStyle, resolvePalette, type StyleOption, type Palette } from "@/lib/styles";
@@ -52,8 +53,18 @@ function Mini({ style, palette, size = "sm" }: { style: StyleOption; palette: Pa
 
 export function StyleForm({ current, currentPalette }: { current: string; currentPalette: string }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveStyleAction, {});
-  const [styleId, setStyleId] = useState(current);
-  const [paletteId, setPaletteId] = useState(currentPalette);
+  // Re-seeded from the server, so a palette that gets remapped on save (a MOVED palette, or one
+  // the chosen style doesn't have) is shown as what was actually applied.
+  const [styleId, setStyleId] = useServerValue(current);
+  const [paletteId, setPaletteId] = useServerValue(currentPalette);
+
+  /*
+   * `dirtyProps` only — the `unchanged` comparison below is the better dirty signal here, since
+   * browsing back to the style you already had is genuinely not a change. What is needed is its
+   * `onReset`: React resets a form after its action, which would put the radio selection back to
+   * whatever the page loaded with. See save-bar.tsx.
+   */
+  const { dirtyProps } = useFormDirty(state);
 
   const style = findStyle(styleId);
   // Changing style must not carry a palette that doesn't exist there.
@@ -66,7 +77,7 @@ export function StyleForm({ current, currentPalette }: { current: string; curren
   }
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={action} {...dirtyProps} className="flex flex-col gap-4">
       <input type="hidden" name="style" value={styleId} />
       <input type="hidden" name="palette" value={palette.id} />
 
@@ -155,13 +166,14 @@ export function StyleForm({ current, currentPalette }: { current: string; curren
         <strong style={{ color: "var(--foreground)" }}>{style.name} · {palette.name}</strong> — {style.description}
       </p>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="btn btn-primary text-sm" disabled={pending || unchanged}>
-          {pending ? "Applying…" : unchanged ? "Currently applied" : `Apply ${style.name} · ${palette.name}`}
-        </button>
-        {state.success && <span className="text-sm" style={{ color: "var(--muted)" }}>{state.success}</span>}
-        {state.errors?.["branding.style"] && <span className="form-error">{state.errors["branding.style"]}</span>}
-      </div>
+      <SaveBar
+        dirty={!unchanged}
+        pending={pending}
+        success={state.success}
+        error={state.errors?.["branding.style"]}
+        label={unchanged ? "Currently applied" : `Apply ${style.name} · ${palette.name}`}
+        savingLabel="Applying…"
+      />
     </form>
   );
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { renderBrandedEmail, escapeHtml, textToHtml, readableOn } from "@/lib/email/template";
+import { renderBrandedEmail, textToHtml, readableOn } from "@/lib/email/template";
 import { STYLES } from "@/lib/styles";
 
 /**

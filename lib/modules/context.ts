@@ -61,8 +61,48 @@ export function buildModuleContext(
   if (has("email:send")) {
     ctx.email = {
       send: async (msg) => {
+        /*
+         * Core owns the chrome; the module supplies the body (1.8.0).
+         *
+         * A module that passes raw `html` bypasses the shell deliberately — the escape hatch is
+         * documented as making Outlook and looking-like-JonDash its own problem. Everything else
+         * goes through the branded template, which ESCAPES the body: markup in a module's text
+         * arrives as visible text, so a module cannot forge JonDash's own mail.
+         */
+        let payload: { to: string; subject: string; text?: string; html?: string };
+
+        if (msg.html) {
+          payload = { to: msg.to, subject: msg.subject, text: msg.text, html: msg.html };
+        } else {
+          const { renderBrandedEmail, currentBrand } = await import("@/lib/email/template");
+          const { resolveAppUrl } = await import("@/lib/app-url");
+          const brand = await currentBrand();
+
+          /*
+           * A CTA is dropped, not guessed at, when there is no canonical URL configured.
+           *
+           * A module can't know the install's external address, and neither can core without
+           * being told: deriving it from the request's Host header is forgeable (BUG-41), and a
+           * forged header putting an attacker's link into mail JonDash sends is a good deal worse
+           * than the same bug on a settings page. No configured base URL means no button — the
+           * message still says everything it was going to say.
+           */
+          const url = msg.cta ? await resolveAppUrl(msg.cta.path) : null;
+
+          const body = renderBrandedEmail({
+            appName: brand.appName,
+            accent: brand.accent,
+            title: msg.title ?? msg.subject,
+            text: msg.text ?? "",
+            lists: msg.lists,
+            cta: msg.cta && url ? { label: msg.cta.label, url } : undefined,
+            footer: `Sent by the ${def.name} add-on in ${brand.appName}.`,
+          });
+          payload = { to: msg.to, subject: msg.subject, text: body.text, html: body.html };
+        }
+
         // sendMail never throws; surface a failure so a module can't silently not send.
-        const res = await sendMail(msg);
+        const res = await sendMail(payload);
         if (!res.ok) throw new Error(`Email not sent: ${res.error}`);
       },
     };

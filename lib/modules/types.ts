@@ -126,10 +126,54 @@ export type ModuleDbApi = {
   run(sql: string, ...params: unknown[]): Promise<void>;
 };
 
-/** Send mail through the admin's configured mailer ("email:send"). */
+/** One block of label/value rows in a module's email — a digest, a list of failures. */
+export type ModuleMailList = {
+  heading: string;
+  rows: { label: string; value: string; state?: "ok" | "warn" | "bad" }[];
+};
+
+/**
+ * Send mail through the admin's configured mailer ("email:send").
+ *
+ * **Core owns the chrome; the module supplies the body** (1.8.0). A module passes text — plus,
+ * optionally, some structured rows and one call to action — and JonDash wraps it in the same
+ * branded shell as its own mail, in the instance's style and colour.
+ *
+ * That split is not tidiness. It means a module cannot ship mail that renders badly in Outlook,
+ * and cannot produce a message that looks like it came from JonDash itself when it did not:
+ * `text` is HTML-escaped before it is wrapped, so markup in a module's body arrives as visible
+ * text rather than as markup.
+ *
+ * **Do not hard-wrap `text`.** Blank line → paragraph, single newline → line break. A body wrapped
+ * at 78 characters becomes a forced break mid-sentence, and the client then wraps again at its own
+ * width.
+ */
 export type ModuleEmailApi = {
   /** Throws if email isn't configured yet or the send fails — never fails silently. */
-  send(msg: { to: string; subject: string; text?: string; html?: string }): Promise<void>;
+  send(msg: {
+    to: string;
+    subject: string;
+    /** The body, as plain text. Escaped and wrapped by core. */
+    text?: string;
+    /**
+     * Optional heading inside the message. Defaults to the subject, which is usually right.
+     */
+    title?: string;
+    /** Optional structured blocks — repeatable, so "failed" and "not run" can be separate. */
+    lists?: ModuleMailList[];
+    /**
+     * Optional single call to action. **`path` only** — a module cannot know the install's
+     * external address (it changes behind a reverse proxy or a custom domain), so core resolves
+     * it. Anything that isn't a root-relative path is dropped rather than sent as a broken link.
+     */
+    cta?: { label: string; path: string };
+    /**
+     * Escape hatch: send raw HTML and skip the branded shell entirely. Exists only for a module
+     * that genuinely must control the whole message; using it means Outlook rendering and
+     * looking like JonDash both become the module's problem.
+     */
+    html?: string;
+  }): Promise<void>;
 };
 
 /**

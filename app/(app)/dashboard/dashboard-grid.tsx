@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { DashboardFrame } from "./dashboard-frame";
 import { reorderItemsAction } from "./layout-actions";
-import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
+// `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
+import { DEFAULT_SPAN, type DashboardKind, type DashboardProfile } from "@/lib/dashboard/geometry";
 
 export type DashboardItem = {
   kind: DashboardKind;
@@ -50,11 +51,14 @@ const FALLBACK_ROW_PX = 160;
  * rather than chrome revealed on hover, because hover cannot happen on a touch screen and the
  * old controls sat exactly where a module puts its own affordance (BUG-53).
  *
- * **The grid is `grid-cols-2 lg:grid-cols-6`, and that boundary IS the profile boundary.**
- * Two column counts, two saved arrangements, one rule — so what you rearrange on a phone is
- * always the thing being saved for phones. Six is a common denominator rather than either of
- * the old counts: a tile at 1 unit lands near its old 5-across and a widget at 2 lands exactly
- * on its old 3-across, so nobody's dashboard is rearranged by the merge itself.
+ * **The `lg:` breakpoint IS the profile boundary.** Two column counts, two saved arrangements,
+ * one rule — so what you rearrange on a phone is always the thing being saved for phones.
+ *
+ * **Dragging is pointer-driven, not HTML5 drag-and-drop.** The native API paints its own drag
+ * image — the grey box with the URL in it that the owner reported — which cannot be styled away,
+ * ignores touch, and gives no position updates fine enough to reflow against. Pointer events give
+ * a real position on every move, so the item can follow the cursor and everything else can move
+ * out of its way while you are still holding it.
  */
 export function DashboardGrid({
   items,
@@ -95,10 +99,19 @@ export function DashboardGrid({
   const arrangement = arrangements[profile];
   const [order, setOrder] = useState(() => arrangements.wide.order.map((i) => key(i.kind, i.id)));
   const [editing, setEditing] = useState(false);
-  const [draggingKey, setDraggingKey] = useState<string | null>(null);
-  const [overKey, setOverKey] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const gridRef = useRef<HTMLDivElement>(null);
+
+  /** Which item is under the pointer, and how far it has been dragged from where it started. */
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dragDelta, setDragDelta] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  /** Live element per item, for hit-testing a pointer against real geometry and for FLIP. */
+  const frames = useRef(new Map<string, HTMLElement>());
+  const registerFrame = useCallback((k: string, el: HTMLElement | null) => {
+    if (el) frames.current.set(k, el);
+    else frames.current.delete(k);
+  }, []);
 
   // Re-seed when the profile changes: each profile is its own arrangement, and the optimistic
   // order held here belongs to the one we were showing.
@@ -107,10 +120,6 @@ export function DashboardGrid({
     setSeededFor(profile);
     setOrder(arrangement.order.map((i) => key(i.kind, i.id)));
   }
-
-  // The drop reads from a ref as well as state: `drop` can arrive in the same batch as
-  // `dragstart`, when the state captured in the handler's closure would still be null.
-  const draggingRef = useRef<string | null>(null);
 
   const byKey = new Map(items.map((i) => [key(i.kind, i.id), i]));
   const ordered = order.map((k) => byKey.get(k)).filter((i): i is DashboardItem => !!i);
@@ -124,19 +133,145 @@ export function DashboardGrid({
     startTransition(() => void reorderItemsAction(writeProfile(), payload));
   }
 
-  function handleDrop(targetKey: string) {
-    const sourceKey = draggingRef.current;
-    draggingRef.current = null;
-    setDraggingKey(null);
-    setOverKey(null);
-    if (!sourceKey || sourceKey === targetKey) return;
-    const next = [...order];
-    const from = next.indexOf(sourceKey);
-    const to = next.indexOf(targetKey);
-    if (from === -1 || to === -1) return;
-    next.splice(to, 0, ...next.splice(from, 1)); // move, don't swap
-    commit(next);
+  /*
+   * Pointer-driven dragging.
+   *
+   * The item follows the cursor and everything else moves out of its way WHILE you are still
+   * holding it — which is the whole difference from the native drag-and-drop this replaced. That
+   * API paints its own drag image (the grey box with a URL in it), cannot be styled, ignores
+   * touch entirely, and only reports coarse enter/leave events, so there is nothing to reflow
+   * against until the moment you let go.
+   *
+   * The order is updated live but NOT saved until the pointer comes up: dragging across six
+   * items would otherwise fire six writes, and the intermediate arrangements were never
+   * something the user asked for.
+   */
+  function beginDrag(k: string, e: React.PointerEvent) {
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    /*
+     * The working order is a plain closure variable, not state or a ref.
+     *
+     * It has to be readable synchronously inside `pointermove` — state would be a render behind,
+     * and a ref written during render is both illegal and a lie about where the truth lives.
+     * `beginDrag` is defined during render, so it closes over the order as it was at pointerdown,
+     * which is exactly the arrangement the user grabbed.
+     */
+    let working = order;
+
+    setDragKey(k);
+    setDragDelta({ x: 0, y: 0 });
+
+    const move = (ev: PointerEvent) => {
+      setDragDelta({ x: ev.clientX - startX, y: ev.clientY - startY });
+
+      /*
+       * Hit-test against each item's LAYOUT box, not its painted rectangle.
+       *
+       * The question being asked is "which cell of the grid is the pointer over". A painted
+       * rectangle answers a different question, and the two disagree for exactly as long as a
+       * FLIP animation is running: `getBoundingClientRect` includes the transform, so a
+       * mid-flight item reports a position somewhere between the cell it left and the cell it is
+       * going to. Drag faster than 180ms and every subsequent hit test aims at a rectangle that
+       * is nowhere in particular — which scrambled the order rather than merely mis-aiming.
+       *
+       * `offsetLeft`/`offsetTop` are immune to transforms, so they always give the real cell.
+       * They are measured from the nearest positioned ancestor, which the grid and its children
+       * share, so subtracting the grid's own offset gives a common origin — and the pointer is
+       * put in that same space via the grid's rect, which is safe because the GRID is never
+       * transformed, only the items inside it.
+       */
+      const gridEl = gridRef.current;
+      if (!gridEl) return;
+      const gr = gridEl.getBoundingClientRect();
+      const px = ev.clientX - gr.left;
+      const py = ev.clientY - gr.top;
+
+      let targetKey: string | null = null;
+      for (const [otherKey, el] of frames.current) {
+        if (otherKey === k) continue;
+        const left = el.offsetLeft - gridEl.offsetLeft;
+        const top = el.offsetTop - gridEl.offsetTop;
+        if (px >= left && px <= left + el.offsetWidth && py >= top && py <= top + el.offsetHeight) {
+          targetKey = otherKey;
+          break;
+        }
+      }
+      if (!targetKey) return;
+
+      const from = working.indexOf(k);
+      const to = working.indexOf(targetKey);
+      if (from === -1 || to === -1 || from === to) return;
+      const next = [...working];
+      next.splice(to, 0, ...next.splice(from, 1)); // move, don't swap
+      working = next;
+      setOrder(next);
+    };
+
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      setDragKey(null);
+      setDragDelta({ x: 0, y: 0 });
+      commit(working); // ONE write, for where it actually ended up
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
   }
+
+  /*
+   * FLIP, so the items that move actually glide.
+   *
+   * CSS grid does not animate reflow — a reordered item simply appears in its new cell, which is
+   * what "clunky" meant. So: remember where everything was, let React re-render, then put each
+   * moved item back where it started with a transform and release it. The browser animates the
+   * release, and nothing about the layout itself is faked.
+   *
+   * The dragged item is excluded — it is already following the pointer, and animating it too
+   * would fight that.
+   */
+  const prevRects = useRef(new Map<string, DOMRect>());
+  useLayoutEffect(() => {
+    const now = new Map<string, DOMRect>();
+    frames.current.forEach((el, k) => now.set(k, el.getBoundingClientRect()));
+
+    const still = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!still) {
+      prevRects.current.forEach((before, k) => {
+        const el = frames.current.get(k);
+        const after = now.get(k);
+        if (!el || !after || k === dragKey) return;
+        const dx = before.left - after.left;
+        const dy = before.top - after.top;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        /*
+         * Release SYNCHRONOUSLY, after forcing a style flush — not from a `requestAnimationFrame`
+         * callback.
+         *
+         * rAF does not run in a backgrounded or hidden tab, and a rAF that never fires leaves the
+         * inverted transform on the element permanently: the item sits visibly displaced, and —
+         * worse — `getBoundingClientRect` then reports the wrong position, so the next drag
+         * hit-tests against geometry that no longer exists. That is not hypothetical; it is what
+         * this code did, and it scrambled the order on every drag.
+         *
+         * Reading `offsetWidth` forces the browser to apply the inverted transform before the
+         * next two lines overwrite it, which is the whole reason the rAF was there. Doing it this
+         * way the animation still runs when frames are being produced, and when they aren't the
+         * element simply lands in the right place with no animation — correct either way.
+         */
+        void el.offsetWidth;
+        el.style.transition = "transform 180ms cubic-bezier(0.2, 0, 0.2, 1)";
+        el.style.transform = "";
+      });
+    }
+    prevRects.current = now;
+  }, [order, dragKey]);
 
   /** Move one place. Drives the arrange buttons, which are also the keyboard and touch path. */
   function nudge(k: string, direction: "up" | "down") {
@@ -235,12 +370,13 @@ export function DashboardGrid({
       */}
       <div
         ref={gridRef}
-        className="grid grid-cols-2 gap-4 lg:grid-cols-6"
+        className="grid grid-cols-[repeat(6,minmax(0,1fr))] gap-2 lg:grid-cols-[repeat(18,minmax(0,1fr))]"
         style={{ gridAutoRows: `${rowPx ?? FALLBACK_ROW_PX}px` }}
       >
         {ordered.map((item, index) => {
           const k = key(item.kind, item.id);
-          const span = arrangement.spans[k] ?? { width: item.kind === "link" ? 1 : 2, height: item.kind === "link" ? 1 : 2 };
+          const fallback = DEFAULT_SPAN[profile][item.kind];
+          const span = arrangement.spans[k] ?? fallback;
           return (
             <DashboardFrame
               key={k}
@@ -255,20 +391,11 @@ export function DashboardGrid({
               editing={editing}
               isFirst={index === 0}
               isLast={index === ordered.length - 1}
-              dragging={draggingKey === k}
-              dropTarget={overKey === k && draggingKey !== null && draggingKey !== k}
+              dragging={dragKey === k}
+              dragDelta={dragKey === k ? dragDelta : null}
+              registerEl={registerFrame}
               cellMetrics={cellMetrics}
-              onDragStartItem={() => {
-                draggingRef.current = k;
-                setDraggingKey(k);
-              }}
-              onDragEnterItem={() => setOverKey(k)}
-              onDragEndItem={() => {
-                draggingRef.current = null;
-                setDraggingKey(null);
-                setOverKey(null);
-              }}
-              onDropItem={() => handleDrop(k)}
+              onGrab={(e) => beginDrag(k, e)}
               onNudge={(dir) => nudge(k, dir)}
             >
               {item.node}

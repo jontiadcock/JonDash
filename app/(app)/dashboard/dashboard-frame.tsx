@@ -4,10 +4,15 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setItemSizeAction, resetItemAction } from "./layout-actions";
 import type { CellMetrics } from "./dashboard-grid";
-import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
+// `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
+import { MIN_SPAN, MAX_HEIGHT, type DashboardKind, type DashboardProfile } from "@/lib/dashboard/geometry";
 
-const MIN_SPAN = 1;
-const MAX_HEIGHT = 6;
+/*
+ * Both clamps come from the shared geometry now. They used to be local constants with
+ * `MAX_HEIGHT = 6`, which silently stopped an item four rows short of what the server would
+ * happily store — the resize handle simply refused to go further with no explanation. Two
+ * definitions of the same limit is one too many.
+ */
 const clampW = (n: number, columns: number) => Math.min(columns, Math.max(MIN_SPAN, n));
 const clampH = (n: number) => Math.min(MAX_HEIGHT, Math.max(MIN_SPAN, n));
 
@@ -35,12 +40,10 @@ export function DashboardFrame({
   isFirst,
   isLast,
   dragging,
-  dropTarget,
+  dragDelta,
+  registerEl,
   cellMetrics,
-  onDragStartItem,
-  onDragEnterItem,
-  onDragEndItem,
-  onDropItem,
+  onGrab,
   onNudge,
   children,
 }: {
@@ -58,12 +61,13 @@ export function DashboardFrame({
   isFirst: boolean;
   isLast: boolean;
   dragging: boolean;
-  dropTarget: boolean;
+  /** How far this item has been dragged from where it started, or null when it isn't. */
+  dragDelta: { x: number; y: number } | null;
+  /** Hands the live element to the grid, for pointer hit-testing and the FLIP animation. */
+  registerEl: (key: string, el: HTMLElement | null) => void;
   cellMetrics: () => CellMetrics | null;
-  onDragStartItem: () => void;
-  onDragEnterItem: () => void;
-  onDragEndItem: () => void;
-  onDropItem: () => void;
+  /** Named `onGrab`, not `onDragStart` — that is a real DOM handler, and this is not it. */
+  onGrab: (e: React.PointerEvent) => void;
   onNudge: (direction: "up" | "down") => void;
   children: React.ReactNode;
 }) {
@@ -72,8 +76,8 @@ export function DashboardFrame({
   // While a corner drag is in flight the frame previews the size it would become, so the grid
   // reflows under the pointer instead of jumping only once you let go.
   const [preview, setPreview] = useState<{ w: number; h: number } | null>(null);
-  // State, not a ref: it decides whether the frame is `draggable`, so it has to cause a
-  // re-render. A ref would leave HTML5 drag armed during a corner resize.
+  // Suppresses move-drag while a corner resize is in flight — the two gestures both start with
+  // a pointerdown on this element and would otherwise race.
   const [resizing, setResizing] = useState(false);
 
   const w = preview?.w ?? width;
@@ -144,31 +148,51 @@ export function DashboardFrame({
 
   return (
     <div
-      className={`group relative flex flex-col rounded-xl transition ${editing ? "" : "lift"}`}
+      /*
+       * `lift` in BOTH modes (owner, 2026-07-27): service tiles rose on hover while arranging
+       * and module widgets did not, because a tile carries its own `lift` internally while the
+       * frame only applied one outside edit mode. The inconsistency read as modules being less
+       * interactive than tiles in the very mode where you are handling both.
+       */
+      ref={(el) => registerEl(`${kind}:${refId}`, el)}
+      className={`group relative flex flex-col rounded-xl transition ${dragging ? "" : "lift"}`}
       style={{
         gridColumn: `span ${w}`,
         gridRow: `span ${h}`,
-        opacity: dragging ? 0.4 : 1,
-        outline: dropTarget
-          ? "2px dashed var(--primary)"
-          : editing
-            ? "1px dashed var(--border-strong)"
-            : undefined,
-        outlineOffset: dropTarget || editing ? "4px" : undefined,
-        cursor: clickable ? "pointer" : undefined,
+        outline: editing ? "1px dashed var(--border-strong)" : undefined,
+        outlineOffset: editing ? "4px" : undefined,
+        cursor: clickable ? "pointer" : editing ? "grab" : undefined,
+        // Without this a touch drag scrolls the page instead of moving the item — the browser
+        // claims the gesture for panning before our handler ever sees a move. Only while
+        // arranging, so ordinary scrolling over the dashboard is untouched.
+        touchAction: editing ? "none" : undefined,
+        // The dragged item follows the pointer and rides above everything else. `transition:
+        // none` while dragging, or it would lag behind the cursor by the FLIP duration; the
+        // shadow and slight scale are what make it read as picked up rather than just offset.
+        ...(dragging && dragDelta
+          ? {
+              transform: `translate(${dragDelta.x}px, ${dragDelta.y}px) scale(1.03)`,
+              transition: "none",
+              zIndex: 30,
+              boxShadow: "var(--shadow-hover)",
+              pointerEvents: "none" as const,
+            }
+          : null),
       }}
       onClick={handleClick}
-      // Reorder-by-drag stays, but only while arranging, and never during a corner resize —
-      // the two gestures start the same way and would otherwise race.
-      draggable={editing && !resizing}
-      onDragStart={onDragStartItem}
-      onDragEnter={onDragEnterItem}
-      onDragOver={(e) => e.preventDefault()} // required for a drop to be allowed
-      onDrop={(e) => {
+      /*
+       * Drag starts from anywhere on the item while arranging — not from a grip.
+       *
+       * Excluded: the arrange controls and the resize handle. Those are `button`s inside the
+       * frame, and without this check grabbing the corner to resize would also start a move, so
+       * the two gestures would race and the item would jump away from the cursor.
+       */
+      onPointerDown={(e) => {
+        if (!editing || resizing || e.button !== 0) return;
+        if ((e.target as HTMLElement).closest("button,a,input,select,textarea")) return;
         e.preventDefault();
-        onDropItem();
+        onGrab(e);
       }}
-      onDragEnd={onDragEndItem}
     >
       {/*
         The real, focusable way in for a module widget. The container's onClick is a pointer

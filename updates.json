@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.11",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: settings that stay saved, and dragging that feels like dragging. If you changed a setting and watched the control snap back the moment you pressed Save, that is fixed - and the setting had been saving correctly all along, it was only the screen that went back to the old value. Every settings screen now tells you when you have unsaved changes, and the Save button only lights up when there is something to save. Rearranging your dashboard no longer drags a grey box around: the tile follows your finger or your cursor and everything else moves out of the way as you go, on a phone as well as a desktop. Tiles can now be made three times smaller than before, right down to a small square, and there is no longer a limit on how tall you can make one. A service you have just added shows up on your dashboard straight away instead of after a reload, and module widgets lift on hover while you are arranging, the same way service tiles already did."
+    },
+    {
       "version": "1.8.0-beta.10",
       "date": "2026-07-27",
       "type": "minor",

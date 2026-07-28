@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveUpdateScheduleAction, type ScheduleState } from "./schedule-actions";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -27,10 +28,15 @@ export function UpdateScheduleForm({
     saveUpdateScheduleAction,
     {},
   );
-  const [freq, setFreq] = useState(frequency);
+  const { dirty, dirtyProps } = useFormDirty(state);
+  // Controlled and re-seeded from the server — see the note in app/components/save-bar.tsx.
+  const [freq, setFreq] = useServerValue(frequency);
+  const [time, setTime] = useServerValue(timeOfDay);
+  const [dow, setDow] = useServerValue(String(dayOfWeek));
+  const [dom, setDom] = useServerValue(String(dayOfMonth));
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={action} {...dirtyProps} className="flex flex-col gap-4">
       {/* No heading here: this renders INSIDE the Automatic updates panel, which already
           has one. Two cards both titled "Automatic updates" is what this replaced. */}
       <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
@@ -59,14 +65,21 @@ export function UpdateScheduleForm({
             id="updates.timeOfDay"
             name="updates.timeOfDay"
             type="time"
-            defaultValue={timeOfDay}
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
             className="input"
           />
         </div>
 
         <div style={{ display: freq === "weekly" ? undefined : "none" }}>
           <label className="label" htmlFor="updates.dayOfWeek">On</label>
-          <select id="updates.dayOfWeek" name="updates.dayOfWeek" defaultValue={String(dayOfWeek)} className="input">
+          <select
+            id="updates.dayOfWeek"
+            name="updates.dayOfWeek"
+            value={dow}
+            onChange={(e) => setDow(e.target.value)}
+            className="input"
+          >
             {DAYS.map((d, i) => (
               <option key={d} value={i}>{d}</option>
             ))}
@@ -75,7 +88,13 @@ export function UpdateScheduleForm({
 
         <div style={{ display: freq === "monthly" ? undefined : "none" }}>
           <label className="label" htmlFor="updates.dayOfMonth">Day of the month</label>
-          <select id="updates.dayOfMonth" name="updates.dayOfMonth" defaultValue={String(dayOfMonth)} className="input">
+          <select
+            id="updates.dayOfMonth"
+            name="updates.dayOfMonth"
+            value={dom}
+            onChange={(e) => setDom(e.target.value)}
+            className="input"
+          >
             {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
@@ -86,13 +105,13 @@ export function UpdateScheduleForm({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save schedule"}
-        </button>
-        {state.ok && <span className="text-sm" style={{ color: "var(--primary)" }}>Saved.</span>}
-        {state.error && <span className="form-error">{state.error}</span>}
-      </div>
+      <SaveBar
+        dirty={dirty}
+        pending={pending}
+        success={state.ok ? "Saved." : null}
+        error={state.error}
+        label="Save schedule"
+      />
     </form>
   );
 }

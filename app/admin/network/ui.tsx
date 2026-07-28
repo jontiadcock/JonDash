@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveNetworkConfigAction, type NetworkState } from "./actions";
 import type { NetworkConfig } from "@/lib/tls/network";
 
@@ -8,10 +9,25 @@ const initial: NetworkState = {};
 
 export function NetworkForm({ config }: { config: NetworkConfig }) {
   const [state, action, pending] = useActionState(saveNetworkConfigAction, initial);
-  const [mode, setMode] = useState<NetworkConfig["mode"]>(config.mode);
+  const { dirty, dirtyProps } = useFormDirty(state);
+
+  /*
+   * Controlled and re-seeded from the server — see the note in app/components/save-bar.tsx.
+   *
+   * The mode select was worse than the rest: it had `defaultValue` AND an `onChange` feeding a
+   * separate piece of state, so the DOM and the state that decides which fields to show were
+   * two independent copies of the same answer.
+   */
+  const [mode, setMode] = useServerValue<NetworkConfig["mode"]>(config.mode);
+  const [httpPort, setHttpPort] = useServerValue(String(config.httpPort || (config.mode === "off" ? 3000 : 80)));
+  const [httpsPort, setHttpsPort] = useServerValue(String(config.httpsPort || 443));
+  const [domain, setDomain] = useServerValue(config.domain);
+  const [email, setEmail] = useServerValue(config.email);
+  const [certPath, setCertPath] = useServerValue(config.certPath);
+  const [keyPath, setKeyPath] = useServerValue(config.keyPath);
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form action={action} {...dirtyProps} className="flex flex-col gap-5">
       <div>
         <label className="label" htmlFor="mode">
           HTTPS mode
@@ -19,7 +35,7 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
         <select
           id="mode"
           name="mode"
-          defaultValue={config.mode}
+          value={mode}
           onChange={(e) => setMode(e.target.value as NetworkConfig["mode"])}
           className="input"
         >
@@ -48,7 +64,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
               type="number"
               min={1}
               max={65535}
-              defaultValue={config.httpPort || 80}
+              value={httpPort}
+              onChange={(e) => setHttpPort(e.target.value)}
               className="input"
             />
             <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
@@ -66,7 +83,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
               type="number"
               min={1}
               max={65535}
-              defaultValue={config.httpsPort || 443}
+              value={httpsPort}
+              onChange={(e) => setHttpsPort(e.target.value)}
               className="input"
             />
           </div>
@@ -84,7 +102,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
             type="number"
             min={1}
             max={65535}
-            defaultValue={config.httpPort || 3000}
+            value={httpPort}
+            onChange={(e) => setHttpPort(e.target.value)}
             className="input"
           />
         </div>
@@ -99,7 +118,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
             <input
               id="domain"
               name="domain"
-              defaultValue={config.domain}
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
               placeholder="dash.example.com"
               className="input"
             />
@@ -112,7 +132,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
               id="email"
               name="email"
               type="email"
-              defaultValue={config.email}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               className="input"
             />
@@ -129,7 +150,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
             <input
               id="certPath"
               name="certPath"
-              defaultValue={config.certPath}
+              value={certPath}
+              onChange={(e) => setCertPath(e.target.value)}
               placeholder="C:\\certs\\fullchain.pem"
               className="input"
             />
@@ -141,7 +163,8 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
             <input
               id="keyPath"
               name="keyPath"
-              defaultValue={config.keyPath}
+              value={keyPath}
+              onChange={(e) => setKeyPath(e.target.value)}
               placeholder="C:\\certs\\privkey.pem"
               className="input"
             />
@@ -156,17 +179,13 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
         Changes take effect after the dashboard is restarted. You stay signed in across the restart.
       </div>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save network settings"}
-        </button>
-        {state.ok && (
-          <span className="text-sm" style={{ color: "var(--primary)" }}>
-            Saved — restart to apply.
-          </span>
-        )}
-        {state.error && <span className="form-error">{state.error}</span>}
-      </div>
+      <SaveBar
+        dirty={dirty}
+        pending={pending}
+        success={state.ok ? "Saved — restart to apply." : null}
+        error={state.error}
+        label="Save network settings"
+      />
     </form>
   );
 }

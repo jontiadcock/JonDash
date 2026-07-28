@@ -178,6 +178,64 @@ describe("the widget grid gives a row span something to multiply", () => {
   });
 });
 
+describe("dragging is pointer-driven, not native HTML5 drag", () => {
+  /**
+   * Owner, 2026-07-27: *"when I drag and drop tiles, it just comes up with a box. I want icons
+   * to dynamically move around when dragged so it doesn't feel clunky."*
+   *
+   * The box is the native drag image. It cannot be styled or replaced with anything useful,
+   * the API ignores touch entirely, and it reports only coarse enter/leave — so there is
+   * nothing precise enough to reflow against until the pointer is released. Every one of those
+   * is a property of the API rather than of how it was used, so the fix is to not use it.
+   */
+  it("uses no HTML5 drag attributes or handlers", () => {
+    for (const [name, src] of [["grid", GRID], ["frame", FRAME]] as const) {
+      expect(src, `${name}: draggable is back — the browser will paint its own drag image`).not.toMatch(
+        /\bdraggable\b/,
+      );
+      expect(src, `${name}: an HTML5 drag handler is back`).not.toMatch(
+        /onDragStart=|onDragEnter=|onDragOver=|onDrop=|onDragEnd=/,
+      );
+    }
+  });
+
+  it("drives the drag from pointer events", () => {
+    // The frame's own prop is `onGrab`, deliberately not `onDragStart` — that name is a real DOM
+    // handler, so a component prop sharing it turns into one the moment props are spread onto an
+    // element. This assertion tripped over exactly that confusion while being written.
+    expect(FRAME, "the frame does not start a drag from a pointerdown").toMatch(/onPointerDown=/);
+    expect(GRID, "the grid does not track the pointer during a drag").toMatch(
+      /addEventListener\("pointermove"/,
+    );
+    expect(GRID, "a drag that never ends on pointerup would latch").toMatch(
+      /addEventListener\("pointerup"/,
+    );
+    // Without this a touch drag is stolen by the browser for panning before we see a move.
+    expect(FRAME, "touch-action is not released while arranging").toMatch(/touchAction/);
+  });
+
+  /**
+   * CSS grid does not animate reflow: a reordered item simply appears in its new cell. FLIP —
+   * measure, invert with a transform, release — is what turns that jump into movement, and it
+   * animates only what actually moved rather than faking the layout.
+   */
+  it("animates the reflow with FLIP", () => {
+    expect(GRID, "no before-rects are kept, so nothing can be inverted").toMatch(/getBoundingClientRect/);
+    expect(GRID, "FLIP has to run before paint, so it belongs in a layout effect").toMatch(
+      /useLayoutEffect/,
+    );
+    expect(GRID, "an animation with no reduced-motion escape").toMatch(/prefers-reduced-motion/);
+  });
+
+  it("saves once, when the drag ends", () => {
+    // Dragging across six items would otherwise fire six writes, and the arrangements passed
+    // through on the way were never something the user asked for.
+    // `reorderItemsAction(` — the call, not the import line above it.
+    const moves = GRID.match(/reorderItemsAction\(/g) ?? [];
+    expect(moves.length, "reorderItemsAction is called from more than one place").toBe(1);
+  });
+});
+
 describe("widget chrome does not sit on the module's own controls", () => {
   /**
    * BUG-53: the control cluster was `absolute right-2 top-2`, exactly where a module puts its

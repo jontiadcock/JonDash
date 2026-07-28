@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveSessionSettingsAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
 
@@ -46,22 +47,24 @@ export function SessionLengthForm({ current, capDays }: { current: number; capDa
   );
 
   /*
-   * CONTROLLED, not `defaultValue` — that was a real bug the owner hit (1.8.0-beta.8).
+   * CONTROLLED, not `defaultValue` — that was a real bug the owner hit (1.8.0-beta.8), and the
+   * pattern is now shared by every settings form (`useServerValue`, app/components/save-bar.tsx).
    *
-   * The action saves and revalidates, so the server sends a new `current` — but `defaultValue`
-   * only seeds an uncontrolled input on mount. React re-rendered with the new prop and left the
-   * DOM select showing the old number, so a save looked like it had silently failed until you
-   * reloaded the page. It had saved every time.
-   *
-   * `seeded` re-syncs when the server's value genuinely changes, so an edit made elsewhere (or
-   * the value coming back from a save) lands here without stomping a selection in progress.
+   * That change alone did not fix it, and the honest reason is worth keeping: the value the
+   * server sent back was itself stale, because `lib/settings.ts` cached reads in a module-level
+   * map and a server action runs in a DIFFERENT module instance from the page render — so the
+   * action's cache-clear never reached the renderer's cache. Re-seeding from a stale server
+   * value made the revert *more* reliable, not less. The cache is gone (1.8.0-beta.11).
    */
-  const [value, setValue] = useState(current);
-  const [seeded, setSeeded] = useState(current);
-  if (seeded !== current) {
-    setSeeded(current);
-    setValue(current);
-  }
+  const [value, setValue] = useServerValue(current);
+
+  /*
+   * Only `dirtyProps` is used here — this form's own `dirty` below is finer, because comparing
+   * the value to the server's means picking a setting and putting it back reads as clean.
+   * What is needed from the hook is its `onReset`, which cancels React's post-action form reset;
+   * without it this select snaps back to the value the page loaded with. See save-bar.tsx.
+   */
+  const { dirtyProps } = useFormDirty(state);
 
   /*
    * An install upgrading from the old pair can land on a value no preset matches — someone who
@@ -78,7 +81,7 @@ export function SessionLengthForm({ current, capDays }: { current: number; capDa
   const dirty = value !== current;
 
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form action={action} {...dirtyProps} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label htmlFor="session-length" className="text-sm font-medium">
           Session length
@@ -111,21 +114,7 @@ export function SessionLengthForm({ current, capDays }: { current: number; capDa
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="btn btn-primary" disabled={pending || !dirty}>
-          {pending ? "Saving…" : "Save session settings"}
-        </button>
-        {dirty && !pending && (
-          <span className="text-sm" style={{ color: "var(--muted)" }}>
-            Not saved yet.
-          </span>
-        )}
-        {state.success && !dirty && (
-          <span className="text-sm" style={{ color: "var(--success)" }}>
-            {state.success}
-          </span>
-        )}
-      </div>
+      <SaveBar dirty={dirty} pending={pending} success={state.success} label="Save session settings" />
     </form>
   );
 }

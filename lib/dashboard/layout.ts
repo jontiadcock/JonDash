@@ -19,57 +19,31 @@ import { prisma } from "@/lib/db";
  * the feature stays invisible until somebody uses it.
  */
 
-/** What a layout row positions. */
-export type DashboardKind = "module" | "link";
-
-/**
- * Which grid the arrangement belongs to (CORE-12).
- *
- * Keyed on the VIEWPORT, not the user agent. The viewport is what actually decides which grid
- * renders — a UA check is simply wrong for a desktop window dragged narrow (it would serve the
- * desktop arrangement into the one-column grid), is ambiguous for tablets, and UA strings are
- * neither stable nor trustworthy. Viewport also handles rotation for free.
+/*
+ * The geometry — column counts, default spans, the height ceiling, `itemKey` — lives in
+ * `./geometry`, which is deliberately NOT server-only: the grid is a client component and needs
+ * the same numbers. Re-exported here so server callers keep importing from one place.
  */
-export type DashboardProfile = "wide" | "narrow";
+export {
+  PROFILES,
+  isProfile,
+  GEOMETRY,
+  DEFAULT_SPAN,
+  MAX_HEIGHT,
+  MIN_SPAN,
+  itemKey,
+  type DashboardKind,
+  type DashboardProfile,
+} from "./geometry";
 
-export const PROFILES: readonly DashboardProfile[] = ["wide", "narrow"] as const;
-
-export function isProfile(v: unknown): v is DashboardProfile {
-  return v === "wide" || v === "narrow";
-}
-
-/**
- * Grid geometry, per profile.
- *
- * One grid has to hold two things that were previously sized independently: a service tile
- * (small, iconic, was 5-across on desktop) and a module widget (was 3-across). The column
- * count is therefore a common denominator rather than either of the old ones — 6 wide, so a
- * tile at 1 unit lands close to its old 5-across and a widget at 2 units lands exactly on its
- * old 3-across. Narrow keeps the old behaviour precisely: tiles two-up, widgets full width.
- *
- * **There is no row height here on purpose.** A cell is SQUARE — the row height is the measured
- * column width, computed in the browser (`dashboard-grid.tsx`), because the columns are fluid
- * and CSS cannot size a row from the width of a column. A constant here would be a second
- * source of truth that is wrong at every window size except one.
- */
-export const GEOMETRY: Record<DashboardProfile, { columns: number }> = {
-  wide: { columns: 6 },
-  narrow: { columns: 2 },
-};
-
-/** Default span for each kind, per profile. */
-export const DEFAULT_SPAN: Record<DashboardProfile, Record<DashboardKind, { width: number; height: number }>> = {
-  wide: {
-    link: { width: 1, height: 1 },
-    module: { width: 2, height: 2 },
-  },
-  narrow: {
-    link: { width: 1, height: 1 },
-    module: { width: 2, height: 2 },
-  },
-};
-
-export const MAX_HEIGHT = 6;
+import {
+  DEFAULT_SPAN,
+  GEOMETRY,
+  MAX_HEIGHT,
+  itemKey,
+  type DashboardKind,
+  type DashboardProfile,
+} from "./geometry";
 
 export type LayoutEntry = {
   kind: DashboardKind;
@@ -78,11 +52,6 @@ export type LayoutEntry = {
   height: number;
   sortOrder: number;
 };
-
-/** Stable key for an item across both tables — `kind:refId`. */
-export function itemKey(kind: DashboardKind, refId: string): string {
-  return `${kind}:${refId}`;
-}
 
 function clamp(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min;

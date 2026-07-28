@@ -13,6 +13,7 @@ import {
   type AdminState,
 } from "./actions";
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 
 const initial: AdminState = {};
 
@@ -260,33 +261,48 @@ export function EditLinkFields({
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(updateLinkAction, initial);
+  const { dirty, dirtyProps, generation } = useFormDirty(state);
+  const [title, setTitle] = useServerValue(link.title);
+  const [url, setUrl] = useServerValue(link.url);
 
   return (
-    <form action={action} className="mt-3 flex w-full flex-col gap-3" encType="multipart/form-data">
+    <form action={action} {...dirtyProps} className="mt-3 flex w-full flex-col gap-3" encType="multipart/form-data">
       <input type="hidden" name="id" value={link.id} />
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label">Service name</label>
-          <input name="title" required maxLength={80} defaultValue={link.title} className="input" />
+          <input
+            name="title"
+            required
+            maxLength={80}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="input"
+          />
         </div>
         <div>
           <label className="label">URL</label>
-          <input name="url" type="url" required defaultValue={link.url} className="input" />
+          <input
+            name="url"
+            type="url"
+            required
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="input"
+          />
         </div>
       </div>
       <div>
         <label className="label">Replace icon (optional)</label>
-        <IconFileInput />
+        {/* Keyed so the chosen file clears after a save — this form cancels React's post-action
+            reset (see save-bar.tsx), and that reset is what used to clear it. */}
+        <IconFileInput key={`icon-${generation}`} />
       </div>
-      {state.error && <p className="form-error">{state.error}</p>}
-      <div className="flex gap-2">
-        <button type="submit" className="btn btn-primary !py-1.5 text-sm" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
-        </button>
+      <SaveBar dirty={dirty} pending={pending} error={state.error} label="Save">
         <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={onDone}>
           Cancel
         </button>
-      </div>
+      </SaveBar>
     </form>
   );
 }
@@ -360,6 +376,8 @@ export function CreateRoleForm() {
 
 export function RenameRoleForm({ role }: { role: { id: string; name: string } }) {
   const [state, action, pending] = useActionState(renameRoleAction, initial);
+  const { dirty, dirtyProps } = useFormDirty(state);
+  const [name, setName] = useServerValue(role.name);
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -371,18 +389,24 @@ export function RenameRoleForm({ role }: { role: { id: string; name: string } })
   }
 
   return (
-    <form action={action} className="flex items-end gap-2">
+    <form action={action} {...dirtyProps} className="flex items-end gap-2">
       <input type="hidden" name="id" value={role.id} />
       <div>
         <label className="label">Service group name</label>
-        <input name="name" required maxLength={60} defaultValue={role.name} className="input" />
+        <input
+          name="name"
+          required
+          maxLength={60}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="input"
+        />
       </div>
-      <button type="submit" className="btn btn-primary !py-1.5 text-sm" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
-      </button>
-      <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setOpen(false)}>
-        Cancel
-      </button>
+      <SaveBar dirty={dirty} pending={pending} label="Save">
+        <button type="button" className="btn btn-ghost !py-1.5 text-sm" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </SaveBar>
       {state.error && <p className="form-error">{state.error}</p>}
     </form>
   );
