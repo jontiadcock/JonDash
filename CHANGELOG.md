@@ -9,6 +9,29 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.18] — 2026-07-28
+
+**A module now opens over the catalogue rather than taking you somewhere else.** Clicking a card
+expands it into a panel over the grid, growing out of the card you clicked; the catalogue stays
+exactly where it was behind it, same channel, same page, same scroll position, and closing it puts
+you straight back. Escape, the browser's Back button, clicking outside and the ✕ all do the same
+thing. **The address still names the module**, so it can be linked and shared — open that link
+fresh, or reload the page, and you get the full page as before. Both routes render the same
+content, so there is no second copy of the permission list to drift out of date.
+
+**Modules you already have are ticked** — a green tick on the card, so a glance down the catalogue
+answers "which of these do I have?" without reading a word. If the version you have installed is
+older than the one published, the card says which one you have.
+
+**A queued install no longer comes back after the restart.** Queue two modules, install the batch,
+and the dashboard would restart and then offer to install them again — the queue is held in your
+browser and nothing survives the restart to clear it. The list now drops anything the server says
+is already installed, so it tidies itself up whatever happened; a batch that *failed* still stays
+put, ready to retry.
+
+**The startup window prints readable text again.** A stray punctuation mark came out as `ΓÇö` in
+the console, which made a perfectly healthy launch look broken.
+
 ## [1.8.0-beta.17] — 2026-07-28
 
 **The Add-ons page has one row of actions**, and Import is in it. Import used to be a

@@ -65,8 +65,8 @@ MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 rather than a queue item — roughly thirty changes agreed up front as a dozen groups, shipping as a
 run of betas, and it cuts across items already listed below as well as work that never had an ID.
 Four groups remain (the Add-ons page, Browse grid and module detail page shipped in
-**v1.8.0-beta.17**): Network & HTTPS · backup and restore · OPS-16 · the help page, support line
-and responsive sweep.
+**v1.8.0-beta.17**, and the detail panel that expands over the catalogue in **v1.8.0-beta.18**):
+Network & HTTPS · backup and restore · OPS-16 · the help page, support line and responsive sweep.
 
 **The queue below therefore does not describe what is being built right now.** Shipped 1.8.0 items
 carry their version in the catalog, as usual; the release's own plan is the day-to-day authority
@@ -523,10 +523,10 @@ _MOD-03, MOD-04, MOD-05 and MOD-06 are **retired** — see the Retired IDs table
 MOD-03 and MOD-05 were delivered (by the `health-monitor` module and by MOD-01's Browse page); MOD-04
 and MOD-06 were dropped by the owner on 2026-07-22._
 
-**One leftover from MOD-05, deliberately not carried as its own item:** Browse *prints* a module's
-requirement ("needs JonDash 1.5.0+") rather than greying out entries this build is too old for. The
-enforcement is real — installs are refused — only the visual cue is missing. Fold it into the next
-piece of module-UI work rather than tracking it.
+**The one leftover from MOD-05 was closed in v1.8.0-beta.17.** Browse used to *print* a module's
+requirement ("needs JonDash 1.5.0+") without greying out entries this build is too old for;
+enforcement was always real, only the visual cue was missing. The catalogue now dims them **and**
+keeps the sentence — dimming on its own reads as a rendering fault rather than a rule.
 
 ### OPS — Platform, packaging & operations
 

@@ -179,7 +179,11 @@ if defined NEEDBUILD (
   call :log build ok "built v%APPVER%; pruned + stripped runtime footprint"
 ) else (
   echo.
-  echo   Already up to date and built ^(v%APPVER%^) — starting up.
+  REM ASCII ONLY in anything echoed. The console runs a DOS codepage, not UTF-8, so an em-dash
+  REM here reaches the user as "ΓÇö" — which is what the owner saw on a clean launch, and it makes
+  REM a healthy startup message look like a fault. Comments may keep their punctuation; cmd never
+  REM prints those.
+  echo   Already up to date and built ^(v%APPVER%^) - starting up.
   REM Healthy fast-path start: clear the one-shot recovery/revert markers.
   if exist ".data\recovery-attempted" del ".data\recovery-attempted" >nul 2>nul
   if exist ".data\revert-attempted" del ".data\revert-attempted" >nul 2>nul

@@ -3,6 +3,42 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { PermissionRisk } from "@/lib/modules/types";
+import { rememberOrigin } from "./expand-origin";
+
+/**
+ * "You already have this one" — the owner's ask, 2026-07-28.
+ *
+ * A tick rather than a word because the catalogue is scanned, not read: the question a returning
+ * visitor has is *which of these do I already have*, and a green mark answers it in one sweep
+ * where "installed" printed on eight cards does not.
+ *
+ * Drawn in theme tokens, not `green` and `white`. `--success` is a different green in each of the
+ * seven styles, and the tick is cut out in `--background` so it stays legible whether the palette
+ * makes that green dark or pale.
+ */
+function InstalledTick() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 20 20"
+      className="flex-none"
+      role="img"
+      aria-label="Installed"
+    >
+      <title>Installed</title>
+      <circle cx="10" cy="10" r="9" fill="var(--success)" />
+      <path
+        d="M5.8 10.4l2.7 2.7 5.7-5.9"
+        fill="none"
+        stroke="var(--background)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /** One catalogue entry, flattened to plain data so the grid can be a client component. */
 export type BrowseCard = {
@@ -119,13 +155,24 @@ export function BrowseGrid({
             key={m.id}
             // Carry where you were, so the module's own page can send you back to it (8.4).
             href={`/admin/modules/browse/${encodeURIComponent(m.id)}?channel=${channel}&page=${current}`}
+            // The panel opens over this grid, so the grid must not move under it. Next scrolls to
+            // the top on navigation by default, which would leave the catalogue somewhere else
+            // when the panel closes — and would drag the card out from under the animation.
+            scroll={false}
+            // Hand the panel the rectangle it should grow out of. The overlay mounts in a
+            // different route tree, long after this click, so nothing else can tell it where
+            // the module was on screen.
+            onClick={(e) => rememberOrigin(e.currentTarget)}
             className="card lift flex flex-col gap-2 p-4"
             style={m.tooOld ? { opacity: 0.55 } : undefined}
           >
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate font-medium">{m.name}</span>
-              <span className="flex-none font-mono text-xs" style={{ color: "var(--muted)" }}>
-                v{m.version}
+              <span className="flex flex-none items-center gap-1.5">
+                {m.installed && <InstalledTick />}
+                <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
+                  v{m.version}
+                </span>
               </span>
             </div>
 
@@ -141,9 +188,12 @@ export function BrowseGrid({
                 {m.risk.label}
                 {m.risk.count > 0 ? ` · ${m.risk.count}` : ""}
               </span>
-              {m.installed && (
+              {/* The tick already says it is installed, so the only thing left worth printing is
+                  a version that DISAGREES with the published one — which is how an available
+                  update shows up here. Repeating "installed" under every ticked card is noise. */}
+              {m.installed && m.installedVersion && m.installedVersion !== m.version && (
                 <span className="text-xs" style={{ color: "var(--muted)" }}>
-                  installed{m.installedVersion ? ` v${m.installedVersion}` : ""}
+                  you have v{m.installedVersion}
                 </span>
               )}
               {/* Greyed AND told why. Dimming alone reads as a rendering fault. */}

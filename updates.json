@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.18",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: clicking a module in Browse now expands it over the catalogue instead of taking you to another page - it grows out of the card you clicked, and the grid stays behind it on the same page and scroll position, so closing it puts you right back where you were. Escape, Back, clicking outside and the X all close it, and the address still names the module so links and reloads still open the full page. Modules you already have now carry a green tick, and a card tells you if the version you have is older than the published one. Two fixes: a queued batch of installs no longer offers to install the same modules again after the restart, and the startup window no longer prints a garbled character where a dash should be."
+    },
+    {
       "version": "1.8.0-beta.17",
       "date": "2026-07-28",
       "type": "minor",

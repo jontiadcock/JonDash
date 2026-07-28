@@ -112,7 +112,13 @@ export default async function BrowseModulesPage({
           <BrowseGrid items={cards} channel={channel} page={page} />
           {/* The batch, wherever you built it up from. Sits below the grid so it is visible on
               the page you return to after queueing something. */}
-          <QueuedInstallBar channel={channel} names={Object.fromEntries(cards.map((c) => [c.id, c.name]))} />
+          <QueuedInstallBar
+            channel={channel}
+            names={Object.fromEntries(cards.map((c) => [c.id, c.name]))}
+            // What the server says is already in — the bar drops these, so a batch that has just
+            // been installed does not come back offering itself again after the restart.
+            installed={cards.filter((c) => c.installed).map((c) => c.id)}
+          />
         </>
       )}
 

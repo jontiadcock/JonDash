@@ -40,9 +40,10 @@ outage it has recorded.
 
 ## Installing a module
 
-Browse what a source publishes, tick what you want, and install several in one go. Every
-module states what it can do **before** it is installed, in plain language — and anything
-riskier than the ordinary is called out in red.
+Browse what a source publishes as a catalogue, open one to read what it can do, and queue
+several to install together in a single restart. **A module can only be installed from its own
+page**, so what it can do has always been on screen in plain language first — and anything
+riskier than the ordinary is called out in red. Modules you already have carry a tick.
 
 <table>
 <tr>

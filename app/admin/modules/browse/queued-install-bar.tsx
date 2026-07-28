@@ -23,12 +23,33 @@ import { useInstallQueue, clearQueue, toggleQueued } from "./install-queue";
 export function QueuedInstallBar({
   channel,
   names,
+  installed,
 }: {
   channel: string;
   /** Ids to display names, for the modules on this page. */
   names: Record<string, string>;
+  /** Ids already installed — dropped from the queue on sight. See below. */
+  installed: string[];
 }) {
-  const queued = useInstallQueue();
+  const raw = useInstallQueue();
+
+  /*
+   * **Anything already installed is dropped from the queue.**
+   *
+   * A successful install never returns: the process exits so the launcher can rebuild, so nothing
+   * on this page ever gets to run "the install worked, clear the queue". The ids therefore
+   * survived in session storage across the restart, and the bar came back afterwards still
+   * offering to install modules that were now installed — the owner, testing beta.17: *"after
+   * queuing an install of 2 modules, the server restarted but the modules [were] still available
+   * to install."*
+   *
+   * Filtering on what the server says is installed, rather than clearing the queue at submit
+   * time, is deliberate: it self-heals whatever happened, and a failed install still leaves the
+   * batch intact to retry. Clearing on submit would throw the batch away precisely when it was
+   * most annoying to rebuild.
+   */
+  const done = new Set(installed);
+  const queued = raw.filter((id) => !done.has(id));
   const [state, action, pending] = useActionState<InstallState, FormData>(installModuleAction, {});
   const { overlay, start, stop } = useRebuildWatch();
 

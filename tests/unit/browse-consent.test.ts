@@ -25,6 +25,9 @@ const GRID = strip(read("app", "admin", "modules", "browse", "browse-grid.tsx"))
 const CATALOGUE = strip(read("app", "admin", "modules", "browse", "page.tsx"));
 const DETAIL = strip(read("app", "admin", "modules", "browse", "[id]", "page.tsx"));
 const ACTIONS = strip(read("app", "admin", "modules", "browse", "[id]", "module-actions.tsx"));
+/** The consent screen itself, shared by the full page and the overlay that expands over the grid. */
+const SHARED = strip(read("app", "admin", "modules", "browse", "module-detail.tsx"));
+const OVERLAY = strip(read("app", "admin", "modules", "browse", "@modal", "(.)[id]", "page.tsx"));
 
 describe("consent lives on the module's own page", () => {
   it("the catalogue grid has no way to install or queue", () => {
@@ -39,19 +42,46 @@ describe("consent lives on the module's own page", () => {
     expect(GRID).toMatch(/\/admin\/modules\/browse\/\$\{encodeURIComponent\(m\.id\)\}/);
   });
 
-  it("the detail page spells the permissions out, rather than summarising them", () => {
+  it("the detail spells the permissions out, rather than summarising them", () => {
     // `describePermission` is the single place consent wording is decided; a chip is derived from
     // the same data but is deliberately lossy, so the full sentences must appear here.
-    expect(DETAIL).toMatch(/describePermission\(/);
+    expect(SHARED).toMatch(/describePermission\(/);
     expect(GRID, "the grid must not render consent sentences — it has no room for them").not.toMatch(
       /describePermission\(/,
     );
   });
 
+  /**
+   * One module, two routes: the overlay that expands over the catalogue and the page a pasted link
+   * or a reload gives you. **Both must render the same component.** A second hand-written copy is
+   * how one of them ends up listing fewer permissions than the other after an edit, and the one
+   * that under-lists is the one people would actually be clicking Install on.
+   */
+  it("the overlay and the page share one consent screen", () => {
+    expect(DETAIL, "the page stopped using the shared consent screen").toMatch(/<ModuleDetail/);
+    expect(OVERLAY, "the overlay stopped using the shared consent screen").toMatch(/<ModuleDetail/);
+    expect(OVERLAY, "the overlay grew its own copy of the permission list").not.toMatch(
+      /describePermission\(/,
+    );
+    expect(DETAIL, "the page grew its own copy of the permission list").not.toMatch(
+      /describePermission\(/,
+    );
+  });
+
+  /**
+   * An intercepted route is a real route. It renders on the server and is fetchable directly, so
+   * "it only appears when you click a card" is a statement about the UI, not about who can reach
+   * it — it needs the same capability check as the page it mirrors.
+   */
+  it("guards the overlay like any other admin entry point", () => {
+    expect(OVERLAY).toMatch(/requirePermission\("modules\.manage"\)/);
+    expect(DETAIL).toMatch(/requirePermission\("modules\.manage"\)/);
+  });
+
   it("counts helper capabilities as part of what is being approved", () => {
     // A module earns the right to use a helper by DECLARING the helper, not by declaring a
     // permission — so a list built from the module's own declarations alone understates it.
-    expect(DETAIL).toMatch(/helperCapabilities/);
+    expect(SHARED).toMatch(/helperCapabilities/);
     expect(CATALOGUE, "the risk chip ignores what the helpers can do").toMatch(/helperCapabilities/);
   });
 
