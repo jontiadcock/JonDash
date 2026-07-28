@@ -244,9 +244,51 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
     expect(GRID, "a drag must resolve to a grid cell").toMatch(/candidateCell/);
   });
 
-  it("refuses a cell that is already occupied", () => {
-    // Without this, two items can be placed on top of each other and one becomes unreachable.
-    expect(GRID, "the drag does not test for collisions").toMatch(/overlaps\(/);
+  /**
+   * Dropping onto an occupied cell **moves what is in the way** (owner, 2026-07-28) — it used to
+   * be refused, which was safe but read as being told off. The collision maths itself lives in
+   * `displaceFor`, tested properly in dashboard-placement.test.ts; what matters here is that the
+   * grid calls it, and calls it the one way that is stable.
+   */
+  it("displaces what is in the way instead of refusing the drop", () => {
+    expect(GRID, "the drag no longer resolves collisions").toMatch(/displaceFor\(/);
+  });
+
+  /**
+   * The board rearranges when the pointer PAUSES or is released — never continuously (owner,
+   * 2026-07-28: *"make it calculate on drop, or if someone stops moving the cursor"*).
+   *
+   * Doing it on every cell change was erratic, and their reading — *"almost as if it is
+   * calculating too fast"* — was the correct diagnosis. A target cell derived by rounding flips
+   * on the least jitter near a boundary, and each flip can send a displaced tile somewhere quite
+   * different, with every change animating. Waiting for stillness removes the cause.
+   */
+  it("shuffles on a pause, not on every pointer move", () => {
+    expect(GRID, "the settle delay is gone — displacement is continuous again").toMatch(/SETTLE_MS/);
+    expect(GRID, "no timer, so nothing waits for the pointer to stop").toMatch(
+      /settleTimer = setTimeout\(resolve, SETTLE_MS\)/,
+    );
+    // A move must only ever restart the timer, never resolve inline.
+    const moveFn = GRID.slice(GRID.indexOf("const move = (ev: PointerEvent)"));
+    const body = moveFn.slice(0, moveFn.indexOf("\n    };"));
+    expect(body, "pointermove resolves the board directly — that is the churn").not.toMatch(
+      /displaceFor\(|resolve\(\)/,
+    );
+  });
+
+  it("always resolves on drop, however fast the drag was", () => {
+    // A flick that never paused must still land somewhere.
+    const endFn = GRID.slice(GRID.indexOf("const end = () => {"));
+    expect(endFn.slice(0, 600), "a quick drag would never resolve").toMatch(/resolve\(\)/);
+  });
+
+  it("resolves every frame against the layout as it was at pointerdown", () => {
+    // Against the running result instead, dragging across a full board would push the same items
+    // again and again and scatter it. Against the original, the shuffle undoes itself on the way
+    // back — which is what makes hovering over a crowded board feel safe rather than destructive.
+    expect(GRID, "displacement is applied cumulatively — the board will scatter").toMatch(
+      /displaceFor\(new Map\(base\)\.set\(k, next\), k,/,
+    );
   });
 
   it("does not animate a tile across more than a screen", () => {

@@ -9,6 +9,37 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.16] — 2026-07-28
+
+**Drop a tile on top of another and the others shuffle out of the way.** It used to be refused —
+the tile went back where it came from, which was safe but read as being told off.
+
+**This pulls against free placement, and the tension is resolved deliberately.** Gaps are the point
+of free placement, so a general tidy-up would be exactly wrong: it would close every deliberate
+space every time anything moved. Instead **only the tiles actually in the way move**, each to its
+nearest free spot, cascading if that displaces someone else. Everything else keeps its position
+exactly. The tile you are dragging never moves — where you drop it is where it goes, and the board
+rearranges around it. Dropping A onto B usually reads as a swap, because the space A just left is
+normally B's nearest free spot.
+
+**The board only rearranges when you pause, or when you drop.** Recomputing continuously was
+genuinely erratic: the target cell comes from rounding, so it flips back and forth on the least
+jitter near a cell boundary, and each flip can send a displaced tile somewhere quite different.
+Waiting for stillness removes the cause rather than damping it, and doubles as a preview — hesitate
+over a spot and the board shows you what dropping there would do, then puts itself back if you move
+on. A drop always resolves, so a quick flick still lands.
+
+**A dropped tile now lands rather than sliding in.** Three separate attempts blamed the reflow
+animation before a frame-by-frame probe found the real cause: the tile carries a CSS transition that
+covers `transform`, so when the drag offset was removed on release, that removal was *animated* —
+the tile snapped to its new cell and then slid in over 180ms from wherever you had been holding it.
+It is now cleared at the one moment both the new position and the absence of the offset are true
+together: after the grid has moved, before the browser paints. Measured across a real drop, the tile
+occupies exactly two positions — under your cursor, then in its cell.
+
+Tiles that get **shoved** still animate, because they genuinely move and nothing else is competing
+to change them.
+
 ## [1.8.0-beta.15] — 2026-07-28
 
 **The arrange controls are just the size now.** The ←↑↓→ buttons and Reset are gone; the `3×3` badge

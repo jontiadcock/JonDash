@@ -6,8 +6,9 @@ import { placeItemsAction } from "./layout-actions";
 // `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
 import {
   DEFAULT_SPAN,
+  GEOMETRY,
   MAX_ROWS,
-  overlaps,
+  displaceFor,
   type DashboardKind,
   type DashboardProfile,
   type Placement,
@@ -49,6 +50,16 @@ const WIDE_QUERY = "(min-width: 1024px)";
  * this is simply a plausible column width that avoids a visible jump on a typical desktop.
  */
 const FALLBACK_ROW_PX = 160;
+
+/**
+ * How still the pointer must be before the board rearranges around it.
+ *
+ * Long enough that ordinary hand movement never triggers it — a drag is a continuous stream of
+ * `pointermove`, so anything much shorter fires mid-gesture and reintroduces the churn this
+ * exists to remove. Short enough that pausing over a spot answers "what would happen here?"
+ * while you are still asking. A drop always resolves regardless, so nothing depends on waiting.
+ */
+const SETTLE_MS = 220;
 
 /**
  * The dashboard grid — service tiles and module widgets in ONE arrangement (CORE-11), saved
@@ -180,26 +191,16 @@ export function DashboardGrid({
    * finger: pick a tile up by its corner and it stays held by that corner, instead of jumping so
    * that the pointer sits at its centre.
    */
-  function candidateCell(
-    from: Placement,
-    dx: number,
-    dy: number,
-    current: Map<string, Placement>,
-    self: string,
-  ): Placement | null {
+  function candidateCell(from: Placement, dx: number, dy: number): Placement | null {
     const metrics = cellMetrics();
     if (!metrics) return null;
     const col = from.col + Math.round(dx / metrics.colWidth);
     const row = from.row + Math.round(dy / metrics.rowHeight);
+    // Only the edges of the grid constrain it now. Landing on something occupied is no longer
+    // refused — `displaceFor` moves whatever is in the way. See the note in beginDrag.
     if (col < 0 || col + from.width > metrics.columns) return null;
     if (row < 0 || row > MAX_ROWS) return null;
-
-    const candidate = { col, row, width: from.width, height: from.height };
-    for (const [otherKey, other] of current) {
-      if (otherKey === self) continue;
-      if (overlaps(candidate, other)) return null;
-    }
-    return candidate;
+    return { col, row, width: from.width, height: from.height };
   }
 
   /*
@@ -210,14 +211,20 @@ export function DashboardGrid({
    * so the drag no longer asks "which item am I over, and should we swap" — it asks "which cell
    * am I over, and is it free". An item is simply put where you put it, gaps and all.
    *
-   * It also answers *"still doesn't feel super natural"* about the previous model, and for a
-   * structural reason rather than a cosmetic one: swapping meant every item after the one you
-   * held had to shuffle along as you moved, so the grid churned continuously under a gesture that
-   * had not finished. Here **nothing else moves at all** — the held item follows the pointer, the
-   * rest stay exactly where they are, and the layout changes once, when you let go.
+   * It also answers *"still doesn't feel super natural"* about the ordering model that preceded
+   * it, and for a structural reason rather than a cosmetic one: swapping meant every item after
+   * the one you held had to shuffle along as you moved, so the grid churned continuously under a
+   * gesture that had not finished.
    *
-   * The last valid cell is kept while you are over an occupied one, so dragging *across* a
-   * neighbour to reach the space beyond it works rather than being refused halfway.
+   * **Dropping onto an occupied cell now moves what is in the way** (owner, 2026-07-28), rather
+   * than being refused. Only the items actually overlapped are touched, each going to its nearest
+   * free spot — see `displaceFor`. Everything else keeps its position exactly, which is what stops
+   * a shuffle from tidying away the deliberate gaps free placement exists to allow.
+   *
+   * **Every frame is resolved against `base` — the layout as it was at pointerdown — not against
+   * the running result.** Applied cumulatively, dragging across a full board would push the same
+   * items over and over and scatter it; applied to the original, the shuffle is stable while you
+   * hover and undoes itself exactly if you move back.
    */
   function beginDrag(k: string, e: React.PointerEvent) {
     const startX = e.clientX;
@@ -226,49 +233,135 @@ export function DashboardGrid({
     if (!origin) return;
 
     /*
-     * A plain closure variable, not state or a ref: it has to be readable synchronously inside
-     * `pointermove`, state would be a render behind, and a ref written during render is both
-     * illegal and a lie about where the truth lives. `beginDrag` is defined during render, so it
-     * closes over the arrangement as it was at pointerdown — exactly what the user grabbed.
+     * `base` is the board as it was at pointerdown and is never written to; `working` is what the
+     * screen currently shows. Both are plain closure variables rather than state or a ref: they
+     * have to be readable synchronously inside `pointermove`, state would be a render behind, and
+     * a ref written during render is both illegal and a lie about where the truth lives.
+     * `beginDrag` is defined during render, so it closes over exactly what the user grabbed.
      */
+    const base = placements;
     let working = placements;
+    let lastDx = 0;
+    let lastDy = 0;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
     setDragKey(k);
     setDragDelta({ x: 0, y: 0 });
 
-    const move = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-
-      const next = candidateCell(origin, dx, dy, working, k);
-      if (next) {
-        const at = working.get(k);
-        if (!at || at.col !== next.col || at.row !== next.row) {
-          working = new Map(working).set(k, next);
-          setPlacements(working);
-        }
-      }
-
-      /*
-       * The transform is the REMAINDER, not the whole pointer delta.
-       *
-       * The item's own grid cell now changes as you drag, so it has already moved by whole cells
-       * on its own. Adding the full pointer distance on top of that moved it twice — the owner:
-       * *"it feels like they move double the distance of the cursor"*. Subtracting the distance
-       * already covered by the cell change leaves only the sub-cell remainder, so the item sits
-       * exactly under the pointer while still snapping to the grid.
-       */
+    /**
+     * How far the tile must sit from its own cell to stay under the pointer.
+     *
+     * The tile's cell only changes when the board is resolved, so between resolves this grows to
+     * the full pointer distance and the tile tracks the cursor exactly. Right after a resolve it
+     * collapses to the sub-cell remainder. Both are the same subtraction, which is why the tile
+     * never jumps: whatever the cell has done, the offset accounts for it.
+     *
+     * A `const` arrow rather than a `function` declaration on purpose — a hoisted declaration is
+     * not covered by the `if (!origin) return` guard above it, so TypeScript rightly refuses to
+     * narrow `origin` inside one.
+     */
+    const remainder = (dx: number, dy: number) => {
       const metrics = cellMetrics();
       const at = working.get(k) ?? origin;
       const cellDx = metrics ? (at.col - origin.col) * metrics.colWidth : 0;
       const cellDy = metrics ? (at.row - origin.row) * metrics.rowHeight : 0;
-      setDragDelta({ x: dx - cellDx, y: dy - cellDy });
+      return { x: dx - cellDx, y: dy - cellDy };
+    };
+
+    /**
+     * Work out the board for where the pointer is now, and show it.
+     *
+     * Called when the pointer PAUSES or when it is released — never continuously. See `move`.
+     */
+    const resolve = () => {
+      const next = candidateCell(origin, lastDx, lastDy);
+      if (!next) return;
+      const at = working.get(k);
+      if (at && at.col === next.col && at.row === next.row) return;
+      // Resolved against BASE, not against `working` — so the shuffle undoes itself when you move
+      // back, instead of accumulating as you cross the board.
+      const columns = cellMetrics()?.columns ?? GEOMETRY[profile].columns;
+      working = displaceFor(new Map(base).set(k, next), k, columns);
+      setPlacements(working);
+      // The tile has just snapped to a cell, so its offset from the pointer changed. Recompute it
+      // here or it visibly jumps by however far the cell moved.
+      setDragDelta(remainder(lastDx, lastDy));
+    };
+
+    /*
+     * **Nothing shuffles while the pointer is moving** (owner, 2026-07-28: *"make it calculate on
+     * drop, or if someone stops moving the cursor"*).
+     *
+     * Recomputing on every cell change was genuinely erratic, and their read of it — *"almost as
+     * if it is calculating too fast"* — was the right diagnosis. Two causes compounding: a target
+     * cell derived by rounding flips back and forth on the least jitter near a boundary, and each
+     * flip can send a displaced tile somewhere quite different, since the nearest free space for
+     * one anchor cell need not be adjacent to the nearest free space for the next. Every one of
+     * those changes then animated, so several were in flight at once.
+     *
+     * Waiting for a pause fixes the cause rather than damping the symptom: a shuffle now only
+     * happens at a moment the user has stopped and can see it. It doubles as a preview — hesitate
+     * over a spot and the board shows you what dropping there would do.
+     */
+    const move = (ev: PointerEvent) => {
+      lastDx = ev.clientX - startX;
+      lastDy = ev.clientY - startY;
+      setDragDelta(remainder(lastDx, lastDy));
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(resolve, SETTLE_MS);
     };
 
     const end = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
+      // A drop always resolves, however fast it was — a flick that never paused must still land.
+      if (settleTimer) clearTimeout(settleTimer);
+      resolve();
+
+      /*
+       * **The dropped tile is not animated at all** — it snaps into its cell.
+       *
+       * Forgetting its previous rect is what does that: the FLIP effect below iterates
+       * `prevRects`, so a key that isn't there simply isn't animated, and the pass right
+       * afterwards records its settled position for next time.
+       *
+       * Three attempts at animating this taught the lesson. A drop is the one moment when
+       * *several* things move the tile at once — the drag transform comes off, the layout effect
+       * fires for the local update, and the server round-trip fires it again — and each one
+       * computes its own idea of where the tile was coming from. Measured on a real drop: the
+       * tile flashed to (1010, 244), then to (−108, 715), i.e. off-screen, before easing back in
+       * over 200ms. That is the owner's *"it studders briefly when dropped"*, and their earlier
+       * *"bounce in a random direction"* was the same fault less tamed.
+       *
+       * There is nothing to animate anyway. The tile is already under the pointer, and its cell
+       * is at most half a cell away, because the drag transform is only the sub-cell remainder.
+       * Animating a journey that short is all risk and no benefit.
+       *
+       * The tiles that were SHOVED still animate — they genuinely move, from a position nothing
+       * else is competing to change, and that movement is the point of the shuffle.
+       */
+      prevRects.current.delete(k);
+
+      /*
+       * Ask the layout effect to take the drag transform off WITHOUT animating it.
+       *
+       * **This is what the stutter actually was, and it was never FLIP** — three fixes aimed at
+       * the wrong thing before a probe caught it. The frame carries Tailwind's `transition` class,
+       * which includes `transform`. While dragging, the tile is offset by an inline transform; on
+       * release React removes that property, and the class dutifully **animates the removal**. So
+       * the tile snapped to its new cell and then slid in from wherever it had been held.
+       * Measured: the cell changed at 15ms with the inline style already gone, while the computed
+       * transform was still -340px, easing to zero over the next 180ms.
+       *
+       * **Why a note for later rather than doing it here.** Clearing the transform in this handler
+       * does stop the slide, but React has not yet committed the new cell — so for one frame the
+       * tile paints at the cell it came FROM, which is a flash in the other direction. The layout
+       * effect runs after the DOM has moved and before the browser paints, which is the one moment
+       * both facts are true at once.
+       */
+      settlingRef.current = k;
+
       setDragKey(null);
       setDragDelta({ x: 0, y: 0 });
       commit(working); // ONE write, for where it actually ended up
@@ -291,7 +384,31 @@ export function DashboardGrid({
    * would fight that.
    */
   const prevRects = useRef(new Map<string, DOMRect>());
+  /** The tile just dropped, if any — its drag transform must come off without animating. */
+  const settlingRef = useRef<string | null>(null);
+
   useLayoutEffect(() => {
+    /*
+     * A dropped tile lands; it does not glide in.
+     *
+     * This runs after React has moved the tile to its new cell and removed the inline drag
+     * transform, but BEFORE the browser paints — the only moment when both the new position and
+     * the absence of the transform are true together. Suppressing the transition and forcing a
+     * flush here makes "no transform" a fact the browser commits rather than a destination it
+     * animates towards. Doing it any earlier paints one frame at the old cell instead.
+     */
+    const settling = settlingRef.current;
+    if (settling) {
+      settlingRef.current = null;
+      const el = frames.current.get(settling);
+      if (el) {
+        el.style.transition = "none";
+        el.style.transform = "";
+        void el.offsetWidth; // commit it, then hand styling back to the class
+        el.style.transition = "";
+      }
+    }
+
     const now = new Map<string, DOMRect>();
     frames.current.forEach((el, k) => now.set(k, el.getBoundingClientRect()));
 
@@ -335,6 +452,27 @@ export function DashboardGrid({
         void el.offsetWidth;
         el.style.transition = "transform 180ms cubic-bezier(0.2, 0, 0.2, 1)";
         el.style.transform = "";
+
+        /*
+         * Hand the element back to its stylesheet once the settle finishes.
+         *
+         * Both properties were being left inline forever. The stranded `transition` then governed
+         * everything else the element does — most visibly the hover lift, which is applied by a
+         * class and was being re-timed to 180ms of FLIP's easing. Since the pointer is by
+         * definition over a tile you have just dropped, that lift fires during the settle, and
+         * the two moving together is part of what read as a bounce.
+         *
+         * `once` so the listener cannot accumulate across drags, and it is registered before the
+         * transition can finish, so it cannot be missed.
+         */
+        el.addEventListener(
+          "transitionend",
+          () => {
+            el.style.transition = "";
+            el.style.transform = "";
+          },
+          { once: true },
+        );
       });
     }
     prevRects.current = now;

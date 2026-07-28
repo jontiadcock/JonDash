@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.16",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: dropping a tile onto another one now moves the others out of the way instead of refusing. Only the tiles actually in the way shift, each to the nearest free space, so any gaps you have deliberately left elsewhere stay exactly as they are - and the tile you are holding always lands where you put it. The board rearranges when you pause over a spot or when you let go, rather than constantly while you move, which stops the shuffling looking frantic and gives you a preview: hover somewhere for a moment and you can see what dropping there would do. Dropping a tile also lands cleanly now instead of sliding into place from where you were holding it."
+    },
+    {
       "version": "1.8.0-beta.15",
       "date": "2026-07-28",
       "type": "minor",

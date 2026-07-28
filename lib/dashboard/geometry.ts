@@ -109,6 +109,103 @@ export function overlaps(a: Placement, b: Placement): boolean {
 }
 
 /**
+ * The nearest free spot for one item, searched outward from where it already is.
+ *
+ * "Nearest" is what keeps a shuffle legible: an item bumped by a neighbour should end up beside
+ * where it was, not flung to the end of the grid. Ties break upward and leftward, so a row that
+ * had a hole in it gets filled rather than a new row being started.
+ */
+function nearestFree(
+  item: Placement,
+  current: Map<string, Placement>,
+  selfKey: string,
+  columns: number,
+): Placement | null {
+  const width = Math.min(item.width, columns);
+  // Far enough to always find room — a fresh row below everything is empty by definition.
+  const deepest = Math.max(0, ...[...current.values()].map((p) => p.row + p.height));
+  const candidates: Placement[] = [];
+  for (let row = 0; row <= deepest + item.height + 1; row++) {
+    for (let col = 0; col + width <= columns; col++) {
+      candidates.push({ col, row, width, height: item.height });
+    }
+  }
+  candidates.sort((a, b) => {
+    const da = (a.col - item.col) ** 2 + (a.row - item.row) ** 2;
+    const db = (b.col - item.col) ** 2 + (b.row - item.row) ** 2;
+    if (da !== db) return da - db;
+    if (a.row !== b.row) return a.row - b.row;
+    return a.col - b.col;
+  });
+  for (const c of candidates) {
+    let clash = false;
+    for (const [k, p] of current) {
+      if (k !== selfKey && overlaps(c, p)) {
+        clash = true;
+        break;
+      }
+    }
+    if (!clash) return c;
+  }
+  return null;
+}
+
+/**
+ * Move whatever is in the anchor's way, and nothing else.
+ *
+ * Owner, 2026-07-28: *"when I drop a tile on top of another tile, [make] the other tiles shuffle
+ * over."* Dropping onto an occupied cell used to be refused outright — the tile returned to where
+ * it came from, which was safe but felt like being told off.
+ *
+ * **This is in tension with free placement and the tension is resolved deliberately.** Gaps are
+ * the point of free placement — *"one icon at the top, and one at the bottom, not directly next to
+ * each other"* — so a general re-pack is exactly wrong: it would tidy away every deliberate space
+ * every time anything moved. Instead only the items the anchor actually overlaps are touched, each
+ * moves to its NEAREST free spot, and the cascade repeats for anything they in turn displace.
+ * Everything not in the way is left byte-for-byte alone.
+ *
+ * **The anchor never moves.** Where you dropped it is where it goes; the grid rearranges around it
+ * rather than negotiating with it.
+ *
+ * **Always call this against the layout as it was when the drag STARTED**, with the anchor moved
+ * to its candidate cell — never against the running result. Applied cumulatively, dragging across
+ * a full grid would push the same items again and again and scatter the board; applied to the
+ * original each time it is stable and reversible, so moving back undoes the shuffle exactly.
+ */
+export function displaceFor(
+  layout: Map<string, Placement>,
+  anchorKey: string,
+  columns: number,
+): Map<string, Placement> {
+  const result = new Map(layout);
+  if (!result.has(anchorKey)) return result;
+
+  // `settled` includes the anchor from the start: it is the one thing that may not be moved.
+  const settled = new Set<string>([anchorKey]);
+  const queue: string[] = [anchorKey];
+
+  // A bound rather than a proof. Each pass settles at least one item, so it terminates well
+  // inside this; the guard exists so a shape nobody predicted degrades into a redraw rather than
+  // locking the browser mid-gesture.
+  let guard = 0;
+  while (queue.length > 0 && guard++ < 500) {
+    const key = queue.shift()!;
+    const box = result.get(key);
+    if (!box) continue;
+    for (const [otherKey, other] of [...result]) {
+      if (otherKey === key || settled.has(otherKey)) continue;
+      if (!overlaps(box, other)) continue;
+      const moved = nearestFree(other, result, otherKey, columns);
+      if (!moved) return layout; // nowhere to put it — leave the board untouched
+      result.set(otherKey, moved);
+      settled.add(otherKey);
+      queue.push(otherKey);
+    }
+  }
+  return result;
+}
+
+/**
  * Assign a cell to every visible item — the shared source of truth for where things go.
  *
  * **Why the server computes this rather than letting CSS place things.** Free placement (owner,
