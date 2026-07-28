@@ -61,8 +61,18 @@ their **Catalog** entry (which names the version each shipped in) and in `CHANGE
 **modules platform is complete**: MOD-01 (v1.4.0), MOD-02 (the `health-monitor` module), MOD-08 (v1.5.0),
 MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 
-**Now in flight: OPS-18** — moved to the front on 2026-07-25 at the owner's direction, because it blocks
-another session's work while nothing blocks it.
+**Now in flight: the 1.8.0 UI-rework release** (from 2026-07-27, owner-directed). It is a *release*
+rather than a queue item — roughly thirty changes agreed up front as a dozen groups, shipping as a
+run of betas, and it cuts across items already listed below as well as work that never had an ID.
+Six groups remain: Network & HTTPS · the Add-ons page and Browse grid · the module detail page ·
+backup and restore · OPS-16 · the help page, support line and responsive sweep.
+
+**The queue below therefore does not describe what is being built right now.** Shipped 1.8.0 items
+carry their version in the catalog, as usual; the release's own plan is the day-to-day authority
+while it runs.
+
+**Previously in flight: OPS-18** — moved to the front on 2026-07-25 at the owner's direction, because
+it blocked another session's work while nothing blocked it.
 
 1. ▶️ **OPS-18 — Elevation binaries (`jondash-grant`)** *(active, owner-directed 2026-07-25)* — unblocks
    the add-ons session's `host-services` helper. **Windows only** (owner decision) — the Linux design is
@@ -76,7 +86,9 @@ another session's work while nothing blocks it.
    BUG-53/54/55 with it
 4. ⏳ **SEC-04 — Session lifecycle hardening**
 5. ⏳ **SEC-05 — Trusted-IP auto-login**
-6. ⏳ **OPS-13 — Email: bounded, diagnosable connection testing** — from **BUG-21**; do it with that fix
+6. ✅ **OPS-13 — Email: bounded, diagnosable connection testing** — **already satisfied**, verified
+   2026-07-27 when 1.8.0 scheduled it. Nothing was built; see the catalog entry, which records why so
+   it is not scheduled a third time
 7. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
 8. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
 9. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
@@ -1060,7 +1072,23 @@ session so it wouldn't need a `SettingsPanel` for one boolean. Helpers merged in
 "Shared capabilities"; `/admin/helpers` redirects. Enforcement needed no new code — `ctx.can()`
 already reads stored grants.
 
-#### CORE-11 · One dashboard — service tiles and module widgets in the same arrangeable grid — ⏳ Planned (owner request 2026-07-27)
+#### CORE-11 · One dashboard — service tiles and module widgets in the same arrangeable grid — ✅ Shipped v1.8.0-beta.5 (2026-07-27)
+
+**Shipped, and then went further than this entry describes.** One grid, one arrangement across both
+kinds, stored in `DashboardLayout` (`ModuleLayout` renamed — it stopped being about modules) keyed by
+`kind` + `refId` so one arrangement spans two tables.
+
+The "one ordering" this entry specifies survived only three betas: **v1.8.0-beta.13 replaced ordering
+with free placement** — an explicit column and row per item, so a tile can sit anywhere with gaps
+around it. The owner asked for it directly after using the ordering version: *"I want to be able to
+arrange the grid in any way I want… one icon at the top, and one at the bottom, not directly next to
+each other."*
+
+**A user's arrangement is never written to `Link.sortOrder`** — a role tile is shared by every member
+of its Service Group, so writing one person's layout there would reorder everybody's dashboard.
+
+Original specification below.
+
 Merge the service-tile grid and the module-widget grid so everything on the dashboard is arranged
 together, in one ordering.
 
@@ -1074,7 +1102,26 @@ tile is small, fixed-size and iconic, with its own `sortOrder` on `Link`; a widg
 and renders arbitrary module content, ordered by `ModuleLayout`. One grid means one ordering across
 two tables, and deciding whether a tile can be resized like a widget or stays a fixed unit.
 
-#### CORE-12 · A separate saved dashboard layout per device — ⏳ Planned (owner request 2026-07-27)
+#### CORE-12 · A separate saved dashboard layout per device — ✅ Shipped v1.8.0-beta.5 (2026-07-27)
+
+**Shipped as specified, keyed on the viewport.** `DashboardLayout.profile` is `wide` (≥1024px) or
+`narrow`, the client states which it is saving, and the boundary is defined once in
+`dashboard-grid.tsx` so it cannot drift from the grid's own breakpoint.
+
+**The write reads the viewport at save time rather than trusting component state** — belt and braces,
+because a missed media-query event would file an arrangement against the *other* device, which is
+precisely what this feature exists to prevent.
+
+**Honest limit:** the server cannot see the viewport, so it renders `wide` and a narrow client
+corrects on mount. Both profiles start identical, so the reflow only appears once someone has
+deliberately made them differ.
+
+The "arrange affordances for a phone" half below was overtaken: dragging now works on touch
+(v1.8.0-beta.11), and the ← → buttons it refers to were **removed entirely** in v1.8.0-beta.15 at the
+owner's request, free placement having made them a dozen clicks to do what one drag does.
+
+Original specification below.
+
 Rearranging the dashboard on a phone must not reorder it on the PC. Today `ModuleLayout` is per-user
 only, so the two fight.
 
@@ -1089,7 +1136,17 @@ window resizing then land in the right profile on their own.
 and the ← → move buttons mean up/down — the narrow layout needs its own arrange affordances rather
 than the desktop ones shrunk.
 
-#### CORE-14 · The dashboard uses the screen it is given — ⏳ Planned (owner request 2026-07-27)
+#### CORE-14 · The dashboard uses the screen it is given — ✅ Shipped v1.8.0-beta.5 (2026-07-27)
+
+**Shipped without removing the reading measure globally.** A page marks itself `data-wide-page` and
+the shell widens around it via `:has()`; the header widens with it, or the brand and account menu
+would sit in a narrow column above a full-width page and read as misalignment.
+
+The cap is right for prose and forms and wrong for a grid of tiles — a 2000px-wide settings form
+would have been worse than the problem being fixed, so only the dashboard opts out.
+
+Original specification below.
+
 `app/(app)/layout.tsx` caps every page at `max-w-6xl` (1152px) and centres it. On a wide display the
 dashboard is squeezed into the middle third with a large empty margin either side — reported with a
 screenshot on a ~2000px screen.
