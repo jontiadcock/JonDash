@@ -87,17 +87,23 @@ export async function importBackupAction(
     return { error: "That backup doesn’t contain anything to restore." };
   }
 
+  let report;
   try {
-    await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
+    report = await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
   } catch {
     return { error: "Restore failed and was rolled back. Your current data is unchanged." };
   }
 
   const summary = parsed.includes.map((c) => CATEGORY_LABELS[c]).join(", ");
   await audit("backup.restored", { detail: summary });
+  // A skipped add-on table is a partial restore. It goes in the audit log as well as on screen,
+  // because the person reading the log a month later is the one asking why the data isn't there.
+  if (report.skipped.length) {
+    await audit("backup.restore.partial", { detail: report.skipped.join(" | ").slice(0, 500) });
+  }
 
   // Notices the admin should act on.
-  const notices: string[] = [];
+  const notices: string[] = [...report.skipped];
   const hadCredentials = !!parsed.data.users?.some((u) => !!u.credentials);
   if (parsed.includes.includes("users") && !hadCredentials) {
     notices.push(

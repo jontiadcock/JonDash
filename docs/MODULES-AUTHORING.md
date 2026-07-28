@@ -360,6 +360,37 @@ runs behind the normal "must be signed in" guard; declare `adminOnly: true` if o
 
 ---
 
+## Your data in backups (JonDash 1.8.0+)
+
+Your settings and `ModuleRecord` entries have always been backed up. **Your own `mod_<id>_*` SQL
+tables are not, unless you declare them:**
+
+```ts
+backup: {
+  tables: [
+    { name: "checks" },
+    { name: "targets", secret: ["apiKey"] },
+  ],
+},
+```
+
+- **Names are logical and un-prefixed** — the same names your migrations use. JonDash resolves them
+  through `moduleTableName()`, so you never write `mod_yourid_checks` and the two can't drift.
+- **Undeclared means not exported.** Nothing is taken without being asked for.
+- **`secret` columns follow a rule you can't see from your side:** they are present in an
+  **encrypted** backup and **blanked out of an unencrypted one**. An unencrypted backup deliberately
+  carries nothing that grants access to anything, and a stored API key is exactly that. List every
+  column holding a credential, a token, or a password.
+- **Restored only into the same version of your module.** The rows carry the version that produced
+  them. If the install is on a different version, the data is left alone and the admin is told why,
+  because JonDash has no way to know whether your `0.0.8` renamed a column. **This is worth designing
+  for:** if you need data to survive an upgrade, migrate it in your own SQL migration, exactly as you
+  would for any other schema change — the backup is not the migration path.
+
+Helpers declare the same block for their `hlp_<id>_*` tables. See `docs/HELPERS-DESIGN.md`.
+
+---
+
 ## Strengths & limits (read before you build)
 **You can:** add a dashboard widget, add your own pages, store settings (encrypted) and structured data
 (your own `mod_<id>_*` SQL tables), call external services (with `network:outbound`), and reuse JonDash's

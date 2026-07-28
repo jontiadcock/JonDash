@@ -9,6 +9,28 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.23] — 2026-07-29
+
+**Add-ons keep their data through a backup and restore.** A backup already carried each module's
+settings and stored records, but not the tables a module builds for itself — so restoring left a
+health monitor with its checks configured and none of their history. Modules, **and the shared
+capabilities behind them**, can now say which of their own tables belong in a backup, and JonDash
+carries them.
+
+**It refuses to write that data into a different version of the add-on**, and tells you it did. The
+rows remember which version produced them; if the version installed here isn't the same one, the
+data is left untouched and you get a plain explanation naming both versions and the one to install
+if you want it back. JonDash has no way to know whether an add-on's update renamed a column, and
+writing old rows into a new table corrupts an add-on rather than restoring it. Anything skipped is
+recorded in the audit log too, because the person asking where the data went is usually reading the
+log weeks later.
+
+**Anything an add-on marks as a credential follows the same rule as the rest of JonDash**: kept in
+an encrypted backup, left out of a plain one.
+
+*For add-on authors:* declare `backup: { tables: [{ name, secret? }] }` in your module or helper.
+Undeclared tables are never exported. See `docs/MODULES-AUTHORING.md` and `docs/HELPERS-DESIGN.md`.
+
 ## [1.8.0-beta.22] — 2026-07-29
 
 **Encryption is a checkbox now, and the list underneath shows what it changes.** Backing up used to

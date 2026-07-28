@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.23",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: add-ons keep their own data through a backup and restore. Until now a backup carried a module's settings but not the tables it builds for itself, so restoring left something like a health monitor configured but with none of its history. Modules and the shared capabilities behind them can now declare which of their tables belong in a backup. JonDash will not write that data into a different version of the add-on than the one that produced it - it leaves the data alone and tells you which version you would need to install to get it back, because writing old rows into a changed table corrupts an add-on rather than restoring it. Anything skipped is written to the audit log as well. Credentials stored by an add-on follow the same rule as everything else: kept in an encrypted backup, left out of a plain one."
+    },
+    {
       "version": "1.8.0-beta.22",
       "date": "2026-07-29",
       "type": "minor",

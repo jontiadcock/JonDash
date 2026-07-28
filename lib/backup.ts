@@ -6,6 +6,12 @@ import { readIcon, writeNamedIcon, isValidIconFilename } from "@/lib/icons";
 import { collectDataConfigFiles, writeDataConfigFiles, type ConfigFile } from "@/lib/config-backup";
 import { readSecretsFileText, writeSecretsFileText, reloadEncryptionKey } from "@/lib/config";
 import { clearSettingsCache } from "@/lib/settings";
+import {
+  collectAddonTables,
+  restoreAddonTables,
+  type AddonTableDump,
+  type AddonRestoreReport,
+} from "@/lib/backup-addons";
 
 /**
  * Full server backup / selective restore.
@@ -113,12 +119,13 @@ type BackupData = {
    * had forgotten their configuration and their stored data — the module was still
    * installed, and empty.
    *
-   * `records` is the generic per-module store; `layouts` is each user's widget
-   * arrangement. Deliberately NOT included: the module's own `mod_<id>_*` SQL tables. Those
-   * are created by the module's migrations, whose schema belongs to the module version
-   * installed at restore time — writing rows from a different version back into them is how
-   * you corrupt a module rather than restore it. Recorded as a known limit, not an
-   * oversight; see docs/ROADMAP.md.
+   * `records` is the generic per-module store; `layouts` is each user's widget arrangement.
+   *
+   * **The module's own `mod_<id>_*` SQL tables now travel too** — see `addonTables` below (OPS-16,
+   * v1.8.0-beta.23). They used to be omitted entirely, on the reasoning that writing rows from one
+   * version into a schema built by another corrupts a module rather than restoring it. That
+   * reasoning still holds and is now enforced by a version check, rather than by leaving the data
+   * behind for everyone including the installs where it would have been perfectly safe.
    */
   modules?: {
     id: string;
@@ -140,6 +147,12 @@ type BackupData = {
      */
     layouts: { userId: string; width: number; height: number; sortOrder: number }[];
   }[];
+  /**
+   * Add-ons' own SQL tables (OPS-16) — the gap the `modules` note above used to describe as a
+   * known limit. Each dump carries the version that produced it; restore writes it back only into
+   * that same version and reports anything it skipped.
+   */
+  addonTables?: AddonTableDump[];
   /**
    * The whole dashboard arrangement — widgets AND service tiles, per device profile
    * (CORE-11 / CORE-12). Top-level rather than nested under modules, because a `link` row
@@ -307,6 +320,12 @@ export async function buildBackupData(includeSensitive: boolean): Promise<Backup
     }));
   }
 
+  // Add-ons' own tables (OPS-16). Independent of the `modules` rows above: a HELPER has no Module
+  // row at all, and its stored credentials are exactly the thing whose absence makes a restored
+  // install look complete and fail to talk to anything.
+  const addonTables = await collectAddonTables(includeSensitive);
+  if (addonTables.length) data.addonTables = addonTables;
+
   // The real arrangement: both kinds, both profiles, top-level because a service tile's
   // layout belongs to no module. Written independently of `modules` — a dashboard can be
   // arranged with no modules installed at all, and that arrangement is still worth keeping.
@@ -348,7 +367,9 @@ function includesFor(data: BackupData, hasIcons: boolean): BackupCategory[] {
   if (data.settings?.length) out.push("settings");
   if (data.config?.length) out.push("config");
   if (hasIcons) out.push("icons");
-  if (data.modules?.length) out.push("modules");
+  // A helper's tables count as module data for the purposes of this list: an install can have
+  // add-on data with no Module rows at all, and reporting "nothing to restore" would be wrong.
+  if (data.modules?.length || data.addonTables?.length) out.push("modules");
   if (data.audit?.length) out.push("audit");
   return out;
 }
@@ -609,20 +630,23 @@ export function parseBackup(
 }
 
 /**
- * Selective full REPLACE restore of the chosen categories. Roles + access roles are
+ * Full REPLACE restore of the categories the backup contains. Roles + access roles are
  * restored before users so memberships reconnect. Filesystem writes (config, key,
  * icons) happen after the DB transaction commits.
  *
- * `includes` is the caller's selection (already intersected with what's present).
  * When users are restored from an ENCRYPTED backup, the backup's encryption key is
  * adopted so their TOTP + secret settings decrypt (BUG-04); the in-process key cache
  * is reloaded so it takes effect immediately.
+ *
+ * **Returns what it could not do.** Add-on tables are only written back into the same version that
+ * produced them (OPS-16), so a restore can legitimately leave some data behind — and the one thing
+ * that must never happen is that happening quietly. The caller surfaces this list.
  */
 export async function applyRestore(
   data: BackupData,
   includes: BackupCategory[],
   iconFiles: IconFile[] = [],
-): Promise<void> {
+): Promise<AddonRestoreReport> {
   const restore = (c: BackupCategory) => includes.includes(c);
   const adoptKey = restore("users") && !!data.encryptionKey;
 
@@ -863,4 +887,18 @@ export async function applyRestore(
       await writeNamedIcon(icon.filename, icon.data).catch(() => {});
     }
   }
+
+  /*
+   * Add-on tables last, and outside the transaction above (OPS-16).
+   *
+   * These are third-party schemas addressed by name, so a failure in one add-on's data must not
+   * roll back the restore of the app itself — by this point the accounts, settings and
+   * configuration are already in place, and losing all of that because a module's table had an
+   * unexpected column would be the wrong trade by a wide margin. Each table gets its own
+   * transaction inside `restoreAddonTables`, so a table is either the backup's or untouched.
+   */
+  if (restore("modules") && data.addonTables?.length) {
+    return await restoreAddonTables(data.addonTables);
+  }
+  return { skipped: [], restored: [] };
 }

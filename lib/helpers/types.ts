@@ -1,5 +1,10 @@
 import type { ComponentType } from "react";
-import type { DeclaredPermission, ModuleContext, UninstallQuestion } from "@/lib/modules/types";
+import type {
+  BackupTableDecl,
+  DeclaredPermission,
+  ModuleContext,
+  UninstallQuestion,
+} from "@/lib/modules/types";
 
 /**
  * What a helper's settings panel is given.
@@ -318,6 +323,21 @@ export type HelperDefinition = {
   /** Path (relative to the helper folder) to `NNN_name.sql` migrations for its own
    *  `hlp_<id>_*` tables. */
   migrations?: string;
+
+  /**
+   * Which of this helper's own `hlp_<id>_*` tables belong in a backup (OPS-16).
+   *
+   * Identical in shape and rules to a module's declaration — see `BackupTableDecl` and the note on
+   * `ModuleDefinition.backup`. Names are logical and un-prefixed; core resolves them through
+   * `helperTableName()`. Undeclared means not exported. `secret` columns are kept in an encrypted
+   * backup and blanked from an unencrypted one.
+   *
+   * **Helpers were added to this at the add-ons session's request** (owner, 2026-07-27): the MCP
+   * helper keeps its keys and settings in `hlp_mcp_*`, and a backup that took every module's data
+   * while ignoring the helper holding the credentials would restore an install that looked complete
+   * and could not talk to anything.
+   */
+  backup?: { tables: BackupTableDecl[] };
 
   /**
    * Runs ONCE per server start, before requests are served (Next `instrumentation.ts`).

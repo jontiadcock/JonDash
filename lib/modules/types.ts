@@ -280,6 +280,18 @@ export type ModulePageProps = { ctx: ModuleContext; path: string[] };
 export type ModuleSettingsPanelProps = { ctx: ModuleContext };
 
 /**
+ * One table an add-on wants carried in backups (OPS-16). Declared by modules *and* helpers, so it
+ * lives here — the shared contract file — rather than beside the backup code, which is
+ * `server-only` and would break any client component that touched a definition.
+ */
+export type BackupTableDecl = {
+  /** The logical, un-prefixed name used in the add-on's own migrations. */
+  name: string;
+  /** Columns holding credentials or tokens: kept in an encrypted backup, blanked from a plain one. */
+  secret?: string[];
+};
+
+/**
  * The default export of `modules/<id>/module.ts`. `id` is a stable lowercase-kebab
  * string equal to the folder name.
  */
@@ -322,6 +334,31 @@ export type ModuleDefinition = {
    * schedule is inspectable without executing anything.
    */
   schedules?: ModuleSchedule[];
+
+  /**
+   * Which of this module's own `mod_<id>_*` tables belong in a backup (OPS-16).
+   *
+   * Table names are **logical and un-prefixed** — the same names the module's migrations use —
+   * and core resolves them through `moduleTableName()`, so a module never writes the physical
+   * name and the two halves can never drift apart.
+   *
+   * **Undeclared means not exported.** A module's tables are its own; core takes a copy only where
+   * asked to, and names anything it skipped in the restore report rather than deciding for you.
+   *
+   * `secret` lists columns holding credentials or tokens. They follow core's rule, which is not
+   * discoverable from a module's side: **present in an encrypted backup, blanked out of an
+   * unencrypted one.**
+   *
+   * ```ts
+   * backup: { tables: [{ name: "checks" }, { name: "targets", secret: ["apiKey"] }] }
+   * ```
+   *
+   * **Restored only into the same module version.** The rows carry the version that produced them
+   * and are written back only on an exact match; anything else is skipped and reported, because
+   * core cannot know whether an upgrade changed a column, and writing rows into a schema that no
+   * longer fits them corrupts a module rather than restoring it.
+   */
+  backup?: { tables: BackupTableDecl[] };
 
   /** Restrict all of the module's UI to full admins. */
   adminOnly?: boolean;

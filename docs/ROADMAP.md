@@ -96,9 +96,8 @@ it blocked another session's work while nothing blocked it.
 9. ✅ **OPS-08 — Let's Encrypt: request without a restart, errors verbatim** — shipped **v1.8.0-beta.21**
 10. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
-11. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
-   (version-matched). Owner request 2026-07-25; deserves its own focused beta. **Position not yet confirmed
-   by the owner** — move it freely
+11. ✅ **OPS-16 — Back up & restore a module's *and helper's* own data tables** — shipped
+   **v1.8.0-beta.23**, version-matched with a report for anything skipped
 12. ⏳ **OPS-17 — Revert to a chosen version ("custom version")** — pick any published version and roll
    back to it; **no compatibility work, just a warning + disclaimer** ("this may break your JonDash").
    Owner request 2026-07-25. **Position not yet confirmed by the owner** — move it freely
@@ -547,8 +546,25 @@ forward) to it from Admin → Updates, rather than only taking the newest on the
 - Keep it out of the way of the normal update path (it isn't an "update"), and audit which version was
   chosen and by whom.
 
-#### OPS-16 · Back up & restore a module's own data tables — ⏳ Planned
-Owner request 2026-07-25 (asked "does backup cover module data?"). **Partly, today.** A backup
+#### OPS-16 · Back up & restore a module's own data tables — ✅ Shipped v1.8.0-beta.23
+**Shipped, and widened to helpers** (owner, 2026-07-27, after the add-ons session raised it — the MCP
+helper keeps its credentials in `hlp_mcp_*`, so a backup that took every module's data and skipped
+the helper holding the keys would restore an install that looked complete and could not talk to
+anything).
+
+A module or helper declares `backup: { tables: [{ name, secret? }] }` — logical names, resolved by
+core through `moduleTableName()`/`helperTableName()`. **Undeclared means not exported.** `secret`
+columns follow core's own rule (kept in an encrypted backup, blanked from an unencrypted one), which
+is the part no add-on author could have known from their side.
+
+**Restore is gated on an exact version match**, in both directions — not "newer is fine", because
+core cannot know whether a patch release renamed a column, and the cost of guessing wrong is a
+corrupted module rather than a missing one. Anything skipped is reported on screen **and written to
+the audit log**, since the person asking why the data is missing is usually reading the log a month
+later. Add-on tables are written after the main restore transaction commits, each in its own
+transaction: a third-party schema failing must not roll back the restore of the app itself.
+
+*Original scope below.* Owner request 2026-07-25 (asked "does backup cover module data?"). **Partly, at the time.** A backup
 (`lib/backup.ts`) already carries each module's **settings**, its generic key/value **`records`** store,
 and each user's widget **`layout`** — but **not** the module's bespoke **`mod_<id>_*` SQL tables** (the
 ones a module creates through its own migrations — e.g. health-monitor's history). Those are excluded on

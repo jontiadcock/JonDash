@@ -228,6 +228,28 @@ opens a page. Two constraints follow from "must complete before serving":
 **Admin surface.** A read-only **Helpers** page: each installed helper, its version, and which modules
 depend on it — so "why is this here?" has an answer. No install, import or remove controls.
 
+## Helper data in backups (JonDash 1.8.0+, OPS-16)
+
+A helper declares its own tables the same way a module does, on `HelperDefinition`:
+
+```ts
+backup: { tables: [{ name: "keys", secret: ["token"] }, { name: "settings" }] },
+```
+
+Names are logical and un-prefixed; core resolves them through `helperTableName()`. Undeclared means
+not exported. `secret` columns are kept in an **encrypted** backup and blanked out of an unencrypted
+one — the same rule core applies to its own secret settings, and one a helper author has no way to
+discover from their side.
+
+Restored **only into the same helper version**, with anything else skipped and reported. Rule 11's
+reasoning applies: a helper's tables belong to the helper, and core writing a different version's
+rows into them would be core corrupting data it deliberately does not otherwise read.
+
+**Why helpers are in scope at all**, when they have no `Module` row and no dashboard presence: the
+add-ons session raised it and the owner scoped it in on 2026-07-27. The MCP helper keeps its keys and
+settings in `hlp_mcp_*`, so a backup that took every module's data and ignored the helper holding the
+credentials would restore an install that looked complete and could not talk to anything.
+
 ## Where helper code lives
 
 Helpers live in the **official addons repository** (`helpers/<id>/`) and are installed from it, exactly
