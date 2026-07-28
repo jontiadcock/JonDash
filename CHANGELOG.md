@@ -9,6 +9,19 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.20] — 2026-07-29
+
+**The module panel really does expand out of the card now.** Two previous betas claimed this and
+neither delivered it. The animation was running correctly all along — for a fifth of a millisecond,
+because the code read the interface style's timing as a bare number and the built stylesheet writes
+`220ms` as `.22s`. Measured on a live instance this time rather than reasoned about: the panel's
+first frame is exactly the clicked card's size and position, and it grows from there.
+
+**An entrance no longer depends on JavaScript getting its timing right.** The panel and its backdrop
+now carry a plain stylesheet animation as a floor, with the grow-from-the-card effect layered on
+top when it can be measured. Each interface style still decides the speed, XP and Terminal still
+open instantly, and reduced motion still turns it all off.
+
 ## [1.8.0-beta.19] — 2026-07-28
 
 **The module panel now actually expands.** In beta.18 it appeared fully formed instead of growing

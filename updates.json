@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.20",
+      "date": "2026-07-29",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: the module panel in Browse genuinely expands out of the card you clicked now - the previous two betas said so and neither did it. The animation had been running for a fifth of a millisecond because of how the timing was read from your interface style. The panel also falls back to a plain animation if anything goes wrong with the clever one, so it can never simply appear again. Windows XP and Terminal still open instantly, and reduced motion still turns everything off."
+    },
+    {
       "version": "1.8.0-beta.19",
       "date": "2026-07-28",
       "type": "patch",

@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { takeOrigin } from "./expand-origin";
-
-/** `useLayoutEffect` warns during a server render, and this component has no server render to do. */
-const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * How long this movement gets, and how it eases.
@@ -21,14 +18,36 @@ const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffe
  * zeroes mean different things and only one of them is an accessibility request. Reading the
  * preference here keeps it true even if a style ever forgets to set a duration.
  */
+/**
+ * A CSS `<time>` in milliseconds — **units included**, which is the whole point.
+ *
+ * `parseFloat` on a duration token is the bug that made this animation invisible twice. The
+ * stylesheet says `220ms`, but the built CSS says **`.22s`**: Tailwind's minifier rewrites a time
+ * to whichever unit is shorter, and nothing in the source hints that it will. `parseFloat(".22s")`
+ * is `0.22`, so every panel expanded over a fifth of a millisecond and looked like it simply
+ * appeared. It survived review because the value *looked* like a number and the hand-written probe
+ * that verified the animation had `380ms` typed into it, unminified — so the probe was the one
+ * place the defect could not occur.
+ *
+ * `ms` is tested before `s` because "ms" also ends in "s".
+ */
+function cssMs(value: string): number | null {
+  const raw = value.trim();
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n)) return null;
+  if (/ms$/i.test(raw)) return n;
+  if (/s$/i.test(raw)) return n * 1000;
+  return n;
+}
+
 function motion() {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
     return { duration: 0, easing: "linear" };
   }
   const css = getComputedStyle(document.documentElement);
-  const token = parseFloat(css.getPropertyValue("--motion-slow"));
+  const token = cssMs(css.getPropertyValue("--motion-slow"));
   return {
-    duration: Number.isFinite(token) ? token : 260,
+    duration: token ?? 260,
     easing: css.getPropertyValue("--motion-ease").trim() || "ease-out",
   };
 }
@@ -131,23 +150,48 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
     setTimeout(go, out + 80);
   }, [router]);
 
-  useBeforePaint(() => {
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [close]);
 
-    /*
-     * The page behind must not scroll while a modal is over it — otherwise dismissing returns you
-     * somewhere other than where you opened from, and the card the panel shrinks back into has
-     * moved.
-     *
-     * **Padded by exactly the scrollbar's width.** Hiding the overflow removes the scrollbar, and
-     * the catalogue behind widens into the ~15px it occupied — every card shifts sideways at the
-     * instant the panel starts growing out of one of them. The rectangle captured on the click was
-     * measured against the page as it was, so this is not merely a flicker: it would aim the
-     * animation at where the card used to be.
-     */
+  /**
+   * Everything that has to happen the moment the panel exists — locking the page, taking focus,
+   * and playing the expansion — done in the **ref callback that attaches it**.
+   *
+   * **Not an effect, and that is the point.** Two betas put this in an effect and the owner saw no
+   * animation either time: first `useEffect`, which runs after the browser has already painted the
+   * finished panel, then `useLayoutEffect`, which should have been early enough and was not. The
+   * identical code animates correctly in a plain page (`WORKING/flip-probe.html`, measured frame by
+   * frame — `scale 0.416` on the first frame, `scale 1` at the style's duration), so what was
+   * failing was never the animation: it was *when React chose to run it*. A ref callback has no
+   * such scheduling. React hands the element over as it attaches it, during the commit, and the
+   * work happens there — the closest thing React offers to the synchronous flow that demonstrably
+   * works.
+   *
+   * **On the backdrop rather than the panel**, because refs attach children-first: by the time the
+   * parent's callback runs, `panel.current` is set, whereas the panel's own callback would run
+   * before the backdrop existed to fade.
+   *
+   * **Order inside matters.** The scroll lock comes before the measurement: hiding the overflow
+   * removes the scrollbar, which widens both the viewport this fixed panel is centred in *and* the
+   * catalogue behind it. Measuring first would aim the animation half a scrollbar wide of the card,
+   * and the body is padded by the scrollbar's width so the cards behind don't slide sideways at the
+   * exact moment the panel starts growing out of one of them.
+   *
+   * `fill: "none"` on purpose: an animation that retains its last keyframe leaves a permanent
+   * `transform` on the panel, and a transform makes it the containing block for every
+   * `position: fixed` inside it. That is BUG-23 exactly, and it is why the page fade uses
+   * `backwards` rather than `both`.
+   */
+  const open = useCallback((back: HTMLDivElement | null) => {
+    backdrop.current = back;
+    const el = panel.current;
+    if (!back || !el) return;
+
     const prevOverflow = document.body.style.overflow;
     const prevPad = document.body.style.paddingRight;
     const gap = window.innerWidth - document.documentElement.clientWidth;
@@ -156,63 +200,46 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
 
     // Move focus in, so a keyboard user is inside the thing that just opened rather than still on
     // the card behind it.
-    panel.current?.focus();
+    el.focus();
 
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPad;
-    };
-  }, [close]);
-
-  /**
-   * Play the expansion, then hand the panel back to the stylesheet.
-   *
-   * **Before the first paint, and this is the whole fix.** As a passive `useEffect` this ran
-   * *after* the browser had already painted, so the panel was on screen at full size before
-   * anything started moving — the owner's report was exactly that: *"it just pops out with no
-   * animation."* `useLayoutEffect` runs between the DOM change and the paint, so the first frame
-   * anyone sees is the panel sitting on the card it came from.
-   *
-   * Measured rather than reasoned, in `WORKING/flip-probe.html`: sampling the rendered transform
-   * every frame gives `scale 0.416` (the card's width over the panel's) on the first frame and
-   * `scale 1` at the style's own duration. The same probe disproved a second suspect —
-   * `element.animate()` *does* apply its first keyframe immediately, so no inline priming of the
-   * start state is needed, and the version of this that carried one has been removed rather than
-   * left in as insurance against something that does not happen.
-   *
-   * **Declared after the effect above, deliberately.** Effects run in the order they appear, and
-   * that one takes the scrollbar away — which widens the viewport this fixed panel is centred in.
-   * Measuring first would aim the whole animation half a scrollbar off.
-   *
-   * `fill: "none"` on purpose: an animation that retains its last keyframe leaves a permanent
-   * `transform` on the panel, and a transform makes it the containing block for every
-   * `position: fixed` inside it. That is BUG-23 exactly, and it is why the page fade uses
-   * `backwards` rather than `both`.
-   */
-  useBeforePaint(() => {
-    const el = panel.current;
-    const back = backdrop.current;
-    if (!el || !back) return;
-
-    // Claimed here rather than in render — see the ref's own note.
+    // Claimed here rather than during render: a render can be discarded and re-run under a
+    // transition, and the discarded one would have eaten the rectangle already.
     from.current = takeOrigin();
 
     // Zero is a real answer, not a missing one: XP and Terminal snap, and so does this.
     const { duration, easing } = motion();
-    if (duration <= 0) return;
+    if (duration > 0) {
+      back.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
+      el.animate(
+        [
+          { transform: fromCard(from.current, el), opacity: 0 },
+          // The content inside is stretched while the panel is any shape but its own, so it fades
+          // in over the first half and the distortion is never legible.
+          { opacity: 1, offset: 0.5 },
+          { transform: "none", opacity: 1 },
+        ],
+        { duration, easing, fill: "none" },
+      );
+    }
 
-    back.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
-    el.animate(
-      [
-        { transform: fromCard(from.current, el), opacity: 0 },
-        // The content inside is stretched while the panel is any shape but its own, so it fades in
-        // over the first half and the distortion is never legible.
-        { opacity: 1, offset: 0.5 },
-        { transform: "none", opacity: 1 },
-      ],
-      { duration, easing, fill: "none" },
+    /*
+     * One line, on purpose, and it stays for now.
+     *
+     * This has been wrong twice from a live install I cannot see, and both times the next step was
+     * a guess. If it is wrong a third time this says which part failed — whether the panel grew
+     * from a card or from nowhere, and what duration the active style asked for — instead of
+     * costing another round trip to find out.
+     */
+    console.info(
+      `[jondash] module panel: duration=${duration}ms origin=${from.current ? "card" : "none"}`,
     );
+
+    // React 19 calls this cleanup when the element detaches, in place of a call with `null`.
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPad;
+      backdrop.current = null;
+    };
   }, []);
 
   /*
@@ -233,8 +260,11 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
 
   return createPortal(
     <div
-      ref={backdrop}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8"
+      ref={open}
+      // `jd-overlay-in` / `jd-panel-in` are the CSS floor: they animate from the stylesheet at
+      // first paint, so something always moves even if the script animation below never gets its
+      // moment. The script one sorts above CSS animations and takes over when it does.
+      className="jd-overlay-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8"
       style={{
         // Deliberately not `backdrop-filter`: a blur here promotes a full-viewport compositor
         // layer and re-reads the backdrop every frame, which is the cost measured in beta.1.
@@ -251,7 +281,7 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
         // Stop a click inside the panel closing it — the backdrop is the dismiss target, and the
         // panel is a child of it.
         onClick={(e) => e.stopPropagation()}
-        className="card w-full max-w-3xl p-6 outline-none"
+        className="jd-panel-in card w-full max-w-3xl p-6 outline-none"
       >
         <div className="mb-4 flex justify-end">
           <button

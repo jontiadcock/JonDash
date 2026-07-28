@@ -274,6 +274,48 @@ summary:focus-visible {
 }
 
 /*
+ * The overlay entrance — a floor under the module panel's animation.
+ *
+ * **This exists because JavaScript twice failed to animate it and CSS cannot.** The panel grows out
+ * of the card you clicked via a script animation, which needs to measure both rectangles; that
+ * measurement has to happen at exactly the right moment in React's commit, and getting it wrong
+ * shipped a panel that simply appeared, twice. A stylesheet has no such moment — the browser
+ * applies these the instant the element is first styled, before anything of ours runs.
+ *
+ * So the two layers do different jobs: **CSS guarantees that something moves**, and the script
+ * animation refines it into growing from the right card. Script animations sort above CSS ones in
+ * the cascade, so when the refinement works it simply wins, and when it doesn't this is still here.
+ *
+ * `backwards`, never `both` — a retained transform makes the panel the containing block for every
+ * `position: fixed` inside it (BUG-23). And both durations are `--motion-slow`, so XP and Terminal,
+ * which zero it, still open instantly.
+ */
+@keyframes jd-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes jd-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.jd-overlay-in {
+  animation: jd-overlay-in var(--motion-slow) var(--motion-ease) backwards;
+}
+.jd-panel-in {
+  animation: jd-panel-in var(--motion-slow) var(--motion-ease) backwards;
+}
+
+/*
  * `.lift` — an interactive card that responds to hover. A primitive rather than Tailwind
  * utilities on each call site, because "how far does it rise, and does it rise at all" is a
  * per-style decision: XP windows and Brutalist blocks don't float, Crystal panels do.
