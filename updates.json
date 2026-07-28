@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.24",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: there is now a Help and support page, and it sits directly below General in the settings list rather than at the bottom - help is what you reach for when something is wrong, which is the worst moment to be hunting for it. A quiet line at the foot of every screen links to it, with a little heart drawn from your own appearance settings so it takes your palette. JonDash will ask you for a coffee once, and only after you have been using it for a week - never on day one - and dismissing it means it never comes back. Nothing is ever held back from people who do not; there is no paid tier and there never will be. Every screen this release touched has also been checked at phone width."
+    },
+    {
       "version": "1.8.0-beta.23",
       "date": "2026-07-29",
       "type": "minor",

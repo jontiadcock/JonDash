@@ -9,6 +9,28 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.24] — 2026-07-29
+
+**There's a Help & support page**, at `/help-meeeee`, and it sits **directly below General** in the
+settings list rather than at the bottom — help is what you reach for when something is wrong, and
+that is the worst moment to be hunting past nine sections of settings. It covers where the logs are,
+what to do when a screen is confusing, and where add-ons fit, with a link to report a problem.
+
+**And there's a quiet line at the foot of every screen** offering the same page. Deliberately quiet:
+no card, no colour, the same weight as the version number beside it. The little heart is drawn from
+your own appearance settings, so it takes your palette rather than looking like something pasted in
+from another website.
+
+**JonDash will ask you for a coffee exactly once, and only after you've used it for a week.** Never
+on day one, when you've no idea yet whether you like it. Dismiss it and it never comes back. Nothing
+is ever held back for people who don't — there's no paid tier and there never will be, which is a
+promise about the software rather than a marketing line.
+
+**Every screen this release touched has been checked at phone width** — the dashboard, the module
+catalogue and its expanding panel, network and HTTPS, backup and restore, settings, and the new help
+page. Nothing spills off the side, and the module panel scrolls within itself when it's taller than
+the screen.
+
 ## [1.8.0-beta.23] — 2026-07-29
 
 **Add-ons keep their data through a backup and restore.** A backup already carried each module's

@@ -4,6 +4,8 @@ import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
 import { BrandMark } from "@/app/components/branding";
+import { SupportBanner, SupportLine } from "@/app/components/support";
+import { installedDaysAgo } from "@/lib/install-age";
 
 export default async function AppLayout({
   children,
@@ -14,6 +16,7 @@ export default async function AppLayout({
   // Full admins and delegates (users holding at least one admin capability via an
   // access role) get a link into the admin area.
   const canAccessAdmin = (await getEffectivePermissions(user)).size > 0;
+  const installedDays = await installedDaysAgo();
 
   return (
     /*
@@ -49,8 +52,14 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 group-has-[[data-wide-page]]/shell:max-w-none sm:py-8">
+        <SupportBanner installedDays={installedDays} />
         <PageTransition>{children}</PageTransition>
       </main>
+      {/* Quiet, permanent, and outside the page transition so it doesn't re-fade on every
+          navigation — furniture, not content. */}
+      <footer className="mx-auto w-full max-w-6xl px-4 pb-6 text-center">
+        <SupportLine />
+      </footer>
     </div>
   );
 }

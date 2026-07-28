@@ -64,9 +64,10 @@ MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 **Now in flight: the 1.8.0 UI-rework release** (from 2026-07-27, owner-directed). It is a *release*
 rather than a queue item — roughly thirty changes agreed up front as a dozen groups, shipping as a
 run of betas, and it cuts across items already listed below as well as work that never had an ID.
-Four groups remain (the Add-ons page, Browse grid and module detail page shipped in
-**v1.8.0-beta.17**, and the detail panel that expands over the catalogue in **v1.8.0-beta.18**):
-Network & HTTPS · backup and restore · OPS-16 · the help page, support line and responsive sweep.
+**All groups are now built** — the last four landed as **v1.8.0-beta.21** (Network & HTTPS),
+**beta.22** (backup and restore), **beta.23** (OPS-16) and **beta.24** (help page, support line and
+the responsive sweep). What remains before promoting 1.8.0 to stable is the owner's testing, the
+add-ons hand-off prompt, and module screenshots — which are add-ons work, not core's.
 
 **The queue below therefore does not describe what is being built right now.** Shipped 1.8.0 items
 carry their version in the catalog, as usual; the release's own plan is the day-to-day authority
@@ -108,9 +109,7 @@ it blocked another session's work while nothing blocked it.
 15. ⏳ **CORE-09 — Modules page: search, filter, compact list** *(owner request 2026-07-26)* — the
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
-16. ⏳ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — small and self-contained;
-   the exact route spelling is the joke and is locked. **Position not yet confirmed by the owner**
-   (added 2026-07-24) — move it freely
+16. ✅ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — shipped **v1.8.0-beta.24**
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
@@ -1316,8 +1315,27 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
 
-#### CORE-05 · "Buy me a coffee" banner + a support page — ⏳ Planned
-Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
+#### CORE-05 · "Buy me a coffee" banner + a support page — ✅ Shipped v1.8.0-beta.24
+**Shipped as three pieces, deliberately unequal.** A permanently visible, deliberately quiet
+**Help & support** line at the foot of every screen (no card, no colour, the same weight as the
+version number beside it); a **Help & support** entry in the settings nav **directly below General**,
+at the owner's request — help is what you reach for when something is wrong, and hunting past nine
+sections of settings is the moment it is least wanted; and the tinted banner, which **appears only
+once the install is a week old** and never returns once dismissed.
+
+`/help-meeeee` (five `e`s, per the locked decision below) and `/you-are-a-bloody-legend` both exist.
+The thank-you page stores nothing, checks nothing and is reachable by anyone who types it — a
+self-hosted box behind a home router cannot receive a payment webhook, so anything else would be
+theatre. A test pins the route spelling, the week-long delay, and that nothing is gated behind
+supporting.
+
+The heart is drawn with `currentColor` from the appearance tokens, so it takes the viewer's palette
+in all seven styles rather than looking pasted in from another website.
+
+**Left for the owner:** `SUPPORT_URL` in `app/components/support.tsx` points at their GitHub profile.
+Point it at a real coffee link when they have one.
+
+*Original scope below.* Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
 a support page that is deliberately a bit cute and funny. Someone who goes on to support gets a second,
 sillier thank-you page.
 

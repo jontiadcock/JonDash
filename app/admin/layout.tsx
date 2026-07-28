@@ -7,6 +7,8 @@ import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
 import { BrandMark } from "@/app/components/branding";
 import { getAppVersion } from "@/lib/update";
+import { SupportBanner, SupportLine } from "@/app/components/support";
+import { installedDaysAgo } from "@/lib/install-age";
 
 export default async function AdminLayout({
   children,
@@ -15,12 +17,23 @@ export default async function AdminLayout({
 }) {
   const { user: admin, perms } = await requireAdminArea();
   const version = getAppVersion();
+  const installedDays = await installedDaysAgo();
   const isAdmin = admin.role === "ADMIN";
 
   // Grouped "Settings" navigation. Each item is gated by a capability (or is
   // ADMIN-only); empty groups are dropped so a delegate sees only what they can use.
   const groups = [
-    { label: null, items: [{ href: "/admin/settings", label: "General", show: perms.has("settings.manage") }] },
+    {
+      label: null,
+      items: [
+        { href: "/admin/settings", label: "General", show: perms.has("settings.manage") },
+        // Directly below General, at the owner's request (11.1) — not at the foot of the list.
+        // Help is what you reach for when something is wrong, and hunting for it past nine
+        // sections of settings is the moment it is least wanted. Ungated: everyone who can see
+        // this area can ask for help.
+        { href: "/help-meeeee", label: "Help & support", show: true },
+      ],
+    },
     {
       label: "Server settings",
       items: [
@@ -96,7 +109,11 @@ export default async function AdminLayout({
           </div>
         </aside>
         <main className="min-w-0 flex-1">
+          <SupportBanner installedDays={installedDays} />
           <PageTransition>{children}</PageTransition>
+          <div className="mt-8 text-center">
+            <SupportLine />
+          </div>
         </main>
       </div>
     </div>
