@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
+import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveUpdateScheduleAction, type ScheduleState } from "./schedule-actions";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -50,7 +50,7 @@ export function UpdateScheduleForm({
             id="updates.frequency"
             name="updates.frequency"
             value={freq}
-            onChange={(e) => setFreq(e.target.value)}
+            {...selectSync(setFreq)}
             className="input"
           >
             <option value="daily">Daily</option>
@@ -77,7 +77,7 @@ export function UpdateScheduleForm({
             id="updates.dayOfWeek"
             name="updates.dayOfWeek"
             value={dow}
-            onChange={(e) => setDow(e.target.value)}
+            {...selectSync(setDow)}
             className="input"
           >
             {DAYS.map((d, i) => (
@@ -92,7 +92,7 @@ export function UpdateScheduleForm({
             id="updates.dayOfMonth"
             name="updates.dayOfMonth"
             value={dom}
-            onChange={(e) => setDom(e.target.value)}
+            {...selectSync(setDom)}
             className="input"
           >
             {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => (

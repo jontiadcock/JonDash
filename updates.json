@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.12",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: three fixes from testing. Dropdowns change on the first attempt - a setting like Session length sometimes needed two or three goes before it would move, and now responds immediately. Dragging a large module widget around the dashboard no longer flings the smaller tiles about: a tile only swaps places once you are properly over it rather than as soon as you touch its edge, and nothing shoots off the screen and back. And there is now a 'back to top' button in the bottom-right corner once you have scrolled down a page, which matters most on a phone, where arranging the dashboard used to leave you with no way back up to the Done arranging button."
+    },
+    {
       "version": "1.8.0-beta.11",
       "date": "2026-07-28",
       "type": "minor",

@@ -4,6 +4,7 @@ import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
 import { BrandMark } from "@/app/components/branding";
+import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 export default async function AppLayout({
   children,
@@ -51,6 +52,9 @@ export default async function AppLayout({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 group-has-[[data-wide-page]]/shell:max-w-none sm:py-8">
         <PageTransition>{children}</PageTransition>
       </main>
+      {/* Outside <main> deliberately: it is fixed to the viewport, and nesting it inside the
+          transition wrapper would make that wrapper's transform its containing block (BUG-23). */}
+      <ScrollToTop />
     </div>
   );
 }

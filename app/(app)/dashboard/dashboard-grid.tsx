@@ -189,12 +189,14 @@ export function DashboardGrid({
       const py = ev.clientY - gr.top;
 
       let targetKey: string | null = null;
+      let targetCentre = { x: 0, y: 0 };
       for (const [otherKey, el] of frames.current) {
         if (otherKey === k) continue;
         const left = el.offsetLeft - gridEl.offsetLeft;
         const top = el.offsetTop - gridEl.offsetTop;
         if (px >= left && px <= left + el.offsetWidth && py >= top && py <= top + el.offsetHeight) {
           targetKey = otherKey;
+          targetCentre = { x: left + el.offsetWidth / 2, y: top + el.offsetHeight / 2 };
           break;
         }
       }
@@ -203,6 +205,31 @@ export function DashboardGrid({
       const from = working.indexOf(k);
       const to = working.indexOf(targetKey);
       if (from === -1 || to === -1 || from === to) return;
+
+      /*
+       * Swap only once the pointer is PAST the target's centre, in the direction of the move.
+       *
+       * Touching any part of a target used to be enough, and a module widget is four times the
+       * area of a service tile — so brushing one edge of a big widget reordered the whole grid,
+       * and because a wide item that no longer fits its row pushes everything after it onto the
+       * next row, small tiles visibly flew a long way for a gesture that had barely started.
+       * The owner: *"other ones will vanish off screen as if the one I'm moving has forced them
+       * off, if I'm moving a big tile."*
+       *
+       * The axis is chosen by where the target actually sits rather than fixed: items on the same
+       * row are passed horizontally, items on another row vertically.
+       */
+      const sameRow = Math.abs(targetCentre.y - py) < Math.abs(targetCentre.x - px);
+      const forward = to > from;
+      const pastCentre = sameRow
+        ? forward
+          ? px > targetCentre.x
+          : px < targetCentre.x
+        : forward
+          ? py > targetCentre.y
+          : py < targetCentre.y;
+      if (!pastCentre) return;
+
       const next = [...working];
       next.splice(to, 0, ...next.splice(from, 1)); // move, don't swap
       working = next;
@@ -248,6 +275,17 @@ export function DashboardGrid({
         const dx = before.left - after.left;
         const dy = before.top - after.top;
         if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+        /*
+         * Don't animate a journey nobody could follow.
+         *
+         * Inserting a wide widget pushes everything after it onto the next row, so a tile can
+         * legitimately move most of a screen. Inverting that puts it at its old position — often
+         * outside the viewport — and animates it back in, which reads as the tile having vanished
+         * and then flown across the page rather than as anything moving. Past a screen's worth,
+         * letting it simply be in its new place is calmer and more honest about what happened.
+         */
+        if (Math.abs(dx) > window.innerWidth || Math.abs(dy) > window.innerHeight) return;
         el.style.transition = "none";
         el.style.transform = `translate(${dx}px, ${dy}px)`;
         /*

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
+import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveSessionSettingsAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
 
@@ -90,7 +90,7 @@ export function SessionLengthForm({ current, capDays }: { current: number; capDa
           id="session-length"
           name="session.lengthMinutes"
           value={String(value)}
-          onChange={(e) => setValue(Number(e.target.value))}
+          {...selectSync((v) => setValue(Number(v)))}
           className="input max-w-xs"
           disabled={pending}
         >

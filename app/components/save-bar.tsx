@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * The save row every settings form uses — one button, one "(not saved yet)", one result.
@@ -104,12 +104,19 @@ export function useFormDirty(result: unknown): {
 } {
   const [dirty, setDirty] = useState(false);
   const [generation, setGeneration] = useState(0);
-  const [seen, setSeen] = useState(result);
-  if (seen !== result) {
-    setSeen(result);
-    setDirty(false);
-    setGeneration((g) => g + 1);
-  }
+  const seen = useRef(result);
+
+  // In an effect for the same reason as `useServerValue` below: as a render-phase update this
+  // discarded the in-progress render, and a `setDirty(true)` from the change handler that had not
+  // committed yet was lost in the replay. `result` only changes when an action completes, so
+  // reacting one commit later is invisible.
+  useEffect(() => {
+    if (seen.current !== result) {
+      seen.current = result;
+      setDirty(false);
+      setGeneration((g) => g + 1);
+    }
+  }, [result]);
   return {
     dirty,
     generation,
@@ -121,6 +128,33 @@ export function useFormDirty(result: unknown): {
       onReset: (e) => e.preventDefault(),
     },
     setDirty,
+  };
+}
+
+/**
+ * Props for a controlled `<select>`. **Always spread this rather than writing `onChange` alone.**
+ *
+ * A `<select>`'s React `onChange` runs on the DOM `change` event — but the browser fires `input`
+ * first, and React processes that one too: seeing the DOM value no longer match its `value` prop,
+ * and having had no state update yet (because `onChange` hasn't run), it **restores the DOM to the
+ * old value**. By the time `change` arrives there is no change left to report, so React suppresses
+ * `onChange` entirely and the selection silently snaps back.
+ *
+ * Measured live on 1.8.0-beta.11 — one keypress produced `input` at index 5 and then `change` back
+ * at index 6, with `onChange` never called. This is the owner's *"sometimes it takes a few times to
+ * select an option before it actually changes"* (2026-07-28).
+ *
+ * Handling `input` as well gets the state update in **before** the restore, so React's value
+ * already matches the DOM and there is nothing to undo. Both handlers set the same thing, so the
+ * duplicate call when `change` does fire is a no-op.
+ */
+export function selectSync(set: (value: string) => void): {
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onInput: (e: React.FormEvent<HTMLSelectElement>) => void;
+} {
+  return {
+    onChange: (e) => set(e.target.value),
+    onInput: (e) => set((e.target as HTMLSelectElement).value),
   };
 }
 
@@ -138,10 +172,28 @@ export function useFormDirty(result: unknown): {
  */
 export function useServerValue<T>(current: T): [T, (v: T) => void] {
   const [value, setValue] = useState(current);
-  const [seeded, setSeeded] = useState(current);
-  if (!Object.is(seeded, current)) {
-    setSeeded(current);
-    setValue(current);
-  }
+  const seeded = useRef(current);
+
+  /*
+   * The re-seed lives in an EFFECT, not in the render body.
+   *
+   * It was a render-phase state update (`if (seeded !== current) setValue(current)`), which is a
+   * legitimate React pattern but **races the user's own input**: a render-phase update makes React
+   * throw the in-progress render away and start again, and a `setValue` from the change handler
+   * that has not committed yet loses to the re-seed in that replay. Measured live — the first
+   * interaction with a `<select>` after the page loaded fired a real `change` event and then
+   * simply did not move, while a second attempt worked. Exactly the owner's *"sometimes it takes
+   * a few times to select an option"* (2026-07-28).
+   *
+   * An effect runs after commit, so it can only ever react to a server value that has actually
+   * changed — it can no longer be part of the same render pass as the keystroke it was undoing.
+   */
+  useEffect(() => {
+    if (!Object.is(seeded.current, current)) {
+      seeded.current = current;
+      setValue(current);
+    }
+  }, [current]);
+
   return [value, setValue];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
+import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import {
   saveEmailConfigAction,
   sendTestEmailAction,
@@ -81,7 +81,7 @@ export function EmailSettings({
               id="mode"
               name="mode"
               value={mode}
-              onChange={(e) => setMode(e.target.value as ConfigView["mode"])}
+              {...selectSync((v) => setMode(v as ConfigView["mode"]))}
               className="input"
             >
               <option value="password">SMTP username + app password</option>
@@ -243,7 +243,13 @@ export function EmailSettings({
         <div style={{ display: mode === "oauth2" ? undefined : "none" }} className="flex flex-col gap-4">
           <div>
             <label className="label" htmlFor="provider">Provider</label>
-            <select id="provider" name="provider" value={provider} onChange={(e) => setProvider(e.target.value as ConfigView["provider"])} className="input">
+            <select
+              id="provider"
+              name="provider"
+              value={provider}
+              {...selectSync((v) => setProvider(v as ConfigView["provider"]))}
+              className="input"
+            >
               <option value="">Choose…</option>
               <option value="google">Google</option>
               <option value="microsoft">Microsoft</option>

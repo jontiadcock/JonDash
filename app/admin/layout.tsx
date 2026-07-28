@@ -6,6 +6,7 @@ import { AdminSidebar } from "./admin-sidebar";
 import { PageTransition } from "@/app/components/page-transition";
 import { UserMenu } from "@/app/components/user-menu";
 import { BrandMark } from "@/app/components/branding";
+import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { getAppVersion } from "@/lib/update";
 
 export default async function AdminLayout({
@@ -99,6 +100,9 @@ export default async function AdminLayout({
           <PageTransition>{children}</PageTransition>
         </main>
       </div>
+      {/* Outside the transition wrapper: it is viewport-fixed, and an ancestor transform would
+          make that wrapper its containing block instead (BUG-23). */}
+      <ScrollToTop />
     </div>
   );
 }

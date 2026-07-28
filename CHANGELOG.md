@@ -9,6 +9,34 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.12] — 2026-07-28
+
+Three things the owner found testing beta.11.
+
+**A dropdown needed several attempts before it would change.** A `<select>`'s React `onChange` runs
+on the DOM `change` event — but the browser fires `input` first, and React processes that one too:
+seeing the DOM value no longer match its `value` prop, and with no state update yet, it **restores
+the old value**. By the time `change` arrives there is nothing left to report, so React suppresses
+`onChange` entirely and the selection snaps back. Measured live: one keypress produced `input` at
+index 5, then `change` back at index 6, with `onChange` never called.
+
+Handling `input` as well gets the update in **before** the restore, so React's value already matches
+the DOM and there is nothing to undo. Every controlled dropdown now goes through one helper, and a
+test fails if a new one is added without it.
+
+**Dragging a large widget threw the small tiles around.** Two causes, both about size. Touching any
+part of a target was enough to reorder, and a module widget is four times a tile's area — so
+brushing one edge reordered the grid, and because a wide item that no longer fits its row pushes
+everything after it down, tiles moved most of a screen for a gesture that had barely started. FLIP
+then inverted that: the tile was placed at its old position, often outside the viewport, and
+animated back in, which reads as vanishing rather than moving. Now a swap needs the pointer to be
+**past the target's centre** in the direction of travel, and a journey longer than the screen isn't
+animated at all.
+
+**A "back to top" button**, app-wide, appearing once you have scrolled about two-thirds of a screen.
+On a phone, arranging the dashboard means scrolling down to reach the tiles, which left no way back
+up to *Done arranging*. Bottom-right, clear of the home indicator, and it respects reduced motion.
+
 ## [1.8.0-beta.11] — 2026-07-28
 
 **"I click Save and it reverts" — found, and it was never what anyone thought.**

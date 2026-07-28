@@ -119,12 +119,72 @@ describe("the shared save control", () => {
 
   it("re-seeds a control when the server's value changes", () => {
     expect(SRC, "useServerValue must compare values, not just take the first one").toMatch(
-      /Object\.is\(seeded, current\)/,
+      /Object\.is\(seeded\.current, current\)/,
     );
   });
 
   it("clears the dirty flag on a new action result rather than on a success flag", () => {
     // Two saves in a row both produce {ok: true}; only the object's identity distinguishes them.
-    expect(SRC).toMatch(/seen !== result/);
+    expect(SRC).toMatch(/seen\.current !== result/);
+  });
+
+  /**
+   * Owner, 2026-07-28: *"sometimes it takes a few times to select an option before it actually
+   * changes."* Both of these were render-phase state updates — a legal React pattern that makes
+   * React throw the in-progress render away and replay it, and a `setValue` from the change
+   * handler that had not committed yet lost that replay. Measured live: the first interaction
+   * with a `<select>` after page load fired a real `change` event and then did not move.
+   *
+   * The assertion is that neither re-seed happens during render. A bare `if (…) setState()` in a
+   * hook body is the shape that regresses this.
+   */
+  /**
+   * A `<select>`'s React `onChange` runs on the DOM `change` event — but the browser fires `input`
+   * first, and React processes that one too: seeing the DOM value no longer match its `value` prop,
+   * with no state update yet, it **restores the old value**. By the time `change` arrives there is
+   * nothing left to report, so `onChange` is suppressed and the selection snaps back.
+   *
+   * Measured live (2026-07-28): one keypress produced `input` at index 5, then `change` back at
+   * index 6, with `onChange` never called.
+   */
+  it("syncs a select on input as well as change", () => {
+    expect(SRC, "selectSync is gone — a controlled select will silently revert").toMatch(
+      /export function selectSync/,
+    );
+    const fn = SRC.slice(SRC.indexOf("export function selectSync"));
+    expect(fn, "selectSync must handle input, which arrives before React's restore").toMatch(
+      /onInput:/,
+    );
+    expect(fn).toMatch(/onChange:/);
+  });
+
+  it("has no controlled select that syncs on change alone", () => {
+    for (const [label, file] of Object.entries(FORMS)) {
+      const src = strip(read(...file));
+      // A controlled select is `value={…}` on a <select>; each must go through selectSync.
+      for (const tag of src.match(/<select[\s\S]*?>/g) ?? []) {
+        if (!/\bvalue=\{/.test(tag)) continue; // uncontrolled — nothing to restore against
+        expect(tag, `${label} has a controlled <select> not using selectSync`).toMatch(
+          /\{\.\.\.selectSync\(/,
+        );
+      }
+    }
+  });
+
+  it("re-seeds from effects, never during render", () => {
+    const body = SRC.slice(SRC.indexOf("export function useFormDirty"));
+    for (const [name, fn] of [
+      ["useFormDirty", body.slice(0, body.indexOf("export function useServerValue"))],
+      ["useServerValue", SRC.slice(SRC.indexOf("export function useServerValue"))],
+    ] as const) {
+      expect(fn, `${name} does not re-seed in an effect`).toMatch(/useEffect\(/);
+      // A render-phase update reads as a top-level `if` calling a setter, with no `useEffect`
+      // between it and the function body.
+      const beforeFirstEffect = fn.slice(0, fn.indexOf("useEffect("));
+      expect(
+        beforeFirstEffect,
+        `${name} calls a setter during render — that races the user's own input`,
+      ).not.toMatch(/\n\s{2}if \([^)]*\) \{[\s\S]*?set[A-Z]/);
+    }
   });
 });

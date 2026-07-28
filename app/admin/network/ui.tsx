@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
+import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveNetworkConfigAction, type NetworkState } from "./actions";
 import type { NetworkConfig } from "@/lib/tls/network";
 
@@ -36,7 +36,7 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
           id="mode"
           name="mode"
           value={mode}
-          onChange={(e) => setMode(e.target.value as NetworkConfig["mode"])}
+          {...selectSync((v) => setMode(v as NetworkConfig["mode"]))}
           className="input"
         >
           <option value="off">Off — plain HTTP (default)</option>

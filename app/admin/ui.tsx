@@ -13,7 +13,7 @@ import {
   type AdminState,
 } from "./actions";
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
-import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
+import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/components/save-bar";
 
 const initial: AdminState = {};
 
@@ -123,7 +123,7 @@ export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
             id="new-kind"
             className="input"
             value={kind}
-            onChange={(e) => setKind(e.target.value as "person" | "service")}
+            {...selectSync((v) => setKind(v as "person" | "service"))}
           >
             <option value="person">Person</option>
             <option value="service">Service account</option>

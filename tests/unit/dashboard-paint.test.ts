@@ -227,6 +227,27 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
     expect(GRID, "an animation with no reduced-motion escape").toMatch(/prefers-reduced-motion/);
   });
 
+  /**
+   * Owner, 2026-07-28: *"other ones will vanish off screen as if the one I'm moving has forced
+   * them off, if I'm moving a big tile."*
+   *
+   * Two causes, both about size. A module widget is four times a tile's area, so merely brushing
+   * its edge was enough to reorder — and because a wide item that no longer fits its row pushes
+   * everything after it down, one accidental swap moved small tiles most of a screen. FLIP then
+   * inverted that: the tile was placed at its old position, frequently outside the viewport, and
+   * animated back in, which reads as vanishing rather than as moving.
+   */
+  it("reorders only once the pointer is past the target's centre", () => {
+    expect(GRID, "any contact with a target still triggers a reorder").toMatch(/pastCentre/);
+    expect(GRID, "the centre test must pick an axis rather than assume one").toMatch(/sameRow/);
+  });
+
+  it("does not animate a tile across more than a screen", () => {
+    expect(GRID, "a FLIP longer than the viewport reads as vanishing, not moving").toMatch(
+      /window\.innerWidth|window\.innerHeight/,
+    );
+  });
+
   it("saves once, when the drag ends", () => {
     // Dragging across six items would otherwise fire six writes, and the arrangements passed
     // through on the way were never something the user asked for.
