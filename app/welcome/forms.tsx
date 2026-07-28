@@ -1,13 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
   welcomeCreateAction,
   welcomeConfirmAction,
   welcomeRestoreAction,
+  welcomeInspectAction,
   type WelcomeState,
   type WelcomeRestoreState,
 } from "./actions";
+import type { BackupInspection } from "@/lib/backup";
 
 const initial: WelcomeState = {};
 const restoreInitial: WelcomeRestoreState = {};
@@ -61,6 +63,10 @@ export function WelcomeCreateForm() {
 export function WelcomeRestoreForm() {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(welcomeRestoreAction, restoreInitial);
+  const [inspection, setInspection] = useState<BackupInspection | null>(null);
+  const [inspecting, startInspect] = useTransition();
+  const [passphrase, setPassphrase] = useState("");
+  const encrypted = inspection?.ok === true && inspection.encrypted;
 
   if (!open) {
     return (
@@ -79,34 +85,69 @@ export function WelcomeRestoreForm() {
     <form action={action} className="flex flex-col gap-4">
       <div>
         <label className="label" htmlFor="restore-file">
-          Backup file <span style={{ color: "var(--muted)" }}>(.zip archive, or a legacy .json)</span>
+          Backup file <span style={{ color: "var(--muted)" }}>(.dashbk, or an older .zip)</span>
         </label>
         <input
           id="restore-file"
           name="file"
           type="file"
-          accept=".zip,application/zip,.json,application/json"
+          // BUG-58, same as the admin restore: `application/octet-stream` matched every unknown
+          // binary and cancelled the specific entries, so the picker filtered nothing at all.
+          accept=".dashbk,.zip,application/zip"
           required
           className="input"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            setInspection(null);
+            setPassphrase("");
+            if (!f || f.size > 10 * 1024 * 1024) return;
+            // 9.6 — the same detection as the admin restore. This screen is where someone is
+            // *most* likely to be holding a file they made months ago on another machine and to
+            // have no idea whether it was encrypted.
+            const fd = new FormData();
+            fd.set("file", f);
+            startInspect(async () => setInspection(await welcomeInspectAction(fd)));
+          }}
         />
+        {inspecting && (
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            Checking the file…
+          </p>
+        )}
+        {inspection?.ok === false && <p className="form-error mt-1">{inspection.error}</p>}
+        {inspection?.ok === true && (
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            {inspection.encrypted ? "Encrypted backup" : "Unencrypted backup"}
+            {inspection.exportedAt ? ` made ${new Date(inspection.exportedAt).toLocaleString()}` : ""}.
+          </p>
+        )}
       </div>
-      <div>
-        <label className="label" htmlFor="restore-pass">
-          Passphrase <span style={{ color: "var(--muted)" }}>(if the backup is encrypted)</span>
-        </label>
-        <input
-          id="restore-pass"
-          name="passphrase"
-          type="password"
-          autoComplete="off"
-          className="input"
-          placeholder="Leave blank for a plain backup"
-        />
-      </div>
-      <p className="text-xs" style={{ color: "var(--muted)" }}>
-        To sign in afterwards, use an encrypted backup that includes user accounts — a plain backup
-        can’t restore passwords or 2FA.
-      </p>
+
+      {encrypted && (
+        <div>
+          <label className="label" htmlFor="restore-pass">
+            Passphrase for this backup
+          </label>
+          <input
+            id="restore-pass"
+            name="passphrase"
+            type="password"
+            autoComplete="off"
+            className="input"
+            required
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            placeholder="The passphrase this backup was made with"
+          />
+        </div>
+      )}
+
+      {inspection?.ok === true && !inspection.encrypted && (
+        <p className="text-sm" style={{ color: "var(--warning)" }}>
+          This backup isn&apos;t encrypted, so it carries no passwords or 2FA — everyone it restores,
+          including you, will have to set up their sign-in again afterwards.
+        </p>
+      )}
       {state.error && <p className="form-error">{state.error}</p>}
       {state.notice && (
         <p className="text-sm" style={{ color: "var(--primary)" }}>

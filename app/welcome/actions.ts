@@ -17,7 +17,13 @@ import { emailSchema, totpCodeSchema } from "@/lib/validation/schemas";
 import { hasActiveAdmin, getPendingAdmin } from "@/lib/auth/bootstrap";
 import { generateBackupCodes } from "@/lib/auth/backup-codes";
 import { setRevealCodes } from "@/lib/auth/recovery-reveal";
-import { parseBackup, applyRestore, BackupError } from "@/lib/backup";
+import {
+  parseBackup,
+  applyRestore,
+  inspectBackup,
+  BackupError,
+  type BackupInspection,
+} from "@/lib/backup";
 
 export type WelcomeState = { error?: string };
 export type WelcomeRestoreState = { error?: string; notice?: string };
@@ -99,6 +105,31 @@ export async function welcomeConfirmAction(
   await audit("account.backup_codes.generated", { userId: admin.id });
   await setRevealCodes(backupCodes, "/dashboard");
   redirect("/recovery-codes");
+}
+
+/**
+ * Say whether a chosen backup is encrypted, on the first-run screen (9.6).
+ *
+ * **Its own action, not the admin one, because this surface has no admin to authenticate.** It
+ * carries exactly the guards the restore beside it carries — closed the moment an admin exists,
+ * same-origin, and the same per-IP rate limit — so it cannot become a way to probe a live install,
+ * and it cannot be used to grind through files any faster than the restore itself could.
+ *
+ * It reveals only what the envelope already keeps outside the ciphertext: whether a passphrase is
+ * needed, when the backup was made, and which categories it holds.
+ */
+export async function welcomeInspectAction(formData: FormData): Promise<BackupInspection> {
+  await assertSameOrigin();
+  if (await hasActiveAdmin()) return { ok: false, error: "This install is already set up." };
+  if (!rateLimit(`welcome-inspect:${await clientIp()}`, 10, 60_000).allowed) {
+    return { ok: false, error: "Too many attempts. Please wait a minute and try again." };
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose a backup file." };
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false, error: "That backup file is too large (10 MB max)." };
+  }
+  return inspectBackup(new Uint8Array(await file.arrayBuffer()));
 }
 
 /**

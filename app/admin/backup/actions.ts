@@ -8,22 +8,49 @@ import { verifyStepUp } from "@/lib/auth/stepup";
 import { audit } from "@/lib/audit";
 import {
   parseBackup,
+  inspectBackup,
   applyRestore,
   BackupError,
   CATEGORY_LABELS,
-  BACKUP_CATEGORIES,
-  type BackupCategory,
+  type BackupInspection,
 } from "@/lib/backup";
 
 export type ImportState = { error?: string; success?: string; notices?: string[] };
 
-const CONFIRM_PHRASE = "Everything";
+/**
+ * Say what a chosen file is, before anyone commits to restoring it.
+ *
+ * Called as the file is picked, so the form can ask for a passphrase only when the file actually
+ * has one — and require it when it does (9.5). Admin-gated like the restore itself: this reads a
+ * file the caller supplied, but it is still an authenticated surface and there is no reason for it
+ * to be reachable by anyone who could not restore anyway.
+ */
+export async function inspectBackupAction(formData: FormData): Promise<BackupInspection> {
+  await assertSameOrigin();
+  await requireAdmin();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose a backup file." };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false, error: "That backup file is too large (10 MB max)." };
+  }
+  return inspectBackup(new Uint8Array(await file.arrayBuffer()));
+}
 
 /**
- * Restore from a backup file. Selective (the admin picks which categories to apply)
- * and a major destructive action:
- *  - step-up: a fresh TOTP is required if none in the last 30 minutes;
- *  - the admin must type "Everything" to confirm the full replace.
+ * Restore from a backup file. **Everything the backup contains, all at once** — there is no longer
+ * a category picker (9.1).
+ *
+ * Choosing categories read as flexibility and behaved as a trap: the parts of a backup are not
+ * independent. Users carry the encryption key that makes their own 2FA secrets and every secret
+ * setting readable, so restoring settings without users silently dropped them; restoring users
+ * without roles orphaned memberships. Every combination that wasn't "all of it" produced an install
+ * subtly unlike the one that was backed up, and the notices explaining that were longer than the
+ * feature was worth.
+ *
+ * Still gated by **step-up TOTP**. The "type Everything" box is gone — see `verifyStepUp`.
  */
 export async function importBackupAction(
   _prev: ImportState,
@@ -43,15 +70,10 @@ export async function importBackupAction(
   }
 
   const passphrase = String(formData.get("passphrase") ?? "").trim() || null;
-  const typed = String(formData.get("confirm") ?? "");
   const totpCode = String(formData.get("totpCode") ?? "");
-  const selected = formData
-    .getAll("categories")
-    .map(String)
-    .filter((c): c is BackupCategory => (BACKUP_CATEGORIES as readonly string[]).includes(c));
 
   // Gate BEFORE touching any data.
-  const step = await verifyStepUp({ typed, phrase: CONFIRM_PHRASE, totpCode });
+  const step = await verifyStepUp({ totpCode });
   if (!step.ok) return { error: step.error };
 
   let parsed;
@@ -64,36 +86,26 @@ export async function importBackupAction(
   if (parsed.includes.length === 0) {
     return { error: "That backup doesn’t contain anything to restore." };
   }
-  // Apply only what the admin chose AND the backup actually contains.
-  const toApply = parsed.includes.filter((c) => selected.includes(c));
-  if (toApply.length === 0) {
-    return { error: "Choose at least one thing to restore that this backup contains." };
-  }
 
   try {
-    await applyRestore(parsed.data, toApply, parsed.iconFiles);
+    await applyRestore(parsed.data, parsed.includes, parsed.iconFiles);
   } catch {
     return { error: "Restore failed and was rolled back. Your current data is unchanged." };
   }
 
-  const summary = toApply.map((c) => CATEGORY_LABELS[c]).join(", ");
+  const summary = parsed.includes.map((c) => CATEGORY_LABELS[c]).join(", ");
   await audit("backup.restored", { detail: summary });
 
   // Notices the admin should act on.
   const notices: string[] = [];
   const hadCredentials = !!parsed.data.users?.some((u) => !!u.credentials);
-  if (toApply.includes("users") && !hadCredentials) {
+  if (parsed.includes.includes("users") && !hadCredentials) {
     notices.push(
       "User accounts were restored without sign-in credentials (the backup wasn’t encrypted). " +
         "Each user must set up again via a setup link (Users → Reset access).",
     );
   }
-  if (toApply.includes("settings") && parsed.data.settings?.some((s) => s.secret) && !toApply.includes("users")) {
-    notices.push(
-      "Secret settings (e.g. email) were skipped — restore Users too (to adopt the backup’s key), or re-enter them.",
-    );
-  }
-  if (toApply.includes("config")) {
+  if (parsed.includes.includes("config")) {
     notices.push(
       "Server configuration was restored. Restart the server (Settings → Server power) to apply network/HTTPS changes; if you changed the port, reconnect at the new address.",
     );
@@ -101,7 +113,7 @@ export async function importBackupAction(
 
   // If accounts were replaced, this admin's session is gone — send to login. The key
   // was adopted + reloaded in-process, so the restored authenticator works there.
-  if (toApply.includes("users")) {
+  if (parsed.includes.includes("users")) {
     redirect("/login");
   }
 

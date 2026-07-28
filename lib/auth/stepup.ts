@@ -17,16 +17,22 @@ export async function hasRecentTotp(): Promise<boolean> {
 export type StepUpResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Gate a major destructive action. The caller passes the phrase the user typed
- * (must equal `phrase`, e.g. "Everything") and — only when TOTP isn't fresh — a
- * current authenticator code. On success, refreshes the session's TOTP freshness.
+ * Gate a major destructive action with a current authenticator code — and, where the caller asks
+ * for one, a typed confirmation phrase.
+ *
+ * **`phrase` is optional as of 1.8.0.** Restore dropped its "type Everything" box at the owner's
+ * request in favour of a plain warning about what is about to be overwritten. The typed phrase was
+ * never the security control here — anyone able to type it is already signed in as an admin — it
+ * was a speed bump, and one that reliably taught people to type the word without reading the
+ * sentence above it. **The authenticator step-up below is the real gate and is unchanged**: omit
+ * the phrase and you still cannot restore without proving TOTP within the window.
  */
 export async function verifyStepUp(opts: {
-  typed: string;
-  phrase: string;
+  typed?: string;
+  phrase?: string;
   totpCode?: string;
 }): Promise<StepUpResult> {
-  if (opts.typed.trim() !== opts.phrase) {
+  if (opts.phrase && (opts.typed ?? "").trim() !== opts.phrase) {
     return { ok: false, error: `Type "${opts.phrase}" exactly to confirm.` };
   }
 

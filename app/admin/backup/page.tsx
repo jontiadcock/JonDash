@@ -20,8 +20,9 @@ export default async function AdminBackupPage() {
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Export</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Choose what to include. Accounts and credentials can only be exported in an
-          encrypted (passphrase-protected) file.
+          A backup always contains everything on this server. The one decision is whether to
+          encrypt it — which is also what decides whether it can restore anyone&apos;s ability to
+          sign in.
         </p>
         <ExportForm />
       </section>
@@ -29,7 +30,8 @@ export default async function AdminBackupPage() {
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-semibold">Restore</h2>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Restoring replaces your current data with the contents of the backup file.
+          Replaces this server with the contents of a backup file. JonDash reads the file when you
+          choose it and asks for a passphrase only if it needs one.
         </p>
         <ImportForm needsTotp={!recentTotp} />
       </section>

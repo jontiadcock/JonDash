@@ -31,6 +31,19 @@ export async function POST(req: Request): Promise<Response> {
   const form = await req.formData();
   const passphrase = (String(form.get("passphrase") ?? "").trim() || null) as string | null;
 
+  /*
+   * The checkbox asked for encryption, so a missing passphrase is a fault, not a choice.
+   *
+   * The page disables the passphrase field when the box is unticked, and a disabled field isn't
+   * submitted — which is the intended path. But the *silent* failure here would be handing back an
+   * unencrypted archive to someone who ticked "Encrypt this backup", and they would have no way to
+   * tell: an unencrypted backup looks identical until the day it can't restore anyone's sign-in.
+   * Refuse instead.
+   */
+  if (form.get("encryptChecked") && !passphrase) {
+    return new Response("Encryption was requested but no passphrase was supplied.", { status: 400 });
+  }
+
   if (passphrase) {
     const weak = validateBackupPassphrase(passphrase);
     if (weak) return new Response(weak, { status: 400 });

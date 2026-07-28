@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.22",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: backups are clearer about what they hold and restores are simpler. Encryption is now a checkbox, and the list of what the backup will contain grows by five lines when you tick it - your credentials, two-factor secrets, the encryption key, secret settings and icons - so it is obvious that an unencrypted backup cannot restore anyone's ability to sign in. When restoring, JonDash reads the file as you choose it, tells you whether it is encrypted and when it was made, and asks for the passphrase only if it needs one; the same happens on the first-run restore screen. Restoring is now all or nothing - the category checkboxes have gone, because the parts of a backup were never independent - and the 'type Everything' box is replaced by a plain warning that the whole server, including its network and HTTPS settings, is being replaced. The authenticator check before a restore is unchanged. Also fixed: the restore file picker used to offer every file on your computer including programs."
+    },
+    {
       "version": "1.8.0-beta.21",
       "date": "2026-07-29",
       "type": "minor",

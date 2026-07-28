@@ -503,6 +503,69 @@ function parseEnvelope(
   }
 }
 
+/** What a backup file is, learned without being able to open it. */
+export type BackupInspection =
+  | {
+      ok: true;
+      encrypted: boolean;
+      formatVersion: number;
+      exportedAt: string;
+      includes: BackupCategory[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Look at a backup file and report what it is — **without a passphrase**.
+ *
+ * The envelope keeps `encrypted`, `includes` and `exportedAt` outside the ciphertext, so this is
+ * readable for an encrypted archive too. That is deliberate and was already true: identifying an
+ * archive is what the metadata is for, and it carries nothing about the user's data.
+ *
+ * **Why this exists** (owner, 2026-07-28): the restore screens used to show an optional passphrase
+ * box and leave you to know whether yours needed one. Picking an encrypted file and leaving the box
+ * empty failed with "This backup is encrypted — enter its passphrase" only *after* uploading and
+ * committing to a destructive action. Now the file is inspected on selection and the passphrase is
+ * asked for only when it is genuinely needed — and then it is required rather than optional.
+ */
+export function inspectBackup(input: Uint8Array): BackupInspection {
+  if (!isZip(input)) return { ok: false, error: "That file isn’t a JonDash backup archive." };
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(input);
+  } catch {
+    return { ok: false, error: "That backup archive is corrupted or unreadable." };
+  }
+  const jsonBytes = entries[BACKUP_JSON];
+  if (!jsonBytes) return { ok: false, error: "That archive isn’t a JonDash backup (no backup.json)." };
+
+  let env: BackupEnvelope;
+  try {
+    env = JSON.parse(strFromU8(jsonBytes));
+  } catch {
+    return { ok: false, error: "That file isn’t a valid backup (not JSON)." };
+  }
+  if (env?.app !== "JonDash" || typeof env.formatVersion !== "number") {
+    return { ok: false, error: "That file isn’t a JonDash backup." };
+  }
+  if (env.formatVersion > FORMAT_VERSION) {
+    return { ok: false, error: "This backup was made by a newer version of JonDash." };
+  }
+  if (env.formatVersion < MIN_RESTORABLE_VERSION) {
+    return { ok: false, error: "This backup is too old to restore with this version of JonDash." };
+  }
+  return {
+    ok: true,
+    encrypted: !!env.encrypted,
+    formatVersion: env.formatVersion,
+    exportedAt: typeof env.exportedAt === "string" ? env.exportedAt : "",
+    includes: Array.isArray(env.includes)
+      ? env.includes.filter((c): c is BackupCategory =>
+          (BACKUP_CATEGORIES as readonly string[]).includes(c),
+        )
+      : [],
+  };
+}
+
 /**
  * Parse a backup file (v2/v3 ZIP: backup.json + icons/). Returns the data, the
  * included categories, and any icon files.

@@ -9,6 +9,35 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.22] — 2026-07-29
+
+**Encryption is a checkbox now, and the list underneath shows what it changes.** Backing up used to
+offer an optional passphrase box with a paragraph explaining what filling it in would do. Ticking
+**Encrypt this backup** now adds five more lines to the list of what the file will contain — sign-in
+credentials, two-factor secrets, this install&apos;s encryption key, secret settings and your icons —
+and unticking it strikes them out. That difference is not a nuance: **an unencrypted backup cannot
+restore anyone&apos;s ability to sign in**, and watching the list change says so better than a
+paragraph did.
+
+**Restoring an encrypted backup no longer requires you to remember that it was encrypted.** Choose a
+file and JonDash reads it, says whether it is encrypted and when it was made, and asks for the
+passphrase only if it needs one — and then insists on it, rather than letting you press the button
+and fail afterwards. The same on the **first-run "restore from a backup"** screen, which is exactly
+where you are most likely to be holding a file from another machine months ago.
+
+**Restore is all-or-nothing.** The list of categories to pick from has gone. The parts of a backup
+were never really independent — your accounts carry the key that makes their own two-factor secrets
+and every secret setting readable, so restoring settings without accounts quietly dropped them — and
+every combination that wasn&apos;t "all of it" produced an install subtly unlike the one backed up.
+
+**The "type Everything to confirm" box has gone too**, replaced by a plain statement of what is
+about to happen: that the whole server is replaced rather than merged, **including its own network,
+HTTPS and update configuration**. Typing a word taught people to type the word, not to read the
+sentence. The authenticator check before a restore is unchanged.
+
+**Fixed:** the restore file picker offered you every file on your computer — including `.exe` — even
+though it would refuse anything that wasn&apos;t a backup. Both restore screens now filter properly.
+
 ## [1.8.0-beta.21] — 2026-07-29
 
 **HTTPS without a domain: JonDash can now make its own certificate.** A fourth option under Admin →
