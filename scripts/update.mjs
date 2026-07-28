@@ -73,16 +73,6 @@ function channel() {
   return "stable";
 }
 
-// Whether the launcher may auto-install an available update at startup. Off by
-// default — otherwise JonDash only notifies and the user installs manually.
-function autoInstall() {
-  try {
-    return fs.readFileSync(path.join(REPO_DIR, ".data", "auto-update"), "utf8").trim().toLowerCase() === "on";
-  } catch {
-    return false;
-  }
-}
-
 // The last update that failed and was rolled back (so we don't auto-retry it).
 function lastFailure() {
   try {
@@ -126,8 +116,18 @@ async function cmdCheck() {
   return 10;
 }
 
-// Launch-time check that also decides whether to auto-install. Exit 10 ONLY when an
-// update should be installed automatically now; otherwise notify and exit 0.
+/**
+ * The launcher's start-up check. **Reports only — it can no longer install anything.**
+ *
+ * Owner's decision, 2026-07-28: the launcher never updates the software automatically. It used
+ * to return exit code 10 when `.data/auto-update` said "on", and `start-dashboard.bat` took that
+ * as "install now" — so a restart could replace the app at a moment nobody chose, which is BUG-61
+ * and half of BUG-63. Updates now happen only on the schedule the admin set, or when they press
+ * the button.
+ *
+ * Always returns 0. The failed-update notice below stays: telling someone why an update is
+ * sitting there un-applied is useful whoever ends up applying it.
+ */
 async function cmdAutoCheck() {
   const current = localVersion();
   let latest;
@@ -155,12 +155,8 @@ async function cmdAutoCheck() {
   console.log("");
   console.log(`  An update is available:  v${latest.version}   (you have v${current}, ${ch} channel)`);
   console.log(`     ${latest.summary}`);
-  if (!autoInstall()) {
-    console.log("  Auto-install is off — install it from Admin -> Updates (or enable auto-install there).");
-    return 0;
-  }
-  console.log(`  Auto-install is on — installing v${latest.version}...`);
-  return 10;
+  console.log("  It will install on your update schedule, or now from Admin -> Updates.");
+  return 0;
 }
 
 async function copyOver(srcRoot) {

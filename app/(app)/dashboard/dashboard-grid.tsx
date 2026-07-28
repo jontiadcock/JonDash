@@ -133,9 +133,20 @@ export function DashboardGrid({
 
   // Re-seed when the profile changes: each profile is its own arrangement, and the optimistic
   // order held here belongs to the one we were showing.
-  const [seededFor, setSeededFor] = useState<DashboardProfile>("wide");
-  if (seededFor !== profile) {
-    setSeededFor(profile);
+  /*
+   * Re-seed whenever the SERVER's arrangement changes, not only when the profile does.
+   *
+   * Each profile is its own arrangement, so switching between them obviously has to re-seed. But
+   * the server's placements also change when an item is resized, reset, or added — and holding
+   * them in state alone meant those never reached the screen: a resize wrote to the database,
+   * revalidated, and the grid carried on rendering the size it had cached at mount. Comparing the
+   * serialised placements catches every case with one rule, and a drag's own optimistic update is
+   * safe because it produces the same string the server sends back.
+   */
+  const serverKey = `${profile}:${JSON.stringify(arrangement.placements)}`;
+  const [seededFrom, setSeededFrom] = useState(serverKey);
+  if (seededFrom !== serverKey) {
+    setSeededFrom(serverKey);
     setOrder(arrangement.order.map((i) => key(i.kind, i.id)));
     setPlacements(new Map(Object.entries(arrangement.placements)));
   }
@@ -228,14 +239,30 @@ export function DashboardGrid({
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      setDragDelta({ x: dx, y: dy });
 
       const next = candidateCell(origin, dx, dy, working, k);
-      if (!next) return; // off the grid or occupied — hold the last good cell
-      const at = working.get(k);
-      if (at && at.col === next.col && at.row === next.row) return;
-      working = new Map(working).set(k, next);
-      setPlacements(working);
+      if (next) {
+        const at = working.get(k);
+        if (!at || at.col !== next.col || at.row !== next.row) {
+          working = new Map(working).set(k, next);
+          setPlacements(working);
+        }
+      }
+
+      /*
+       * The transform is the REMAINDER, not the whole pointer delta.
+       *
+       * The item's own grid cell now changes as you drag, so it has already moved by whole cells
+       * on its own. Adding the full pointer distance on top of that moved it twice — the owner:
+       * *"it feels like they move double the distance of the cursor"*. Subtracting the distance
+       * already covered by the cell change leaves only the sub-cell remainder, so the item sits
+       * exactly under the pointer while still snapping to the grid.
+       */
+      const metrics = cellMetrics();
+      const at = working.get(k) ?? origin;
+      const cellDx = metrics ? (at.col - origin.col) * metrics.colWidth : 0;
+      const cellDy = metrics ? (at.row - origin.row) * metrics.rowHeight : 0;
+      setDragDelta({ x: dx - cellDx, y: dy - cellDy });
     };
 
     const end = () => {

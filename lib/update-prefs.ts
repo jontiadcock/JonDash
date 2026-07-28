@@ -3,15 +3,24 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Update preferences the launcher also reads pre-boot (so they're files under
- * `.data`, not DB settings — same pattern as the update channel):
- *  - `.data/auto-update`  — "on" | "off" (absent = off). Whether the launcher
- *    auto-installs an available update at startup. Off by default: JonDash only
- *    notifies, and updates apply solely when the user chooses (the in-app button).
- *  - `.data/update-failed` — JSON written by the launcher when an update failed to
- *    build/boot and was rolled back to the previous version. Surfaced as an admin
- *    notice; the failed version is not auto-retried until this is cleared (a manual
- *    update or an explicit dismiss).
+ * Update preferences kept as files under `.data` rather than as database settings, because the
+ * launcher reads them before the app is running — same pattern as the update channel.
+ *
+ *  - `.data/auto-update` — "on" | "off" (absent = off). **Whether JonDash itself is included in
+ *    scheduled automatic updates**, i.e. the app's own entry in the per-item exclusion list on
+ *    Admin → Updates. It is read by the scheduler (`lib/updates/auto-run.ts`).
+ *
+ *    **It no longer means "the launcher may install at startup"** (owner, 2026-07-28: the
+ *    launcher never updates the software automatically). That is what made BUG-61 possible: this
+ *    file was the only thing the launcher could read pre-boot, it was driven by the per-item
+ *    exclusion rather than by the master switch, and so switching automatic updates *off* left it
+ *    saying "on" and the launcher dutifully installed. With nothing acting on it at boot, the
+ *    master switch (`updates.autoEnabled`) and this exclusion can no longer disagree about
+ *    anything that matters — the scheduler checks both.
+ *
+ *  - `.data/update-failed` — JSON written by the launcher when an update failed to build/boot and
+ *    was rolled back to the previous version. Surfaced as an admin notice; the failed version is
+ *    not retried automatically until this is cleared (a manual update or an explicit dismiss).
  */
 
 const DATA_DIR = path.join(process.cwd(), ".data");

@@ -28,6 +28,14 @@ function makeFakeServer(dir: string): string {
       '  fs.writeFileSync(path.join(root, ".shutdown"), "x");',
       "  process.exit(0);",
       "}",
+      // "shutdown-vs-update": BUG-63 — both signals present at once. Shutdown must win.
+      'if (process.env.JONDASH_FAKE_MODE === "shutdown-vs-update") {',
+      '  fs.writeFileSync(path.join(root, ".update-and-restart"), "x");',
+      '  fs.writeFileSync(path.join(root, ".rebuild-and-restart"), "x");',
+      '  fs.writeFileSync(path.join(root, ".restart-and-run"), "x");',
+      '  fs.writeFileSync(path.join(root, ".shutdown"), "x");',
+      "  process.exit(0);",
+      "}",
       // "restart": first run drops the restart signal (supervisor respawns us); the
       // second run finds no signal and just exits cleanly. A counter proves we ran twice.
       'if (process.env.JONDASH_FAKE_MODE === "restart") {',
@@ -122,6 +130,38 @@ describe("server supervisor", () => {
   it("shuts down (exit 0) on a .shutdown signal and consumes the signal file", async () => {
     expect(await runSupervisor(dir, fake, "shutdown")).toBe(0);
     expect(fs.existsSync(path.join(dir, ".shutdown"))).toBe(false);
+  }, 15000);
+
+  /**
+   * BUG-63 — the owner pressed **Shut down**, saw *"JonDash has been shut down"*, and watched it
+   * restart AND install an update.
+   *
+   * The signals were tested in the order update → rebuild → restart → shutdown, so anything else
+   * present at the same moment beat an explicit stop. A server that comes back after being told
+   * to stop cannot be taken out of service at all, which is worse than the unwanted update that
+   * rode along with it — so "stop" is checked first and clears the rest.
+   */
+  it("shuts down even when an update, rebuild and restart are all pending", async () => {
+    expect(await runSupervisor(dir, fake, "shutdown-vs-update")).toBe(0);
+    for (const f of [".shutdown", ".update-and-restart", ".rebuild-and-restart", ".restart-and-run"]) {
+      expect(fs.existsSync(path.join(dir, f)), `${f} survived the shutdown`).toBe(false);
+    }
+  }, 15000);
+
+  /**
+   * Every one of these is written by the RUNNING SERVER for the supervisor that spawned it, so a
+   * file present before the first server starts is left over from a previous process. One that
+   * survived — an update that failed partway, a launch interrupted between delete and relaunch —
+   * used to be acted on at the next boot, which is how a stale update sentinel could hijack a
+   * later shutdown.
+   */
+  it("ignores stale control signals left over from a previous run", async () => {
+    for (const f of [".update-and-restart", ".rebuild-and-restart", ".restart-and-run", ".shutdown"]) {
+      fs.writeFileSync(path.join(dir, f), "stale");
+    }
+    // "clean" exits 0 immediately and writes no signals of its own. A stale sentinel being
+    // honoured would come back as 10 (update) or 13 (rebuild) instead.
+    expect(await runSupervisor(dir, fake, "clean")).toBe(0);
   }, 15000);
 
   it("clears the post-update marker once the server has booted healthily", async () => {

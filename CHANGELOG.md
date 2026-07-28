@@ -9,6 +9,43 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.14] — 2026-07-28
+
+**The launcher no longer updates JonDash — ever.**
+
+There used to be two things that could replace the app: the launcher, at every single startup, and
+the in-app scheduler, at the time you chose. Only the second respected your schedule, which is how
+a restart could install a version you hadn't asked for at a moment you hadn't picked. That path is
+gone. Updates now happen on your schedule, or when you press the button in **Admin → Updates**, and
+nothing else installs anything. The launcher still *tells* you an update exists — being informed
+costs nothing; installing without being asked was the problem.
+
+That closes **BUG-61** (JonDash updating itself with automatic updates switched off) at the cause
+rather than patching it: with nothing acting on the pre-boot flag, the master switch and the
+per-item exclusion can no longer disagree about anything that matters.
+
+**Scheduled updates now cover JonDash itself**, not just add-ons — which they have to, now that the
+launcher doesn't. It obeys the same schedule, the same master switch and the same per-item
+exclusion as everything else, and a version that already failed and was rolled back is never
+retried automatically.
+
+**Shut down now means shut down (BUG-63).** The supervisor checked the update, rebuild and restart
+signals *before* the shutdown one, so any of them arriving at the same time beat an explicit stop —
+which is how pressing **Shut down** could restart the server and install an update on the way. Stop
+is now checked first and clears the rest, and stale signals left by a previous run are discarded at
+startup instead of being acted on.
+
+**Dragging tracks the cursor again.** A tile changes grid cell as you drag it, and it was *also*
+being offset by the full pointer distance on top of that — so it moved about twice as far as the
+mouse. The offset is now just the remainder within the current cell.
+
+**Small tiles no longer have their contents cut off.** A service tile had a fixed icon size and
+padding, so below a certain size the label was sliced off by the frame. It now sizes itself against
+the tile: the icon scales down, and on a very small tile the label steps aside and leaves the icon.
+
+**A resize now shows up immediately.** The grid was caching each item's size when the page loaded
+and never taking a new one from the server, so resizing could leave the old geometry on screen.
+
 ## [1.8.0-beta.13] — 2026-07-28
 
 **Put things where you want them.** A tile's position is now a **cell**, not a place in a queue —

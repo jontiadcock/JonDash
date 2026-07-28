@@ -59,24 +59,32 @@ call :log start blocked "another process is already listening on port %JD_PORT%"
 pause
 exit /b 1
 
+REM ----------------------------------------------------------------------------
+REM Look for an update and SAY SO. Nothing is ever installed from here.
+REM
+REM Owner's decision, 2026-07-28: "just remove the auto update functionality from the
+REM launcher... it must be a scheduled update, or manually updated from within the app...
+REM this means that the launcher will never update the software automatically."
+REM
+REM There used to be two things that could replace the app - this, at every startup, and
+REM the in-app scheduler at the configured time - and only the second one respected the
+REM schedule you set. So restarting the machine could install a version you had not asked
+REM for, at a moment you had not chosen, which is BUG-61 and half of BUG-63. Removing this
+REM path dissolves that rather than patching it: there is now exactly one automatic
+REM installer (the scheduler) and one manual one (Admin -> Updates).
+REM
+REM The CHECK stays. Being told an update exists costs nothing and is genuinely useful on a
+REM box someone only ever sees the console of; it is installing without being asked that was
+REM the problem.
+REM ----------------------------------------------------------------------------
 :check_for_updates
 where node >nul 2>nul || goto :eof
 if not exist "scripts\update.mjs" goto :eof
 echo.
 echo   Checking GitHub for updates...
+REM Exit code deliberately ignored - this reports, it never acts.
 node "scripts\update.mjs" autocheck
-REM Exit code 10 means: auto-install is ON and an update should be installed now.
-REM Otherwise autocheck just prints the status; the user installs from Admin -> Updates.
-if not errorlevel 10 goto :eof
-call :log update backup "auto-install: snapshotting current version before update"
-node "scripts\rollback.mjs" backup
-if not exist ".data" mkdir ".data" >nul 2>nul
-> ".data\post-update" echo 1
-call :log update apply "auto-installing available update; applying + relaunching (self-overwrite-safe)"
-echo   Installing update...
-REM update.mjs overwrites this .bat, so chain apply + relaunch + exit on ONE line
-REM (cmd buffers the whole line before running it) and never read this file again.
-node "scripts\update.mjs" apply & cmd /c ""%~f0" _run first" & exit
+goto :eof
 
 REM ----------------------------------------------------------------------------
 REM Stage 2 (_run): install, configure, migrate, build, start (supervised loop)

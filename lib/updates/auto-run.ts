@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { compareVersions } from "@/lib/version";
-import { getAppVersion } from "@/lib/update";
+import { getAppVersion, getUpdateStatus } from "@/lib/update";
+import { readAutoInstall, readUpdateFailure } from "@/lib/update-prefs";
 import { fetchSourceManifest, DEFAULT_SOURCE_URL } from "@/lib/modules/sources";
 import { installHelper } from "@/lib/helpers/install";
 import { getHelperUpdateStatus } from "@/lib/helpers/updates";
@@ -39,6 +40,14 @@ export type AutoUpdateOutcome = {
   held: string[];
   /** Something went wrong reaching a source or installing. */
   failures: string[];
+  /**
+   * The version of JonDash ITSELF that should now be installed, or null.
+   *
+   * Reported rather than applied, because applying it ends this process — the caller decides
+   * when to hand over to the launcher, and doing it here would kill the run mid-way through
+   * auditing what it did.
+   */
+  appUpdate: string | null;
 };
 
 /** True when automatic updates are on at all — lets the scheduler skip the network entirely. */
@@ -52,7 +61,7 @@ export async function anythingOptedIn(): Promise<boolean> {
  * Does NOT rebuild or restart — the caller does, once, after this returns.
  */
 export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
-  const out: AutoUpdateOutcome = { applied: [], held: [], failures: [] };
+  const out: AutoUpdateOutcome = { applied: [], held: [], failures: [], appUpdate: null };
 
   // Master switch first: nothing runs automatically while it is off.
   if (!(await readUpdateSchedule()).autoEnabled) return out;
@@ -64,6 +73,11 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   ]);
   const wantModule = new Set(modules.filter((m) => !m.autoUpdateExcluded).map((m) => m.id));
   const wantHelper = new Set(helpers.filter((h) => !h.autoUpdateExcluded).map((h) => h.id));
+
+  // JonDash itself is decided the same way as everything else: included unless excluded. The
+  // exclusion lives in `.data/auto-update` rather than the database because it predates this
+  // and the Updates page already drives it — see lib/update-prefs.ts.
+  const wantApp = readAutoInstall();
 
   // A helper an updating module depends on is brought along even when excluded. Excluding a
   // helper opts it out of being updated FOR ITS OWN SAKE — not out of being a working
@@ -81,7 +95,7 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
     }
   }
 
-  if (wantModule.size === 0 && wantHelper.size === 0) return out;
+  if (wantModule.size === 0 && wantHelper.size === 0 && !wantApp) return out;
 
   const appVersion = getAppVersion();
 
@@ -143,14 +157,52 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
     }
   }
 
+  /*
+   * JonDash itself, LAST — and only reported, never applied here.
+   *
+   * The launcher used to be the only thing that updated core, and it did so at every startup
+   * regardless of the schedule. With that removed (owner, 2026-07-28) this is the sole automatic
+   * path, so without it "update automatically" would quietly cover add-ons and not the app.
+   *
+   * Last because applying it replaces the whole install: the launcher rebuilds everything, so any
+   * module updated above is carried along in the same restart rather than needing a second one.
+   * `modules/` and `helpers/` are preserved by the updater, so their new versions survive it.
+   */
+  if (wantApp) {
+    try {
+      const status = await getUpdateStatus(true);
+      if (!status.supported) {
+        out.held.push(`JonDash: ${status.reason ?? "automatic updates aren't available here"}`);
+      } else if (status.updateAvailable && status.latest) {
+        // Never re-apply a version that already failed and was rolled back. It would fail the
+        // same way, and on a schedule that means a rebuild-and-revert cycle every window.
+        const failed = readUpdateFailure();
+        if (failed && failed.failedVersion === status.latest) {
+          out.held.push(
+            `JonDash ${status.latest}: the last attempt failed and was rolled back to ${failed.revertedTo} — install it yourself when ready`,
+          );
+        } else {
+          out.appUpdate = status.latest;
+        }
+      }
+    } catch (e) {
+      out.failures.push(`JonDash: ${e instanceof Error ? e.message : "update check failed"}`);
+    }
+  }
+
   return out;
 }
 
 /** Record what a scheduled run did. Written even when nothing was applied but something was held. */
 export async function auditAutoUpdateRun(out: AutoUpdateOutcome): Promise<void> {
-  if (out.applied.length === 0 && out.held.length === 0 && out.failures.length === 0) return;
+  if (out.applied.length === 0 && out.held.length === 0 && out.failures.length === 0 && !out.appUpdate) {
+    return;
+  }
   const parts = [
     out.applied.length ? `applied ${out.applied.join(", ")}` : "",
+    // Written BEFORE the restart it triggers, so there is a record even if the update then
+    // fails to build — otherwise the one run that goes wrong is the one that leaves no trace.
+    out.appUpdate ? `installing JonDash ${out.appUpdate}` : "",
     out.held.length ? `held back ${out.held.join("; ")}` : "",
     out.failures.length ? `failed ${out.failures.join("; ")}` : "",
   ].filter(Boolean);

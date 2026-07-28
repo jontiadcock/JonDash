@@ -248,7 +248,10 @@ export function DashboardFrame({
         and the clip never engages. `[&>*]:h-full` pins the child to the frame so a widget can
         lay itself out against a known height rather than overflowing one it can't see.
       */}
-      <div className="min-h-0 flex-1 overflow-hidden [&>*]:h-full">{children}</div>
+      {/* `@container` so the content can size itself against THIS FRAME rather than the window.
+          A tile is now anything from one cell to the width of the grid, and a viewport breakpoint
+          says nothing useful about that — a small tile on a large screen is still a small tile. */}
+      <div className="@container min-h-0 flex-1 overflow-hidden [&>*]:h-full">{children}</div>
 
       {editing && (
         <>

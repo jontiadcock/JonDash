@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.14",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: JonDash only updates when you say so. Starting the dashboard will never install an update any more - it just tells you one is available. Updates now happen on the schedule you set, or when you press the button in Admin - Updates, and nothing else. Scheduled updates cover JonDash itself as well as your add-ons, and a version that previously failed is never retried on its own. Shut down now genuinely shuts down: it used to be possible for a restart, and even an update, to happen anyway. On the dashboard, dragging a tile follows your cursor properly instead of moving roughly twice as far, small tiles no longer have their name cut off (the icon shrinks, and on a very small tile the name steps aside), and resizing a tile shows the new size straight away."
+    },
+    {
       "version": "1.8.0-beta.13",
       "date": "2026-07-28",
       "type": "minor",

@@ -160,6 +160,31 @@ function runOnce() {
     // In-app control signals — but only when we didn't ourselves ask the child to
     // stop (an OS signal / window close sets shuttingDown; honour that instead).
     if (!shuttingDown) {
+      /*
+       * SHUTDOWN IS CHECKED FIRST, and it clears everything else (BUG-63).
+       *
+       * This was last, after the update, rebuild and restart signals — so any one of those
+       * present at the same moment beat an explicit "stop", and the server came back up. The
+       * owner pressed Shut down, saw "JonDash has been shut down", and watched it restart AND
+       * install an update: a stale `.update-and-restart` won the race, so the launcher took the
+       * update path instead of stopping.
+       *
+       * A server that comes back after being told to stop cannot be taken out of service at all,
+       * which makes this worse than the unwanted update riding along with it. "Stop" is the one
+       * instruction nothing else may override, so it is tested before anything else and the
+       * competing signals are removed rather than left to fire on the next boot.
+       */
+      if (exists(SHUTDOWN_SIGNAL)) {
+        for (const f of [SHUTDOWN_SIGNAL, SENTINEL, REBUILD_SIGNAL, RESTART_SIGNAL]) {
+          try {
+            fs.rmSync(f, { force: true });
+          } catch {
+            /* ignore */
+          }
+        }
+        appendLog("server", "shutdown", "shutdown requested via app — stopping");
+        return finish(0);
+      }
       // In-app update requested (server dropped the sentinel and exited).
       if (exists(SENTINEL)) {
         appendLog("server", "update-requested", `code=${code} — handing to launcher`);
@@ -187,16 +212,6 @@ function runOnce() {
           runOnce();
         }, RESTART_DELAY_MS);
         return;
-      }
-      // In-app shutdown requested: stop for good; the launcher window then closes.
-      if (exists(SHUTDOWN_SIGNAL)) {
-        try {
-          fs.rmSync(SHUTDOWN_SIGNAL, { force: true });
-        } catch {
-          /* ignore */
-        }
-        appendLog("server", "shutdown", "shutdown requested via app — stopping");
-        return finish(0);
       }
     }
     // A clean / external stop — a shutdown we initiated, a signal kill, a Windows
@@ -248,9 +263,17 @@ function runOnce() {
   });
 }
 
-// Clear any stale in-app control signals from a previous run so a leftover file
-// can't trigger an unexpected restart/shutdown on this boot.
-for (const f of [RESTART_SIGNAL, SHUTDOWN_SIGNAL]) {
+/*
+ * Clear stale in-app control signals from a previous run, so a leftover file can't trigger an
+ * unexpected restart, update or shutdown on this boot.
+ *
+ * **All four, not just two** (BUG-63). The update and rebuild sentinels were left in place on the
+ * reasoning that the launcher deletes them itself — which it does, on the path where it acts on
+ * them. On any path where it doesn't (an update that failed, a launch interrupted between the two)
+ * the file survives, and every one of these is written by the *running server* for the supervisor
+ * that spawned it. A signal from a previous process is stale by definition.
+ */
+for (const f of [RESTART_SIGNAL, SHUTDOWN_SIGNAL, SENTINEL, REBUILD_SIGNAL]) {
   try {
     fs.rmSync(f, { force: true });
   } catch {

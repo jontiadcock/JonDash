@@ -71,6 +71,24 @@ export function startUpdateScheduler(): void {
       const out = await runAutoUpdates();
       await auditAutoUpdateRun(out);
 
+      /*
+       * A JonDash update supersedes a module rebuild — it is not additional to it.
+       *
+       * Applying one hands over to the launcher, which reinstalls, migrates, rebuilds and
+       * relaunches the whole install; any module updated in the same run is carried along by
+       * that rebuild. Asking for both would queue a second restart for work the first one
+       * already did.
+       *
+       * This is now the ONLY automatic path for the app itself (owner, 2026-07-28: the launcher
+       * no longer updates anything on its own), which is why it lives behind the same schedule
+       * and the same master switch as everything else.
+       */
+      if (out.appUpdate) {
+        const { requestUpdateRestart } = await import("@/lib/update");
+        requestUpdateRestart();
+        return;
+      }
+
       // Only bounce the server if something actually changed on disk.
       if (out.applied.length > 0) requestRebuildAndRestart();
     } catch (e) {
