@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.19",
+      "date": "2026-07-28",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: the module panel in Browse now genuinely expands out of the card you clicked, instead of appearing fully formed. The animation was there in beta.18 but started a fraction after the browser had already drawn the finished panel, so there was nothing left to watch. Each interface style keeps its own timing - Crystal is unhurried, Brutalist snaps through, and Windows XP and Terminal do not animate at all, because a window in those was either up or it wasn't. If you have asked your system for reduced motion, nothing animates on any style."
+    },
+    {
       "version": "1.8.0-beta.18",
       "date": "2026-07-28",
       "type": "minor",

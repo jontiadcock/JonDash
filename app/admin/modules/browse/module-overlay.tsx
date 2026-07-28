@@ -1,16 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { takeOrigin } from "./expand-origin";
 
-/** Duration/easing read from the live theme, so a style — or reduced motion — decides the motion. */
+/** `useLayoutEffect` warns during a server render, and this component has no server render to do. */
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/**
+ * How long this movement gets, and how it eases.
+ *
+ * **The style decides, and a zero is an answer.** XP and Terminal set `--motion-slow: 0ms` on
+ * purpose — a window was either up or it wasn't — so on those the panel appears instantly, and
+ * that is correct rather than a bug. Crystal takes 380ms, Brutalist 110ms, and this follows each
+ * of them. The only value treated as "no answer" is a token that is missing or unparseable, which
+ * means something is wrong with the stylesheet rather than with the style.
+ *
+ * **Reduced motion is asked directly, rather than inferred from the token**, because those two
+ * zeroes mean different things and only one of them is an accessibility request. Reading the
+ * preference here keeps it true even if a style ever forgets to set a duration.
+ */
 function motion() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    return { duration: 0, easing: "linear" };
+  }
   const css = getComputedStyle(document.documentElement);
-  const ms = parseFloat(css.getPropertyValue("--motion-slow"));
+  const token = parseFloat(css.getPropertyValue("--motion-slow"));
   return {
-    duration: Number.isFinite(ms) ? ms : 220,
+    duration: Number.isFinite(token) ? token : 260,
     easing: css.getPropertyValue("--motion-ease").trim() || "ease-out",
   };
 }
@@ -62,8 +80,16 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
-  // Consumed on mount, not on click: this is the one render where it is still true.
-  const [from] = useState(takeOrigin);
+  /*
+   * The card this panel came from, claimed once the tree is actually committed.
+   *
+   * **Not read during render.** It was, via `useState(takeOrigin)`, and that is wrong in a way
+   * that only shows up under concurrent rendering: a navigation renders inside a transition, React
+   * may render a tree it then throws away, and a discarded render had already consumed the
+   * rectangle. The next render — the one that mounts — found nothing and fell back to growing from
+   * the middle of the screen. Effects only run for trees that are kept.
+   */
+  const from = useRef<DOMRect | null>(null);
 
   /**
    * Shrink back towards the card, then unwind the navigation.
@@ -95,7 +121,7 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
 
     // Half the entrance: leaving should feel quicker than arriving.
     const out = Math.round(duration / 2);
-    const end = fromCard(from, el);
+    const end = fromCard(from.current, el);
     back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: out, easing, fill: "forwards" });
     el.animate([{ transform: "none", opacity: 1 }, { transform: end, opacity: 0 }], {
       duration: out,
@@ -103,9 +129,9 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
       fill: "forwards",
     }).addEventListener("finish", go);
     setTimeout(go, out + 80);
-  }, [from, router]);
+  }, [router]);
 
-  useEffect(() => {
+  useBeforePaint(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
@@ -142,26 +168,44 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
   /**
    * Play the expansion, then hand the panel back to the stylesheet.
    *
+   * **Before the first paint, and this is the whole fix.** As a passive `useEffect` this ran
+   * *after* the browser had already painted, so the panel was on screen at full size before
+   * anything started moving — the owner's report was exactly that: *"it just pops out with no
+   * animation."* `useLayoutEffect` runs between the DOM change and the paint, so the first frame
+   * anyone sees is the panel sitting on the card it came from.
+   *
+   * Measured rather than reasoned, in `WORKING/flip-probe.html`: sampling the rendered transform
+   * every frame gives `scale 0.416` (the card's width over the panel's) on the first frame and
+   * `scale 1` at the style's own duration. The same probe disproved a second suspect —
+   * `element.animate()` *does* apply its first keyframe immediately, so no inline priming of the
+   * start state is needed, and the version of this that carried one has been removed rather than
+   * left in as insurance against something that does not happen.
+   *
    * **Declared after the effect above, deliberately.** Effects run in the order they appear, and
-   * that one takes the scrollbar away — which widens the viewport that this fixed panel is centred
-   * in. Measuring first would aim the whole animation half a scrollbar off.
+   * that one takes the scrollbar away — which widens the viewport this fixed panel is centred in.
+   * Measuring first would aim the whole animation half a scrollbar off.
    *
    * `fill: "none"` on purpose: an animation that retains its last keyframe leaves a permanent
    * `transform` on the panel, and a transform makes it the containing block for every
    * `position: fixed` inside it. That is BUG-23 exactly, and it is why the page fade uses
    * `backwards` rather than `both`.
    */
-  useEffect(() => {
+  useBeforePaint(() => {
     const el = panel.current;
     const back = backdrop.current;
     if (!el || !back) return;
+
+    // Claimed here rather than in render — see the ref's own note.
+    from.current = takeOrigin();
+
+    // Zero is a real answer, not a missing one: XP and Terminal snap, and so does this.
     const { duration, easing } = motion();
     if (duration <= 0) return;
 
     back.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
     el.animate(
       [
-        { transform: fromCard(from, el), opacity: 0 },
+        { transform: fromCard(from.current, el), opacity: 0 },
         // The content inside is stretched while the panel is any shape but its own, so it fades in
         // over the first half and the distortion is never legible.
         { opacity: 1, offset: 0.5 },
@@ -169,7 +213,7 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
       ],
       { duration, easing, fill: "none" },
     );
-  }, [from]);
+  }, []);
 
   /*
    * Portalled into `document.body` (BUG-23, and the same reason `ServerWaitOverlay` is).

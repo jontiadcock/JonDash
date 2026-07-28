@@ -9,6 +9,18 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.19] — 2026-07-28
+
+**The module panel now actually expands.** In beta.18 it appeared fully formed instead of growing
+out of the card you clicked — the animation was written, set up a fraction too late to be seen, and
+the browser had already drawn the finished panel by the time it started. It now starts before the
+first frame is drawn, so the panel begins life at the card and opens from there.
+
+**Each interface style keeps its own answer.** Crystal takes its unhurried 380ms, Aero 260ms,
+Brutalist snaps through in 110ms — and **Windows XP and Terminal do not animate at all**, because a
+window in those was either up or it wasn't. If you have asked your system for reduced motion, there
+is no animation on any style.
+
 ## [1.8.0-beta.18] — 2026-07-28
 
 **A module now opens over the catalogue rather than taking you somewhere else.** Clicking a card
