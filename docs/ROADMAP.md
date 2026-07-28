@@ -64,8 +64,9 @@ MOD-09/10 (v1.5.2); MOD-11 is the last small item.
 **Now in flight: the 1.8.0 UI-rework release** (from 2026-07-27, owner-directed). It is a *release*
 rather than a queue item — roughly thirty changes agreed up front as a dozen groups, shipping as a
 run of betas, and it cuts across items already listed below as well as work that never had an ID.
-Six groups remain: Network & HTTPS · the Add-ons page and Browse grid · the module detail page ·
-backup and restore · OPS-16 · the help page, support line and responsive sweep.
+Four groups remain (the Add-ons page, Browse grid and module detail page shipped in
+**v1.8.0-beta.17**): Network & HTTPS · backup and restore · OPS-16 · the help page, support line
+and responsive sweep.
 
 **The queue below therefore does not describe what is being built right now.** Shipped 1.8.0 items
 carry their version in the catalog, as usual; the release's own plan is the day-to-day authority
