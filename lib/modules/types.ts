@@ -452,5 +452,32 @@ export function describePermission(
   };
 }
 
+/**
+ * How much a module is asking for, as one word — for a catalogue card, where there is no room for
+ * the sentences `describePermission` produces.
+ *
+ * **Derived from the same data as the full list, deliberately.** A chip summarises a consent
+ * decision, and a summary computed separately from the thing it summarises is free to drift from
+ * it — the card would read "Standard" while the detail page listed something alarming. This runs
+ * the same permissions through the same `describePermission`, so a chip can only ever be a lossy
+ * view of what the detail page spells out.
+ *
+ * **A chip is never enough to install on.** It says roughly how much is being asked for so a
+ * catalogue can be skimmed; approving happens where the full list is on screen.
+ */
+export type PermissionRisk = "none" | "standard" | "elevated";
+
+export function permissionRisk(
+  permissions: readonly DeclaredPermission[],
+  helperLabels?: Readonly<Record<string, string>>,
+): { level: PermissionRisk; label: string; count: number } {
+  const ids = [...new Set(permissions)];
+  if (ids.length === 0) return { level: "none", label: "No extra access", count: 0 };
+  const anyDangerous = ids.some((p) => describePermission(p, helperLabels).dangerous);
+  return anyDangerous
+    ? { level: "elevated", label: "Elevated access", count: ids.length }
+    : { level: "standard", label: "Standard access", count: ids.length };
+}
+
 /** Re-exported for convenience where a widget/panel returns markup. */
 export type ModuleRenderable = ReactNode;

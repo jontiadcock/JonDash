@@ -6,8 +6,11 @@ import { readFailedModule } from "@/lib/modules/rebuild";
 import { reconcileHelpers } from "@/lib/helpers/reconcile";
 import { describePermission } from "@/lib/modules/types";
 import { helperCapabilityLabels } from "@/lib/helpers/registry";
+import { readChannel, docUrl } from "@/lib/update-channel";
 import { ModulesList, type ModuleItem } from "./ui";
 import { ImportModuleForm } from "./import-form";
+import { AddonActionsRow } from "./addon-actions-row";
+import { DesignPanel } from "./design-panel";
 import { FailedModuleNotice } from "./failed-notice";
 import { HelperGapNotice } from "./helper-gap-notice";
 import { SharedCapabilities } from "./shared-capabilities";
@@ -64,15 +67,19 @@ export default async function AdminModulesPage() {
       {failed && <FailedModuleNotice moduleId={failed.id} at={failed.at} />}
       <HelperGapNotice gaps={helperGaps} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href="/admin/modules/browse" className="btn btn-ghost !py-1.5 text-sm">Browse modules</Link>
-        <Link href="/admin/modules/sources" className="btn btn-ghost !py-1.5 text-sm">Manage sources</Link>
-      </div>
+      {/*
+        Everything you can DO is one row (7.1). Import used to be a permanently-open card below
+        the module list — the rarest action on the page taking the most room, while Browse, which
+        is what almost everyone wants, was a small button. Both now open on request, and Import
+        still shows its safety text in full when it does.
+      */}
+      <AddonActionsRow
+        importPanel={<ImportModuleForm />}
+        designPanel={<DesignPanel guideUrl={docUrl(readChannel(), "MODULES-AUTHORING.md")} />}
+      />
 
       <h2 className="text-lg font-semibold tracking-tight">Installed</h2>
       <ModulesList items={items} />
-
-      <ImportModuleForm />
 
       {/* Shared capabilities — the same page, a SEPARATE list, never mixed in with the modules
           above. They cannot be installed or removed by hand: one arrives with a module that

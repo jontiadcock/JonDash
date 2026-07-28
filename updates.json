@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.17",
+      "date": "2026-07-28",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: a proper module catalogue. Browse now shows modules three across, each with a short summary and a chip telling you roughly how much access it wants, and you pick how many to show per page. Clicking one opens its own page, where you can read exactly what it can do before deciding - and that is now the only place you can install from, so a module can never be installed without its permissions having been in front of you. You can still queue several and install them together as one restart. The Addons page has tidied up too: Import is a button in the top row instead of a large panel at the bottom, and there is a new 'Design your own module' option linking the authoring guide and a template you can copy. The authoring guide itself has been brought up to date with the new dashboard grid."
+    },
+    {
       "version": "1.8.0-beta.16",
       "date": "2026-07-28",
       "type": "minor",

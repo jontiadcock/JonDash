@@ -9,6 +9,40 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.17] — 2026-07-28
+
+**The Add-ons page has one row of actions**, and Import is in it. Import used to be a
+permanently-open card at the foot of the page — the rarest thing anyone does here taking the most
+room, while Browse, which is what almost everyone wants, was a small button. Both now open when
+asked for. **Import still shows its safety notice in full** when it does: it carries the only
+statement in the product that a sideloaded module is checked, and anything reaching for a
+permission it didn't declare, touching the filesystem, or running constructed code is refused.
+
+**New: Design your own module** — the authoring guide (the version matching your update channel,
+since a beta build has a different contract from a stable one) and the `template` module, which is
+a working module you can copy and is the faster start.
+
+**Browse is a catalogue.** Three across, each entry carrying its author's summary and a chip saying
+roughly how much access it wants. You choose how many to show per page and the choice is
+remembered. A module this build is too old for is greyed **and says which version it needs** —
+dimming alone reads as a rendering fault.
+
+**Clicking one opens its own page**, where the permissions are written out in full, the shared
+capabilities it would bring with it are named, and the install actions live. Back returns you to
+the page of the catalogue you left, not to the beginning.
+
+**This is a consent change, not only a layout one.** Installing was previously possible from a
+checkbox on a catalogue row — so a module could be selected and installed with its permissions
+never having been on screen. The catalogue now has no install control at all; **Queue install** and
+**Install now** exist only on a module's own page. Queuing still batches, so several modules cost
+one rebuild and one restart rather than one each, and a part-built batch survives moving between
+pages.
+
+**`docs/MODULES-AUTHORING.md` caught up with the 1.8.0 dashboard.** It still told authors their
+widget was 1–3 grid cells. It now describes the 18-column grid, square cells, the 6×6 default and
+the 1×1 floor, that the frame **clips rather than scrolls**, container queries rather than media
+queries, free placement, and that phone and desktop layouts are stored separately.
+
 ## [1.8.0-beta.16] — 2026-07-28
 
 **Drop a tile on top of another and the others shuffle out of the way.** It used to be refused —

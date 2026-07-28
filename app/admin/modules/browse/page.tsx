@@ -1,19 +1,23 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guards";
 import { browseAvailableModules, ensureDefaultSource, listSources, type ModuleChannel } from "@/lib/modules/sources";
-import { describePermission } from "@/lib/modules/types";
-import { InstallPicker, SelectToggle, type BrowseItem } from "./install-button";
+import { permissionRisk } from "@/lib/modules/types";
+import { compareVersions } from "@/lib/version";
+import { getAppVersion } from "@/lib/update";
+import { BrowseGrid, type BrowseCard } from "./browse-grid";
+import { QueuedInstallBar } from "./queued-install-bar";
 
 export const dynamic = "force-dynamic";
 
 export default async function BrowseModulesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ channel?: string }>;
+  searchParams: Promise<{ channel?: string; page?: string }>;
 }) {
   await requirePermission("modules.manage");
-  const { channel: raw } = await searchParams;
+  const { channel: raw, page: rawPage } = await searchParams;
   const channel: ModuleChannel = raw === "beta" ? "beta" : "stable";
+  const page = Math.max(1, Number(rawPage) || 1);
 
   // On a fresh install ModuleSource is empty, so this page used to read "nothing is
   // published" — which sounds like the source has no modules, not like it was never set
@@ -21,14 +25,35 @@ export default async function BrowseModulesPage({
   await ensureDefaultSource();
   const sourceCount = (await listSources()).filter((s) => s.enabled).length;
   const { modules, errors } = await browseAvailableModules(channel);
-  const browseItems: BrowseItem[] = modules.map((m) => ({
-    id: m.id,
-    name: m.name,
-    version: m.version,
-    sourceId: m.sourceId,
-    installed: m.installed,
-    helpers: m.helpers,
-  }));
+
+  /*
+   * Flattened to plain data so the grid can be a client component — which it must be, because
+   * pagination and the saved page size are browser concerns. Nothing here needs rendering on the
+   * server: a card is a name, a sentence and a chip.
+   *
+   * The risk chip is computed from the module's own permissions PLUS everything its helpers can
+   * do, keyed by id so a capability the module also declared isn't counted twice. Consent driven
+   * only by the module's own list would understate what taking the helper actually allows.
+   */
+  const appVersion = getAppVersion();
+  const cards: BrowseCard[] = modules.map((m) => {
+    const labels = Object.fromEntries(m.helperCapabilities.map((c) => [c.id, c.label]));
+    const ids = [...new Set([...m.permissions, ...m.helperCapabilities.map((c) => c.id)])];
+    return {
+      id: m.id,
+      name: m.name,
+      version: m.version,
+      description: m.description,
+      sourceName: m.sourceName,
+      installed: m.installed,
+      installedVersion: m.installedVersion,
+      minAppVersion: m.minAppVersion,
+      // MOD-05 leftover: an entry this build is too old for is shown greyed and says why, rather
+      // than being hidden — "why isn't it listed?" is a worse question than "why is it dimmed?".
+      tooOld: compareVersions(m.minAppVersion, appVersion) > 0,
+      risk: permissionRisk(ids, labels),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,59 +108,12 @@ export default async function BrowseModulesPage({
           brand-new module can take a moment to appear here.
         </p>
       ) : (
-        <InstallPicker items={browseItems} channel={channel}>
-        <div className="flex flex-col gap-4">
-          {modules.map((m) => (
-            <div key={`${m.sourceId}:${m.id}`} className="card flex flex-col gap-3 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{m.name}</span>
-                    <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>v{m.version}</span>
-                    {m.installed && (
-                      <span className="rounded px-1.5 py-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                        installed{m.installedVersion ? ` (v${m.installedVersion})` : ""}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{m.description}</p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                    from {m.sourceName} · needs JonDash {m.minAppVersion}+
-                  </p>
-                </div>
-                <div className="flex-none"><SelectToggle id={m.id} /></div>
-              </div>
-
-              <div className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
-                <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Permissions it requests</p>
-                {(() => {
-                  // What the admin is actually approving: the module's own permissions PLUS
-                  // everything its helpers can do. Keyed by permission id so a capability the
-                  // module also declared isn't listed twice.
-                  const labels = Object.fromEntries(m.helperCapabilities.map((c) => [c.id, c.label]));
-                  const ids = [...new Set([...m.permissions, ...m.helperCapabilities.map((c) => c.id)])];
-                  if (ids.length === 0) {
-                    return <p className="mt-1 text-sm">None beyond the basics (its own settings and data).</p>;
-                  }
-                  return (
-                    <ul className="mt-1 flex flex-col gap-1 text-sm">
-                      {ids.map((p) => {
-                        const { text, dangerous } = describePermission(p, labels);
-                        return (
-                          <li key={p} style={dangerous ? { color: "var(--danger)" } : undefined}>
-                            {dangerous ? "⚠ " : "• "}
-                            {text}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  );
-                })()}
-              </div>
-            </div>
-          ))}
-        </div>
-        </InstallPicker>
+        <>
+          <BrowseGrid items={cards} channel={channel} page={page} />
+          {/* The batch, wherever you built it up from. Sits below the grid so it is visible on
+              the page you return to after queueing something. */}
+          <QueuedInstallBar channel={channel} names={Object.fromEntries(cards.map((c) => [c.id, c.name]))} />
+        </>
       )}
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>

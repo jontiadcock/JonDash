@@ -30,6 +30,18 @@ export function manifestUrl(channel: UpdateChannel): string {
   return `https://raw.githubusercontent.com/${REPO}/${branchForChannel(channel)}/updates.json`;
 }
 
+/**
+ * A documentation file in this repo, on the branch the install actually tracks.
+ *
+ * The branch matters: someone on beta writing a module is writing against beta's contract, and
+ * pointing them at stable's guide would describe an API their build does not have. Derived from
+ * the same `REPO` and `branchForChannel` as everything else here so a fork or a renamed branch
+ * cannot leave one link behind.
+ */
+export function docUrl(channel: UpdateChannel, file: string): string {
+  return `https://github.com/${REPO}/blob/${branchForChannel(channel)}/docs/${file}`;
+}
+
 export function readChannel(): UpdateChannel {
   try {
     const raw = fs.readFileSync(CHANNEL_FILE, "utf8").trim().toLowerCase();

@@ -299,25 +299,44 @@ If a rule blocks something genuinely legitimate, ask for a framework capability 
 
 ## Widget size — design for it, don't assume it
 
-Your dashboard widget is **resized by each user, not by you.** Every user can set their own width and
-height (1–3 grid columns/rows) for your widget, and their choice doesn't affect anyone else's. There is no
-"correct" size to design for, so:
+Your dashboard widget is **resized and positioned by each user, not by you**, and their choices don't
+affect anyone else's. There is no "correct" size to design for.
 
-- **Never hardcode pixel widths or heights.** Fill the space you're given — the frame sizes itself. Use
-  `width: 100%`, flex/grid, and `max-width: 100%` on anything that could overflow.
-- **Degrade downwards.** At 1×1 (the default, and roughly a third of the row on desktop) show the single
-  most important thing: a status, a count, a colour. Reserve tables, charts and detail for wider sizes.
-- **Don't rely on media queries** — the widget's box changes size independently of the viewport, so a
-  `@media` breakpoint tells you about the screen, not about your widget. Prefer layouts that reflow
-  naturally (`flex-wrap`, `grid-template-columns: repeat(auto-fit, minmax(...))`, `container` queries).
-- **Everything is full width on a phone.** Small screens collapse to one column regardless of the chosen
-  width, so your "wide" layout must still work narrow.
-- **Put the detail on your page, not in the widget.** If it doesn't fit at 1×1, that's a signal it belongs
+> **⚠ This changed substantially in 1.8.0.** If you wrote a widget against an earlier version, read this
+> section again — the grid is finer, cells are square, the frame **clips** instead of scrolling, and a
+> user can make your widget a great deal smaller than they could before.
+
+**The grid.** 18 columns on a desktop, 6 on a narrow screen, and **a cell is square** — its row height is
+the measured column width, so `N×N` really is a square and sizes compose predictably. A widget defaults
+to **6×6** (a service tile is 3×3) and a user can take it down to **1×1**, which is one square cell. There
+is no practical maximum height.
+
+**Position is free.** Since 1.8.0 a user drags your widget to any cell they like and it stays there, with
+gaps around it if they want. Nothing may assume a neighbour, a row, or that the board is packed.
+
+- **The frame CLIPS what doesn't fit — it does not scroll.** Anything overflowing your box is simply not
+  visible. This is deliberate (owner's call): a scrollbar inside every tile is noise to rescue the rare
+  one that overflows, and it lets a badly sized widget look acceptable instead of obviously wrong.
+  **Fitting the box you are given is your job, and the box can be small.**
+- **Size against your own frame, not the viewport.** The frame is a **CSS container**, so use container
+  queries — `@container` variants such as `@[20rem]:flex-row` — rather than `@media`. A viewport
+  breakpoint tells you about the screen, which says nothing useful here: a small widget on a large
+  display is still small. Core does exactly this for its own service tiles.
+- **Degrade downwards, properly.** At 1×1 show one thing: a status, a count, a colour. Core's own tiles
+  drop their label below about 6rem and keep only the icon, and scale the icon as a proportion of the
+  tile rather than at a fixed size — that shape works well.
+- **Never hardcode pixel widths or heights.** Use `width: 100%`, flex/grid, and `max-width: 100%` on
+  anything that could overflow.
+- **Put the detail on your page, not in the widget.** If it doesn't fit small, that's a signal it belongs
   at `/m/<id>`. The widget's job is to be glanceable and to link through.
 - **Your root element is stretched to fill the frame** (since 1.8.0-beta.1). The frame sets `height: 100%`
   on your widget's outermost element, so lay that element out expecting the full cell — a `flex` column,
-  or a card with `height: 100%` — rather than assuming it wraps its content. Widgets sharing a row are a
-  uniform height, so a short one that doesn't fill leaves a visible gap under it (BUG-55).
+  or a card with `height: 100%` — rather than assuming it wraps its content (BUG-55).
+- **A narrow screen is its own arrangement.** It has 6 columns rather than 18, and a user's phone layout
+  is saved separately from their desktop one — so your widget can be a different size, in a different
+  place, on each. Your "wide" layout must still work narrow.
+- **Service tiles and widgets share one grid.** Yours can sit anywhere among a user's service tiles, at
+  any size they pick; there is no separate "modules area" any more.
 - **The whole widget is clickable.** In normal use, clicking anywhere on your widget opens `/m/<id>` —
   except on something of yours that is already interactive (a link, button, input, label or
   `role="button"`), which behaves exactly as you wrote it. You don't need to add your own "Open" link,

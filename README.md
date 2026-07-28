@@ -24,7 +24,9 @@ Sign-in is **password + authenticator code**. Updates are **one click, in the ap
 
 ## Features
 
-- **Per-user dashboards** — each person sees only the tiles you give them.
+- **Per-user dashboards** — each person sees only the tiles you give them, and arranges them how
+  they like: drag anything anywhere on the grid, resize it, leave gaps. Phone and desktop layouts
+  are saved separately, so tidying one doesn't disturb the other.
 - **Service Groups** — bundle tiles once, assign them to many people at once.
 - **Two-factor sign-in** (authenticator app) with **backup recovery codes**.
 - **Delegated admin** — hand out specific admin powers with **Access Roles**, not the lot.
