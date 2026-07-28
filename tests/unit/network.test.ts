@@ -86,8 +86,32 @@ describe("parseAndSaveNetworkConfig", () => {
     expect(parseAndSaveNetworkConfig({ ...base, mode: "letsencrypt", domain: "dash.example.com", email: "not-an-email" }).ok).toBe(false);
   });
 
-  it("requires both cert and key paths for BYO", () => {
-    expect(parseAndSaveNetworkConfig({ ...base, mode: "byo", certPath: "/only/cert" }).ok).toBe(false);
+  /**
+   * **Changed in 1.8.0, deliberately.** This used to refuse to save `byo` without two readable
+   * paths. Importing a certificate replaced typing a path, and importing needs the mode saved
+   * first — so the old rule made the two steps circular: you couldn't save the mode without a
+   * certificate, and couldn't upload a certificate without the mode.
+   *
+   * Nothing is lost by allowing it. `server.mjs` still declines to start HTTPS without a usable
+   * pair and writes the reason into the status file, and the page says the same thing where the
+   * certificate would be listed. The old rule moved that complaint to a worse place.
+   */
+  it("lets a certificate mode be saved before a certificate exists", () => {
+    expect(parseAndSaveNetworkConfig({ ...base, mode: "byo" })).toEqual({ ok: true });
+    expect(parseAndSaveNetworkConfig({ ...base, mode: "selfsigned" })).toEqual({ ok: true });
+  });
+
+  it("still rejects a path pair that doesn't load, when paths are given", () => {
+    // The legacy path fields remain for installs already using them, so a bad pair must still be
+    // caught at save time rather than at the next restart.
+    expect(
+      parseAndSaveNetworkConfig({ ...base, mode: "byo", certPath: "/no/such/cert", keyPath: "/no/such/key" }).ok,
+    ).toBe(false);
+  });
+
+  it("keeps the chosen self-signed validity", () => {
+    expect(parseAndSaveNetworkConfig({ ...base, mode: "selfsigned", selfSignedDays: 90 })).toEqual({ ok: true });
+    expect(readNetworkConfig().selfSignedDays).toBe(90);
   });
 });
 

@@ -16,10 +16,10 @@
 
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import fs from "node:fs";
 import next from "next";
 import { appendLog } from "./scripts/log.mjs";
 import { readNetworkConfigResult, writeTlsStatus, NETWORK_FILE } from "./lib/tls/network-config.mjs";
+import { readChallenge, clearChallenges } from "./lib/tls/challenge-store.mjs";
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 // BUG-28: a network.json that EXISTS but can't be parsed used to fall through to plain
@@ -44,8 +44,11 @@ const cfg = netResult.config;
 const app = next({ dev: false });
 const handle = app.getRequestHandler();
 
-// token -> keyAuthorization, populated during an ACME order.
+// token -> keyAuthorization, populated during an ACME order started at boot.
 const challengeMap = new Map();
+// A token left behind by an interrupted run would keep answering forever, and the next order's
+// validation could be judged against it. Same reasoning as the supervisor clearing stale signals.
+clearChallenges();
 let httpsServer = null;
 
 function log(phase, status, detail) {
@@ -65,7 +68,9 @@ function httpRequestHandler(req, res) {
 
   if (pathname.startsWith(ACME_PREFIX)) {
     const token = pathname.slice(ACME_PREFIX.length);
-    const keyAuth = challengeMap.get(token);
+    // In memory when issuance was started at boot; on disk when it was started from the admin page,
+    // which runs inside Next and cannot reach this module's variables (OPS-08).
+    const keyAuth = challengeMap.get(token) ?? readChallenge(token);
     if (keyAuth) {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end(keyAuth);
@@ -131,14 +136,41 @@ async function setupLetsEncrypt() {
   setInterval(ensure, 24 * 60 * 60 * 1000).unref();
 }
 
-function setupByo() {
+/**
+ * Serve a certificate that already exists on disk — imported (bring-your-own) or generated here
+ * (self-signed). Neither mode fetches anything, so this is just "load it and say what it is".
+ *
+ * **The status it writes names the certificate**, rather than the mode. "BYO cert loaded" told an
+ * admin nothing they didn't already know; the issuer and expiry are the things worth surfacing, and
+ * an expired certificate is called out here because the browser's complaint about one looks
+ * identical to its complaint about an untrusted one.
+ */
+async function setupFileCert(label) {
+  const { loadModeCert, describeCertificate } = await import("./lib/tls/certs.mjs");
+  const cred = loadModeCert(cfg);
+  if (!cred) {
+    const how =
+      cfg.mode === "selfsigned"
+        ? "generate one in Admin → Network & HTTPS"
+        : "import one in Admin → Network & HTTPS";
+    writeTlsStatus({ state: "error", lastError: `No ${label} certificate is installed — ${how}.` });
+    log("tls", "cert-missing", `${cfg.mode}: no certificate on disk`);
+    return;
+  }
   try {
-    const cred = { cert: fs.readFileSync(cfg.certPath), key: fs.readFileSync(cfg.keyPath) };
     startHttps(cred);
-    writeTlsStatus({ state: "ok", domain: cfg.domain, issuer: "bring-your-own", lastError: "" });
+    const info = describeCertificate(cred.cert);
+    writeTlsStatus({
+      state: info.ok && info.expired ? "error" : "ok",
+      domain: cfg.domain,
+      issuer: info.ok ? info.issuer || label : label,
+      notAfter: info.ok ? info.notAfter : "",
+      lastError: info.ok && info.expired ? "This certificate has expired." : "",
+    });
+    if (info.ok && info.expired) log("tls", "cert-expired", `${label} certificate has expired`);
   } catch (e) {
-    writeTlsStatus({ state: "error", lastError: `BYO cert load failed: ${String(e?.message ?? e)}` });
-    log("tls", "byo-failed", String(e?.message ?? e));
+    writeTlsStatus({ state: "error", lastError: `Certificate load failed: ${String(e?.message ?? e)}` });
+    log("tls", "cert-failed", String(e?.message ?? e));
   }
 }
 
@@ -158,5 +190,7 @@ console.log(
 if (cfg.mode === "letsencrypt") {
   setupLetsEncrypt().catch((e) => log("tls", "setup-failed", String(e?.message ?? e)));
 } else if (cfg.mode === "byo") {
-  setupByo();
+  setupFileCert("bring-your-own").catch((e) => log("tls", "setup-failed", String(e?.message ?? e)));
+} else if (cfg.mode === "selfsigned") {
+  setupFileCert("self-signed").catch((e) => log("tls", "setup-failed", String(e?.message ?? e)));
 }

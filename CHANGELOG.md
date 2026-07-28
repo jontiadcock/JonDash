@@ -9,6 +9,32 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.21] — 2026-07-29
+
+**HTTPS without a domain: JonDash can now make its own certificate.** A fourth option under Admin →
+Network & HTTPS. The connection is encrypted; nobody else vouches for it, so each browser warns once
+and you tell it to trust this site. **It covers every address this machine answers on** — its name,
+`localhost`, and each LAN IP — because a dashboard is reached by IP as often as by name, and a
+certificate missing that address produces a warning that looks exactly like the untrusted one, so
+you'd fix the wrong thing. You choose how long it lasts, from 30 days to 7 years.
+
+**Your own certificate is uploaded now, instead of typed as a file path.** Both PEM files are
+checked *before* anything is stored — if the key doesn't belong to the certificate you're told
+immediately rather than discovering it at the next restart — and then copied into JonDash's own
+data folder, so moving or replacing the originals can't quietly break HTTPS later. Installs already
+serving from a path keep working exactly as before.
+
+**A new panel says what your certificate actually is**: who it was issued to and by, when it
+expires and how many days that is, every address it covers, and whether the running server is
+serving it yet or is still waiting for a restart. An expired certificate is called out plainly,
+because browsers refuse those outright rather than warning.
+
+**Let's Encrypt can be requested on the spot.** Previously you saved the settings and hoped the next
+restart worked. There's now a button that asks for the certificate immediately and tells you what
+happened — and **when Let's Encrypt refuses, you get its own words**, which name the real problem
+(the domain doesn't point here, port 80 isn't reachable, you've hit a rate limit) instead of a
+generic failure.
+
 ## [1.8.0-beta.20] — 2026-07-29
 
 **The module panel really does expand out of the card now.** Two previous betas claimed this and

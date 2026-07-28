@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.21",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: HTTPS without needing a domain name. JonDash can now make its own certificate for a home network - the connection is encrypted, each browser warns once until you trust it, and it covers every address this machine answers on including your LAN IP, so you don't get a second warning for the wrong reason. You pick how long it lasts, from 30 days to 7 years. If you have your own certificate you now upload it instead of typing a file path: the pair is checked before anything is saved, so a mismatched key is caught immediately rather than at the next restart, and the files are copied into JonDash so moving the originals can't break HTTPS later. A new panel tells you who your certificate was issued to and by, when it expires, which addresses it covers, and whether it is actually being served yet. And a Let's Encrypt certificate can be requested on the spot rather than waiting for a restart, with Let's Encrypt's own explanation shown if it refuses."
+    },
+    {
       "version": "1.8.0-beta.20",
       "date": "2026-07-29",
       "type": "patch",

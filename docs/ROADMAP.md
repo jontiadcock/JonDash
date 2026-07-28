@@ -91,8 +91,9 @@ it blocked another session's work while nothing blocked it.
    2026-07-27 when 1.8.0 scheduled it. Nothing was built; see the catalog entry, which records why so
    it is not scheduled a third time
 7. ⏳ **OPS-02 — Self-service password reset (SSPR)** — email itself already shipped (v1.2.5)
-8. ⏳ **OPS-07 — Bring-your-own cert: how-to + validate/upload, or OS cert store**
-9. ⏳ **OPS-08 — Let's Encrypt: process-oriented progress feedback**
+8. ✅ **OPS-07 — Bring-your-own cert: upload + validate + report** — shipped **v1.8.0-beta.21** (the
+   optional OS cert-store half was dropped; see the catalog entry)
+9. ✅ **OPS-08 — Let's Encrypt: request without a restart, errors verbatim** — shipped **v1.8.0-beta.21**
 10. ⏳ **MOD-11 — Hand helper APIs through the context** — makes capability checks enforcement rather than
    advice; worth doing before helper-side enforcement spreads
 11. ⏳ **OPS-16 — Back up & restore a module's own data tables** — closes the module-data backup gap safely
@@ -655,8 +656,19 @@ An improvement, not a defect: `start-dashboard.bat` opens the browser on first l
 opt-out the launcher checks before opening — a `.data` flag, a launcher argument, or an env var
 (e.g. `JONDASH_NO_BROWSER`).
 
-#### OPS-07 · Bring-your-own certificate: guidance + validate/upload, or OS cert store — ⏳
-Make the BYO-cert path (Admin → Network & HTTPS) friendlier and safer to configure. Extends OPS-05.
+#### OPS-07 · Bring-your-own certificate: guidance + validate/upload, or OS cert store — ✅ Shipped v1.8.0-beta.21
+**Shipped:** the certificate is **uploaded and copied into `.data/tls/` at 0600**, not referenced by a
+path — a path is a promise about a file JonDash doesn't control, and it breaks at a restart long after
+the admin has forgotten. The pair is validated before anything is stored (PEM shape per file, then
+`createSecureContext` to prove the key belongs to the certificate), and an **Installed certificate**
+panel reports issuer, subject, every SAN, expiry with days remaining, expired / not-yet-valid /
+self-signed, and whether the running server is actually serving it yet. The legacy `certPath`/`keyPath`
+fields remain and still work, so an install already serving from a path keeps HTTPS across the update.
+**Not done, and deliberately:** picking from the Windows certificate store. It was the "if feasible"
+half; Node has no first-class access, and the upload path makes it a convenience rather than the only
+way in.
+
+*Original scope below.* Make the BYO-cert path (Admin → Network & HTTPS) friendlier and safer to configure. Extends OPS-05.
 - **Brief how-to inline on the page** — what the certificate + private key (PEM) are, where to get
   them, and exactly which field is which (leaf + chain, and the key), with a link to fuller docs.
 - **Upload + validate before applying** — let the admin **upload** the cert/key files (not only
@@ -670,8 +682,23 @@ Make the BYO-cert path (Admin → Network & HTTPS) friendlier and safer to confi
   `certutil` bridge, or a native module) before committing.
 - Keep the 0600 posture for any uploaded key material and never log it (OPS-04 redaction).
 
-#### OPS-08 · Let's Encrypt: process-oriented progress feedback — ⏳
-Today enabling Let's Encrypt saves the config and issuance happens on the next restart, with only a
+#### OPS-08 · Let's Encrypt: process-oriented progress feedback — ✅ Shipped v1.8.0-beta.21
+**Shipped:** a **Request certificate now** button that runs issuance from the admin page instead of
+waiting for the next restart, reporting the outcome in place and **relaying Let's Encrypt's own error
+text verbatim** on failure — that wording names the actual problem (wrong A record, port 80
+unreachable, a rate limit), and paraphrasing it into "request failed" throws away the only diagnosis
+available.
+
+**The part worth knowing:** the HTTP-01 challenge is answered by the plain-HTTP listener inside
+`server.mjs`, which is outside the Next build and cannot see a variable set by a server action. The
+token is therefore written to `.data/tls/challenge/` and the listener checks memory *and* disk. Stale
+tokens are swept at startup and after every run.
+
+**Not the step-by-step progress list originally described** — the ACME client reports completion, not
+phases, so a five-step display would have been an animation rather than a status. The button reports
+working / issued / the real error instead.
+
+*Original scope below.* Today enabling Let's Encrypt saves the config and issuance happens on the next restart, with only a
 status panel to poll. Make it feel like a **guided process**: a step-by-step progress UI during
 issuance — e.g. "Saving configuration → Requesting certificate → Answering the HTTP-01 challenge →
 Certificate issued → Switching to HTTPS" — with a "this can take a minute" note, working/among-steps

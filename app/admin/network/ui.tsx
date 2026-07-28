@@ -41,14 +41,17 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
         >
           <option value="off">Off — plain HTTP (default)</option>
           <option value="letsencrypt">Let&apos;s Encrypt — automatic certificate</option>
+          <option value="selfsigned">Self-signed — encrypted, with a browser warning</option>
           <option value="byo">Bring your own certificate</option>
         </select>
         <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
           {mode === "off" && "The dashboard is served over plain HTTP. Fine for a trusted LAN."}
           {mode === "letsencrypt" &&
             "A free certificate is obtained and auto-renewed from Let's Encrypt. Requires a public domain pointing at this machine and inbound port 80 reachable (HTTP-01 validation)."}
+          {mode === "selfsigned" &&
+            "JonDash makes its own certificate. The connection is encrypted, but no one vouches for it, so each browser warns once until you tell it to trust this site. No domain needed — it covers this machine's names and addresses."}
           {mode === "byo" &&
-            "Serve a certificate you already have. Provide filesystem paths to the PEM files."}
+            "Serve a certificate you already have. Save this, then import the PEM files below."}
         </p>
       </div>
 
@@ -141,8 +144,20 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
         </div>
       )}
 
-      {mode === "byo" && (
+      {/*
+        The old path fields, kept only for an install that is already using them.
+        Importing (below the form) replaced typing a path in 1.8.0 — a path is a promise about a
+        file JonDash doesn't control — but an install already serving from one must keep working
+        across the update, and it can't do that if the fields vanish and take the values with them.
+        Once a certificate is imported these are cleared and the block disappears for good.
+      */}
+      {mode === "byo" && (certPath || keyPath) && (
         <div className="flex flex-col gap-4">
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            This install serves a certificate from a path on disk. That still works — but importing
+            one below copies it into JonDash instead, so moving or replacing the original file can
+            never quietly break HTTPS at the next restart.
+          </p>
           <div>
             <label className="label" htmlFor="certPath">
               Certificate file (fullchain PEM)
@@ -171,6 +186,9 @@ export function NetworkForm({ config }: { config: NetworkConfig }) {
           </div>
         </div>
       )}
+
+      {/* Carried so saving the form doesn't blank a stored value that isn't on screen. */}
+      <input type="hidden" name="selfSignedDays" value={String(config.selfSignedDays)} />
 
       <div
         className="rounded-lg px-4 py-3 text-sm"

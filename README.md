@@ -38,8 +38,8 @@ Sign-in is **password + authenticator code**. Updates are **one click, in the ap
   carries credentials and keys too, so two-factor still works after a restore or a move.
 - **One-click updates** on a **Stable** or **Beta** channel, with a self-supervising launcher
   that captures crashes, restarts, and **rolls back a failed update**.
-- **Optional HTTPS** — automatic Let's Encrypt or bring-your-own certificate, no reverse
-  proxy needed (off by default).
+- **Optional HTTPS** — an automatic Let's Encrypt certificate, one JonDash makes itself for a
+  home network, or your own certificate uploaded. No reverse proxy needed (off by default).
 - **Outgoing email** — SMTP with an app password or OAuth2, set up in the app.
 - **Modules** — add features without touching the base app, with app-store-style permission
   consent **you can revoke afterwards** from a single Permissions page. See [Modules](#modules).
@@ -119,8 +119,9 @@ npm run start           # serves on port 3000
 ```
 
 - Run it under a process manager (systemd/pm2). **For HTTPS**, either enable JonDash's
-  **built-in TLS** (Admin → Network & HTTPS — Let's Encrypt or bring-your-own, no reverse
-  proxy needed) **or** put **nginx / Caddy in front** proxying to `127.0.0.1:3000`. Either
+  **built-in TLS** (Admin → Network & HTTPS — Let's Encrypt, self-signed, or your own
+  certificate uploaded; no reverse proxy needed) **or** put **nginx / Caddy in front**
+  proxying to `127.0.0.1:3000`. Either
   way, served over HTTPS the app switches cookies to Secure and enables HSTS automatically.
 - Behind a proxy, forward `X-Forwarded-Host` / `X-Forwarded-Proto` / `X-Forwarded-For`
   (nginx and Caddy set these by default).

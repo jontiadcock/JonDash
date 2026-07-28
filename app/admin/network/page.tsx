@@ -1,6 +1,7 @@
 import { requirePermission } from "@/lib/auth/guards";
-import { readNetworkConfig, readTlsStatus } from "@/lib/tls/network";
+import { readNetworkConfig, readTlsStatus, describeInstalledCert } from "@/lib/tls/network";
 import { NetworkForm } from "./ui";
+import { CertPanel } from "./cert-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,15 @@ export default async function NetworkPage() {
   const config = readNetworkConfig();
   const status = readTlsStatus();
   const tlsOn = config.mode !== "off";
+  const cert = describeInstalledCert(config);
+  /*
+   * "Being served" compares what is on disk against what the server reported when it last started.
+   * A certificate generated or imported since then is installed but not yet in use, and saying so
+   * is the whole reason the restart notice is believable — an admin who has been told "restart to
+   * apply" twice for no visible reason stops restarting.
+   */
+  const serving =
+    !!cert?.ok && status.state === "ok" && !!status.notAfter && status.notAfter === cert.notAfter;
 
   return (
     <div className="flex flex-col gap-8">
@@ -37,6 +47,8 @@ export default async function NetworkPage() {
       <section className="card p-6">
         <NetworkForm config={config} />
       </section>
+
+      <CertPanel config={config} cert={cert} serving={serving} />
 
       {tlsOn && (
         <section className="card p-6">
