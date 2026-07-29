@@ -101,8 +101,9 @@ export default async function HelpPage() {
           </p>
           <p>
             It is also one person&apos;s evenings. If it has saved you an afternoon of wrestling with
-            a reverse proxy, or you just like having your things in one place, a coffee is a very
-            nice thing to receive.
+            a reverse proxy, or you just like having your things in one place, a coffee would be
+            very welcome — and I should be clear that coffee is not a gift in this house, it is a
+            <strong> runtime dependency</strong>. JonDash builds fine without one. I do not.
           </p>
           <p style={{ color: "var(--muted)" }}>
             And if not — genuinely, that is fine. Nothing about JonDash changes either way, and I

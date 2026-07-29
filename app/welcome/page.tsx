@@ -51,6 +51,36 @@ export default async function WelcomePage() {
             </button>
           </form>
         )}
+        {/*
+          Shown on step 1 only — the moment an account is being created, which is where the owner
+          asked for it. Step 2 is enrolling an authenticator, and interrupting that with a
+          disclosure about how the software was built would land at the wrong moment.
+
+          Owner's wording, kept close to what they wrote: designed by a human, built with AI help.
+          It is stated plainly rather than buried in the licence, because someone deciding whether
+          to trust their services to this should be told before they create the account, not after.
+        */}
+        {!step2 && (
+          <div
+            className="mt-6 rounded-xl px-4 py-3 text-xs"
+            style={{ background: "var(--surface-2)", color: "var(--muted)" }}
+          >
+            <p>
+              JonDash was <strong>designed by a human</strong>, and built with the assistance of AI.
+              It is offered as-is, for your own personal use — see the{" "}
+              <a
+                href="https://github.com/jontiadcock/JonDash/blob/main/LICENSE"
+                target="_blank"
+                rel="noreferrer noopener"
+                style={{ color: "var(--primary)" }}
+              >
+                licence
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
         <p className="mt-6 text-center text-xs" style={{ color: "var(--muted)" }}>
           This one-time setup only appears until the first administrator is created.
         </p>

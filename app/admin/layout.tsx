@@ -9,6 +9,7 @@ import { BrandMark } from "@/app/components/branding";
 import { getAppVersion } from "@/lib/update";
 import { SupportBanner, SupportLine } from "@/app/components/support";
 import { installedDaysAgo } from "@/lib/install-age";
+import { getUserFlag, USER_FLAG } from "@/lib/user-prefs";
 
 export default async function AdminLayout({
   children,
@@ -18,6 +19,8 @@ export default async function AdminLayout({
   const { user: admin, perms } = await requireAdminArea();
   const version = getAppVersion();
   const installedDays = await installedDaysAgo();
+  // Per user, not per browser — dismissing on a phone must be remembered on a desktop (BUG-74).
+  const bannerDismissed = await getUserFlag(admin.id, USER_FLAG.supportBannerDismissed);
   const isAdmin = admin.role === "ADMIN";
 
   // Grouped "Settings" navigation. Each item is gated by a capability (or is
@@ -109,7 +112,7 @@ export default async function AdminLayout({
           </div>
         </aside>
         <main className="min-w-0 flex-1">
-          <SupportBanner installedDays={installedDays} />
+          <SupportBanner installedDays={installedDays} dismissed={bannerDismissed} />
           <PageTransition>{children}</PageTransition>
           <div className="mt-8 text-center">
             <SupportLine />

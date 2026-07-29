@@ -40,14 +40,29 @@ describe("screenshot entries from a manifest", () => {
     expect(shotsOf([{ file: "x.html" }])).toEqual([]);
   });
 
-  it("refuses anything with a path in it", () => {
+  /**
+   * One subdirectory is allowed — the add-ons session was told `screenshots/jobs.webp` in round 2,
+   * 1.8.0 silently narrowed it to filename-only, and they caught it on review before publishing.
+   * Four loose images among a module's source files is worse for an author than one folder.
+   */
+  it("allows a single subdirectory", () => {
+    expect(shotsOf([{ file: "screenshots/dashboard.png" }])).toEqual([
+      { file: "screenshots/dashboard.png" },
+    ]);
+    expect(shotsOf([{ file: "dashboard.png" }])).toEqual([{ file: "dashboard.png" }]);
+  });
+
+  it("refuses anything that is more than one subdirectory, or escapes at all", () => {
     for (const file of [
       "../secrets.png",
       "../../../etc/passwd.png",
+      "screenshots/../../../etc/passwd.png",
       "sub/dir/shot.png",
       "/etc/shot.png",
       "C:\\windows\\shot.png",
       ".hidden.png",
+      "./shot.png",
+      "screenshots//shot.png",
     ]) {
       expect(shotsOf([{ file }]), `accepted a path: ${file}`).toEqual([]);
     }
