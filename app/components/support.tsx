@@ -1,7 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { dismissSupportBannerAction } from "./support-actions";
 
 /**
  * CORE-05 — asking for support, without ever nagging.
@@ -14,36 +15,18 @@ import Link from "next/link";
 /** Where "buy me a coffee" goes. One place, so it is changed once. Owner's link, 2026-07-29. */
 export const SUPPORT_URL = "https://buymeacoffee.com/k1jcmlkxsn";
 
-const DISMISS_KEY = "jondash.supportBannerDismissed";
-const DISMISS_EVENT = "jondash:support-dismissed";
-
-function readDismissed(): boolean {
-  try {
-    return localStorage.getItem(DISMISS_KEY) === "1";
-  } catch {
-    // Storage disabled: treat it as dismissed. Of the two ways to be wrong, showing a banner that
-    // can never be dismissed is much the worse one.
-    return true;
-  }
-}
-
-function subscribe(onChange: () => void): () => void {
-  window.addEventListener(DISMISS_EVENT, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(DISMISS_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function dismiss(): void {
-  try {
-    localStorage.setItem(DISMISS_KEY, "1");
-  } catch {
-    /* it just won't persist */
-  }
-  window.dispatchEvent(new CustomEvent(DISMISS_EVENT));
-}
+/*
+ * Dismissal is stored **against the person, on the server** — not in `localStorage`, which is where
+ * this started and which was BUG-74.
+ *
+ * `localStorage` is scoped per browser *and per origin*. A self-hosted dashboard gets opened at
+ * `localhost:3000` on the machine it runs on and at `192.168.1.50:3000` from a phone; those are
+ * different origins, so "No thanks" on one was invisible to the other — and it is plainly the same
+ * person either way. The owner dismissed it on their phone and met it again on a desktop.
+ *
+ * CORE-05's own wording was "once dismissed it stays dismissed — **per user**". That is a promise
+ * about a person, and only per-user server-side state can keep it.
+ */
 
 /**
  * A heart drawn from the appearance tokens, so it belongs to whichever style and palette is on.
@@ -94,9 +77,74 @@ export function SupportLine() {
  * has just finished setup has no idea yet whether they like this, and asking them for money is the
  * fastest way to make sure they don't.
  */
-export function SupportBanner({ installedDays }: { installedDays: number }) {
-  const dismissed = useSyncExternalStore(subscribe, readDismissed, () => true);
-  if (dismissed || installedDays < 7) return null;
+export function SupportBanner({
+  installedDays,
+  dismissed,
+}: {
+  installedDays: number;
+  /** Read from this person's stored flag on the server, so a dismissed banner never flashes. */
+  dismissed: boolean;
+}) {
+  /*
+   * Three states: asking, acknowledged, gone.
+   *
+   * **The acknowledgement replaces the banner in place rather than opening a dialog.** The owner
+   * asked for a popup; a modal is the one thing I would push back on here, because it arrives at
+   * the exact moment somebody has said "no thanks" — pressing dismiss and being handed something
+   * larger to dismiss is the opposite of what they asked for. In place, they are already looking
+   * at it, it says the one thing worth saying, and it goes when they say so. Easy to change to a
+   * dialog if the owner still wants one.
+   *
+   * The state moves the moment it is pressed rather than when the write returns: the server write
+   * is what makes it stick, but nobody should watch a banner they have dismissed sit there.
+   */
+  const [phase, setPhase] = useState<"asking" | "acknowledged" | "gone">("asking");
+  const [, startDismiss] = useTransition();
+
+  const dismiss = () => {
+    setPhase("acknowledged");
+    startDismiss(async () => {
+      await dismissSupportBannerAction();
+    });
+  };
+
+  if (dismissed || phase === "gone" || installedDays < 7) return null;
+
+  const shell =
+    "mb-4 flex flex-col gap-3 rounded-xl px-4 py-3 text-sm sm:flex-row sm:items-center";
+  const shellStyle = {
+    background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+    color: "var(--foreground)",
+  };
+
+  if (phase === "acknowledged") {
+    return (
+      <div className={shell} style={shellStyle}>
+        <span className="flex min-w-0 flex-1 items-start gap-2">
+          <span className="mt-0.5 flex-none" style={{ color: "var(--primary)" }}>
+            <Heart size={14} />
+          </span>
+          <span>
+            That&apos;s the last you&apos;ll hear of it — this won&apos;t come back. If you ever
+            change your mind, there&apos;s a link on the{" "}
+            <Link href="/help-meeeee" style={{ color: "var(--primary)" }}>
+              Help &amp; support
+            </Link>{" "}
+            page. Thanks for using JonDash.
+          </span>
+        </span>
+        <span className="flex flex-none gap-2 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setPhase("gone")}
+            className="btn btn-ghost !py-1 !px-2 text-xs"
+          >
+            Got it
+          </button>
+        </span>
+      </div>
+    );
+  }
 
   /*
    * **Stacks on a phone; one row from `sm` up.**
@@ -107,13 +155,7 @@ export function SupportBanner({ installedDays }: { installedDays: number }) {
    * which is why a sweep that only looked for content escaping the viewport called it fine.
    */
   return (
-    <div
-      className="mb-4 flex flex-col gap-3 rounded-xl px-4 py-3 text-sm sm:flex-row sm:items-center"
-      style={{
-        background: "color-mix(in srgb, var(--primary) 8%, transparent)",
-        color: "var(--foreground)",
-      }}
-    >
+    <div className={shell} style={shellStyle}>
       <span className="flex min-w-0 flex-1 items-start gap-2">
         <span className="mt-0.5 flex-none" style={{ color: "var(--primary)" }}>
           <Heart size={14} />
@@ -136,8 +178,9 @@ export function SupportBanner({ installedDays }: { installedDays: number }) {
         <Link href="/help-meeeee" className="btn btn-ghost !py-1 !px-2 text-xs">
           Tell me more
         </Link>
+        {/* Says what it does: this is the permanent one, not "hide for now". */}
         <button type="button" onClick={dismiss} className="btn btn-ghost !py-1 !px-2 text-xs">
-          No thanks
+          Don&apos;t ask again
         </button>
       </span>
     </div>

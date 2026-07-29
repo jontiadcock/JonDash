@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.1-beta.2",
+      "date": "2026-07-29",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes the coffee message coming back after you dismissed it. It was remembered by the browser rather than against your account, and your phone and your PC open JonDash at different addresses, so neither knew what the other had been told. It is now remembered against you, so dismissing it anywhere dismisses it everywhere. The button also says what it does - Do not ask again - and pressing it now tells you that you can still support the project from the Help and support page if you change your mind. The setup screen where you create your administrator account now states plainly that JonDash was designed by a human and built with the assistance of AI, and links to its licence."
+    },
+    {
       "version": "1.8.1-beta.1",
       "date": "2026-07-29",
       "type": "patch",

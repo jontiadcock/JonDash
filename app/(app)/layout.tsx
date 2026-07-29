@@ -6,6 +6,7 @@ import { UserMenu } from "@/app/components/user-menu";
 import { BrandMark } from "@/app/components/branding";
 import { SupportBanner, SupportLine } from "@/app/components/support";
 import { installedDaysAgo } from "@/lib/install-age";
+import { getUserFlag, USER_FLAG } from "@/lib/user-prefs";
 
 export default async function AppLayout({
   children,
@@ -17,6 +18,8 @@ export default async function AppLayout({
   // access role) get a link into the admin area.
   const canAccessAdmin = (await getEffectivePermissions(user)).size > 0;
   const installedDays = await installedDaysAgo();
+  // Per user, not per browser — dismissing on a phone must be remembered on a desktop (BUG-74).
+  const bannerDismissed = await getUserFlag(user.id, USER_FLAG.supportBannerDismissed);
 
   return (
     /*
@@ -52,7 +55,7 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 group-has-[[data-wide-page]]/shell:max-w-none sm:py-8">
-        <SupportBanner installedDays={installedDays} />
+        <SupportBanner installedDays={installedDays} dismissed={bannerDismissed} />
         <PageTransition>{children}</PageTransition>
       </main>
       {/* Quiet, permanent, and outside the page transition so it doesn't re-fade on every

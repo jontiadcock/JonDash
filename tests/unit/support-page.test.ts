@@ -53,11 +53,32 @@ describe("the support banner never nags", () => {
     expect(src).toMatch(/installedDays\s*<\s*7/);
   });
 
-  it("stays dismissed once dismissed", () => {
-    expect(src).toMatch(/localStorage\.setItem\(DISMISS_KEY/);
-    // Storage unavailable must read as "already dismissed": of the two ways to be wrong, a banner
-    // that can never be dismissed is much the worse one.
-    expect(src).toMatch(/return true;/);
+  /**
+   * **BUG-74.** This first shipped storing the dismissal in `localStorage`, which is scoped per
+   * browser *and per origin* — so "No thanks" at `192.168.1.50:3000` on a phone was invisible at
+   * `localhost:3000` on a desktop, and the owner met the banner again. CORE-05's wording was "once
+   * dismissed it stays dismissed — **per user**", which is a promise about a person and can only be
+   * kept server-side.
+   */
+  it("remembers the dismissal against the person, not the browser", () => {
+    expect(src, "the banner is storing its own dismissal client-side again").not.toMatch(
+      /localStorage|sessionStorage/,
+    );
+    expect(src).toMatch(/dismissSupportBannerAction/);
+    // Read on the server and passed in, so a dismissed banner never flashes before being hidden.
+    expect(src, "the server-provided flag no longer suppresses the banner").toMatch(
+      /if \(dismissed\b/,
+    );
+  });
+
+  it("keeps the read out of the server-actions module", () => {
+    // Every export from a "use server" file is a callable endpoint, so a `hasDismissed(userId)`
+    // helper there would be a route anyone could call with anyone's id.
+    const actions = strip(read("app", "components", "support-actions.ts"));
+    expect(actions).toMatch(/dismissSupportBannerAction/);
+    expect(actions, "a read helper is exported from a server-actions file").not.toMatch(
+      /export async function (get|has)/,
+    );
   });
 
   it("draws its heart from the theme rather than a fixed colour", () => {

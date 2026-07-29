@@ -9,6 +9,23 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.1-beta.2] — 2026-07-29
+
+**Fixed: the coffee message came back after you dismissed it.** It was remembered by the browser
+rather than against your account — and a browser on your phone and a browser on your PC are opening
+JonDash at two different addresses, so neither knew what the other had been told. It is now
+remembered against **you**, so dismissing it anywhere dismisses it everywhere, for good.
+
+**Dismissing it now says so.** The button reads **Don't ask again**, and pressing it replaces the
+message with a short note: you won't see it again, and if you ever change your mind there's a link
+on the Help & support page.
+
+**The setup screen now says how JonDash was made.** When you create your administrator account,
+JonDash tells you plainly that it was designed by a human and built with the assistance of AI, and
+links to its licence. That belongs before you decide to trust it with your services, not after.
+
+**Also:** a better joke about coffee.
+
 ## [1.8.1-beta.1] — 2026-07-29
 
 **For add-on authors, following review by the add-ons repository.** No change for anyone running
