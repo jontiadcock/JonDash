@@ -13,7 +13,23 @@ type FieldKind = "string" | "int";
 
 // Which admin page a setting is surfaced on. "general" = the Settings page
 // (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
-export type SettingGroup = "general" | "sessions" | "audit" | "updates" | "branding";
+export type SettingGroup =
+  | "general"
+  | "sessions"
+  | "audit"
+  | "updates"
+  | "branding"
+  /**
+   * Settings that belong on **Admin → Network & HTTPS**, alongside the ports and certificates
+   * (owner, 2026-07-30). That page's other controls write `.data/network.json` rather than this
+   * table — a setting still lands here, it is just rendered and saved there.
+   *
+   * ## Related code
+   * - `app/admin/network/public-address.tsx` + `actions.ts` — renders and saves this group.
+   * - `lib/tls/network-config.mjs` — the *other* store the same page writes to. Two stores, one
+   *   page: don't assume a control there is a Setting.
+   */
+  | "network";
 
 type SettingDef<T> = {
   label: string;
@@ -144,7 +160,16 @@ export const SETTINGS = {
       .string()
       .trim()
       .regex(/^$|^https?:\/\/[^\s/]+\/?$/, "Use a full address like https://dash.example.com, with no path."),
-    group: "general",
+    /*
+     * On **Network & HTTPS**, not General (owner, 2026-07-30).
+     *
+     * It is the same question as the rest of that page — how is this install reached from outside —
+     * and it sat under General next to the app name and the sign-in message, which is where you
+     * look for appearance, not addressing. Its value also has to agree with the ports and
+     * certificate configured a few inches above it, and that is much easier to get right when they
+     * are on one screen.
+     */
+    group: "network",
   } as SettingDef<string>,
 
   "session.lengthMinutes": {

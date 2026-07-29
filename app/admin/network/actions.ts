@@ -22,6 +22,42 @@ import { writeTlsStatus } from "@/lib/tls/network-config.mjs";
 
 export type NetworkState = { error?: string; ok?: boolean; message?: string };
 
+/**
+ * Save the public address (moved here from General in 1.8.3, owner request).
+ *
+ * Separate from `saveNetworkConfigAction` because they write to different places — that one to
+ * `.data/network.json`, this one to the settings table. `applySettingsForm` is given only the
+ * `network` group's keys, so this action cannot write a setting belonging to any other page.
+ *
+ * ## Related code
+ * - `lib/settings.ts` — the `network` group and `app.publicUrl`'s schema.
+ * - `app/admin/network/public-address.tsx` — the form.
+ * - `lib/app-url.ts` — the consumer, and why blank means "omit the link".
+ */
+export async function savePublicAddressAction(
+  _prev: NetworkState,
+  formData: FormData,
+): Promise<NetworkState> {
+  await assertSameOrigin();
+  const admin = await requirePermission("network.manage");
+
+  const { applySettingsFormDetailed, settingKeysByGroup } = await import("@/lib/settings");
+  const { errors, changed } = await applySettingsFormDetailed(
+    formData,
+    settingKeysByGroup("network"),
+  );
+  const first = Object.values(errors)[0];
+  if (first) return { error: first };
+
+  // Named, not counted — a bare "settings.updated" records that something changed and never what
+  // (BUG-24).
+  if (changed.length) {
+    await audit("admin.settings.update", { userId: admin.id, detail: changed.join(", ") });
+  }
+  revalidatePath("/admin/network");
+  return { ok: true };
+}
+
 export async function saveNetworkConfigAction(
   _prev: NetworkState,
   formData: FormData,

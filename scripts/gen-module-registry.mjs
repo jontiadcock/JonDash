@@ -114,7 +114,28 @@ export function collectClassTokens(dirs) {
   const STRING = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|`([^`\\]*(?:\\.[^`\\]*)*)`/g;
   for (const dir of dirs) {
     for (const file of walk(dir, /\.(?:tsx?|jsx?)$/)) {
-      const src = fs.readFileSync(file, "utf8");
+      /*
+       * **Comments are stripped first — a regex over source is a regex over comments too.**
+       *
+       * This scans for string and template literals, and a markdown code span in a JSDoc block is
+       * backtick-delimited, so `` `text-[clamp(…)]` `` written to *explain* a class was collected as
+       * if it were one. Harmless while the parens filter discarded it; a build-breaker afterwards,
+       * because an unsupported variant in a comment becomes a real candidate and Tailwind emits
+       * invalid CSS for it. An author documenting the very bug this file fixes would have taken the
+       * stylesheet down.
+       *
+       * Reported by the add-ons session (2026-07-30) after neutralising it in their own docs.
+       * **Third time this project has been bitten by matching comments** — BUG-39 (a commented-out
+       * `helpers:` read as a declaration), then source-level tests matching the prose that described
+       * what they asserted, now this.
+       *
+       * Mangling a `//` inside a string (a URL) is acceptable collateral: the leftover is not a
+       * utility and never matches one, which is the same reasoning that makes over-collecting safe.
+       */
+      const src = fs
+        .readFileSync(file, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/^\s*\/\/.*$/gm, " ");
       let m;
       while ((m = STRING.exec(src))) {
         const body = m[1] ?? m[2] ?? m[3] ?? "";

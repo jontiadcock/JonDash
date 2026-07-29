@@ -2,6 +2,8 @@ import { requirePermission } from "@/lib/auth/guards";
 import { readNetworkConfig, readTlsStatus, describeInstalledCert } from "@/lib/tls/network";
 import { NetworkForm } from "./ui";
 import { CertPanel } from "./cert-panel";
+import { PublicAddressForm } from "./public-address";
+import { getPublicUrlSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,7 @@ export default async function NetworkPage() {
   const status = readTlsStatus();
   const tlsOn = config.mode !== "off";
   const cert = describeInstalledCert(config);
+  const publicUrl = await getPublicUrlSetting().catch(() => "");
   /*
    * "Being served" compares what is on disk against what the server reported when it last started.
    * A certificate generated or imported since then is installed but not yet in use, and saying so
@@ -46,6 +49,19 @@ export default async function NetworkPage() {
 
       <section className="card p-6">
         <NetworkForm config={config} />
+      </section>
+
+      {/* Moved from General in 1.8.3 (owner request): it is the same question as the ports and the
+          certificate above — how is this install reached from outside — and its value has to agree
+          with them. Its own card because it writes the settings table, not `.data/network.json`. */}
+      <section className="card p-6">
+        <h2 className="mb-1 text-lg font-semibold">Public address</h2>
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
+          The address JonDash puts in emails it sends. It can&apos;t work this out on its own — the
+          address a request arrives with can be forged, so a link built from it could point somewhere
+          else entirely.
+        </p>
+        <PublicAddressForm value={publicUrl} />
       </section>
 
       <CertPanel config={config} cert={cert} serving={serving} />

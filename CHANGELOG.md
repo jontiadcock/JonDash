@@ -9,6 +9,18 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3-beta.2] — 2026-07-30
+
+**"Public address" has moved to Network & HTTPS**, from General. It answers the same question as
+the ports and the certificate — how is this JonDash reached from outside — and its value has to
+agree with them, which is much easier when they're on one screen.
+
+**For add-on authors: a class written as an *example* in a code comment is no longer treated as one
+you actually used.** Documenting `text-[clamp(…)]` in a comment quietly added it to the stylesheet,
+and — since 1.8.2 made those classes work — an *unsupported* example in a comment could fail the
+build outright. Reported by the add-ons repository, who hit it writing the very documentation for
+the bug 1.8.2 fixed.
+
 ## [1.8.3-beta.1] — 2026-07-30
 
 **You can install JonDash on your phone.** Open it in your phone's browser and use *Add to Home

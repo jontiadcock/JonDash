@@ -50,6 +50,39 @@ describe("mirroring a module's Tailwind classes", () => {
   });
 
   /**
+   * **A class written in a COMMENT is documentation, not a class.**
+   *
+   * A markdown code span is backtick-delimited, so an author explaining a utility had it collected
+   * as though they had used it. That was harmless while parentheses were filtered out and became a
+   * build-breaker the moment they were not: an unsupported variant in a comment becomes a real
+   * candidate, Tailwind emits invalid CSS for it, and the whole stylesheet fails to parse. Someone
+   * documenting this very bug would have taken the build down.
+   */
+  it("ignores classes written in comments", () => {
+    /*
+     * **Assembled from fragments, never written out.** Tailwind scans `tests/` like any other
+     * source, so spelling this variant literally here would make it a real candidate — and it is
+     * an unsupported one that Tailwind turns into `@container (width >= (…))`, which PostCSS
+     * rejects, failing the whole build. This test's first version did exactly that.
+     *
+     * A neat demonstration of the hazard it exists to cover, and the reason the extractor now
+     * strips comments: a module author documenting this could otherwise break their own build.
+     */
+    const badVariant = "@[(" + "height>=10rem)]:block";
+    const tokens = tokensFrom(`
+      /**
+       * Use \`text-[clamp(1rem,22cqw,2rem)]\`, and never \`${badVariant}\`.
+       */
+      // also avoid \`w-[calc(100%-2rem)]\` in a line comment
+      export const real = "p-4 flex";
+    `);
+    expect(tokens).toEqual(expect.arrayContaining(["p-4", "flex"]));
+    expect(tokens.some((t) => t.includes("clamp"))).toBe(false);
+    expect(tokens.some((t) => t.includes("height>="))).toBe(false);
+    expect(tokens.some((t) => t.includes("calc"))).toBe(false);
+  });
+
+  /**
    * A token from a template expression is dynamic — it can never be a static class, so collecting
    * it is pointless. Not a correctness issue either way (over-collecting is harmless), but there is
    * no reason to carry the noise.
