@@ -9,6 +9,25 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.1] — 2026-07-29
+
+**Fixed: the "buy me a coffee" message came back after you dismissed it.** It was remembered by the
+browser rather than against your account — and your phone and your PC open JonDash at two different
+addresses, so neither knew what the other had been told. It is now remembered against **you**, so
+dismissing it anywhere dismisses it everywhere, permanently.
+
+**Dismissing it now says so.** The button reads **Don't ask again**, and pressing it leaves a short
+note: you won't see it again, and if you ever change your mind there's a link on the Help & support
+page.
+
+**The setup screen now says how JonDash was made.** When you create your administrator account,
+JonDash states plainly that it was designed by a human and built with the assistance of AI, and
+links to its licence — before you decide to trust it with your services, rather than after.
+
+**For add-on authors:** a module's screenshots may sit in a subdirectory rather than loose among its
+source files, and the sizes JonDash resizes its own service tiles at are now published, so widgets
+from different authors change shape at the same points instead of at four different ones.
+
 ## [1.8.1-beta.2] — 2026-07-29
 
 **Fixed: the coffee message came back after you dismissed it.** It was remembered by the browser
