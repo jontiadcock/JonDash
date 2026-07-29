@@ -9,6 +9,20 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.1] — 2026-07-29
+
+**For add-on authors, following review by the add-ons repository.** No change for anyone running
+JonDash.
+
+**A module's screenshots may sit in a subdirectory again.** `screenshots/dashboard.png` as well as
+`dashboard.png`. 1.8.0 narrowed this to a bare filename, which was never a decision anyone made —
+it meant four loose images among a module's source files. One level only; nothing that walks out of
+the module folder.
+
+**The sizes core resizes its own tiles at are now written down.** Add-on authors asked for them so
+that a dashboard mixing several authors' widgets changes shape at the same points rather than at
+four different ones.
+
 ## [1.8.0] — 2026-07-29
 
 **The interface rework.** Twenty-seven betas of it. Nothing here changes what JonDash is for — it
