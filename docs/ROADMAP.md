@@ -113,10 +113,14 @@ it blocked another session's work while nothing blocked it.
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
 16. ✅ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — shipped **v1.8.0-beta.24**
-16b. ⏳ **CORE-15 — App icons that follow your branding + install to a phone** *(owner request
-   2026-07-29)* — the tab icon is currently Vercel's when no logo is uploaded, and there is no web
-   app manifest at all. **Position not confirmed by the owner** — move it freely. Note the Android
-   install prompt needs a *trusted* certificate, which a self-signed one is not
+16b. ▶️ **CORE-15 — App icons that follow your branding + install to a phone** *(owner request
+   2026-07-29, **next up**)* — the tab icon is currently Vercel's when no logo is uploaded, and there
+   is no web app manifest at all. **BUG-73 must land first** or the installed app opens on a login
+   page every time. Note the Android install prompt needs a *trusted* certificate, which a
+   self-signed one is not
+16c. 🌅 **CORE-16 — A native mobile app** *(owner: after the PWA)* — blocked on an API that does not
+   exist; the SEC-06 design is shelved and re-usable. See the catalog entry
+16d. 🧊 **CORE-17 — `container-type: size` on the dashboard frame** — considered, not scheduled
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
@@ -1321,6 +1325,60 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
   surface; agree the direction once rather than restyling twice.
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
+
+#### CORE-16 · A native mobile app (Google Play + App Store) — 🌅 Someday
+Owner direction, 2026-07-29: **do the PWA (CORE-15) first, then consider this.**
+
+**It is blocked on core work that does not exist.** JonDash has no API a native client can use — no
+bearer tokens, no `/api/v1`, every route session-cookie based, and `assertSameOrigin()` on 29 files
+refusing anything without a browser Origin. A native app cannot function until that is built.
+
+**The design already exists and is sound.** It was drafted as **SEC-06 · Scoped API tokens +
+read-first JSON API** — bearer tokens, scopes intersected with RBAC, a same-origin exemption rule,
+endpoint definitions — then shelved when the thing that needed it (MCP) became an in-process helper
+and left no boundary to authenticate across. The shelving note says: *"if JonDash ever wants a
+genuine remote API for something else, this is the design."* **A native app is that something else.**
+⚠ The fuller canonical document is **gone** with the deleted `JonDash-mcp` repo; the
+`jondash-api-contract` memory is the only surviving copy.
+
+**Decisions the owner must make before any of it starts** — each changes the shape of everything
+after: native vs React Native vs Flutter vs a Capacitor wrapper · how the app finds a self-hosted
+server with no domain (QR pairing from the web UI is the pattern that works) · **how self-signed
+certificates are handled, because a store app that disables TLS validation is both dangerous and a
+likely rejection** · Apple Developer $99/yr and Play $25 · **Apple guideline 4.2 routinely catches
+apps that are useless without a self-hosted server** — expect to need a demo mode or reviewer server
+· a privacy policy URL is mandatory on both · **Apple requires in-app account deletion** where
+accounts exist, which sits awkwardly with admin-created accounts · and the **Personal-Use licence
+makes store distribution a licensing question that is the owner's to settle.**
+
+**Do CORE-15 first regardless.** An installable PWA may deliver most of what is wanted using the web
+UI that already exists, with no API at all.
+
+#### CORE-17 · `container-type: size` on the dashboard frame — 🧊 Considered, not scheduled
+Raised by the add-ons session, 2026-07-29, having hit it building `host-vitals`.
+
+The frame is `inline-size`, so a widget can ask how wide it is and never how tall. On a **12×1** tile
+that means a 1200px container with ~19px of usable height — a width query reports plenty of room at
+the exact moment there is none — and a **1×6** tile is indistinguishable from a **1×1**.
+`container-type: size` would remove the whole class of problem and allow height-based container
+queries.
+
+⚠ **Do not write that variant's literal syntax in any file here.** Tailwind scans markdown, so an
+example in prose becomes a real candidate: writing it out once broke the CSS build outright
+(`Unexpected token ParenthesisBlock`), because Tailwind dutifully generated
+`@container (width >= (…))` and PostCSS refused it. Same family as "a regex over source is a regex
+over comments" — content in a file you did not think of as code.
+
+**Not taken now, deliberately.** Size containment requires a definite height; if that assumption is
+ever wrong the element collapses to **nothing**, which is a far worse failure than being unable to
+measure. The frame does appear to have a definite height (a sized grid cell, `[&>*]:h-full`), so it
+would probably work — but "probably" is not a basis for changing containment on every widget in a
+just-released stable surface. It needs its own release and testing against real widgets at
+wide-short sizes, which is exactly the shape that would break.
+
+**Meanwhile the limitation is documented** in `MODULES-AUTHORING.md`, with the pattern that works:
+reflow (`flex-col flex-wrap`) rather than branching on a measurement. The add-ons session reached
+the same solution independently and verified it from 1×1 to 60×60.
 
 #### CORE-15 · App icons that follow your branding, and installing JonDash to a phone — ⏳ Planned
 Owner request, 2026-07-29, with a screenshot of the browser tab.

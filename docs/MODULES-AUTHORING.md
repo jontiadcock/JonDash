@@ -343,6 +343,28 @@ gaps around it if they want. Nothing may assume a neighbour, a row, or that the 
   though one is harmless. **A module with no `Page` is not clickable at all**, which is correct: a card
   that looks clickable and does nothing is worse than one that plainly isn't.
 
+### ⚠ The container measures WIDTH ONLY
+
+The frame is `container-type: inline-size`, so `@[…]` queries answer **how wide am I** and there is
+**no way to ask how tall**. On a square grid that is rarely a problem — but the grid also allows
+**wide and short**, and that is where it bites: a **12×1** tile reports a 1200px container and has
+about 19px of usable height, so a width query says "plenty of room" at the exact moment there is
+none. A **1×6** tile has the same width as a **1×1** and cannot be told apart from it.
+
+**What works instead**, and it is what core's own add-ons landed on: lay content out so it *reflows*
+rather than branching on a measurement — `flex-col flex-wrap`, so rows fill downward and start a new
+column when they run out of height. That adapts to both axes without being able to measure either.
+Keep every row one line tall; a row that can grow to two lines is what overflows a short tile.
+
+**If your content genuinely cannot be columnised**, design for the ambiguous case: at the smallest
+width show the single most important thing, and assume the tile may be only one cell tall.
+
+*Why not `container-type: size`, which would allow height queries: size containment requires a
+definite height, and if that assumption is ever wrong the element collapses to nothing — a much
+worse failure than not being able to measure. It is recorded as a considered option rather than
+refused outright; it would need its own release and testing against real widgets at wide-short
+sizes, which is precisely the shape that would break.*
+
 ### The thresholds core uses — copy these
 
 Asked for by the add-ons session, 2026-07-29, and the reason is a good one: **if every add-on picks

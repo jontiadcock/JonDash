@@ -109,7 +109,7 @@ function walk(dir, re, out = []) {
  * harmless, exactly as when Tailwind scans real source). This is parity with scanning the
  * files directly; it just routes through a file Tailwind is allowed to look at.
  */
-function collectClassTokens(dirs) {
+export function collectClassTokens(dirs) {
   const tokens = new Set();
   const STRING = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|`([^`\\]*(?:\\.[^`\\]*)*)`/g;
   for (const dir of dirs) {
@@ -120,9 +120,35 @@ function collectClassTokens(dirs) {
         const body = m[1] ?? m[2] ?? m[3] ?? "";
         for (const t of body.split(/[\s`]+/)) {
           const tok = t.trim();
-          // a Tailwind utility candidate: has a letter, and no characters that never appear
-          // in one (quotes, parens, braces, semicolons, template-expression markers).
-          if (tok && /[a-z]/i.test(tok) && !/["'(){};$<>]/.test(tok)) tokens.add(tok);
+          /*
+           * A Tailwind utility candidate.
+           *
+           * **The rejected set is only what genuinely cannot appear in a class**, and the old one
+           * was far too wide — it excluded `(`, `)`, `<`, `>` and `'`, all of which appear in real
+           * utilities constantly: any arbitrary value holding a CSS function (clamp, calc, repeat,
+           * minmax), v4's CSS-variable shorthand, every child-combinator variant, and quoted
+           * `content` values.
+           *
+           * ⚠ **Deliberately described rather than written out.** Tailwind scans this file, so a
+           * literal utility in this comment becomes a real candidate — an unsupported one took the
+           * whole CSS build down with `Unexpected token ParenthesisBlock` while this fix was being
+           * written. Examples belong in `docs/MODULES-AUTHORING.md`, inside fenced code, not here.
+           *
+           * Every one was silently dropped. **Silently is the problem**: the class stays on the
+           * element, nothing defines it, and typecheck, lint, build and the module verifier all
+           * pass while the widget renders wrong. Reported by the add-ons session, who lost time to
+           * it — and core's 1.8.0 sizing guidance points authors straight at `clamp()`, which
+           * cannot be written without parentheses.
+           *
+           * `"` stays rejected because these tokens are emitted into a `class="…"` attribute and a
+           * double quote would end it. `$`, `{` and `}` stay because a token containing them came
+           * from a template expression and is dynamic — it can never be a static class. `;` stays
+           * because no utility contains one.
+           *
+           * Over-collecting is harmless, as the note above already says: a token that is not a
+           * utility simply never matches one, exactly as when Tailwind scans real source.
+           */
+          if (tok && /[a-z]/i.test(tok) && !/["{};$]/.test(tok)) tokens.add(tok);
         }
       }
     }
@@ -136,7 +162,17 @@ export function renderTailwindClasses(tokens) {
     "<!-- Tailwind scans this file so utility classes used only by installed modules/helpers -->\n" +
     "<!-- (whose folders are .gitignore'd and skipped by Tailwind) are still generated. -->\n" +
     "<!-- Empty in a stock checkout; regenerated with the installed add-ons before every build. -->\n";
-  return `${header}<div class="${tokens.join(" ")}"></div>\n`;
+  /*
+   * A token containing a double quote would end the attribute early and **silently discard every
+   * class after it** — a failure with no error, in a file nobody reads, affecting classes that have
+   * nothing to do with the offending one.
+   *
+   * The extractor already refuses them, so this cannot happen today. It is here because that makes
+   * two components agreeing by convention, and the one holding the sharp end should not depend on
+   * the other staying careful: this file's whole job is to be well-formed.
+   */
+  const safe = tokens.filter((t) => !t.includes('"'));
+  return `${header}<div class="${safe.join(" ")}"></div>\n`;
 }
 
 /** Write a generated file only when it changed, so a no-op run can't bust the build cache. */

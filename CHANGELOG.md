@@ -9,6 +9,22 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.2-beta.1] — 2026-07-29
+
+**Fixed, and it affects every add-on: certain styles written by a module or a shared capability
+produced no styling at all.** Anything using a CSS function — a size that scales smoothly with the
+tile, a width calculated from a percentage, a grid that fits as many columns as will go — was
+silently discarded on the way into the build. The add-on looked correct in its source, passed every
+check, and rendered wrong.
+
+**It was also teaching people to do the wrong thing.** JonDash's own guidance for making widgets
+adapt to their size points authors at exactly the tool that was broken. Reported by the add-ons
+repository, who lost time to it.
+
+**Documented for add-on authors:** the tile a widget sits in can be measured for its **width only**,
+never its height — which matters on a wide, short tile, where "plenty of room" is reported at the
+moment there is none. The authoring guide now says so, with the layout pattern that works instead.
+
 ## [1.8.1] — 2026-07-29
 
 **Fixed: the "buy me a coffee" message came back after you dismissed it.** It was remembered by the
