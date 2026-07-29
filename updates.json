@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "The interface rework. Your dashboard now holds service tiles and add-on widgets in one grid you arrange together - drag to move, drag a corner to resize, and a tile stays where you put it instead of being packed in from the top left. Drop one on top of another and the rest shuffle out of the way. Your phone and your PC remember separate arrangements. Browsing add-ons is now a proper catalogue: click a module and it expands over the grid showing exactly what it can do, with screenshots if the author provides them, and installing is only possible from there - so a module can never be installed without its permissions having been in front of you. HTTPS no longer needs a domain name: JonDash can make its own certificate for a home network covering your LAN address, your own certificate is uploaded and checked rather than typed as a file path, and a new panel tells you when a certificate expires and whether it is actually being served. Backups now say plainly what they contain, encryption is a checkbox rather than an optional password box, and restoring reads the file as you choose it and only asks for a passphrase if it needs one. Add-ons keep their own data through a backup. JonDash also only updates when you say so - starting it will never install an update - and shut down genuinely shuts down. Plus a Help and support page, and a long list of fixes including settings that appeared to revert after saving, dropdowns that ignored the first click, and service tiles that could not be dragged."
+    },
+    {
       "version": "1.8.0-beta.27",
       "date": "2026-07-29",
       "type": "minor",

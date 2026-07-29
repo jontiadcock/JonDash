@@ -9,6 +9,81 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0] — 2026-07-29
+
+**The interface rework.** Twenty-seven betas of it. Nothing here changes what JonDash is for — it
+changes how much it gets in your way.
+
+### Your dashboard
+**Put things where you want them.** Service tiles and add-on widgets now share one grid, so they
+arrange together instead of living in separate lists — and a tile stays exactly where you put it,
+gaps and all, rather than being packed in from the top left. Drag to move, drag the corner to
+resize. **Drop a tile on top of another and the others shuffle out of the way** instead of refusing
+the move; only the tiles actually in the way shift, so deliberate gaps elsewhere survive.
+
+**Your phone and your PC remember separate arrangements**, so tidying up on one no longer scrambles
+the other. The grid is finer — a tile can go three times smaller than before — and the dashboard
+uses the full width of the screen it's given.
+
+### Add-ons
+**Browse is a catalogue.** Modules three across, each with a summary and a chip saying roughly how
+much access it wants. Click one and it **expands over the grid**, growing out of the card you
+clicked, with the full list of what it can do written out. Modules you already have carry a green
+tick. A module can now show screenshots of itself, too.
+
+**Installing is a decision you make with the facts in front of you.** It used to be possible from a
+checkbox on a list — so a module could be installed with its permissions never having been on
+screen. That is now impossible: install lives only on the module's own page, below what it can do.
+
+### Security & sessions
+**One "Session length" setting** instead of two that pulled against each other. **Addon Permissions**
+and **Admin Roles** are now named for what they control — one is about what an add-on may do, the
+other about what a person may do, and they used to sit next to each other with near-identical names.
+A permission you revoke stays revoked when the add-on updates.
+
+### Updates
+**JonDash only updates when you say so.** Starting it will never install an update — it tells you one
+is available. Updates happen on your schedule or when you press the button, covering JonDash itself
+as well as your add-ons. **Shut down now genuinely shuts down**; it used to be possible for a restart,
+or even an update, to happen anyway.
+
+### HTTPS
+**You no longer need a domain name.** JonDash can make its own certificate for a home network,
+covering every address the machine answers on — including your LAN IP, so you don't get a second
+warning for the wrong reason. Your own certificate is **uploaded** now rather than typed as a file
+path, and checked before it's stored. A new panel tells you who a certificate was issued to and by,
+when it expires, and whether it's actually being served yet. Let's Encrypt can be requested on the
+spot, and if it refuses you get its own explanation.
+
+### Backup & restore
+**Encryption is a checkbox, and the list below it shows what that changes** — ticking it adds your
+credentials, two-factor secrets, the encryption key, secret settings and icons to what the file will
+hold. That difference matters: an unencrypted backup cannot restore anyone's ability to sign in.
+
+**Restoring no longer asks you to remember whether your backup was encrypted.** JonDash reads the
+file as you pick it and asks for the passphrase only if it needs one — on the admin page and on the
+first-run restore screen. Restore is all-or-nothing now, with a plain warning that the whole server
+including its network settings is being replaced, in place of the "type Everything" box.
+**Add-ons keep their own data** through a backup, and JonDash refuses to write it into a different
+version of an add-on than the one that produced it.
+
+### Email
+Provider presets are gone, with links to the real setup guides in their place. **Every email JonDash
+sends is styled like JonDash**, including mail sent by add-ons, and connection errors are relayed
+word for word instead of being flattened into "failed".
+
+### Help
+**A Help & support page**, directly below General rather than at the bottom of the list. A quiet line
+at the foot of every screen links to it. JonDash will ask you for a coffee exactly once, after
+you've used it for a week, and never again once dismissed. Nothing is ever held back from people who
+don't.
+
+### Fixed
+Sessions and settings that appeared to revert after saving · dropdowns that ignored the first
+attempt to change them · service tiles that couldn't be dragged at all · widgets that threw the
+small tiles around · the restore file picker offering you every file on your computer including
+programs · a launcher that printed garbled characters over a healthy start.
+
 ## [1.8.0-beta.27] — 2026-07-29
 
 **A module can show you pictures of itself before you install it.** Its page now carries a strip of
