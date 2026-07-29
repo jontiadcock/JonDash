@@ -9,7 +9,7 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
-## [1.8.1] — 2026-07-29
+## [1.8.1-beta.1] — 2026-07-29
 
 **For add-on authors, following review by the add-ons repository.** No change for anyone running
 JonDash.

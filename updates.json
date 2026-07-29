@@ -1,11 +1,11 @@
 {
   "releases": [
     {
-      "version": "1.8.1",
+      "version": "1.8.1-beta.1",
       "date": "2026-07-29",
       "type": "patch",
       "criticality": "optional",
-      "summary": "For add-on authors only - nothing changes for running JonDash. A module can put its screenshots in a subdirectory again rather than loose among its source files, and the sizes JonDash resizes its own service tiles at are now published, so widgets from different authors change shape at the same points instead of at four different ones."
+      "summary": "Beta: for add-on authors only - nothing changes for running JonDash. A module can put its screenshots in a subdirectory again rather than loose among its source files, and the sizes JonDash resizes its own service tiles at are now published, so widgets from different authors change shape at the same points instead of at four different ones."
     },
     {
       "version": "1.8.0",
