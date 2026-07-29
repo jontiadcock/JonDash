@@ -22,7 +22,43 @@ async function baseCookieOptions() {
   return {
     httpOnly: true,
     secure: await isSecureRequest(),
-    sameSite: "strict" as const,
+    /*
+     * **`lax`, not `strict` — deliberately relaxed in 1.8.3 (BUG-73).**
+     *
+     * Strict withholds the cookie on any top-level navigation that did not start on this site: a
+     * bookmark, a link from another app, a home-screen shortcut, or a tab the phone discarded and
+     * re-navigated on unlock. The request arrives with no cookie, `proxy.ts` sends it to /login, and
+     * a refresh — which *is* same-site — then works. The owner hit this daily on their phone.
+     *
+     * **This does not weaken CSRF protection here**, and that was checked before changing it rather
+     * than assumed. Every mutating server action calls `assertSameOrigin()`, which compares the
+     * Origin header (falling back to Referer) against the Host and **throws when neither matches or
+     * both are absent** — it fails closed, independently of any cookie attribute. Next also refuses
+     * cross-origin Server Action POSTs on its own. The cookie attribute was a third copy of that
+     * protection, and the only one paying a cost.
+     *
+     * `lax` still withholds the cookie on **cross-site POSTs**, which is the CSRF vector; what it
+     * permits is top-level GET navigation, which is exactly what was broken.
+     *
+     * **The short-lived flow cookies stay `strict`** (`preauth`, `reenroll`, `recovery-reveal`).
+     * Nothing ever arrives at those from outside — you are already mid-flow on this site — so they
+     * pay no cost for the stricter setting.
+     *
+     * ⚠ CORE-15 depends on this: an installed web app launches from a home-screen icon, which is
+     * precisely the navigation Strict blocks. Reverting this makes the installed app open on a
+     * login page every single time.
+     *
+     * ## Related code
+     * - `lib/security/csrf.ts` — `assertSameOrigin`, which **is** the CSRF control now. It must
+     *   keep failing closed when neither Origin nor Referer is present.
+     * - `app/manifest.ts` — `start_url: /dashboard` only survives a home-screen launch because of
+     *   this attribute.
+     * - `proxy.ts` — reads this cookie's presence to decide the anonymous redirect; a withheld
+     *   cookie is indistinguishable there from being signed out.
+     * - `lib/auth/preauth.ts`, `reenroll.ts`, `recovery-reveal.ts` — deliberately still `strict`.
+     * - `tests/unit/session-cookie-samesite.test.ts` — pins all of the above.
+     */
+    sameSite: "lax" as const,
     path: "/",
   };
 }

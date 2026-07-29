@@ -9,6 +9,34 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3-beta.1] — 2026-07-30
+
+**You can install JonDash on your phone.** Open it in your phone's browser and use *Add to Home
+Screen* (iPhone) or *Install app* (Android) and it gets a proper icon and opens in its own window,
+without the browser's address bar. On a computer, Chrome and Edge offer the same thing.
+
+**And the icon is yours.** Every icon — the browser tab, the phone's home screen, the app launcher —
+now comes from **your** branding: the logo you uploaded, or a lettered mark built from your app's
+name if you haven't uploaded one. Until now an install without a logo showed **Next.js's logo** in
+the browser tab, which had been sitting in the codebase since the first day. On Android the icon is
+also supplied in the padded form the system needs, so it isn't cropped when the launcher rounds it
+off.
+
+**Fixed: opening JonDash on your phone showed the login page until you refreshed.** Your session was
+never the problem — the browser was withholding the sign-in cookie whenever you arrived from
+somewhere other than JonDash itself: a bookmark, a link from another app, or a tab your phone had
+put to sleep. It is sent on those now. **Cross-site form submissions still cannot carry it**, which
+is the case that matters for security, and the check that actually blocks forged requests is
+unchanged.
+
+*Those two ship together because they have to: an installed app launches from a home-screen icon,
+which is exactly the case that was broken.*
+
+**Worth knowing:** Android only offers to install an app over HTTPS with a certificate your phone
+trusts — **a self-signed certificate is not enough**, so a home-network install needs its own
+certificate authority trusted on the phone first. iPhone is more relaxed: *Add to Home Screen* works
+either way and still uses the icon.
+
 ## [1.8.2] — 2026-07-30
 
 **Fixed, and it affects every add-on: certain styles written by a module or a shared capability

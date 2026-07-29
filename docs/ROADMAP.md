@@ -113,14 +113,13 @@ it blocked another session's work while nothing blocked it.
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
 16. ✅ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — shipped **v1.8.0-beta.24**
-16b. ▶️ **CORE-15 — App icons that follow your branding + install to a phone** *(owner request
-   2026-07-29, **next up**)* — the tab icon is currently Vercel's when no logo is uploaded, and there
-   is no web app manifest at all. **BUG-73 must land first** or the installed app opens on a login
-   page every time. Note the Android install prompt needs a *trusted* certificate, which a
-   self-signed one is not
+16b. ✅ **CORE-15 — App icons that follow your branding + install to a phone** — shipped
+   **v1.8.3-beta.1**, together with BUG-73, which it depends on
 16c. 🌅 **CORE-16 — A native mobile app** *(owner: after the PWA)* — blocked on an API that does not
    exist; the SEC-06 design is shelved and re-usable. See the catalog entry
 16d. 🧊 **CORE-17 — `container-type: size` on the dashboard frame** — considered, not scheduled
+16e. ⏳ **CORE-18 — Cross-references in code notes** *(owner instruction 2026-07-30)* — **already in
+   force for new and edited code**; the global sweep schedules separately
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
@@ -1326,6 +1325,34 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
 
+#### CORE-18 · Cross-references in code notes — ⏳ Planned (global sweep), applied to new work from now
+Owner instruction, 2026-07-30: *"all code to reference all other code that it may rely on, in the
+code notes of the section you are editing … eg, a module and a service using different code but
+performing the same actions, we need to ensure it is documented."*
+
+**Not a comment-density rule — a wiring rule.** A note explains what a piece of code does; a
+cross-reference says **what else must change when it changes**, which is the thing that actually
+gets missed. The duplication that hurts is not code that looks alike, it is code that must *agree*.
+
+**The convention** — a `## Related code` block in the file or section's header note, listing each
+related file and, in a few words, the nature of the relationship. Prefer these four kinds:
+1. **Same behaviour, separate implementation** — the dangerous one. The owner's example.
+2. **A contract's two halves** — producer and consumer, writer and reader.
+3. **A decision expressed in two files** — change one and the other is wrong.
+4. **The test that pins it**, so the reader can see what is enforced and what is only intended.
+
+**A worked example landed with CORE-15** and is the reason this was raised: the lettered fallback
+mark ("first letter of the app name, white on the primary, rounded square") now exists in **three**
+implementations — `BrandMark` and `BrandHeading` in JSX, and an SVG in
+`app/api/branding/icon/route.ts` for the tab and home-screen icons. Nothing enforces that they
+agree. All three now say so, and name each other.
+
+**Sweep is deliberately later, not now.** Retrofitting the whole tree in one pass would be a large
+diff of pure comments touching every file, which is hard to review and easy to get wrong. Applied to
+new and edited code from 2026-07-30; the sweep schedules separately. **Highest-value places to start
+when it does:** the auth guards, the settings registry, the module/helper contract surfaces, and
+anywhere core and an add-on solve the same problem differently.
+
 #### CORE-16 · A native mobile app (Google Play + App Store) — 🌅 Someday
 Owner direction, 2026-07-29: **do the PWA (CORE-15) first, then consider this.**
 
@@ -1380,7 +1407,32 @@ wide-short sizes, which is exactly the shape that would break.
 reflow (`flex-col flex-wrap`) rather than branching on a measurement. The add-ons session reached
 the same solution independently and verified it from 1×1 to 60×60.
 
-#### CORE-15 · App icons that follow your branding, and installing JonDash to a phone — ⏳ Planned
+#### CORE-15 · App icons that follow your branding, and installing JonDash to a phone — ✅ Shipped v1.8.3-beta.1
+**Shipped.** `app/api/branding/icon` is now the single source for every icon surface — browser tab,
+iOS home screen, Android launcher, manifest. It serves the uploaded logo resized, or draws the same
+lettered mark the header uses when there is no logo, so **an unbranded install stops showing
+Vercel's triangle** (`app/favicon.ico`, the stock create-next-app file, has been deleted — it had
+been there since the first commit).
+
+`app/manifest.ts` gives name, icons at 192 and 512 **plus maskable variants** (Android crops a
+non-maskable icon into a circle and eats the outer fifth; the maskable pass pads the artwork into
+the middle 80%), `display: standalone` and `start_url: /dashboard`. iOS ignores the manifest for
+"Add to Home Screen", so the Apple touch icon and `appleWebApp` metadata are a separate path in
+`app/layout.tsx`.
+
+**BUG-73 shipped in the same beta and had to** — `start_url` only survives a home-screen launch
+because the session cookie is now `SameSite=Lax`. Under Strict the installed app opened on a login
+page every single time.
+
+**Verified live:** manifest served anonymously as `application/manifest+json` with all four icons;
+every allowed size renders and a disallowed one 400s; the maskable variant proven padded by sampling
+alpha (transparent at x=10, opaque at x=60 of 512); the rendered mark visually matches the header's.
+
+**Left as it was, deliberately:** the Android install prompt still needs a certificate the device
+trusts, which **a self-signed one is not** — so a LAN-only install needs its own CA trusted on the
+phone. iOS is unaffected for the icon; only the standalone window is gated.
+
+#### CORE-15 · original scope below — ⏳ superseded by the above
 Owner request, 2026-07-29, with a screenshot of the browser tab.
 
 **Two problems that share a solution.**

@@ -57,6 +57,17 @@ export async function BrandingStyle() {
 }
 
 /** The configured app name, falling back to "JonDash" if settings can't be read. */
+/*
+ * ## Related code — the lettered fallback mark exists in THREE places
+ *
+ * `BrandHeading` and `BrandMark` below both draw "first letter of the app name, white on the
+ * primary, rounded square" in JSX — and since CORE-15 **`app/api/branding/icon/route.ts` draws the
+ * same mark as an SVG** for the browser tab, the iOS home screen and the Android launcher.
+ *
+ * They are three implementations of one design and nothing enforces that they agree. If you change
+ * the letter, the colour or the corner radius, change it in all three or the tab icon stops matching
+ * the header. (`app/manifest.ts` and `app/layout.tsx` consume the route, not this file.)
+ */
 export async function appName(): Promise<string> {
   if (isBuildPhase) return "JonDash";
   try {

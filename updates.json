@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.3-beta.1",
+      "date": "2026-07-30",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "Beta: you can install JonDash on your phone. Open it in your phone browser and use Add to Home Screen on iPhone or Install app on Android, and it gets a proper icon and opens in its own window without the address bar. The icon is yours too - the browser tab, the home screen and the app launcher all now use the logo you uploaded, or a lettered mark from your app name if you have not uploaded one. Until now an install without a logo showed the Next.js logo in the browser tab. Also fixes opening JonDash on a phone showing the login page until you refreshed: the browser was withholding the sign-in cookie whenever you arrived from a bookmark, another app, or a tab your phone had put to sleep. Cross-site form submissions still cannot carry it. Note that Android only offers to install over HTTPS with a certificate your phone trusts, so a self-signed certificate is not enough; iPhone is more relaxed."
+    },
+    {
       "version": "1.8.2",
       "date": "2026-07-30",
       "type": "patch",
