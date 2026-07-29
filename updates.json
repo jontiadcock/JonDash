@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.25",
+      "date": "2026-07-29",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes the coffee message on a phone, where its two buttons kept their full width and squeezed the sentence into a narrow strip down the side. The message and the buttons now sit on separate rows on a narrow screen. Also fixes a missing space on the help page."
+    },
+    {
       "version": "1.8.0-beta.24",
       "date": "2026-07-29",
       "type": "minor",

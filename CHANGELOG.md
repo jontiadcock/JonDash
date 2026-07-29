@@ -9,6 +9,14 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.25] — 2026-07-29
+
+**Fixed: the coffee message was unreadable on a phone.** Its two buttons kept their full width and
+squeezed the sentence into a narrow column down the left-hand side. The message and the buttons now
+sit on separate rows on a narrow screen, and share one row from tablet width up.
+
+**Fixed: a missing space on the help page** — "Something is confusing.Most screens".
+
 ## [1.8.0-beta.24] — 2026-07-29
 
 **There's a Help & support page**, at `/help-meeeee`, and it sits **directly below General** in the

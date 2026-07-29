@@ -98,33 +98,48 @@ export function SupportBanner({ installedDays }: { installedDays: number }) {
   const dismissed = useSyncExternalStore(subscribe, readDismissed, () => true);
   if (dismissed || installedDays < 7) return null;
 
+  /*
+   * **Stacks on a phone; one row from `sm` up.**
+   *
+   * It was a single `flex-wrap` row with the text on `flex-1`. That never wrapped: the two buttons
+   * kept their intrinsic width, `min-w-0` let the text shrink to whatever was left, and on a 375px
+   * screen the message became a fifteen-line column an inch wide beside them. Nothing overflowed —
+   * which is why a sweep that only looked for content escaping the viewport called it fine.
+   */
   return (
     <div
-      className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3 text-sm"
+      className="mb-4 flex flex-col gap-3 rounded-xl px-4 py-3 text-sm sm:flex-row sm:items-center"
       style={{
         background: "color-mix(in srgb, var(--primary) 8%, transparent)",
         color: "var(--foreground)",
       }}
     >
-      <span style={{ color: "var(--primary)" }}>
-        <Heart size={14} />
+      <span className="flex min-w-0 flex-1 items-start gap-2">
+        <span className="mt-0.5 flex-none" style={{ color: "var(--primary)" }}>
+          <Heart size={14} />
+        </span>
+        <span>
+          You&apos;ve been running JonDash for{" "}
+          {installedDays >= 365
+            ? "over a year"
+            : installedDays >= 60
+              ? `${Math.floor(installedDays / 30)} months`
+              : installedDays >= 30
+                ? "a month"
+                : `${installedDays} days`}
+          . It&apos;s free and always will be — but if it&apos;s saved you some trouble, you could
+          buy me a coffee.
+        </span>
       </span>
-      <span className="min-w-0 flex-1">
-        You&apos;ve been running JonDash for{" "}
-        {installedDays >= 365
-          ? "over a year"
-          : installedDays >= 30
-            ? `${Math.floor(installedDays / 30)} month${installedDays >= 60 ? "s" : ""}`
-            : `${installedDays} days`}
-        . It&apos;s free and always will be — but if it&apos;s saved you some trouble, you could buy
-        me a coffee.
+      {/* Their own row on a phone, so neither button can steal width from the sentence. */}
+      <span className="flex flex-none gap-2 self-end sm:self-auto">
+        <Link href="/help-meeeee" className="btn btn-ghost !py-1 !px-2 text-xs">
+          Tell me more
+        </Link>
+        <button type="button" onClick={dismiss} className="btn btn-ghost !py-1 !px-2 text-xs">
+          No thanks
+        </button>
       </span>
-      <Link href="/help-meeeee" className="btn btn-ghost !py-1 !px-2 text-xs">
-        Tell me more
-      </Link>
-      <button type="button" onClick={dismiss} className="btn btn-ghost !py-1 !px-2 text-xs">
-        No thanks
-      </button>
     </div>
   );
 }

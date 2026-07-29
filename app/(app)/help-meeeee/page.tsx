@@ -36,21 +36,34 @@ export default async function HelpPage() {
       <section className="card flex flex-col gap-4 p-6">
         <h2 className="text-lg font-semibold">Getting help</h2>
         <div className="flex flex-col gap-3 text-sm">
+          {/*
+            `{" "}` after each `</strong>`, rather than a plain space in the source.
+
+            The space is NOT reliable: an identical-looking line lost it while its neighbour kept
+            it, and this was visible on the page as "Something is confusing.Most screens". Confirmed
+            at the compile step, not in the browser — the built chunk contained `"…broken."}," The`
+            and `"…confusing."},"Most`. Whitespace next to an inline tag is inferred from how the
+            source happens to be wrapped, so any re-flow of this paragraph can silently delete a
+            space. Written explicitly, it cannot.
+          */}
           <p>
-            <strong>Something is broken.</strong> The launcher keeps a log of every start, crash and
-            update under <code className="font-mono text-xs">logs\</code> in your JonDash folder —
-            that is the first thing worth reading, and the first thing worth attaching if you report
-            it.
+            <strong>Something is broken.</strong>{" "}
+            The launcher keeps a log of every start, crash and update under{" "}
+            <code className="font-mono text-xs">logs\</code> in your JonDash folder — that is the
+            first thing worth reading, and the first thing worth attaching if you report it.
           </p>
           <p>
-            <strong>Something is confusing.</strong> Most screens explain themselves underneath the
-            control rather than in a manual. If one doesn&apos;t, that is a fault in the screen and
-            worth telling me about.
+            <strong>Something is confusing.</strong>{" "}
+            Most screens explain themselves underneath the control rather than in a manual. If one
+            doesn&apos;t, that is a fault in the screen and worth telling me about.
           </p>
           <p>
-            <strong>An add-on is misbehaving.</strong> Add-ons are separate from JonDash itself —
-            check <Link href="/admin/modules" style={{ color: "var(--primary)" }}>Addons</Link>, where
-            each one names its version and what it is allowed to do.
+            <strong>An add-on is misbehaving.</strong>{" "}
+            Add-ons are separate from JonDash itself — check{" "}
+            <Link href="/admin/modules" style={{ color: "var(--primary)" }}>
+              Addons
+            </Link>
+            , where each one names its version and what it is allowed to do.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
