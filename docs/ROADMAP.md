@@ -113,10 +113,6 @@ it blocked another session's work while nothing blocked it.
    full-card-per-module layout is already unwieldy and gets worse as more ship. Owner said **"let us
    do that later"**, so position is open. Keep a dangerous permission identifiable without expanding
 16. ✅ **CORE-05 — "Buy me a coffee" banner + `/help-meeeee` support page** — shipped **v1.8.0-beta.24**
-16b. ⏳ **CORE-15 — App icons that follow your branding + install to a phone** *(owner request
-   2026-07-29)* — the tab icon is currently Vercel's when no logo is uploaded, and there is no web
-   app manifest at all. **Position not confirmed by the owner** — move it freely. Note the Android
-   install prompt needs a *trusted* certificate, which a self-signed one is not
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
@@ -1321,50 +1317,6 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
   surface; agree the direction once rather than restyling twice.
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
-
-#### CORE-15 · App icons that follow your branding, and installing JonDash to a phone — ⏳ Planned
-Owner request, 2026-07-29, with a screenshot of the browser tab.
-
-**Two problems that share a solution.**
-
-**1. The tab icon is Vercel's.** `app/favicon.ico` has been the stock create-next-app file since the
-very first commit (`655a82b`) — the black circle with the white triangle. `generateMetadata` already
-points the tab icon at `/api/branding/logo` **when a logo has been uploaded**, so a branded install is
-fine; an install that has *not* uploaded one — which is most of them, including the owner's — shows
-the Next.js logo. Every other surface (`BrandMark`, `BrandHeading`) falls back to a lettered mark
-built from the app name's first character; only the favicon falls back to somebody else's logo.
-
-**2. On a phone there is nothing to install.** No web app manifest, no `apple-touch-icon`. "Add to
-Home Screen" therefore produces a generic tile, and JonDash opens in a browser tab rather than as an
-app. The owner wants the proper thing: a home-screen icon and a standalone window.
-
-**What it takes:**
-- **A real default icon**, replacing the stock favicon — the same lettered mark the rest of the app
-  already falls back to, so an unbranded install looks like itself rather than like Next.js.
-- **One icon route that renders at a requested size.** `sharp` is already a dependency, so the
-  uploaded logo can be resized on demand (`?size=192`). With no logo, render the lettered mark as an
-  SVG and rasterise it — same input the header uses, so the tab, the phone icon and the header can
-  never disagree.
-- **`app/manifest.ts`** (Next's file convention) — name and `short_name` from the configured app
-  name, `icons` at 192 and 512 **plus a maskable variant** (Android crops a non-maskable icon into a
-  circle and eats the edges), `display: "standalone"`, `start_url: "/dashboard"`, and `theme_color`
-  taken from the install's chosen palette so an installed app matches the app it launches.
-- **iOS meta tags** — `apple-touch-icon` and `apple-mobile-web-app-*`. iOS ignores the manifest for
-  this, so it is a separate path, not an afterthought.
-- **The manifest must be readable signed-out**, like the logo route, and for the same reason: it
-  carries the app name, which the sign-in page already shows.
-
-**Do BUG-73 first.** The session cookie is `SameSite=Strict`, which withholds it on a navigation
-that did not start on this site — and launching from a home-screen icon is exactly that. Ship this
-before fixing that and the installed app greets everyone with a login page every single time.
-
-**The constraint that decides who can actually use this, and it is not obvious:** Android Chrome only
-offers "Install app" in a **secure context with a trusted certificate**. Plain HTTP will not do it,
-and **the self-signed certificate 1.8.0 just added does not count** — Chrome wants a cert the device
-trusts, so a LAN-only install needs its self-signed CA installed on the phone first. **iOS is more
-forgiving:** "Add to Home Screen" works over plain HTTP and will honour `apple-touch-icon`, so the
-nice icon lands there regardless; only the standalone-app behaviour is gated. Say this on the page
-rather than letting people conclude the feature is broken.
 
 #### CORE-05 · "Buy me a coffee" banner + a support page — ✅ Shipped v1.8.0-beta.24
 **Shipped as three pieces, deliberately unequal.** A permanently visible, deliberately quiet

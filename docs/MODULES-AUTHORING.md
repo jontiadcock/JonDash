@@ -343,40 +343,6 @@ gaps around it if they want. Nothing may assume a neighbour, a row, or that the 
   though one is harmless. **A module with no `Page` is not clickable at all**, which is correct: a card
   that looks clickable and does nothing is worse than one that plainly isn't.
 
-### The thresholds core uses — copy these
-
-Asked for by the add-ons session, 2026-07-29, and the reason is a good one: **if every add-on picks
-its own breakpoints, a dashboard mixing four authors' widgets reflows raggedly at four different
-sizes.** These are the exact values core's own service tiles use, published so you can match them.
-They are a starting point, not a rule — but diverging without a reason costs the user a dashboard
-that changes shape in stages.
-
-| Container width | What core does | Why |
-| --------------- | -------------- | --- |
-| **under `@[6rem]`** | Icon only. The label is `hidden` | A clipped half-line of text identifies nothing; the icon and the tooltip still do |
-| **`@[6rem]` and up** | Label appears, `text-xs` | The smallest size at which a truncated name is still worth reading |
-| **`@[8rem]` and up** | Full size — `gap-3`, `p-5`, `text-sm` label | Comfortable spacing once there is room for it |
-
-```tsx
-// Core's service tile, reduced to the sizing decisions.
-<a className="card flex flex-col items-center justify-center gap-1 p-2 @[8rem]:gap-3 @[8rem]:p-5">
-  {/* The icon is a PROPORTION with a floor and a ceiling — it shrinks with the tile instead of
-      being cropped by it, and never becomes a dot or a poster. */}
-  <span className="aspect-square w-[46%] min-w-7 max-w-16 …">
-    <img className="h-3/4 w-3/4 object-contain" … />
-  </span>
-  {/* Below 6rem this is not rendered at all. */}
-  <span className="hidden truncate text-xs @[6rem]:block @[8rem]:text-sm">{title}</span>
-</a>
-```
-
-**The transferable pattern is the icon line**: `w-[46%] min-w-7 max-w-16`. A proportion so it tracks
-the box, a floor so it never vanishes, a ceiling so it stops growing when the box gets silly. Fixed
-sizes are what made small tiles clip in the first place (BUG-71).
-
-**Two thresholds, not five.** Each one is a size at which your widget visibly changes shape, and a
-user resizing a tile through four rearrangements reads as a glitch rather than a design.
-
 A module may also ship an **icon** — a small component (typically an inline SVG) on `icon` in its
 definition. Use `currentColor` rather than fixed colours so it follows the user's light/dark theme.
 
@@ -401,15 +367,14 @@ Add pictures of your module to your entry in `addons.json`. They appear on the m
 
 ```json
 "screenshots": [
-  { "file": "screenshots/dashboard.png", "caption": "The widget on a dashboard" },
-  { "file": "screenshots/settings.png" }
+  { "file": "dashboard.png", "caption": "The widget on a dashboard" },
+  { "file": "settings.png" }
 ]
 ```
 
-- **`file` is relative to your module folder, and may sit in one subdirectory** — `screenshots/` is
-  the suggested place, so four images don't clutter your source. No `../`, and no second level.
-  Ship them inside the module folder so they arrive with the pinned tag; JonDash resolves them
-  against the tag, so the picture shown is the one belonging to the version being installed.
+- **`file` is a filename inside your module folder** — no directories, no `../`. Ship the images in
+  the module folder itself so they arrive with the pinned tag; JonDash resolves them against the tag,
+  so the picture shown is the one belonging to the version being installed.
 - **Four maximum.** They are downloaded by everyone who looks, and 4 × 500 KB of pictures against
   ~30 KB of code is already a lopsided trade.
 - **PNG, JPEG or WebP.** WebP is about half of PNG at this size and keeps you comfortably under

@@ -60,21 +60,7 @@ export type ModuleScreenshot = {
 
 /** Agreed with the add-ons session, 2026-07-27. Four, because they are downloaded by every install. */
 export const MAX_SCREENSHOTS = 4;
-
-/**
- * A screenshot path: a filename, optionally inside **one** subdirectory.
- *
- * **The subdirectory is allowed back deliberately.** Round 2 told the add-ons session
- * `screenshots/jobs.webp`; 1.8.0 shipped filename-only, and they caught the change on review before
- * publishing anything. Four loose images among a module's source files is worse for an author than
- * one folder, and this was my silent narrowing rather than a decision anyone made — so it goes back.
- *
- * **Still not a path.** Exactly one optional segment, which must start with a letter or digit — so
- * `..` cannot match, and neither can a leading slash, a second directory, a drive letter or a
- * Windows separator. The extension list is the real gate on what gets fetched.
- */
-const SCREENSHOT_FILE_RE =
-  /^(?:[a-z0-9][a-z0-9._-]{0,31}\/)?[a-z0-9][a-z0-9._-]{0,63}\.(png|jpg|jpeg|webp)$/i;
+const SCREENSHOT_FILE_RE = /^[a-z0-9][a-z0-9._-]{0,63}\.(png|jpg|jpeg|webp)$/i;
 
 /**
  * One capability a helper advertises in the manifest: the permission id a consuming
