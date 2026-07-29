@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.2",
+      "date": "2026-07-30",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Fixes a bug affecting every add-on. Certain styles written by a module or shared capability produced no styling at all - anything using a CSS function, such as a size that scales smoothly with the tile, a width calculated from a percentage, or a grid that fits as many columns as will go. The add-on looked correct in its own source and passed every check, and rendered wrong, with no error anywhere. JonDash was also recommending exactly the technique that was broken. Reported by the add-ons repository. Also documents, for add-on authors, that a widget can measure how wide its tile is but never how tall."
+    },
+    {
       "version": "1.8.2-beta.1",
       "date": "2026-07-29",
       "type": "patch",
