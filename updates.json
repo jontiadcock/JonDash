@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.26",
+      "date": "2026-07-29",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Beta: the Buy me a coffee button on the help page now points at the real link instead of the placeholder it was built with. Nothing else changed."
+    },
+    {
       "version": "1.8.0-beta.25",
       "date": "2026-07-29",
       "type": "patch",

@@ -1332,8 +1332,7 @@ supporting.
 The heart is drawn with `currentColor` from the appearance tokens, so it takes the viewer's palette
 in all seven styles rather than looking pasted in from another website.
 
-**Left for the owner:** `SUPPORT_URL` in `app/components/support.tsx` points at their GitHub profile.
-Point it at a real coffee link when they have one.
+`SUPPORT_URL` in `app/components/support.tsx` carries the owner's real link (supplied 2026-07-29).
 
 *Original scope below.* Owner request, 2026-07-24. A **small** banner offering to support the project with a coffee, linking to
 a support page that is deliberately a bit cute and funny. Someone who goes on to support gets a second,

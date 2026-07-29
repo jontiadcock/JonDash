@@ -11,8 +11,8 @@ import Link from "next/link";
  * self-hosted personal-use app that pesters its owner for money is worse than one that never asks.
  */
 
-/** Where "buy me a coffee" goes. One place, so it is changed once. */
-export const SUPPORT_URL = "https://github.com/jontiadcock";
+/** Where "buy me a coffee" goes. One place, so it is changed once. Owner's link, 2026-07-29. */
+export const SUPPORT_URL = "https://buymeacoffee.com/k1jcmlkxsn";
 
 const DISMISS_KEY = "jondash.supportBannerDismissed";
 const DISMISS_EVENT = "jondash:support-dismissed";

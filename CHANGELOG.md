@@ -9,6 +9,11 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.26] — 2026-07-29
+
+**The "Buy me a coffee" button now goes to the real thing.** It was pointing at a placeholder while
+the page was being built.
+
 ## [1.8.0-beta.25] — 2026-07-29
 
 **Fixed: the coffee message was unreadable on a phone.** Its two buttons kept their full width and
