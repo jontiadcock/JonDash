@@ -222,17 +222,9 @@ export function ModuleOverlay({ children }: { children: React.ReactNode }) {
       );
     }
 
-    /*
-     * One line, on purpose, and it stays for now.
-     *
-     * This has been wrong twice from a live install I cannot see, and both times the next step was
-     * a guess. If it is wrong a third time this says which part failed — whether the panel grew
-     * from a card or from nowhere, and what duration the active style asked for — instead of
-     * costing another round trip to find out.
-     */
-    console.info(
-      `[jondash] module panel: duration=${duration}ms origin=${from.current ? "card" : "none"}`,
-    );
+    // (A `console.info` reporting the duration and whether an origin was found lived here through
+    // betas 20–26, while this had been wrong twice from an install I could not see. The cause was
+    // found and the owner confirmed the fix, so it has gone rather than becoming permanent noise.)
 
     // React 19 calls this cleanup when the element detaches, in place of a call with `null`.
     return () => {

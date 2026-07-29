@@ -67,7 +67,10 @@ run of betas, and it cuts across items already listed below as well as work that
 **All groups are now built** — the last four landed as **v1.8.0-beta.21** (Network & HTTPS),
 **beta.22** (backup and restore), **beta.23** (OPS-16) and **beta.24** (help page, support line and
 the responsive sweep). What remains before promoting 1.8.0 to stable is the owner's testing, the
-add-ons hand-off prompt, and module screenshots — which are add-ons work, not core's.
+add-ons hand-off prompt. **Module screenshots (8.2) landed in v1.8.0-beta.27** — core renders and
+proxies them, and the section stays absent until a module publishes any. Core shipped that half
+first on purpose: add-ons could not publish pictures into a product that ignored them, and core
+waiting for pictures that could not be published was the other half of the same deadlock.
 
 **The queue below therefore does not describe what is being built right now.** Shipped 1.8.0 items
 carry their version in the catalog, as usual; the release's own plan is the day-to-day authority

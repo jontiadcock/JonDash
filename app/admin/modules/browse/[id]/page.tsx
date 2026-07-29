@@ -24,9 +24,12 @@ export const dynamic = "force-dynamic";
  * `page` are carried in the query string rather than held in component state: a full navigation
  * would lose state, and coming back to page 1 after browsing to page 4 is its own small betrayal.
  *
- * **No screenshots yet.** They are a manifest contract the add-ons repo has agreed but not built
- * (`screenshots: [{file, caption}]`, resolved by core against the pinned tag). The section is
- * absent rather than an empty placeholder until modules actually publish them.
+ * **Screenshots are rendered when a module publishes them** (`screenshots: [{file, caption}]` on
+ * the manifest entry, resolved against the pinned tag and proxied by core). The section is absent
+ * rather than an empty placeholder when a module has none — which is every module today, because
+ * core shipped the rendering first. It had to: add-ons could not publish pictures into a product
+ * that ignored them, and core waiting for pictures that could not be published was the other half
+ * of the same deadlock.
  */
 export default async function ModuleDetailPage({
   params,

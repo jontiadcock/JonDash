@@ -40,7 +40,27 @@ export type SourceModuleEntry = {
   tag: string;
   /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
   notes?: string;
+  /**
+   * Pictures of the module, shown on its page before you install it (8.2).
+   *
+   * `file` is relative to `path` inside the module's own folder, and is resolved against the
+   * **pinned tag** — so the picture you are shown is the one that ships with the version you are
+   * about to install, not whatever is on the branch today.
+   */
+  screenshots?: ModuleScreenshot[];
 };
+
+/** One screenshot entry from a source manifest. Both fields are untrusted author text. */
+export type ModuleScreenshot = {
+  /** A filename inside the module folder — no directories, no traversal (enforced below). */
+  file: string;
+  /** Optional caption, plain text. */
+  caption?: string;
+};
+
+/** Agreed with the add-ons session, 2026-07-27. Four, because they are downloaded by every install. */
+export const MAX_SCREENSHOTS = 4;
+const SCREENSHOT_FILE_RE = /^[a-z0-9][a-z0-9._-]{0,63}\.(png|jpg|jpeg|webp)$/i;
 
 /**
  * One capability a helper advertises in the manifest: the permission id a consuming
@@ -131,6 +151,12 @@ export function manifestUrlFor(repoUrl: string, channel: ModuleChannel): string 
   return `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${branchForChannel(channel)}/addons.json`;
 }
 
+/**
+ * Exposed for tests. This function turns a stranger's JSON into values core will put in a URL and
+ * fetch, so it is worth testing directly rather than through a network round trip.
+ */
+export const sanitiseModuleEntryForTest = (raw: unknown) => sanitizeEntry(raw);
+
 /** Validate + sanitise one untrusted manifest entry. Returns null if unusable. */
 function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
   if (!raw || typeof raw !== "object") return null;
@@ -169,6 +195,8 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
           .slice(0, 300)
       : "";
 
+  const screenshots = sanitiseScreenshots(e.screenshots);
+
   return {
     id,
     name: typeof e.name === "string" && e.name.trim() ? e.name.trim().slice(0, 100) : id,
@@ -184,7 +212,40 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
     path,
     tag,
     ...(notes ? { notes } : {}),
+    ...(screenshots.length ? { screenshots } : {}),
   };
+}
+
+/**
+ * Screenshot entries, reduced to something core is willing to go and fetch.
+ *
+ * **`file` becomes part of a URL, so it is validated rather than trusted.** A manifest is authored
+ * by someone else — for a third-party source, by someone with no relationship to this install at
+ * all — and the entry that says `"../../../etc/passwd"` or `"x.png?../../"` is exactly the one that
+ * would be interesting to write. One filename segment, a known image extension, nothing else.
+ *
+ * A bad entry is dropped rather than failing the module: a picture is the least important thing a
+ * module has, and refusing to list a module because its screenshot filename has a space in it would
+ * be a wildly disproportionate response.
+ */
+function sanitiseScreenshots(raw: unknown): ModuleScreenshot[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ModuleScreenshot[] = [];
+  for (const entry of raw) {
+    if (out.length >= MAX_SCREENSHOTS) break;
+    const file = typeof entry?.file === "string" ? entry.file.trim() : "";
+    if (!SCREENSHOT_FILE_RE.test(file)) continue;
+    const rawCaption = typeof entry?.caption === "string" ? (entry.caption as string) : "";
+    const caption = Array.from(rawCaption.trim())
+      .filter((ch: string) => {
+        const c = ch.codePointAt(0)!;
+        return c >= 32 && c !== 127;
+      })
+      .join("")
+      .slice(0, 80);
+    out.push(caption ? { file, caption } : { file });
+  }
+  return out;
 }
 
 export class SourceError extends Error {}

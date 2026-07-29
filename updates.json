@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.0-beta.27",
+      "date": "2026-07-29",
+      "type": "minor",
+      "criticality": "optional",
+      "summary": "Beta: a module can now show pictures of itself on its page before you install it, in a strip across rather than stacked down the page so the list of what it can do stays in view. No add-on publishes any yet, so you will not see a change today - JonDash had to build this side first, because add-on authors could not publish pictures into a product that ignored them. The pictures come through JonDash rather than straight from the internet, so your browser never talks to the add-on source, and JonDash checks the file type and size itself instead of taking the manifest at its word. Also removes a diagnostic line the module panel had been printing to the browser console."
+    },
+    {
       "version": "1.8.0-beta.26",
       "date": "2026-07-29",
       "type": "patch",

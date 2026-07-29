@@ -9,6 +9,25 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.0-beta.27] — 2026-07-29
+
+**A module can show you pictures of itself before you install it.** Its page now carries a strip of
+screenshots — across, not stacked down the page, so the list of what the module can actually do
+stays on screen where the decision gets made. Each one loads independently, and any that fails is
+quietly dropped rather than left as a broken image beside a list of permissions.
+
+**No module publishes any yet**, so you won't see a change today: the section simply isn't there
+until one does. JonDash had to go first — add-on authors couldn't publish pictures into a product
+that ignored them.
+
+**The pictures come through JonDash, not from the internet directly.** Your browser never talks to
+the add-on's source, and JonDash checks the size and file type itself rather than taking the
+manifest's word for it. Screenshots are tied to the exact version being installed, so what you're
+shown is what you'd get.
+
+**Also:** a diagnostic line the module panel had been printing to the browser console since beta.20
+is gone, now that the animation problem it was there to catch is fixed and confirmed.
+
 ## [1.8.0-beta.26] — 2026-07-29
 
 **The "Buy me a coffee" button now goes to the real thing.** It was pointing at a placeholder while

@@ -360,6 +360,38 @@ runs behind the normal "must be signed in" guard; declare `adminOnly: true` if o
 
 ---
 
+## Screenshots (JonDash 1.8.0+)
+
+Add pictures of your module to your entry in `addons.json`. They appear on the module's page,
+**before** anyone installs it:
+
+```json
+"screenshots": [
+  { "file": "dashboard.png", "caption": "The widget on a dashboard" },
+  { "file": "settings.png" }
+]
+```
+
+- **`file` is a filename inside your module folder** — no directories, no `../`. Ship the images in
+  the module folder itself so they arrive with the pinned tag; JonDash resolves them against the tag,
+  so the picture shown is the one belonging to the version being installed.
+- **Four maximum.** They are downloaded by everyone who looks, and 4 × 500 KB of pictures against
+  ~30 KB of code is already a lopsided trade.
+- **PNG, JPEG or WebP.** WebP is about half of PNG at this size and keeps you comfortably under
+  500 KB. **SVG is refused** — it is a document that can carry script, not an image.
+- **16:10, at least 1280px wide** (1920×1200 is the sweet spot), and **one screen, not a full-page
+  capture** — a tall thin image is unreadable in a horizontal strip.
+- **Captions are optional, 80 characters, plain text.** Markup arrives as visible text.
+- **A bad entry never fails anything.** Wrong extension, a path in the filename, a caption that is
+  not a string — that entry is dropped, the rest are kept, and your module still lists and installs.
+  An image that 404s at display time is quietly removed from the strip.
+
+JonDash **proxies the images through its own server** rather than pointing the browser at GitHub, so
+its content-security policy stays closed and viewers' browsers never talk to your source. You do not
+have to do anything for that; it just means an image only appears once it exists at the pinned tag.
+
+---
+
 ## Your data in backups (JonDash 1.8.0+)
 
 Your settings and `ModuleRecord` entries have always been backed up. **Your own `mod_<id>_*` SQL

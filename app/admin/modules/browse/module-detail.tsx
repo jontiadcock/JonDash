@@ -3,6 +3,7 @@ import { describePermission } from "@/lib/modules/types";
 import { compareVersions } from "@/lib/version";
 import { getAppVersion } from "@/lib/update";
 import { ModuleActions } from "./[id]/module-actions";
+import { Screenshots } from "./screenshots";
 
 /**
  * One module's detail, rendered identically whether it arrives as a full page or as the overlay
@@ -73,6 +74,12 @@ export function ModuleDetail({
           {m.description}
         </p>
       </section>
+
+      {/* Above the permissions but below the description: enough to see what it looks like, before
+          the part that decides whether you want it. Absent entirely when a module publishes none. */}
+      {m.screenshots && m.screenshots.length > 0 && (
+        <Screenshots moduleId={m.id} channel={channel} shots={m.screenshots} />
+      )}
 
       <section>
         <h2 className="mb-1 text-sm font-semibold">What it can do</h2>
