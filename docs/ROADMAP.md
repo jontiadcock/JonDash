@@ -1325,6 +1325,40 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
 
+#### CORE-19 · A local certificate authority, so a phone can trust a home install — ⏳ Planned, needs an owner decision first
+Found 2026-07-30 when the owner could not install the web app on **Android** despite enabling
+self-signed HTTPS. The documented caveat said Chrome needs "a certificate the device trusts". The
+sharper problem is that **the certificate JonDash generates can never become one.**
+
+**Why.** `generateSelfSigned` sets `BasicConstraints(CA:FALSE)` — deliberately, and the reasoning
+still stands: a certificate a user is about to click "trust" on must not also be able to vouch for
+every other site. But Android's certificate installation puts a certificate in the **user CA store**,
+and Chrome will only use a trust anchor that is actually a CA. A self-signed leaf cannot be one. So on
+Android the chain never validates, the origin is never a secure context, and the install prompt never
+appears — no matter what the user does on the device. `tests/unit/tls-certs.test.ts` asserts
+`parsed.ca === false`, so this is by construction, not an accident.
+
+**Desktop is unaffected** — click-through trust makes the page usable, and Chrome on desktop offers
+installation for `localhost` regardless. This is specifically about reaching a home install from a
+phone by LAN IP.
+
+**The options, and the trade-off is the owner's to weigh:**
+1. **A real certificate** — Let's Encrypt (already built) needs a public domain and a reachable
+   port 80 or DNS-01. Cleanest, nothing to install on any device. **Recommended where a domain
+   exists.**
+2. **Local CA mode (this item)** — JonDash generates a CA, signs a server certificate with it, and
+   offers the CA for download to install on phones. The mkcert model. **It is the only option that
+   works on a LAN with no domain**, and it carries a real cost: the CA's private key sits on the
+   server, and anything holding it can impersonate *any* site to every device that trusts it. That
+   is a materially bigger blast radius than a leaf certificate for one host, and it must be said
+   plainly on the page rather than buried.
+3. **A tunnel** — Tailscale or Cloudflare, both of which hand out a real hostname and certificate
+   without opening a port. Often the best answer for exactly this user, and needs no core work.
+
+**Do not build option 2 without an explicit decision.** It is the first thing in JonDash that asks a
+user to install a trust anchor on their own devices, and the honest framing of that is more of the
+work than the certificate generation.
+
 #### CORE-18 · Cross-references in code notes — ⏳ Planned (global sweep), applied to new work from now
 Owner instruction, 2026-07-30: *"all code to reference all other code that it may rely on, in the
 code notes of the section you are editing … eg, a module and a service using different code but
