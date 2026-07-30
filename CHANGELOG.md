@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3-beta.3] — 2026-07-30
+
+**Fixed: adding JonDash to an iPhone's home screen gave you a shortcut, not an app.** It opened in
+Safari with the address bar still there. JonDash was declaring itself installable using the modern,
+standard wording — which iOS doesn't read. It now says it both ways, so iPhone gets the real thing:
+its own window, no address bar.
+
+**On Android, note the certificate rule hasn't changed:** Chrome only offers *Install app* over HTTPS
+with a certificate the phone trusts, and a self-signed one isn't. That one can't be fixed in JonDash
+— it needs either your own certificate authority trusted on the phone, or a real certificate.
+
 ## [1.8.3-beta.2] — 2026-07-30
 
 **"Public address" has moved to Network & HTTPS**, from General. It answers the same question as

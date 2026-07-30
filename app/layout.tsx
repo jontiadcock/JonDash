@@ -51,6 +51,22 @@ export async function generateMetadata(): Promise<Metadata> {
       // background show through rather than a black band above it.
       statusBarStyle: "black-translucent",
     },
+    /*
+     * **`apple-mobile-web-app-capable`, by hand, and it is the difference between an app and a
+     * bookmark on an iPhone.**
+     *
+     * `appleWebApp.capable: true` above emits only `<meta name="mobile-web-app-capable">` — checked
+     * in `next/dist/lib/metadata/metadata.js`, and its own docs show that as the expected output.
+     * Next dropped the `apple-` prefixed name because the web standard deprecated it. **iOS Safari
+     * has not caught up**: it still reads only the prefixed name, so without this, Add to Home
+     * Screen produces a shortcut that opens in Safari with the address bar — which is exactly what
+     * the owner reported, *"it was just another link rather than a pwa"*.
+     *
+     * Both names are emitted now. The unprefixed one is correct and future-proof; the prefixed one
+     * is what actually works today. Remove it only when iOS honours the standard name — not when a
+     * linter calls it deprecated.
+     */
+    other: { "apple-mobile-web-app-capable": "yes" },
   };
 }
 

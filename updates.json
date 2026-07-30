@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.3-beta.3",
+      "date": "2026-07-30",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes adding JonDash to an iPhone home screen giving you a shortcut rather than an app - it opened in Safari with the address bar still showing. JonDash was declaring itself installable using the modern standard wording, which iOS does not read; it now says it both ways. On Android the certificate rule is unchanged: Chrome only offers Install app over HTTPS with a certificate the phone trusts, and a self-signed one is not, so that needs your own certificate authority trusted on the phone or a real certificate."
+    },
+    {
       "version": "1.8.3-beta.2",
       "date": "2026-07-30",
       "type": "minor",
