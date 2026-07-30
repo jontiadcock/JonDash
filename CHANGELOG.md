@@ -9,6 +9,23 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3-beta.4] — 2026-07-30
+
+**Requesting a Let's Encrypt certificate now warns you about the rate limit, and tells you how to
+rehearse it safely.** Getting a request wrong a few times can use up your domain's allowance for the
+week. There has always been a test mode that runs the identical process against Let's Encrypt's
+staging service without touching those limits — but it was only mentioned in a code comment, so the
+one safeguard was invisible to anyone about to need it.
+
+**And if test mode is on, the page now says so plainly** — because the certificate it returns is
+deliberately *not* trusted by browsers, so you'd see the same warning as before and reasonably
+conclude the whole feature was broken.
+
+**Also documented:** a self-signed certificate **cannot** be trusted by an Android phone, so a
+self-signed install can't be added to an Android home screen. Not a bug and not going to be fixed —
+Android will only trust a certificate authority, and JonDash deliberately doesn't make itself one.
+Use Let's Encrypt or a tunnel if you want the installable app on Android.
+
 ## [1.8.3-beta.3] — 2026-07-30
 
 **Fixed: adding JonDash to an iPhone's home screen gave you a shortcut, not an app.** It opened in

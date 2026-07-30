@@ -64,7 +64,13 @@ export default async function NetworkPage() {
         <PublicAddressForm value={publicUrl} />
       </section>
 
-      <CertPanel config={config} cert={cert} serving={serving} />
+      {/* Read here, not in the client component — it is a server env var. */}
+      <CertPanel
+        config={config}
+        cert={cert}
+        serving={serving}
+        staging={process.env.ACME_STAGING === "1"}
+      />
 
       {tlsOn && (
         <section className="card p-6">

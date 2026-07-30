@@ -1325,7 +1325,20 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
 
-#### CORE-19 · A local certificate authority, so a phone can trust a home install — ⏳ Planned, needs an owner decision first
+#### CORE-19 · A local certificate authority, so a phone can trust a home install — ⛔ Declined by the owner, 2026-07-30
+**"do not do the cert signing core19. I will test with a letsencrypt."** Decided the same day it was
+raised, before any code was written.
+
+**Do not revisit this without the owner raising it.** The reasoning holds up on its own: option 2
+below asks a user to install a trust anchor on their own devices and puts a key on the server that
+can impersonate any site to every device trusting it. Declining it means a self-signed install simply
+cannot be added to an Android home screen — **that limit is now permanent and is documented in
+`lib/tls/certs.mjs` and the authoring notes, not treated as an open bug.**
+
+The route for anyone who wants the installable app on Android is a genuinely trusted certificate:
+Let's Encrypt (built, and the owner is testing it), or a tunnel that supplies one.
+
+*Original write-up below, kept for the reasoning.*
 Found 2026-07-30 when the owner could not install the web app on **Android** despite enabling
 self-signed HTTPS. The documented caveat said Chrome needs "a certificate the device trusts". The
 sharper problem is that **the certificate JonDash generates can never become one.**

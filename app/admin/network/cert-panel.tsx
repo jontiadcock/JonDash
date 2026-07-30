@@ -44,11 +44,21 @@ export function CertPanel({
   config,
   cert,
   serving,
+  staging,
 }: {
   config: NetworkConfig;
   cert: CertSummary | null;
   /** Whether the running server is actually serving this pair. */
   serving: boolean;
+  /**
+   * `ACME_STAGING=1` is set, so Let's Encrypt requests go to the staging service.
+   *
+   * **Surfaced because it was invisible.** The flag existed only in a code comment, which meant the
+   * one safety valve against burning Let's Encrypt's rate limits was unknown to the person about to
+   * hit them — and a staging certificate is **not trusted by browsers**, so someone testing with it
+   * on would see the same warning as before and reasonably conclude the feature was broken.
+   */
+  staging: boolean;
 }) {
   const [genState, generate, generating] = useActionState(generateSelfSignedAction, initial);
   const [impState, importCert, importing] = useActionState(importCertAction, initial);
@@ -235,6 +245,28 @@ export function CertPanel({
             machine and port {config.httpPort} must be reachable from the internet — that is how
             Let&apos;s Encrypt checks you own it.
           </p>
+          {staging ? (
+            <div
+              className="mb-4 rounded-xl border p-3 text-sm"
+              style={{
+                borderColor: "var(--warning)",
+                background: "color-mix(in srgb, var(--warning) 10%, transparent)",
+              }}
+            >
+              <strong>Test mode is on.</strong> `ACME_STAGING=1` is set in your <code>.env</code>, so
+              this asks Let&apos;s Encrypt&apos;s <em>staging</em> service. That proves the whole
+              process works without touching your rate limits — but the certificate it returns is{" "}
+              <strong>not trusted by browsers</strong>, so you will still see a warning. Remove the
+              line and restart to get a real one.
+            </div>
+          ) : (
+            <p className="mb-4 text-xs" style={{ color: "var(--muted)" }}>
+              Getting this wrong a few times can use up Let&apos;s Encrypt&apos;s limit for your
+              domain for the week. To rehearse it safely, put <code>ACME_STAGING=1</code> in your{" "}
+              <code>.env</code> and restart — the process runs identically against their test service,
+              and the certificate it hands back is deliberately untrusted.
+            </p>
+          )}
           <form action={request}>
             <button
               type="submit"
