@@ -120,6 +120,11 @@ it blocked another session's work while nothing blocked it.
 16d. 🧊 **CORE-17 — `container-type: size` on the dashboard frame** — considered, not scheduled
 16e. ⏳ **CORE-18 — Cross-references in code notes** *(owner instruction 2026-07-30)* — **already in
    force for new and edited code**; the global sweep schedules separately
+16f. ⏳ **CORE-20 — Account for the certificate kept when HTTPS is switched off** *(owner question
+   2026-07-30)* — retention is correct (ACME rate limits), but it is invisible and there is no way to
+   remove it deliberately
+16g. ⛔ **CORE-19 — Local certificate authority** — declined by the owner 2026-07-30; a self-signed
+   install therefore cannot be added to an Android home screen, permanently
 17. 🧊 **SEC-02 — IP allow / deny** — deprioritised 2026-07-20; revisit alongside SEC-05, which shares the
    trusted-proxy XFF prereq
 ✅ **SEC-07 — Service accounts** — shipped v1.7.3-beta.1, 2026-07-26. Unblocks the add-ons MCP helper.
@@ -1324,6 +1329,39 @@ Owner request, 2026-07-25. Let the operator make the instance their own — thre
   surface; agree the direction once rather than restyling twice.
 - **No phoning home / no external assets** — same principle as CORE-05: branding is local; nothing fetches
   a remote logo or theme.
+
+#### CORE-20 · Turning HTTPS off leaves the certificate and key on disk — ⏳ Planned
+Owner question, 2026-07-30: *"why after I disable the certificate, is it being kept? Shouldn't the
+old cert be removed afterwards?"*
+
+**Keeping it is deliberate and I would keep it — but nothing says so, and there is no way to remove
+it if you want to.** Both halves of that are the bug.
+
+**Why it is kept.** Let's Encrypt rate-limits **duplicate certificates to 5 per week per exact set of
+names**. If switching HTTPS off deleted the certificate, then off → on → off → on a few times while
+setting something up would burn the weekly allowance and lock the install out of HTTPS **for days**,
+with nothing JonDash could do about it. That is a far worse outcome than a private key sitting at
+0600 in a folder that already holds the master encryption key. The ACME **account key** matters even
+more: losing that means re-registering with Let's Encrypt.
+
+**What is actually wrong:**
+1. **Nothing explains it.** Switching to Off hides the certificate panel entirely (it renders only
+   when a mode is selected), so the material becomes invisible rather than accounted for — which is
+   exactly what prompted the question.
+2. **There is no way to remove it deliberately.** Someone decommissioning an install, handing a
+   machine on, or switching domains has no button for "and delete the old key", and should not have
+   to go digging in `.data/tls/`.
+
+**Shape of the work:** show what is retained even in Off mode (issuer, expiry, "kept so switching
+HTTPS back on doesn't need a new certificate"), plus an explicit **Remove certificate** action that
+says what it deletes and warns that re-issuing counts against the weekly limit. Self-signed material
+can be removed freely — it costs nothing to regenerate — so the warning belongs on the ACME path
+only.
+
+**Worth stating while here, because it surprised me too:** cert material **is** included in backups,
+but **only encrypted ones** (`isSensitive` in `lib/config-backup.ts` gates `tls/` on the passphrase).
+An earlier internal note claimed it was excluded outright; the code is the authority and the note was
+wrong.
 
 #### CORE-19 · A local certificate authority, so a phone can trust a home install — ⛔ Declined by the owner, 2026-07-30
 **"do not do the cert signing core19. I will test with a letsencrypt."** Decided the same day it was

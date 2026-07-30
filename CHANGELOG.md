@@ -9,6 +9,43 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3] — 2026-07-30
+
+**You can install JonDash on your phone.** Open it in your phone's browser and use *Add to Home
+Screen* (iPhone) or *Install app* (Android): it gets a proper icon and opens in its own window,
+without the address bar. Chrome and Edge offer the same on a computer.
+
+**And the icon is yours.** Every icon — browser tab, home screen, app launcher — now comes from your
+own branding: the logo you uploaded, or a lettered mark from your app's name if you haven't uploaded
+one. An install without a logo used to show **Next.js's logo** in the browser tab, which had been
+sitting in the codebase since day one. Android also gets the icon in the padded form the system
+needs, so it isn't cropped when the launcher rounds it off.
+
+**Fixed: opening JonDash on your phone showed the login page until you refreshed.** Your session was
+never the problem — the browser was withholding the sign-in cookie whenever you arrived from anywhere
+other than JonDash itself: a bookmark, a link from another app, or a tab your phone had put to sleep.
+Cross-site form submissions still can't carry it, which is the case that matters for security, and
+the check that actually blocks forged requests is unchanged.
+
+**"Public address" has moved to Network & HTTPS**, from General. It answers the same question as the
+ports and the certificate — how is this JonDash reached from outside — and its value has to agree with
+them.
+
+**Requesting a Let's Encrypt certificate now warns about the rate limit** and tells you how to
+rehearse the whole process safely against Let's Encrypt's test service. That safeguard already
+existed but was only mentioned in a code comment. If test mode is on, the page says so plainly — the
+certificate it returns is deliberately untrusted, so you'd otherwise think the feature was broken.
+
+**Two things worth knowing about phones and certificates.** Android only offers to install an app over
+HTTPS with a certificate your phone trusts — **a self-signed one is not enough**, and JonDash's
+self-signed certificates can never become enough, because Android will only trust a certificate
+authority and JonDash deliberately doesn't make itself one. Use Let's Encrypt or a tunnel if you want
+the installable app on Android. iPhone is more relaxed: *Add to Home Screen* works either way.
+
+**Also fixed:** the certificate panel claiming "not until you restart" about a certificate it was
+already serving. For add-on authors, a class written as an *example* in a code comment is no longer
+treated as one you actually used.
+
 ## [1.8.3-beta.5] — 2026-07-30
 
 **Fixed: "Being served — not until you restart" about a certificate that was already being served.**

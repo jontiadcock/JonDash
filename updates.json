@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.3",
+      "date": "2026-07-30",
+      "type": "minor",
+      "criticality": "recommended",
+      "summary": "You can install JonDash on your phone - open it in your phone browser and use Add to Home Screen on iPhone or Install app on Android, and it gets a proper icon and opens in its own window without the address bar. Every icon now comes from your own branding: the logo you uploaded, or a lettered mark from your app name. An install without a logo used to show the Next.js logo in the browser tab. Also fixes opening JonDash on a phone showing the login page until you refreshed - the browser was withholding the sign-in cookie whenever you arrived from a bookmark, another app, or a sleeping tab. Public address has moved from General to Network and HTTPS. Requesting a Lets Encrypt certificate now warns about the weekly rate limit and tells you how to rehearse it safely. Worth knowing: Android only offers to install an app over HTTPS with a certificate the phone trusts, and a self-signed one can never be enough, so use Lets Encrypt or a tunnel for that; iPhone works either way."
+    },
+    {
       "version": "1.8.3-beta.5",
       "date": "2026-07-30",
       "type": "patch",
