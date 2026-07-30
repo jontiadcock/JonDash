@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.3-beta.5",
+      "date": "2026-07-30",
+      "type": "patch",
+      "criticality": "recommended",
+      "summary": "Beta: fixes the certificate panel saying Being served - not until you restart about a certificate that was already being served. Your HTTPS was working the whole time; JonDash was working the answer out by comparing two files instead of asking the part of itself that actually serves the certificate, and on a restart where renewal is not due that part writes nothing. It now records what it served at the moment it serves it, so one restart after updating and the line will be correct."
+    },
+    {
       "version": "1.8.3-beta.4",
       "date": "2026-07-30",
       "type": "patch",

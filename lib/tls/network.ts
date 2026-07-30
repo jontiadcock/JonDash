@@ -51,7 +51,22 @@ export function readTlsStatus() {
     state: string;
     domain: string;
     issuer: string;
+    /** Expiry of the certificate **installed** on disk, written when one is issued or imported. */
     notAfter: string;
+    /**
+     * Expiry of the certificate the HTTPS listener is **actually serving**.
+     *
+     * Written **only** by `startHttps` in `server.mjs`, at the moment it binds the credential — so
+     * "is this being served?" is a fact reported by the thing doing the serving, not a comparison
+     * between two files. Absent until the server has bound a certificate at least once, which
+     * correctly reads as "installed, not yet applied".
+     *
+     * ## Related code
+     * - `server.mjs` → `recordServing` — the only writer.
+     * - `app/admin/network/page.tsx` — the only reader, and the note there explains what the
+     *   previous inference got wrong in both directions.
+     */
+    servingNotAfter?: string;
     lastRenewal: string;
     lastError: string;
     updatedAt?: string;

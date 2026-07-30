@@ -28,13 +28,17 @@ export default async function NetworkPage() {
   const cert = describeInstalledCert(config);
   const publicUrl = await getPublicUrlSetting().catch(() => "");
   /*
-   * "Being served" compares what is on disk against what the server reported when it last started.
-   * A certificate generated or imported since then is installed but not yet in use, and saying so
-   * is the whole reason the restart notice is believable — an admin who has been told "restart to
-   * apply" twice for no visible reason stops restarting.
+   * "Being served" is now read from what the LISTENER recorded when it bound the credential
+   * (`servingNotAfter`, written only by `startHttps`), not inferred by comparing two files.
+   *
+   * **The inference was wrong in both directions.** It compared `status.notAfter` — written by
+   * *issuance* — against the certificate on disk. On a Let's Encrypt restart nothing writes status
+   * at all, so a perfectly-served certificate showed "not until you restart" (owner-reported,
+   * 2026-07-30, after restarting twice); and immediately after issuing from this page it would have
+   * claimed the opposite, because issuance had just written a matching expiry while the running
+   * listener still held the old credential.
    */
-  const serving =
-    !!cert?.ok && status.state === "ok" && !!status.notAfter && status.notAfter === cert.notAfter;
+  const serving = !!cert?.ok && !!cert.notAfter && status.servingNotAfter === cert.notAfter;
 
   return (
     <div className="flex flex-col gap-8">

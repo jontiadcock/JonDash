@@ -9,6 +9,17 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.3-beta.5] — 2026-07-30
+
+**Fixed: "Being served — not until you restart" about a certificate that was already being served.**
+Harmless to your HTTPS, which was working the whole time, but it asked you to restart something you
+had already restarted twice.
+
+JonDash was working it out by comparing two files rather than asking the part of itself that actually
+serves the certificate — and on a renewal-not-due restart, that part writes nothing, so there was
+nothing to compare against. It now records what it served at the moment it serves it. **One restart
+after updating and the line will be right.**
+
 ## [1.8.3-beta.4] — 2026-07-30
 
 **Requesting a Let's Encrypt certificate now warns you about the rate limit, and tells you how to

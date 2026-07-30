@@ -94,15 +94,44 @@ function httpRequestHandler(req, res) {
   handleApp(req, res, false);
 }
 
+/**
+ * Record which certificate the listener is actually serving.
+ *
+ * **This exists because "Being served" used to be a guess.** The admin page compared the expiry in
+ * `status.json` against the expiry of the file on disk — but on a Let's Encrypt restart nothing
+ * writes status at all: `startHttps` serves the existing certificate and `ensure()` returns early
+ * because renewal is not due. So the page was comparing a live certificate against an artifact
+ * written at some unrelated earlier moment, and told the owner *"not until you restart"* about a
+ * certificate it was already serving — after they had restarted twice.
+ *
+ * `servingNotAfter` is written **only here**, by the code that binds the credential. That makes it a
+ * fact rather than an inference, and it fixes the opposite error too: issuing a certificate from the
+ * admin page writes `notAfter` (it is installed) and deliberately does not write this (it is not
+ * being served until a restart).
+ *
+ * Best-effort and fire-and-forget: `writeTlsStatus` never throws, and a status file is never worth
+ * failing a boot over.
+ */
+function recordServing(cred) {
+  import("./lib/tls/certs.mjs")
+    .then(({ describeCertificate }) => {
+      const info = describeCertificate(cred.cert);
+      if (info.ok && info.notAfter) writeTlsStatus({ servingNotAfter: info.notAfter });
+    })
+    .catch(() => {});
+}
+
 function startHttps(cred) {
   if (httpsServer) {
     httpsServer.setSecureContext(cred); // hot-swap on renewal, no downtime
+    recordServing(cred);
     log("tls", "cert-reloaded", "applied a renewed certificate without restart");
     return;
   }
   httpsServer = createHttpsServer(cred, (req, res) => handleApp(req, res, true));
   httpsServer.on("error", (e) => log("tls", "https-error", e.message));
   httpsServer.listen(cfg.httpsPort, () => {
+    recordServing(cred);
     log("start", "https-listening", `HTTPS on :${cfg.httpsPort} for ${cfg.domain}`);
     console.log(`> HTTPS ready on https://${cfg.domain || "localhost"}:${cfg.httpsPort}`);
   });
