@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
 
+/** REFS app/login/forms.tsx */
 export type LoginState = { error?: string };
 
 async function clientIp(): Promise<string> {
@@ -24,6 +25,7 @@ async function clientIp(): Promise<string> {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? "unknown";
 }
 
+/** REFS app/login/forms.tsx */
 export async function loginPasswordAction(
   _prev: LoginState,
   formData: FormData,
@@ -41,15 +43,17 @@ export async function loginPasswordAction(
   if (!emailParsed.success || !password) return generic;
 
   const user = await prisma.user.findUnique({ where: { email: emailParsed.data } });
-  // A SERVICE ACCOUNT is refused here (SEC-07) — first, before any credential comparison, and
-  // down the same decoy path as an unknown address so it answers in the same time with the same
-  // words. It is therefore not probeable: nobody can discover that a service account exists, or
-  // what it is called, by watching this endpoint.
-  //
-  // It would already fall into this branch via `!user.passwordHash`, since a service account has
-  // none. That is deliberately not what we rely on — a null hash is an absence, and an absence can
-  // be filled in by a later code path that never heard of service accounts. The flag is a
-  // statement of intent and survives that.
+  /*
+   * A SERVICE ACCOUNT is refused here (SEC-07) — first, before any credential comparison, and
+   * down the same decoy path as an unknown address so it answers in the same time with the same
+   * words. It is therefore not probeable: nobody can discover that a service account exists, or
+   * what it is called, by watching this endpoint.
+   *
+   * It would already fall into this branch via `!user.passwordHash`, since a service account has
+   * none. That is deliberately not what we rely on — a null hash is an absence, and an absence can
+   * be filled in by a later code path that never heard of service accounts. The flag is a
+   * statement of intent and survives that.
+   */
   if (!user || isServiceAccount(user) || !user.passwordHash || user.status !== "ACTIVE") {
     // Spend the same argon2 work we would have spent on a real hash, so an
     // unregistered address doesn't answer faster than a wrong password.
@@ -57,11 +61,13 @@ export async function loginPasswordAction(
   }
 
   if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-    // Deliberately the generic message: naming the lock would confirm the
-    // address is registered to anyone who can type it. We also don't verify
-    // the password while locked — that's the point of the lock — so burn the
-    // decoy to keep this path the same length as every other failure.
-    // The account holder learns about the lock by email (BUG-43), not here.
+    /*
+     * Deliberately the generic message: naming the lock would confirm the
+     * address is registered to anyone who can type it. We also don't verify
+     * the password while locked — that's the point of the lock — so burn the
+     * decoy to keep this path the same length as every other failure.
+     * The account holder learns about the lock by email (BUG-43), not here.
+     */
     return await verifyDecoyPassword(password).then(() => generic);
   }
 
@@ -94,6 +100,7 @@ export async function loginPasswordAction(
   redirect("/login"); // re-renders the page into the TOTP step
 }
 
+/** REFS app/login/forms.tsx */
 export async function loginTotpAction(
   _prev: LoginState,
   formData: FormData,
@@ -116,9 +123,11 @@ export async function loginTotpAction(
     redirect("/login");
   }
 
-  // Consumes the code as well as checking it: the same digits stay valid for the
-  // rest of their step, and a code that already signed someone in must not do it
-  // again (BUG-51).
+  /*
+   * Consumes the code as well as checking it: the same digits stay valid for the
+   * rest of their step, and a code that already signed someone in must not do it
+   * again (BUG-51).
+   */
   if (!(await consumeTotpForUser(user, codeParsed.data))) {
     await audit("login.totp.fail", { userId: user.id });
     return { error: "Incorrect code. Please try again." };
@@ -133,6 +142,7 @@ export async function loginTotpAction(
 /**
  * Second-factor fallback: sign in with a one-time backup/recovery code instead
  * of the authenticator. Same pre-auth + rate-limit guards as the TOTP step.
+ * REFS app/login/forms.tsx
  */
 export async function loginBackupCodeAction(
   _prev: LoginState,

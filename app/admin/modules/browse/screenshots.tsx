@@ -16,6 +16,7 @@ import type { ModuleScreenshot } from "@/lib/modules/sources";
  * explanation. **A screenshot that fails is removed rather than shown broken** — it is decoration,
  * and a broken-image icon beside a list of permissions reads as something being wrong with the
  * module.
+ * REFS app/admin/modules/browse/module-detail.tsx
  */
 export function Screenshots({
   moduleId,

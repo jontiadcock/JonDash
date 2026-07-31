@@ -13,6 +13,7 @@ import { listHelpersForAdmin } from "@/lib/helpers/registry";
  * The two pages merged because a separate "Helpers" nav entry advertised management that was
  * never available. What is genuinely per-helper — its settings panel — stays here; what is
  * per (module, capability) lives on Admin → Addon Permissions.
+ * REFS app/admin/modules/page.tsx
  */
 export async function SharedCapabilities() {
   const session = await requirePermission("modules.manage");

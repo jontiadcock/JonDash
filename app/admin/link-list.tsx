@@ -94,6 +94,7 @@ function Row({ link, index, count }: { link: LinkRow; index: number; count: numb
 /**
  * Reusable list of service tiles with move/edit/delete controls. Works for both
  * a user's personal tiles and a role's tiles, since all actions operate by link id.
+ * REFS app/admin/service-groups/[id]/page.tsx · app/admin/users/[id]/page.tsx
  */
 export function LinkList({ links }: { links: LinkRow[] }) {
   if (links.length === 0) {

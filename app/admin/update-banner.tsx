@@ -6,9 +6,11 @@ import { useEffect, useState } from "react";
 type Release = { version: string; type: string; criticality: string; summary: string };
 type UpdateFailure = { failedVersion: string; revertedTo: string; at: string };
 
-// Criticality → colour + word. Only JonDash's own releases carry a criticality; module and
-// helper manifests don't, so a set of updates with no core release shows no word and the
-// low-key green (the owner's rule: if there's no criticality, say nothing about it).
+/*
+ * Criticality → colour and word. ⚠ Only JonDash's own releases carry a criticality; module and
+ * helper manifests do not, so a set with no core release shows no word at all rather than guessing
+ * one. REFS updates.json — where a release states it · lib/update.ts › UpdateStatus
+ */
 const CRIT: Record<string, { color: string; label: string }> = {
   critical: { color: "var(--danger)", label: "Important" },
   recommended: { color: "var(--warning)", label: "Recommended" },
@@ -16,6 +18,7 @@ const CRIT: Record<string, { color: string; label: string }> = {
 };
 const NEUTRAL = "var(--success)"; // green — updates waiting, nothing flagged as urgent
 
+/** REFS app/admin/layout.tsx */
 export function UpdateBanner() {
   const [coreRelease, setCoreRelease] = useState<Release | null>(null);
   const [moduleUpdates, setModuleUpdates] = useState(0);

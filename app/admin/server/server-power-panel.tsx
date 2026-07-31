@@ -5,6 +5,7 @@ import { ServerWaitOverlay, type ServerWaitMode } from "@/app/components/server-
 
 type Action = "restart" | "shutdown";
 
+/** REFS app/admin/server/page.tsx */
 export function ServerPowerPanel() {
   const [confirming, setConfirming] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);

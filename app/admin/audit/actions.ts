@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { applySettingsFormDetailed, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 
 /** Save the audit-log retention setting, shown on the Audit page. */
+/** REFS app/admin/audit/page.tsx */
 export async function saveAuditSettingsAction(
   _prev: SettingsFormState,
   formData: FormData,

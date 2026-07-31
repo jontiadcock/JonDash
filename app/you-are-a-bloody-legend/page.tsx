@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
  *
  * **It cannot verify that anyone paid, and does not pretend to.** A payment provider confirms a
  * payment by webhook, which a self-hosted instance behind somebody's home router generally cannot
- * receive — so this is simply the return address a provider sends people back to. It stores nothing,
- * grants nothing, and is reachable by anyone who types it. Anything else would be theatre, and
- * theatre about money is the kind that gets noticed.
+ * receive — so this is simply the return address a provider sends people back to. It stores
+ * nothing, grants nothing, and is reachable by anyone who types it. Anything else would be theatre,
+ * and theatre about money is the kind that gets noticed.
  *
  * Not behind `requireUser` for the same reason: a payment provider's redirect lands in whatever
  * browser the person paid in, which may not be the one they are signed into.

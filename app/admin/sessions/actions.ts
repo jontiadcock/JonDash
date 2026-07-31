@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { applySettingsFormDetailed, settingKeysByGroup, type SettingsFormState } from "@/lib/settings";
 
 /** Admin: revoke any single session by id. */
+/** REFS app/admin/sessions/page.tsx */
 export async function revokeSessionAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("sessions.manage");
@@ -22,6 +23,7 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
 }
 
 /** Save the session-lifetime settings, shown on the Sessions page. */
+/** REFS app/admin/sessions/session-length-form.tsx */
 export async function saveSessionSettingsAction(
   _prev: SettingsFormState,
   formData: FormData,

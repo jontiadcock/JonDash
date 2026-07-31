@@ -10,6 +10,7 @@ import {
 
 const initial: LoginState = {};
 
+/** REFS app/login/page.tsx */
 export function PasswordForm() {
   const [state, action, pending] = useActionState(loginPasswordAction, initial);
   return (
@@ -112,6 +113,7 @@ function BackupCodeForm() {
 }
 
 /** Second-factor step: authenticator code, with a fallback to a recovery code. */
+/** REFS app/login/page.tsx */
 export function SecondFactorForm() {
   const [useBackup, setUseBackup] = useState(false);
   return (

@@ -7,6 +7,10 @@
  * down for the length of a build. Sessions survive it — a module rebuild is a graceful
  * restart now — but the dashboard is briefly unreachable, which is still a surprising
  * amount to happen from one click, so it's spelled out at the point of confirmation.
+ * REFS app/admin/modules/browse/[id]/module-actions.tsx
+ *      app/admin/modules/browse/queued-install-bar.tsx · app/admin/modules/helper-gap-notice.tsx
+ *      app/admin/modules/import-form.tsx · app/admin/modules/ui.tsx
+ *      app/admin/updates/available-updates.tsx
  */
 export function RestartWarning({ what }: { what: string }) {
   return (

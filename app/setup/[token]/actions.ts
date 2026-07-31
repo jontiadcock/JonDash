@@ -14,26 +14,31 @@ import { generateBackupCodes } from "@/lib/auth/backup-codes";
 import { setRevealCodes } from "@/lib/auth/recovery-reveal";
 import { totpCodeSchema } from "@/lib/validation/schemas";
 
+/** REFS app/setup/[token]/form.tsx */
 export type SetupState = { error?: string };
 
 /** Resolve a valid pending user from a raw setup token, or null. */
+/** REFS app/setup/[token]/page.tsx */
 export async function findPendingUserByToken(rawToken: string) {
   if (!rawToken) return null;
   const user = await prisma.user.findUnique({
     where: { setupTokenHash: hashToken(rawToken) },
   });
   if (!user) return null;
-  // SEC-07 — a service account can never complete a setup link, even holding a valid token.
-  // It should never have one (nothing issues it a token), so this is the belt to that braces:
-  // the setup flow is where an account acquires a password and MFA, i.e. exactly where a
-  // service account would become a login. Refuse it here rather than trusting that no future
-  // path ever mints a token for one.
+  /*
+   * SEC-07 — a service account can never complete a setup link, even holding a valid token.
+   * It should never have one (nothing issues it a token), so this is the belt to that braces:
+   * the setup flow is where an account acquires a password and MFA, i.e. exactly where a
+   * service account would become a login. Refuse it here rather than trusting that no future
+   * path ever mints a token for one.
+   */
   if (isServiceAccount(user)) return null;
   if (user.status !== "PENDING_SETUP") return null;
   if (!user.setupTokenExpiresAt || user.setupTokenExpiresAt.getTime() < Date.now()) return null;
   return user;
 }
 
+/** REFS app/setup/[token]/form.tsx */
 export async function finalizeSetupAction(
   _prev: SetupState,
   formData: FormData,

@@ -22,9 +22,8 @@ export default async function ModuleSettingsPage({ params }: { params: Promise<{
   const groups = await prisma.serviceRole.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   const selectedGroupIds = await moduleGroupIds(def.id);
 
-  // A module may supply its own settings UI. Only render it once the module is enabled —
-  // before that no permissions have been granted, so anything it tried to read would be
-  // missing from the context and it would render against a half-set-up module.
+  // ⚠ Only render a module's own settings UI once it is ENABLED: before that no permissions are
+  // granted, so it would render against a half-set-up context. REFS lib/modules/context.ts
   const SettingsPanel = enabled ? def.SettingsPanel : undefined;
   const panelCtx = SettingsPanel
     ? buildModuleContext(def, state.granted, { id: viewer.id, email: viewer.email, role: viewer.role })

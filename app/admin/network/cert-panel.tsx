@@ -39,6 +39,7 @@ function Outcome({ state }: { state: NetworkState }) {
  * imported a moment ago appears here immediately with "restart to apply" beside it. Those two being
  * allowed to disagree is the point: it is how you can tell the difference between *installed* and
  * *being served*.
+ * REFS app/admin/network/page.tsx
  */
 export function CertPanel({
   config,

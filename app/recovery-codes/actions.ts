@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/security/csrf";
 import { peekRevealCodes, clearRevealCodes } from "@/lib/auth/recovery-reveal";
 
 /** Dismiss the one-time recovery-codes view and continue to the next page. */
+/** REFS app/recovery-codes/page.tsx */
 export async function continueFromRevealAction(): Promise<void> {
   await assertSameOrigin();
   const reveal = await peekRevealCodes();

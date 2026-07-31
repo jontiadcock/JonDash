@@ -16,10 +16,16 @@ import {
 } from "@/lib/tls/certs.mjs";
 import { writeTlsStatus } from "@/lib/tls/network-config.mjs";
 
-// Network / HTTPS configuration is sensitive (it can lock people out or change how
-// the server is exposed), so it's gated by the `network.manage` capability (full
-// admins have it; it can be delegated via an access role).
+/*
+ * Network / HTTPS configuration is sensitive (it can lock people out or change how
+ * the server is exposed), so it's gated by the `network.manage` capability (full
+ * admins have it; it can be delegated via an access role).
+ */
 
+/**
+ * REFS app/admin/network/cert-panel.tsx · app/admin/network/public-address.tsx
+ *      app/admin/network/ui.tsx
+ */
 export type NetworkState = { error?: string; ok?: boolean; message?: string };
 
 /**
@@ -33,6 +39,7 @@ export type NetworkState = { error?: string; ok?: boolean; message?: string };
  * - `lib/settings.ts` — the `network` group and `app.publicUrl`'s schema.
  * - `app/admin/network/public-address.tsx` — the form.
  * - `lib/app-url.ts` — the consumer, and why blank means "omit the link".
+ * REFS app/admin/network/public-address.tsx
  */
 export async function savePublicAddressAction(
   _prev: NetworkState,
@@ -58,6 +65,7 @@ export async function savePublicAddressAction(
   return { ok: true };
 }
 
+/** REFS app/admin/network/ui.tsx */
 export async function saveNetworkConfigAction(
   _prev: NetworkState,
   formData: FormData,
@@ -91,6 +99,7 @@ export async function saveNetworkConfigAction(
  * nothing that is being served; applying it means rebinding the HTTPS listener, which is a restart
  * and signs everyone out. Doing both on one button press would make "let me see what this does"
  * cost every signed-in user their session.
+ * REFS app/admin/network/cert-panel.tsx
  */
 export async function generateSelfSignedAction(
   _prev: NetworkState,
@@ -139,6 +148,7 @@ export async function generateSelfSignedAction(
  * failure appears at boot as "no HTTPS" long after the admin has forgotten. Copying into
  * `.data/tls/` at 0600 puts the material under the same care as the ACME key that already lives
  * there, and makes it part of what a backup and a restore carry.
+ * REFS app/admin/network/cert-panel.tsx
  */
 export async function importCertAction(
   _prev: NetworkState,
@@ -189,6 +199,7 @@ export async function importCertAction(
  * read the log". This runs the same code from here and reports what came back. The HTTP-01
  * challenge is answered by the plain-HTTP listener in `server.mjs`, which cannot see this process's
  * variables — hence the on-disk challenge store.
+ * REFS app/admin/network/cert-panel.tsx
  */
 export async function requestCertificateAction(
   _prev: NetworkState,
@@ -230,9 +241,11 @@ export async function requestCertificateAction(
     writeTlsStatus({ state: "error", lastError: message });
     await audit("admin.network.cert-failed", { userId: admin.id, detail: message.slice(0, 200) });
     revalidatePath("/admin/network");
-    // Verbatim (OPS-08/OPS-13's rule applied here): Let's Encrypt's own wording names the actual
-    // problem — the wrong A record, port 80 unreachable, a rate limit — and paraphrasing it into
-    // "certificate request failed" throws away the only diagnosis available.
+    /*
+     * Verbatim (OPS-08/OPS-13's rule applied here): Let's Encrypt's own wording names the actual
+     * problem — the wrong A record, port 80 unreachable, a rate limit — and paraphrasing it into
+     * "certificate request failed" throws away the only diagnosis available.
+     */
     return { error: `Let's Encrypt refused the request: ${message}` };
   } finally {
     clearChallenges();

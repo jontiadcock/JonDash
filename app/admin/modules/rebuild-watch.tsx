@@ -16,6 +16,10 @@ const MODES: readonly ServerWaitMode[] = ["updating", "restarting", "shutdown", 
  *
  * The current process's `boot` value is captured on mount — before anything is triggered
  * — so the overlay can tell the *new* server from the old one still winding down.
+ * REFS app/admin/modules/browse/[id]/module-actions.tsx
+ *      app/admin/modules/browse/queued-install-bar.tsx · app/admin/modules/helper-gap-notice.tsx
+ *      app/admin/modules/import-form.tsx · app/admin/modules/ui.tsx
+ *      app/admin/updates/available-updates.tsx
  */
 export function useRebuildWatch() {
   const [oldBoot, setOldBoot] = useState<number | null>(null);
@@ -38,9 +42,8 @@ export function useRebuildWatch() {
     };
   }, []);
 
-  // Takes `unknown` on purpose: most call sites are `onClick={start}`, which hands it a
-  // MouseEvent. Typing the parameter as ServerWaitMode makes those a compile error, and
-  // typing it loosely without checking would set the mode to an event object.
+  // ⚠ Takes `unknown` on purpose: most call sites are `onClick={start}`, which hands it a
+  // MouseEvent — typing it as ServerWaitMode makes those a compile error.
   const start = useCallback((m?: unknown) => {
     setMode(MODES.includes(m as ServerWaitMode) ? (m as ServerWaitMode) : "modules");
     setWaiting(true);

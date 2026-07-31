@@ -4,6 +4,7 @@ import { useState } from "react";
 import { setModuleChannelAction } from "../modules/actions";
 import { setAppChannelAction, setHelperChannelPinAction } from "./schedule-actions";
 
+/** REFS app/admin/updates/page.tsx */
 export type BetaItem = {
   kind: "app" | "module" | "helper";
   id: string;
@@ -21,6 +22,7 @@ export type BetaItem = {
  * page — so "what am I running pre-release code for?" could not be answered anywhere.
  * Collapsed by default: most installs are entirely on stable and it should not take up
  * room saying so.
+ * REFS app/admin/updates/page.tsx
  */
 export function BetaChannels({ items }: { items: BetaItem[] }) {
   const onBetaCount = items.filter((i) => i.onBeta).length;

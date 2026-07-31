@@ -8,10 +8,13 @@ import { audit } from "@/lib/audit";
 import { writeEmailConfig, type EmailConfig } from "@/lib/email/config";
 import { sendTestEmail } from "@/lib/email/send";
 
-// Email configuration holds credentials and can send mail as the org, so it's
-// gated by the `email.manage` capability (full admins have it; delegable via an
-// access role).
+/*
+ * Email configuration holds credentials and can send mail as the org, so it's
+ * gated by the `email.manage` capability (full admins have it; delegable via an
+ * access role).
+ */
 
+/** REFS app/admin/email/ui.tsx */
 export type EmailState = { error?: string; ok?: boolean; testOk?: boolean; testResult?: string };
 
 const emailSchema = z.object({
@@ -27,6 +30,7 @@ const emailSchema = z.object({
   provider: z.enum(["google", "microsoft", ""]),
 });
 
+/** REFS app/admin/email/ui.tsx */
 export async function saveEmailConfigAction(_prev: EmailState, formData: FormData): Promise<EmailState> {
   await assertSameOrigin();
   const admin = await requirePermission("email.manage");
@@ -68,6 +72,7 @@ export async function saveEmailConfigAction(_prev: EmailState, formData: FormDat
   return { ok: true };
 }
 
+/** REFS app/admin/email/ui.tsx */
 export async function sendTestEmailAction(_prev: EmailState, formData: FormData): Promise<EmailState> {
   await assertSameOrigin();
   const admin = await requirePermission("email.manage");
@@ -85,6 +90,7 @@ export async function sendTestEmailAction(_prev: EmailState, formData: FormData)
     : { testOk: false, testResult: result.error };
 }
 
+/** REFS app/admin/email/ui.tsx */
 export async function disconnectOAuthAction(): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("email.manage");

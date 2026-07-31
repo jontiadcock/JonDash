@@ -11,8 +11,10 @@ import { accessRoleNameSchema } from "@/lib/validation/schemas";
 
 // Access roles grant admin capabilities, so every action here is full-ADMIN only.
 
+/** REFS app/admin/access-roles/ui.tsx */
 export type AccessRoleState = { error?: string; ok?: boolean };
 
+/** REFS app/admin/access-roles/ui.tsx */
 export async function createAccessRoleAction(
   _prev: AccessRoleState,
   formData: FormData,
@@ -32,6 +34,7 @@ export async function createAccessRoleAction(
   return { ok: true };
 }
 
+/** REFS app/admin/access-roles/ui.tsx */
 export async function renameAccessRoleAction(
   _prev: AccessRoleState,
   formData: FormData,
@@ -52,6 +55,7 @@ export async function renameAccessRoleAction(
   return { ok: true };
 }
 
+/** REFS app/admin/access-roles/ui.tsx */
 export async function setAccessRolePermissionsAction(
   _prev: AccessRoleState,
   formData: FormData,
@@ -78,6 +82,7 @@ export async function setAccessRolePermissionsAction(
   return { ok: true };
 }
 
+/** REFS app/admin/access-roles/[id]/page.tsx */
 export async function deleteAccessRoleAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requireAdmin();

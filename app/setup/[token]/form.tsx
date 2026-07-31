@@ -5,6 +5,7 @@ import { finalizeSetupAction, type SetupState } from "./actions";
 
 const initial: SetupState = {};
 
+/** REFS app/setup/[token]/page.tsx */
 export function SetupForm({
   token,
   qrDataUrl,

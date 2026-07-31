@@ -30,10 +30,8 @@ export default async function AdminLayout({
       label: null,
       items: [
         { href: "/admin/settings", label: "General", show: perms.has("settings.manage") },
-        // Directly below General, at the owner's request (11.1) — not at the foot of the list.
-        // Help is what you reach for when something is wrong, and hunting for it past nine
-        // sections of settings is the moment it is least wanted. Ungated: everyone who can see
-        // this area can ask for help.
+        // ⚠ Directly below General, not at the foot of the list — help is what you reach for
+        // when something is wrong. Ungated: anyone who can see this area can ask for help.
         { href: "/help-meeeee", label: "Help & support", show: true },
       ],
     },
@@ -44,9 +42,8 @@ export default async function AdminLayout({
         { href: "/admin/backup", label: "Backup", show: perms.has("backups.manage") },
         { href: "/admin/network", label: "Network & HTTPS", show: perms.has("network.manage") },
         { href: "/admin/email", label: "Email", show: perms.has("email.manage") },
-        // One entry, not two. Helpers were never separately manageable — they arrive with a
-        // module that needs them and leave when nothing does — so a second nav item implied a
-        // control that did not exist. They now live in a section of this page instead.
+        // ⚠ One entry, not two: helpers arrive with a module that needs them and leave when
+        // nothing does, so a separate nav item implied a control that does not exist.
         { href: "/admin/modules", label: "Addons", show: perms.has("modules.manage") },
         { href: "/admin/server", label: "Server power", show: isAdmin },
       ],
@@ -54,12 +51,12 @@ export default async function AdminLayout({
     {
       label: "Security",
       items: [
-        // Under Security, not beside Modules: the question it answers — "what can reach my
-        // files?" — is a security question, and it spans every module rather than belonging
-        // to any one of them.
-        // "Addon Permissions", not "Permissions": this page is entirely about what an ADD-ON may
-        // do, and sat one line above "Access Roles", which is about what a PERSON may do. Two
-        // unrelated things, near-identical names. Renaming both is what separates them.
+        /*
+         * Under Security, not beside Modules: "what can reach my files?" is a security question and
+         * it spans every module.
+         * ⚠ "Addon Permissions", never just "Permissions" — it sits one line above "Access Roles",
+         * which is about what a PERSON may do. Two unrelated things with near-identical names.
+         */
         { href: "/admin/permissions", label: "Addon Permissions", show: perms.has("modules.manage") },
         { href: "/admin", label: "Users", show: perms.has("users.manage") || perms.has("users.reset") },
         { href: "/admin/service-groups", label: "Service Groups", show: perms.has("groups.manage") },

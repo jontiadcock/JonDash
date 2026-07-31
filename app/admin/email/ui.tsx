@@ -28,6 +28,7 @@ type ConfigView = {
 
 const initial: EmailState = {};
 
+/** REFS app/admin/email/page.tsx */
 export function EmailSettings({
   config,
   redirectUri,
@@ -396,9 +397,8 @@ export function EmailSettings({
 
 function TestEmailForm({ defaultTo }: { defaultTo: string }) {
   const [state, action, pending] = useActionState(sendTestEmailAction, initial);
-  // Controlled, so a typed recipient survives the send. React resets an uncontrolled field once
-  // a form action completes, which meant every test snapped back to the admin's own address —
-  // exactly when you want to retry against the address that just failed.
+  // ⚠ Controlled, or React's post-action form reset snaps the recipient back to the admin's own
+  // address — exactly when you want to retry the one that just failed.
   const [to, setTo] = useServerValue(defaultTo);
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -421,9 +421,8 @@ function TestEmailForm({ defaultTo }: { defaultTo: string }) {
       </p>
       {state.error && <p className="form-error">{state.error}</p>}
       {state.testResult && (
-        // `whiteSpace: pre-wrap` is load-bearing: every explanation in explainMailError is
-        // "<raw error>\n\n<what to do about it>", and HTML collapses that into one run-on
-        // line — which is how a diagnostic message ends up looking like a bare error code.
+        // ⚠ `pre-wrap` is load-bearing: an explanation is a raw error then what to do about it,
+        // and HTML collapses that into one run-on line. REFS lib/email/send.ts › explainMailError()
         <p
           className="text-sm"
           style={{

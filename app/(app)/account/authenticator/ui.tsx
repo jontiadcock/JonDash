@@ -11,6 +11,7 @@ import {
 const authorizeInitial: AuthorizeState = {};
 const confirmInitial: ReenrollState = {};
 
+/** REFS app/(app)/account/authenticator/page.tsx */
 export function ReenrollFlow() {
   const [authState, authorizeAction, authPending] = useActionState(
     authorizeReenrollAction,

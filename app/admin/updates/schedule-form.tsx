@@ -12,6 +12,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
  * The day fields are shown only for the frequency that uses them — but both are always
  * RENDERED (hidden, not removed) so their values round-trip on save instead of being
  * cleared by switching frequency and switching back.
+ * REFS app/admin/updates/page.tsx
  */
 export function UpdateScheduleForm({
   frequency,

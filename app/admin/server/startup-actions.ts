@@ -9,6 +9,7 @@ import { writeOpenBrowser } from "@/lib/launcher-prefs";
 /**
  * Startup behaviour (OPS-06). Full ADMIN only, matching the rest of Server power — it changes
  * what happens on a machine nobody may be sitting at, which is not a delegable thing.
+ * REFS app/admin/server/page.tsx
  */
 export async function setOpenBrowserAction(formData: FormData): Promise<void> {
   await assertSameOrigin();

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { SaveBar, useFormDirty, useServerValue } from "@/app/components/save-bar";
 import { saveModuleSettingsAction, type ModuleSettingsState } from "../actions";
 
+/** REFS app/admin/modules/[id]/page.tsx */
 export type SettingFieldView = {
   key: string;
   label: string;
@@ -14,6 +15,7 @@ export type SettingFieldView = {
   hasValue: boolean;
 };
 
+/** REFS app/admin/modules/[id]/page.tsx */
 export function ModuleSettingsForm({ moduleId, fields }: { moduleId: string; fields: SettingFieldView[] }) {
   const [state, action, pending] = useActionState<ModuleSettingsState, FormData>(saveModuleSettingsAction, {});
   const { dirty, dirtyProps, generation } = useFormDirty(state);

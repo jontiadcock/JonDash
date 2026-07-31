@@ -19,9 +19,8 @@ export default async function BrowseModulesPage({
   const channel: ModuleChannel = raw === "beta" ? "beta" : "stable";
   const page = Math.max(1, Number(rawPage) || 1);
 
-  // On a fresh install ModuleSource is empty, so this page used to read "nothing is
-  // published" — which sounds like the source has no modules, not like it was never set
-  // up. Seed it here too, and distinguish the two states below.
+  // ⚠ Seed here as well: on a fresh install the source table is empty, and "nothing is published"
+  // reads as "the source has no modules" rather than "it was never set up".
   await ensureDefaultSource();
   const sourceCount = (await listSources()).filter((s) => s.enabled).length;
   const { modules, errors } = await browseAvailableModules(channel);

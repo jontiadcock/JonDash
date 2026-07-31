@@ -6,6 +6,7 @@ import { UninstallQuestions } from "./uninstall-questions";
 import { RestartWarning } from "./restart-warning";
 import { useRebuildWatch } from "./rebuild-watch";
 
+/** REFS app/admin/modules/page.tsx */
 export type ModuleItem = {
   id: string;
   name: string;
@@ -22,6 +23,7 @@ export type ModuleItem = {
   permissions: { key: string; warning: string; dangerous: boolean }[];
 };
 
+/** REFS app/admin/modules/page.tsx */
 export function ModulesList({ items }: { items: ModuleItem[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
@@ -37,9 +39,8 @@ export function ModulesList({ items }: { items: ModuleItem[] }) {
     );
   }
 
-  // Files are present for everything listed here, so all of them can be removed. It used
-  // to require a Module row, which only exists once enabled — so getting rid of a module
-  // you never wanted meant enabling it and granting its permissions first.
+  // ⚠ Everything listed here has files, so all of it is removable. Requiring a Module row — which
+  // exists only once enabled — meant removing an unwanted module required enabling it first.
   const removable = items;
   const chosen = removable.filter((m) => selected.has(m.id));
 

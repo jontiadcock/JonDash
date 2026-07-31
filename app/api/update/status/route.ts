@@ -15,9 +15,11 @@ export async function GET(req: Request) {
   }
   const force = new URL(req.url).searchParams.get("force") === "1";
   const status = await getUpdateStatus(force);
-  // Modules never update themselves, so the admin has to be TOLD one is waiting rather
-  // than left to go looking. Reported alongside the app's own status so the existing
-  // banner can surface it — including when the app itself is up to date.
+  /*
+   * Modules never update themselves, so the admin has to be TOLD one is waiting rather
+   * than left to go looking. Reported alongside the app's own status so the existing
+   * banner can surface it — including when the app itself is up to date.
+   */
   const moduleUpdates = await countModuleUpdates();
   // Helpers too, so the banner's "X updates available" is the true total across all three
   // groups the Updates page lists (Core / Modules / Helpers). Best-effort — never fatal.

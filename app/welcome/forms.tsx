@@ -14,6 +14,7 @@ import type { BackupInspection } from "@/lib/backup";
 const initial: WelcomeState = {};
 const restoreInitial: WelcomeRestoreState = {};
 
+/** REFS app/welcome/page.tsx */
 export function WelcomeCreateForm() {
   const [state, action, pending] = useActionState(welcomeCreateAction, initial);
   return (
@@ -59,6 +60,7 @@ export function WelcomeCreateForm() {
 /**
  * First-run restore: reveal-on-demand form to initialise a fresh install from a
  * backup. Only rendered before any admin exists (the page enforces that).
+ * REFS app/welcome/page.tsx
  */
 export function WelcomeRestoreForm() {
   const [open, setOpen] = useState(false);
@@ -101,9 +103,8 @@ export function WelcomeRestoreForm() {
             setInspection(null);
             setPassphrase("");
             if (!f || f.size > 10 * 1024 * 1024) return;
-            // 9.6 — the same detection as the admin restore. This screen is where someone is
-            // *most* likely to be holding a file they made months ago on another machine and to
-            // have no idea whether it was encrypted.
+            // The same detection as the admin restore — this screen is where someone is most
+            // likely holding a file made months ago on another machine.
             const fd = new FormData();
             fd.set("file", f);
             startInspect(async () => setInspection(await welcomeInspectAction(fd)));
@@ -166,6 +167,7 @@ export function WelcomeRestoreForm() {
   );
 }
 
+/** REFS app/welcome/page.tsx */
 export function WelcomeConfirmForm({
   qrDataUrl,
   secret,

@@ -37,9 +37,8 @@ export default async function AdminUpdatesPage() {
     errors: [] as { source: string; message: string }[],
     checkedAt: 0,
   }));
-  // Opt-in flags live on the rows, not in the update status (which describes what's
-  // AVAILABLE, not what you've chosen). Read them here and merge, so one page can answer
-  // both "is there an update" and "will it apply itself".
+  // ⚠ Opt-in flags live on the ROWS, not in the update status, which describes what is available
+  // rather than what was chosen. Merged here so one page answers both questions.
   const schedule = await readUpdateSchedule();
 
   // Everything with a channel, in one list: the app, each installed module, each helper.

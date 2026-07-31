@@ -13,6 +13,7 @@ import Link from "next/link";
  *
  * The guide link follows the install's update channel: someone on beta is writing against beta's
  * contract, and stable's guide would describe an API their build does not have.
+ * REFS app/admin/modules/page.tsx
  */
 export function DesignPanel({ guideUrl }: { guideUrl: string }) {
   return (

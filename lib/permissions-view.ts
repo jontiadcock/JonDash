@@ -26,6 +26,7 @@ export type CapabilityInfo = {
   hasScope: boolean;
 };
 
+/** REFS app/admin/permissions/ui.tsx */
 export type ModulePermissions = {
   moduleId: string;
   moduleName: string;
@@ -37,6 +38,7 @@ export type ModulePermissions = {
 };
 
 /** Capability-first: one row per capability, listing who holds it. */
+/** REFS app/admin/permissions/ui.tsx */
 export type CapabilityHolders = {
   capability: CapabilityInfo;
   holders: { moduleId: string; moduleName: string; granted: boolean; enabled: boolean }[];

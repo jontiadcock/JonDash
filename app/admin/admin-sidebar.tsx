@@ -10,6 +10,7 @@ type Group = { label: string | null; items: Item[] };
  * The left "Settings" navigation for the admin area (desktop). Groups are already
  * filtered to what the user may access. The mobile view uses the AdminNav dropdown
  * instead (this sidebar is hidden below md).
+ * REFS app/admin/layout.tsx
  */
 export function AdminSidebar({ groups }: { groups: Group[] }) {
   const pathname = usePathname();

@@ -7,6 +7,7 @@ import { dismissFailedModuleAction, type InstallState } from "./actions";
  * Shown when the launcher had to remove a module to get JonDash running again. Without
  * this the recovery is invisible: the app would just come back up with the module quietly
  * missing, and the admin would have no idea why.
+ * REFS app/admin/modules/page.tsx
  */
 export function FailedModuleNotice({ moduleId, at }: { moduleId: string; at: string }) {
   const [, action, pending] = useActionState<InstallState, FormData>(dismissFailedModuleAction, {});

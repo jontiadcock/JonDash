@@ -8,6 +8,7 @@ import { setModuleGroupsAction, type ModuleSettingsState } from "../actions";
  * Assign a module to Service Groups. Ticking none is a meaningful choice ("everyone"),
  * so the state is always shown explicitly rather than left to be inferred from an empty
  * list — an admin should never have to guess whether a module is restricted.
+ * REFS app/admin/modules/[id]/page.tsx
  */
 export function ModuleGroupsForm({
   moduleId,

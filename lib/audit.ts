@@ -8,6 +8,7 @@ import { getAuditRetentionDays } from "@/lib/settings";
  *  - "request": somebody acting in the browser (has an IP, usually a userId).
  *  - "system":  scheduled or background work — a module's timed task, a helper's run.
  *               No request exists, so there is no IP and usually no user.
+ * REFS app/admin/audit/page.tsx
  */
 export type AuditSource = "request" | "system";
 

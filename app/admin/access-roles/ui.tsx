@@ -10,6 +10,7 @@ import {
 
 const initial: AccessRoleState = {};
 
+/** REFS app/admin/access-roles/page.tsx */
 export function CreateAccessRoleForm() {
   const [state, action, pending] = useActionState(createAccessRoleAction, initial);
   const ref = useRef<HTMLFormElement>(null);
@@ -35,6 +36,7 @@ export function CreateAccessRoleForm() {
   );
 }
 
+/** REFS app/admin/access-roles/[id]/page.tsx */
 export function RenameAccessRoleForm({ role }: { role: { id: string; name: string } }) {
   const [state, action, pending] = useActionState(renameAccessRoleAction, initial);
   const [open, setOpen] = useState(false);
@@ -65,6 +67,7 @@ export function RenameAccessRoleForm({ role }: { role: { id: string; name: strin
   );
 }
 
+/** REFS app/admin/access-roles/[id]/page.tsx */
 export function AccessRolePermissionsForm({
   roleId,
   permissions,

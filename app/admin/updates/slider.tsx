@@ -5,6 +5,7 @@
  *
  * A button rather than a checkbox: each row is its own form that submits immediately, so a
  * page of toggles can't leave someone thinking they saved something they didn't.
+ * REFS app/admin/updates/auto-update-panel.tsx
  */
 export function Slider({
   on,

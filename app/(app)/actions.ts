@@ -6,6 +6,7 @@ import { destroySession } from "@/lib/auth/session";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { audit } from "@/lib/audit";
 
+/** REFS app/components/user-menu.tsx */
 export async function logoutAction() {
   await assertSameOrigin();
   const user = await getCurrentUser();

@@ -9,6 +9,7 @@ import { useRebuildWatch } from "./rebuild-watch";
  * Import your own module from a .zip — the sideload path, for a module you wrote (or had
  * an AI write) rather than one published by a source. It goes through exactly the same
  * verification as a source install: importing skips the source, not the checks.
+ * REFS app/admin/modules/page.tsx
  */
 export function ImportModuleForm() {
   const [state, action, pending] = useActionState<InstallState, FormData>(importModuleAction, {});

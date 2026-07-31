@@ -3,6 +3,7 @@
 import { setAutoUpdateEnabledAction, setAutoUpdateExcludedAction } from "./schedule-actions";
 import { Slider } from "./slider";
 
+/** REFS app/admin/updates/page.tsx */
 export type AutoItem = {
   kind: "app" | "module" | "helper";
   id: string;
@@ -18,6 +19,7 @@ export type AutoItem = {
  * Replaces the per-item opt-in shipped in v1.5.3-beta.5. The trade is deliberate and worth
  * knowing: with this on, a module from ANY source you have added updates itself unless you
  * exclude it. Off by default for that reason.
+ * REFS app/admin/updates/page.tsx
  */
 export function AutoUpdatePanel({
   enabled,

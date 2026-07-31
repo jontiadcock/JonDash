@@ -16,12 +16,17 @@ import { Screenshots } from "./screenshots";
  *
  * Returns `null` when the id is not in this channel's manifest; the callers decide what that
  * means (a 404 for the page, nothing for the overlay).
+ * REFS app/admin/modules/browse/@modal/(.)[id]/page.tsx · app/admin/modules/browse/[id]/page.tsx
  */
 export async function loadModule(id: string, channel: ModuleChannel) {
   const { modules } = await browseAvailableModules(channel);
   return modules.find((x) => x.id === id) ?? null;
 }
 
+/**
+ * REFS app/admin/modules/browse/@modal/(.)[id]/page.tsx · app/admin/modules/browse/[id]/page.tsx
+ * PINS tests/unit/browse-consent.test.ts
+ */
 export function ModuleDetail({
   m,
   channel,
@@ -31,10 +36,12 @@ export function ModuleDetail({
 }) {
   const tooOld = compareVersions(m.minAppVersion, getAppVersion()) > 0;
 
-  // The module's own permissions PLUS everything its helpers can do, keyed by id so a capability
-  // the module also declared is not listed twice. A module earns the right to use a helper by
-  // DECLARING the helper, not by declaring a permission — so a list built from its own
-  // declarations alone would understate what accepting it allows.
+  /*
+   * ⚠ The module's own permissions PLUS everything its helpers can do. A module earns the right to
+   * use a helper by DECLARING the helper, not by declaring a permission, so a consent list built
+   * from its own declarations alone understates what accepting it allows.
+   * REFS lib/modules/types.ts › helperIdsOf() · lib/helpers/types.ts › HelperCapability
+   */
   const labels = Object.fromEntries(m.helperCapabilities.map((c) => [c.id, c.label]));
   const permissionIds = [...new Set([...m.permissions, ...m.helperCapabilities.map((c) => c.id)])];
 

@@ -17,6 +17,7 @@ import { useInstallQueue, toggleQueued } from "../install-queue";
  *
  * Both are on the module's own page rather than on a catalogue row, which is what guarantees the
  * permissions were on screen before either was pressed.
+ * REFS app/admin/modules/browse/module-detail.tsx
  */
 export function ModuleActions({
   id,

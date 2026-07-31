@@ -22,6 +22,7 @@ const initial: NetworkState = {};
  * - `lib/app-url.ts` — reads it, and explains why a blank value omits links rather than guessing.
  * - `app/admin/network/actions.ts` — `savePublicAddressAction`.
  * - `lib/email/template.ts` — the CTA that disappears when this is blank.
+ * REFS app/admin/network/page.tsx
  */
 export function PublicAddressForm({ value }: { value: string }) {
   const [state, action, pending] = useActionState(savePublicAddressAction, initial);

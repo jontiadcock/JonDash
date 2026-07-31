@@ -16,6 +16,7 @@ import type { AttributedQuestion } from "@/lib/uninstall-questions";
  * text on a core admin screen, so every question names who asked it. Nobody should read a
  * module's wording as JonDash speaking. Core also forces a module's boxes unticked — see
  * `lib/uninstall-questions.ts`, where that and the other limits are enforced.
+ * REFS app/admin/modules/ui.tsx
  */
 export function UninstallQuestions({ moduleIds }: { moduleIds: string[] }) {
   const [questions, setQuestions] = useState<AttributedQuestion[] | null>(null);

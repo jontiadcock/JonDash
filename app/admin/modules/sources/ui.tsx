@@ -8,6 +8,7 @@ import {
   type SourceState,
 } from "../actions";
 
+/** REFS app/admin/modules/sources/page.tsx */
 export type SourceItem = {
   id: string;
   name: string;
@@ -16,6 +17,7 @@ export type SourceItem = {
   isDefault: boolean;
 };
 
+/** REFS app/admin/modules/sources/page.tsx */
 export function SourcesManager({ items }: { items: SourceItem[] }) {
   const [state, action, pending] = useActionState<SourceState, FormData>(addSourceAction, {});
 

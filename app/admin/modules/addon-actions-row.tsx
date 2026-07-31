@@ -16,6 +16,7 @@ import Link from "next/link";
  * checked — that anything reaching for an undeclared permission, touching the filesystem, or
  * running constructed code is refused. Someone about to sideload code into their own dashboard is
  * exactly who needs to read it, so it reappears in full the moment Import is chosen.
+ * REFS app/admin/modules/page.tsx
  */
 export function AddonActionsRow({
   importPanel,

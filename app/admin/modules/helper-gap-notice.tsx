@@ -20,6 +20,7 @@ export type HelperGapView = {
  * The restart is deliberately a button rather than something that happens on its own: a
  * helper is a compile-time import, so activating it means a rebuild, and a module quietly
  * signing everyone out is the surprise the governing rule exists to prevent.
+ * REFS app/admin/modules/page.tsx
  */
 export function HelperGapNotice({ gaps }: { gaps: HelperGapView[] }) {
   const { overlay, start } = useRebuildWatch();

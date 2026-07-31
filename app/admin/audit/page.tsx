@@ -27,9 +27,11 @@ export default async function AdminAuditPage({
   const userFilter = sp.userId?.trim() || "";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  // "Who" is a user id, except for the one actor that isn't a user: the scheduler.
-  // Answering "what ran overnight without anyone touching it" is the main reason to
-  // record `source` at all, so it needs to be filterable, not just visible.
+  /*
+   * "Who" is a user id, except for the one actor that is not a user: the scheduler. Answering "what
+   * ran overnight with nobody touching it" is the main reason `source` is recorded at all, so it
+   * has to be filterable rather than merely visible. REFS lib/audit.ts › AuditSource
+   */
   const SYSTEM = "__system";
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),

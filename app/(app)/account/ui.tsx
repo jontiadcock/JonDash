@@ -12,6 +12,7 @@ import { BackupCodesPanel } from "@/app/components/backup-codes-panel";
 const initial: RegenState = {};
 const pwInitial: ChangePwState = {};
 
+/** REFS app/(app)/account/page.tsx */
 export function ChangePassword() {
   const [state, action, pending] = useActionState(changePasswordAction, pwInitial);
   const [open, setOpen] = useState(false);
@@ -62,6 +63,7 @@ export function ChangePassword() {
   );
 }
 
+/** REFS app/(app)/account/page.tsx */
 export function RegenerateBackupCodes({ remaining, total }: { remaining: number; total: number }) {
   const [state, action, pending] = useActionState(regenerateBackupCodesAction, initial);
   const [open, setOpen] = useState(false);

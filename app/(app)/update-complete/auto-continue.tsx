@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /** After the success screen has been seen, ease the user back to the dashboard. */
+/** REFS app/(app)/update-complete/page.tsx */
 export function AutoContinue({ to, afterMs }: { to: string; afterMs: number }) {
   const router = useRouter();
   useEffect(() => {

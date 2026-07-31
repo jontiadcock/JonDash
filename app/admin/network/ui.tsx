@@ -7,6 +7,7 @@ import type { NetworkConfig } from "@/lib/tls/network";
 
 const initial: NetworkState = {};
 
+/** REFS app/admin/network/page.tsx */
 export function NetworkForm({ config }: { config: NetworkConfig }) {
   const [state, action, pending] = useActionState(saveNetworkConfigAction, initial);
   const { dirty, dirtyProps } = useFormDirty(state);
