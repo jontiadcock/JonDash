@@ -4,15 +4,10 @@ import { readEmailConfig, type EmailConfig } from "./config";
 import { OAUTH_PROVIDERS, getAccessToken, isOAuthProvider } from "./oauth";
 
 /**
- * Bounds on every stage of talking to a mail server (BUG-21).
- *
- * Nodemailer's own defaults are 2 minutes to connect and 10 to a dead socket — long enough
- * that a blocked port or a tenant with SMTP AUTH disabled reads as the app having frozen
- * rather than as a failure. `sendMail` catches and reports every *thrown* error, so a hang
- * was the single failure mode that produced no message at all.
- *
- * A `try/catch` around an unbounded call is a false sense of safety: it handles rejection,
- * not silence.
+ * ⚠ Bounds on every stage of talking to a mail server (BUG-21) — never remove them. Nodemailer's
+ * own defaults are 2 minutes to connect and 10 to a dead socket, long enough that a blocked port
+ * reads as the app having frozen. A `try/catch` around an unbounded call handles rejection, not
+ * silence, so a hang was the one failure mode that produced no message at all.
  */
 const TIMEOUTS = {
   connectionTimeout: 15_000, // TCP connect — a blocked 587 fails here
@@ -42,16 +37,12 @@ async function buildTransport(cfg: EmailConfig) {
 
   if (!cfg.host) throw new Error("SMTP host is required.");
 
-  // Opt-in escape hatch for an internal relay with a private or self-signed certificate.
-  // Scoped to THIS transport only — never NODE_TLS_REJECT_UNAUTHORIZED, which would
-  // disable certificate checking for every outbound connection the app makes, including
-  // update downloads and module installs.
+  // ⚠ Scoped to THIS transport only — never `NODE_TLS_REJECT_UNAUTHORIZED`, which would disable
+  // certificate checking for every outbound connection, including updates and module installs.
   const tls = cfg.allowUntrustedCert ? { tls: { rejectUnauthorized: false } } : {};
 
-  // An IP-authorised relay has no account to sign in with. Send NO auth rather than
-  // offering an empty credential — a server that advertises no AUTH and one that
-  // rejects a bad password fail in different ways, and conflating them is what makes
-  // this hard to diagnose.
+  // ⚠ An IP-authorised relay has no account: send NO auth rather than an empty credential. A
+  // server advertising no AUTH and one rejecting a bad password fail differently.
   if (cfg.mode === "relay") {
     return nodemailer.createTransport({
       host: cfg.host,
@@ -73,12 +64,11 @@ async function buildTransport(cfg: EmailConfig) {
 }
 
 /**
- * What the attempt was actually aimed at.
+ * What the attempt was actually aimed at — the prefix on every failure below.
  *
- * Every failure below is reported with this prefix. The button uses the SAVED
- * configuration, not what's on screen, so "unable to get local issuer certificate"
- * with no target is unactionable — you cannot tell whether it even tried the host
- * you are looking at. Naming the target is what makes a stale save obvious.
+ * ⚠ The test button uses the SAVED configuration, not what is on screen, so an error with no
+ * target cannot tell you whether it even tried the host you are looking at. Naming it is what
+ * makes an unsaved edit obvious. PINS tests/integration/email.test.ts
  */
 export function describeTarget(cfg: EmailConfig): string {
   if (cfg.mode === "oauth2") {
@@ -100,7 +90,10 @@ function fromHeader(cfg: EmailConfig): string {
 
 export type SendResult = { ok: true } | { ok: false; error: string };
 
-/** Send an email using the saved configuration. Never throws. */
+/** Send an email using the saved configuration. ⚠ Never throws — it returns `{ok:false}`, so a
+ *  caller that ignores the result silently does not send.
+ *  REFS lib/modules/context.ts — the module capability wraps this · lib/email/template.ts
+ *  PINS tests/integration/email.test.ts */
 export async function sendMail(msg: {
   to: string;
   subject: string;
@@ -124,11 +117,9 @@ export async function sendMail(msg: {
 }
 
 /**
- * Turn a mail failure into something the admin can act on (OPS-13).
- *
- * "It failed" is not useful for an integration with this many external moving parts —
- * OAuth consent, tenant policy, blocked ports, revoked refresh tokens. The provider's own
- * error codes are the reliable signal, so they're mapped to the thing to go and change.
+ * Turn a mail failure into something the admin can act on (OPS-13). The provider's own error codes
+ * are the reliable signal, so they map to the thing to go and change.
+ * REFS app/admin/email/ui.tsx — renders this  PINS tests/integration/email.test.ts
  */
 export function explainMailError(err: string): string {
   const e = err.toLowerCase();
@@ -181,12 +172,16 @@ export function explainMailError(err: string): string {
   return err;
 }
 
+/**
+ * REFS app/admin/email/actions.ts — the only caller, behind the "Send test" button
+ *      explainMailError() above — every failure here is passed through it
+ */
 export async function sendTestEmail(to: string): Promise<SendResult> {
   const cfg = await readEmailConfig();
   const target = describeTarget(cfg);
 
-  // Separate "can't connect or sign in" from "connected but the send was rejected" — two
-  // entirely different fixes, and the test button exists precisely to tell them apart.
+  // ⚠ Verify first: "cannot connect or sign in" and "connected but the send was rejected" need
+  // entirely different fixes, and telling them apart is what this button is for.
   try {
     const transport = await buildTransport(cfg);
     await transport.verify();
@@ -195,9 +190,8 @@ export async function sendTestEmail(to: string): Promise<SendResult> {
     return { ok: false, error: `Connecting to ${target} failed.\n\n${explainMailError(raw)}` };
   }
 
-  // Branded (1.8.0). The test email is the one message every install sends, so it is also the
-  // one that proves the template renders in whatever client the admin actually uses — which is
-  // worth more than a plain-text send that tells them nothing about the rest of their mail.
+  // ⚠ Branded on purpose — the test email is the one message every install sends, so it is the
+  // only proof the template renders in the client the admin uses. REFS lib/email/template.ts
   const { renderBrandedEmail, currentBrand } = await import("./template");
   const brand = await currentBrand();
   const body = renderBrandedEmail({

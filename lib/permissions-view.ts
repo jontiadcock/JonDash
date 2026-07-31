@@ -8,14 +8,13 @@ import { describePermission } from "@/lib/modules/types";
 import type { DeclaredPermission } from "@/lib/modules/types";
 
 /**
- * The data behind Admin → Permissions (CORE-10).
- *
- * **Both axes, from one read.** *"Which modules can restart services"* is the view that catches
- * trouble, and it cannot be reconstructed by clicking through modules one at a time — so the
- * page offers by-module and by-capability over the same underlying rows rather than two
- * different queries that could disagree.
+ * The data behind Admin → Permissions (CORE-10). ⚠ Both axes come from ONE read — "which modules
+ * can restart services" cannot be reconstructed module by module, and two separate queries could
+ * disagree.
+ * REFS app/admin/permissions/page.tsx · ui.tsx  PINS tests/unit/permissions-view.test.ts
  */
 
+/** REFS app/admin/permissions/ui.tsx — rendered directly; `risk` drives the highlight */
 export type CapabilityInfo = {
   permission: DeclaredPermission;
   /** Plain-language label, or the raw key when the helper offered none. */
@@ -44,37 +43,38 @@ export type CapabilityHolders = {
 };
 
 /**
- * Look up what a helper says about one of its capabilities.
- *
- * A permission is `<helperId>:<verb>` by contract, so the helper is derivable from the key —
- * but a module may also declare a core permission that belongs to no helper, and that must not
- * be dropped from the page just because nothing describes it.
+ * What a helper says about one of its capabilities. A permission is `<helperId>:<verb>` by
+ * contract, so the helper is derivable from the key. ⚠ A module may also declare a CORE permission
+ * belonging to no helper, which must not be dropped just because nothing describes it.
+ * REFS lib/modules/types.ts › helperIdForPermission() — the same split, authoritative
  */
 function describeCapability(permission: DeclaredPermission): CapabilityInfo {
   const helperId = String(permission).split(":")[0] ?? "";
   const def = helperId ? getHelperDef(helperId) : undefined;
   const cap = def?.provides?.find((c) => c.permission === permission);
 
-  // `describePermission` is documented as THE single place consent text is decided, so that no
-  // surface can render a blank or disagree with another. This page went through its own logic
-  // at first and immediately drifted: every core permission came out "High risk", which made
-  // the genuinely dangerous one indistinguishable from `crypto:use` and defeated the point of
-  // showing risk at all.
+  /*
+   * ⚠ Never re-derive consent text or risk here. `describePermission` is the single place it is
+   * decided; this page had its own logic and immediately drifted, rating every core permission
+   * "High risk" — which made the genuinely dangerous one indistinguishable from `crypto:use`.
+   * REFS lib/modules/types.ts › describePermission()
+   */
   const described = describePermission(permission);
 
   return {
     permission,
     label: cap?.label ?? described.text,
-    // A helper states its own risk. Otherwise take core's existing judgement: `dangerous` is
-    // already "highlight this in the consent screen", and a helper-provided capability core
-    // never defined is dangerous by default there too.
+    // A helper states its own risk; otherwise take core's `dangerous`, which already means
+    // "highlight this in the consent screen".
     risk: cap?.risk ?? (described.dangerous ? "high" : "low"),
     helper: def ? { id: def.id, name: def.name } : null,
     hasScope: Boolean(cap?.scope),
   };
 }
 
-/** Every module with what it declared and what it currently holds. */
+/** Every module with what it declared and what it currently holds.
+ *  REFS app/admin/permissions/page.tsx · capabilityHolders() below — pivots this exact data
+ *  PINS tests/unit/permissions-view.test.ts */
 export async function modulePermissions(): Promise<ModulePermissions[]> {
   const rows = await prisma.module.findMany();
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -94,10 +94,10 @@ export async function modulePermissions(): Promise<ModulePermissions[]> {
 }
 
 /**
- * The same data pivoted: one row per capability, every module that declares it.
- *
- * This is the axis that answers *"what can reach my files?"* in one glance. Built from
- * `modulePermissions()` rather than its own query, so the two views cannot disagree.
+ * The same data pivoted: one row per capability, every module that declares it — the axis that
+ * answers "what can reach my files?". ⚠ Built from `modulePermissions()` above, never its own
+ * query, so the two views cannot disagree.
+ * REFS app/admin/permissions/page.tsx  PINS tests/unit/permissions-view.test.ts
  */
 export async function capabilityHolders(): Promise<CapabilityHolders[]> {
   const modules = await modulePermissions();

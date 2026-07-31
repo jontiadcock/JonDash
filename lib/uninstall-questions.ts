@@ -6,21 +6,22 @@ import { helpersThatWouldBePruned } from "@/lib/helpers/install";
 import type { UninstallQuestion } from "@/lib/modules/types";
 
 /**
- * Questions shown on the uninstall confirmation screen, gathered from the modules being
- * removed and from any helper that removal would prune.
+ * Questions for the uninstall confirmation screen, from the modules being removed and from any
+ * helper that removal would prune.
  *
- * **Why this exists.** `onUninstall` is headless and runs after the admin has already
- * confirmed, so a module or helper could clean up silently and nothing more. Two real cases
- * need to *ask*: whether to withdraw the Windows permissions a helper holds, and whether to
- * remove software JonDash installed. Doing either automatically is wrong — it is the admin's
- * machine — and doing neither silently is also wrong. The only moment to ask is while they are
- * on the screen, which is here.
+ * `onUninstall` is headless and runs after the admin has confirmed, so two cases need to ASK
+ * first: withdrawing the Windows permissions a helper holds, and removing software JonDash
+ * installed. Doing either automatically is wrong on someone else's machine; doing neither
+ * silently is also wrong.
  *
- * **This module is where the constraints are enforced**, not the callers, so a new caller
- * cannot forget them.
+ * ⚠ Enforce every constraint HERE, not in the callers, so a new caller cannot forget them.
+ * REFS lib/modules/types.ts › UninstallQuestion — the author-facing shape
+ *      app/admin/modules/actions.ts · uninstall-questions.tsx — the screen and the action
  */
 
-/** A question plus who asked it. Attribution is a safety property, not decoration. */
+/** A question plus who asked it. ⚠ Attribution is a safety property, not decoration — it is what
+ *  stops one module reading another's answer. REFS app/admin/modules/actions.ts ·
+ *  app/admin/modules/uninstall-questions.tsx · answersFor() below */
 export type AttributedQuestion = {
   /** `module:<id>` or `helper:<id>` — namespaced, so two sources can share a question id. */
   key: string;
@@ -45,9 +46,8 @@ async function ask(
       new Promise<UninstallQuestion[]>((_, reject) => setTimeout(() => reject(new Error("timed out")), BUDGET_MS)),
     ]);
   } catch {
-    // Best-effort, like `readConfig`: showing the uninstall WITHOUT questions is far better
-    // than not showing it at all. A broken module must not be able to block its own removal —
-    // that would be a way to make itself unremovable.
+    // ⚠ Best-effort by design: a broken module must not be able to block its own removal, so
+    // showing the uninstall WITHOUT questions beats not showing it at all.
     return [];
   }
   if (!Array.isArray(raw)) return [];
@@ -72,10 +72,10 @@ async function ask(
 }
 
 /**
- * Everything to ask before uninstalling `moduleIds`.
- *
- * Helper questions are included only for helpers that this removal would actually prune —
- * asking about a helper that is staying would be a question with no consequence.
+ * Everything to ask before uninstalling `moduleIds`. ⚠ Helper questions only for helpers this
+ * removal would actually PRUNE — asking about one that is staying is a question with no
+ * consequence. REFS lib/helpers/install.ts › helpersThatWouldBePruned() ·
+ * app/admin/modules/actions.ts
  */
 export async function collectUninstallQuestions(moduleIds: string[]): Promise<AttributedQuestion[]> {
   const out: AttributedQuestion[] = [];
@@ -96,10 +96,11 @@ export async function collectUninstallQuestions(moduleIds: string[]): Promise<At
 }
 
 /**
- * Turn the ticked boxes back into `{ questionId: boolean }` for one source.
- *
- * Keyed by the namespaced form value, so a module cannot read — or forge — an answer belonging
- * to another module or to a helper.
+ * Turn the ticked boxes back into `{ questionId: boolean }` for one source. ⚠ Keyed by the
+ * NAMESPACED form value, so a module cannot read or forge an answer belonging to another module
+ * or to a helper.
+ * REFS app/admin/modules/actions.ts · lib/helpers/install.ts  PINS
+ * tests/unit/uninstall-questions.test.ts
  */
 export function answersFor(kind: "module" | "helper", id: string, ticked: string[]): Record<string, boolean> {
   const prefix = `${kind}:${id}:`;

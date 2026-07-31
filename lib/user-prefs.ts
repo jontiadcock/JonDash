@@ -2,24 +2,17 @@ import "server-only";
 import { prisma } from "@/lib/db";
 
 /**
- * Small per-user UI state — things a person has decided, that follow them rather than their browser.
+ * Small per-user UI state — things a person decided, following them rather than their browser. Uses
+ * the `Setting` table's `user` scope, whose `@@unique([scope, ownerId, key])` already gives one row
+ * per person per key, so there is no migration and no new table.
  *
- * **Uses the `Setting` table's `user` scope**, which has existed since the schema was written and
- * had never been used ("global scope for now; the table also supports per-user / per-module scopes
- * for later"). No migration, no new table: `@@unique([scope, ownerId, key])` already makes one row
- * per person per key.
+ * ⚠ Deliberately NOT the typed settings registry. That is for admin configuration and carries zod
+ * schemas, defaults, groups, secret handling and a cache built for a small fixed key set; routing
+ * per-user UI state through it makes every dismissal a registered, cached global.
+ * ⚠ Never `localStorage` — it is per browser AND per origin, so a dashboard opened at `localhost`
+ * on its own machine and at a LAN address from a phone loses the decision between them (BUG-74).
  *
- * **Deliberately not the typed settings registry.** That registry is for configuration an admin
- * changes on a settings page — it has zod schemas, defaults, groups, secret handling and a cache
- * built around a small fixed set of keys. This is a boolean somebody set by clicking "No thanks".
- * Running it through the registry would mean every piece of per-user UI state becoming a
- * registered, defaulted, cached global, which is the wrong shape and the wrong blast radius.
- *
- * **Why not `localStorage`, which is where this started:** it is per browser *and per origin*. A
- * self-hosted dashboard is opened at `localhost:3000` on the machine it runs on and at
- * `192.168.1.50:3000` from a phone — different origins, so a decision made in one is invisible to
- * the other, and both are the same person. That is BUG-74: dismissing the support banner on a phone
- * and meeting it again on a desktop.
+ * REFS prisma/schema.prisma › Setting — the shared table · lib/settings.ts — the other consumer
  */
 async function read(userId: string, key: string): Promise<string | null> {
   try {
@@ -29,17 +22,20 @@ async function read(userId: string, key: string): Promise<string | null> {
     });
     return row?.valueJson ?? null;
   } catch {
-    // UI state is never worth an error page.
+    // ⚠ UI state is never worth an error page.
     return null;
   }
 }
 
-/** True when this user has set this flag. Absent or unreadable reads as false. */
+/** True when this user has set this flag; absent or unreadable reads as false.
+ *  REFS app/(app)/layout.tsx · app/admin/layout.tsx — both read the banner flag per request
+ *       app/components/support-actions.ts — the write side, which must not re-export a read */
 export async function getUserFlag(userId: string, key: string): Promise<boolean> {
   return (await read(userId, key)) === "true";
 }
 
-/** Set a per-user flag. Best-effort: failing to remember a dismissal must not fail the action. */
+/** Set a per-user flag. ⚠ Best-effort — failing to remember a dismissal must not fail the action.
+ *  REFS app/components/support-actions.ts — the only caller; a `"use server"` module */
 export async function setUserFlag(userId: string, key: string, value: boolean): Promise<void> {
   try {
     await prisma.setting.upsert({
@@ -53,6 +49,7 @@ export async function setUserFlag(userId: string, key: string, value: boolean): 
 }
 
 /** Keys used with the helpers above. Named here so they cannot drift between reader and writer. */
+/** REFS app/(app)/layout.tsx · app/admin/layout.tsx · app/components/support-actions.ts */
 export const USER_FLAG = {
   /** CORE-05 — the support banner has been dismissed. Never shown again once set. */
   supportBannerDismissed: "ui.supportBannerDismissed",

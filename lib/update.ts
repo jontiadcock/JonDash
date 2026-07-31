@@ -30,12 +30,11 @@ let cache: { at: number; status: UpdateStatus } | null = null;
 const CACHE_MS = 3 * 60 * 1000;
 
 /**
- * Drop the cached update check.
- *
- * Must be called whenever something changes WHICH release applies — switching channel is
- * the one that matters, since the cached status was read from the other channel's manifest.
- * Without it the Updates page keeps offering the old channel's release for up to three
- * minutes and the channel switch looks like it did nothing (the same shape as BUG-35).
+ * Drop the cached update check. ⚠ Call it whenever anything changes WHICH release applies —
+ * switching channel above all, since the cached status came from the other channel's manifest.
+ * Without it the Updates page offers the old channel's release for three minutes and the switch
+ * looks like it did nothing (the shape of BUG-35).
+ * REFS app/admin/updates/schedule-actions.ts  PINS tests/unit/update-cache-invalidation.test.ts
  */
 export function clearUpdateStatusCache(): void {
   cache = null;
@@ -50,7 +49,9 @@ function localVersion(): string {
   }
 }
 
-/** The installed app version (from package.json), for display. */
+/** The installed app version, from package.json. ⚠ The value every `minAppVersion` check compares
+ *  against, so it is not display-only. REFS lib/version.ts › compareVersions() ·
+ *  lib/modules/updates.ts · lib/helpers/updates.ts · lib/helpers/install.ts — the gatekeepers */
 export function getAppVersion(): string {
   return localVersion();
 }
@@ -73,10 +74,12 @@ async function fetchManifest(url: string): Promise<{ releases: ReleaseInfo[] } |
   }
 }
 
-/** Check whether a newer version exists on GitHub. Cached briefly. */
+/** Check whether a newer version exists on GitHub; cached briefly.
+ *  REFS lib/update-channel.ts — decides which manifest is read · clearUpdateStatusCache() above
+ *       app/admin/updates/page.tsx · app/api/update/status/route.ts · lib/updates/auto-run.ts */
 export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
-  // The rollback/failure marker is read fresh every call (not cached) so a dismiss
-  // or a fresh failure reflects immediately.
+  // ⚠ The failure marker is read fresh every call, never cached, so a dismiss or a new failure
+  // shows immediately. REFS lib/update-prefs.ts › readUpdateFailure()
   const failure = readUpdateFailure();
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return { ...cache.status, failure };
 
@@ -111,10 +114,11 @@ export async function getUpdateStatus(force = false): Promise<UpdateStatus> {
 }
 
 /**
- * Request the supervised launcher to download + apply the update and restart.
- * Drops a sentinel and exits shortly after responding; start-dashboard.bat sees
- * the sentinel, runs the updater script (public download + extract), rebuilds and
- * relaunches.
+ * Ask the supervised launcher to download, apply and restart: drop the sentinel, then exit so
+ * `start-dashboard.bat` runs the updater, rebuilds and relaunches.
+ * REFS scripts/update.mjs — what the launcher then runs · app/api/update/apply/route.ts
+ *      lib/updates/scheduler.ts — the automatic path  PINS
+ *      tests/unit/launcher-no-autoupdate.test.ts
  */
 export function requestUpdateRestart(): void {
   fs.writeFileSync(RESTART_SENTINEL, new Date().toISOString(), "utf8");

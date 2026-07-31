@@ -7,13 +7,17 @@ export { PROVIDER_PRESETS };
 export type { EmailMode, EmailProvider };
 
 /**
- * Email (SMTP) configuration. Stored as a SINGLE encrypted `Setting` row so every
- * field — SMTP password, OAuth client secret, refresh token — is encrypted at
- * rest (a DB-only leak never exposes them). Two auth modes:
- *   - "password": SMTP username + (app) password.
- *   - "oauth2":   Google/Microsoft XOAUTH2 via a stored refresh token.
+ * Email (SMTP) configuration. ⚠ Stored as ONE encrypted `Setting` row so every field — SMTP
+ * password, OAuth client secret, refresh token — is encrypted at rest and a database-only leak
+ * exposes none of them. Splitting a field out into its own row would break that.
+ *
+ * REFS lib/crypto.ts › encryptString() · decryptString() — the envelope
+ *      lib/email/send.ts — the reader · app/admin/email/actions.ts — the writer
+ * PINS tests/integration/email.test.ts
  */
 
+/** REFS lib/email/send.ts › buildTransport() — every field below drives it
+ *       app/admin/email/actions.ts — the form that writes them */
 export type EmailConfig = {
   enabled: boolean;
   mode: EmailMode;
@@ -27,14 +31,12 @@ export type EmailConfig = {
   secure: boolean;
   password: string;
   /**
-   * Accept the mail server's TLS certificate even when it can't be traced to a trusted
-   * authority (a private CA or a self-signed cert on an internal smarthost).
+   * Accept the mail server's TLS certificate even when it cannot be traced to a trusted authority.
    *
-   * This turns OFF the check that proves you're talking to the server you think you are,
-   * so anything able to intercept the connection can read the mail and any credentials
-   * sent with it. Off by default, opt-in per install, and deliberately NOT applied to
-   * OAuth2 mode — that host is Google's or Microsoft's and always has a public cert, so
-   * there is no legitimate reason to weaken it.
+   * ⚠ This turns OFF the check that proves you are talking to the server you think you are, so
+   * anything intercepting the connection can read the mail and the credentials sent with it. Off by
+   * default, and never applied to OAuth2 mode — that host always has a public cert.
+   * REFS lib/email/send.ts › buildTransport() — scopes it to one transport, never globally
    */
   allowUntrustedCert: boolean;
   // oauth2 mode
@@ -44,6 +46,7 @@ export type EmailConfig = {
   oauthRefreshToken: string;
 };
 
+/** PINS tests/integration/email.test.ts — no core caller; `readEmailConfig` merges over it */
 export const EMAIL_DEFAULTS: EmailConfig = {
   enabled: false,
   mode: "password",
@@ -63,6 +66,8 @@ export const EMAIL_DEFAULTS: EmailConfig = {
 
 const KEY = "email.config";
 
+/** REFS lib/email/send.ts · app/admin/email/page.tsx · app/admin/email/oauth/route.ts ·
+ *       app/admin/email/oauth/callback/route.ts  PINS tests/integration/email.test.ts */
 export async function readEmailConfig(): Promise<EmailConfig> {
   try {
     const row = await prisma.setting.findUnique({
@@ -78,7 +83,10 @@ export async function readEmailConfig(): Promise<EmailConfig> {
   return { ...EMAIL_DEFAULTS };
 }
 
-/** Merge a patch into the stored config and persist (encrypted). */
+/** Merge a patch into the stored config and persist it encrypted. ⚠ Merges over the CURRENT
+ *  stored value, so a partial write cannot blank the fields it omits.
+ *  REFS app/admin/email/actions.ts · app/admin/email/oauth/callback/route.ts
+ *  PINS tests/integration/email.test.ts */
 export async function writeEmailConfig(patch: Partial<EmailConfig>): Promise<EmailConfig> {
   const next: EmailConfig = { ...(await readEmailConfig()), ...patch };
   const stored = encryptString(JSON.stringify(next));
@@ -90,7 +98,8 @@ export async function writeEmailConfig(patch: Partial<EmailConfig>): Promise<Ema
   return next;
 }
 
-/** True when the config is complete enough to attempt a send. */
+/** True when the config is complete enough to attempt a send. Each mode needs different fields.
+ *  PINS tests/integration/email.test.ts — the only caller outside this file */
 export function isEmailConfigured(cfg: EmailConfig): boolean {
   if (cfg.mode === "oauth2") {
     return !!(cfg.provider && cfg.user && cfg.oauthClientId && cfg.oauthRefreshToken);

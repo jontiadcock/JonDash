@@ -1,20 +1,19 @@
 /**
  * The interface styles JonDash ships (CORE-07) — see docs/STYLES.md.
  *
- * **A style is STRUCTURE; a palette is COLOUR.** Radius, borders, shadows, blur, bevels and
- * fonts belong to the style — they're what make XP feel like XP. The colours filling that
- * structure are a palette, and one style can offer several.
+ * ⚠ A style is STRUCTURE; a palette is COLOUR. Radius, borders, shadows, blur, bevels and fonts
+ * belong to the style; anything that is only a colour is a palette of an existing style. Getting
+ * that wrong duplicates the whole token set to change a handful of values.
+ * ⚠ Keep this out of the `"use client"` picker. A server component importing a plain value from a
+ * client module gets a client REFERENCE, not the value — the settings page rendered "This style
+ * settings" instead of "Modern settings".
  *
- * This split came from noticing that several "styles" were the same structure repainted:
- * Nord and Solarized were literally Modern with different colours. Keeping them separate
- * meant duplicating the whole token set to change a handful of values, and the picker filled
- * up with things that looked like variants because they *were* variants.
- *
- * Deliberately NOT in the `"use client"` picker component: a server component importing a
- * plain value from a client module gets a client reference rather than the value, so the
- * settings page rendered "This style settings" instead of "Modern settings".
+ * REFS app/globals.css · app/styles.css — every id here needs a matching `[data-style=…]` block
+ *      app/layout.tsx — sets that attribute · app/admin/settings/style-form.tsx — the picker
+ * PINS tests/unit/styles.test.ts · tests/unit/dashboard-paint.test.ts
  */
 
+/** REFS app/styles.css — every id here needs a `[data-palette=…]` block · lib/settings.ts */
 export type Palette = {
   id: string;
   name: string;
@@ -25,6 +24,7 @@ export type Palette = {
   text: string;
 };
 
+/** REFS app/admin/settings/style-form.tsx — renders the swatch from these fields alone */
 export type StyleOption = {
   id: string;
   name: string;
@@ -35,6 +35,13 @@ export type StyleOption = {
   palettes: Palette[];
 };
 
+/**
+ * ⚠ The catalogue. Adding a style needs a matching `[data-style=…]` block in app/styles.css, and
+ * MOVING a palette between styles needs an entry in `MOVED` below or existing users lose their
+ * look. REFS app/styles.css · app/globals.css — the CSS side · app/layout.tsx — sets the attributes
+ *      app/admin/settings/style-form.tsx — the picker · lib/settings.ts — what is stored
+ * PINS tests/unit/styles.test.ts · tests/unit/dashboard-paint.test.ts · email-template.test.ts
+ */
 export const STYLES: StyleOption[] = [
   {
     id: "default",
@@ -63,10 +70,8 @@ export const STYLES: StyleOption[] = [
     id: "aero",
     name: "Aero",
     family: "Glass",
-    // Glass, but a different glass: Windows 7 framed its panels and squared them off, where
-    // Crystal is frameless and pill-shaped. It was briefly a Crystal *palette* and had to
-    // override radius, blur and the typeface to look right — which is the tell that it was a
-    // style all along (docs/STYLES.md §2).
+    // Was briefly a Crystal PALETTE and had to override radius, blur and the typeface to look
+    // right — the tell that it is a style. REFS MOVED below carries those users across
     description: "Framed glass with a sheen, squared-off panels and gradient buttons. One committed look — it ignores dark mode.",
     swatch: { radius: "7px", border: "#7fa8cc", font: "'Segoe UI', Tahoma, sans-serif" },
     palettes: [
@@ -115,9 +120,8 @@ export const STYLES: StyleOption[] = [
     id: "paper",
     name: "Paper",
     family: "Bold",
-    // Also promoted out of being a Modern palette, for the same reason as Aero: it was
-    // overriding shadow and radius. What actually makes it Paper is a serif face and the
-    // absence of elevation — printed matter doesn't float — and neither is a colour.
+    // Also promoted out of being a Modern palette: it was overriding shadow and radius, and
+    // what makes it Paper is a serif face and no elevation — neither of which is a colour.
     description: "Ink on stock: a serif face, hairline rules and no shadows anywhere. One committed look — it ignores dark mode.",
     swatch: { radius: "0px", border: "#cdc8bb", font: "Georgia, serif" },
     palettes: [
@@ -128,7 +132,8 @@ export const STYLES: StyleOption[] = [
   },
 ];
 
-/** Styles grouped by family, for the picker. */
+/** Styles grouped by family, for the picker.
+ *  REFS app/admin/settings/style-form.tsx — the only caller  PINS tests/unit/styles.test.ts */
 export function stylesByFamily(): { family: string; styles: StyleOption[] }[] {
   const order: StyleOption["family"][] = ["Standard", "Glass", "Retro", "Bold"];
   return order
@@ -136,17 +141,19 @@ export function stylesByFamily(): { family: string; styles: StyleOption[] }[] {
     .filter((g) => g.styles.length > 0);
 }
 
+/** ⚠ Falls back to the first style rather than throwing — an unknown id must not blank the UI.
+ *  REFS app/admin/settings/style-form.tsx  PINS tests/unit/styles.test.ts */
 export function findStyle(id: string): StyleOption {
   return STYLES.find((s) => s.id === id) ?? STYLES[0];
 }
 
 /**
- * The palette to use for a style: the requested one if it belongs to that style, otherwise
- * the style's first.
+ * The palette for a style: the requested one if it belongs to that style, otherwise the style's
+ * first. ⚠ A palette id only means something INSIDE its style — "cyan" exists for Terminal and for
+ * Brutalist and is a different colour in each — so a style change must never carry a stale pairing.
  *
- * A palette id only means something inside its style — "cyan" exists for both Terminal and
- * Brutalist and is a different colour in each — so changing style must never carry a stale
- * pairing through.
+ * REFS app/components/branding.tsx · lib/email/template.ts · lib/settings.ts ·
+ *      app/admin/settings/actions.ts · style-form.tsx  PINS tests/unit/styles.test.ts
  */
 export function resolvePalette(styleId: string, paletteId: string): Palette {
   const style = findStyle(styleId);
@@ -156,44 +163,45 @@ export function resolvePalette(styleId: string, paletteId: string): Palette {
 /**
  * Pairings that MOVED between releases, old → new.
  *
- * Reorganising the catalogue is otherwise silently destructive: `resolvePalette` falls back
- * to the style's first palette, so someone on Crystal · Aero would have been dropped onto
- * Crystal · Aurora — a look they never chose — rather than onto the Aero style their setting
- * plainly names. Falling back is the right behaviour for a pairing that no longer exists;
- * it's the wrong behaviour for one that simply lives somewhere else now.
- *
- * Keep entries here permanently. They cost nothing and an instance can update from any age.
+ * ⚠ Add an entry whenever a palette is promoted to a style, or reorganising the catalogue is
+ * silently destructive: `resolvePalette` would drop that user onto the old style's FIRST palette —
+ * a look they never chose — instead of the style their setting plainly names.
+ * ⚠ Keep every entry permanently. They cost nothing and an instance can update from any age.
+ * REFS resolveStylePair() below — the only reader
  */
 const MOVED: Record<string, { style: string; palette: string }> = {
-  // 1.7.0-beta.10: Aero was promoted out of Crystal into its own Glass style — it had been
-  // overriding radius, blur and the typeface, which is the definition of a style, not a palette.
+  // Aero was promoted out of Crystal into its own Glass style.
   "crystal:aero": { style: "aero", palette: "sky" },
-  // 1.7.0-beta.10: likewise Paper out of Modern — it was overriding shadow and radius, and it
-  // gained a serif face on promotion.
+  // Likewise Paper out of Modern; it gained a serif face on promotion.
   "default:paper": { style: "paper", palette: "newsprint" },
 };
 
 /**
- * The style + palette actually to apply, given what's stored. Applies any move, then
- * normalises the palette against the resulting style.
+ * The style + palette actually to apply, given what is stored: applies any move, then normalises
+ * the palette against the resulting style.
  *
- * This is the single choke point — the layout, the settings page and the save action all go
- * through it, so a stored pairing can never mean one thing in the picker and another on screen.
+ * ⚠ The single choke point. Every surface must resolve through it, or a stored pairing means one
+ * thing in the picker and another on screen.
+ * REFS app/components/branding.tsx › styleId() · paletteId() — the render path
+ *      app/admin/settings/page.tsx · lib/email/template.ts › currentBrand()
+ * PINS tests/unit/styles.test.ts
  */
 export function resolveStylePair(styleId: string, paletteId: string): { style: string; palette: string } {
   const moved = MOVED[`${styleId}:${paletteId}`];
   const style = moved ? moved.style : styleId;
   const palette = resolvePalette(style, moved ? moved.palette : paletteId).id;
-  // A style id that no longer exists falls back too — findStyle already guarantees that.
+  // A style id that no longer exists falls back too — `findStyle` guarantees that.
   return { style: findStyle(style).id, palette };
 }
 
-/** Every valid "<style>:<palette>" pairing, for validating what's stored. */
+/** Every valid "<style>:<palette>" pairing, for validating what is stored.
+ *  PINS tests/unit/styles.test.ts — the only caller; asserts MOVED entries stay resolvable */
 export function validPairings(): string[] {
   return STYLES.flatMap((s) => s.palettes.map((p) => `${s.id}:${p.id}`));
 }
 
-/** id → display name, for labelling the style-specific settings block. */
+/** id → display name, for labelling the style-specific settings block.
+ *  REFS app/admin/settings/page.tsx  PINS tests/unit/styles.test.ts */
 export const STYLE_NAMES: Record<string, string> = Object.fromEntries(
   STYLES.map((s) => [s.id, s.name]),
 );

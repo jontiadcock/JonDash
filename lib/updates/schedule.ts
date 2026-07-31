@@ -2,19 +2,21 @@ import "server-only";
 import { getUpdateScheduleSettings } from "@/lib/settings";
 
 /**
- * When automatic updates are allowed to run (BUG-30).
+ * When automatic updates are allowed to run (BUG-30). Applying one means a rebuild and a restart,
+ * so it is never "as soon as one appears" — the admin picks a window and the runner acts only
+ * inside it, and only for items individually opted in.
  *
- * Applying an update means a rebuild and a restart, which signs everyone out. So this is
- * never "as soon as one appears" — the admin picks a window, and the runner only acts
- * inside it. Nothing happens at all unless a module or helper is individually opted in.
- *
- * Deliberately compared in LOCAL time, not UTC: an admin who picks 03:00 means 03:00 where
- * they are, and a schedule that drifts by the timezone offset would fire in the middle of
- * their working day.
+ * ⚠ Compared in LOCAL time, never UTC. An admin who picks 03:00 means 03:00 where they are; a
+ * schedule drifting by the timezone offset fires in the middle of their working day.
+ * REFS lib/updates/scheduler.ts — the tick · lib/updates/auto-run.ts — the master switch
+ * PINS tests/unit/update-schedule.test.ts
  */
 
+/** REFS lib/settings.ts › getUpdateScheduleSettings() — what is stored and validated */
 export type UpdateFrequency = "daily" | "weekly" | "monthly";
 
+/** REFS lib/settings.ts › getUpdateScheduleSettings() — the stored shape this normalises
+ *  PINS tests/unit/update-schedule.test.ts */
 export type UpdateSchedule = {
   /** The master switch. Nothing runs automatically while this is off. */
   autoEnabled: boolean;
@@ -25,11 +27,12 @@ export type UpdateSchedule = {
   dayOfMonth: number; // 1-28
 };
 
+/** REFS app/admin/updates/page.tsx · lib/updates/auto-run.ts · lib/updates/scheduler.ts */
 export async function readUpdateSchedule(): Promise<UpdateSchedule> {
   const { autoEnabled, frequency, timeOfDay, dayOfWeek, dayOfMonth } = await getUpdateScheduleSettings();
 
-  // The stored value is validated on save, but a hand-edited database shouldn't be able to
-  // make the scheduler throw on every tick — fall back rather than fail.
+  // ⚠ Validated on save, but a hand-edited database must not make the scheduler throw on every
+  // tick — fall back rather than fail.
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(timeOfDay));
   return {
     autoEnabled,
@@ -43,7 +46,8 @@ export async function readUpdateSchedule(): Promise<UpdateSchedule> {
   };
 }
 
-/** The moment a given schedule is next due, at or after `from`. */
+/** The moment a schedule is next due, at or after `from`.
+ *  REFS isRunDue() below — the only caller  PINS tests/unit/update-schedule.test.ts */
 export function nextRunAfter(s: UpdateSchedule, from: Date): Date {
   const at = new Date(from);
   at.setHours(s.hour, s.minute, 0, 0);
@@ -58,11 +62,10 @@ export function nextRunAfter(s: UpdateSchedule, from: Date): Date {
     return at;
   }
 
-  // Monthly: the chosen date this month if it hasn't passed, otherwise next month.
+  // Monthly: the chosen date this month if it has not passed, otherwise next month.
   if (at.getDate() > s.dayOfMonth) {
-    // setDate(1) FIRST. setMonth() overflows when the current day doesn't exist in the
-    // target month — from Jan 30, setMonth(Jan+1) gives "Feb 30", which JS rolls forward
-    // to March 2, silently skipping February entirely.
+    // ⚠ `setDate(1)` FIRST — `setMonth()` overflows when the day does not exist in the target
+    // month: Jan 30 + 1 month gives "Feb 30", which rolls to March 2 and skips February.
     at.setDate(1);
     at.setMonth(at.getMonth() + 1);
   }
@@ -71,25 +74,21 @@ export function nextRunAfter(s: UpdateSchedule, from: Date): Date {
 }
 
 /**
- * Is a run due now?
- *
- * `lastRun` is what stops a missed window being skipped forever: the check is "the due
- * moment has passed and we haven't run since", not "it is exactly 03:00". A machine that
- * was asleep at 03:00 still updates when it wakes, which is the whole point of a schedule
- * on a self-hosted box that isn't on around the clock.
+ * Is a run due now? ⚠ The test is "the due moment has passed and we have not run since", never
+ * "it is exactly 03:00" — a self-hosted box asleep at 03:00 must still update when it wakes.
+ * REFS lib/updates/scheduler.ts — the only caller  PINS tests/unit/update-schedule.test.ts
  */
 export function isRunDue(s: UpdateSchedule, lastRun: Date | null, now: Date): boolean {
-  // No baseline yet is NEVER due. The caller records "now" the first time it looks, so the
-  // first real run lands at the next window. Deriving a synthetic first window instead
-  // means a freshly configured install can rebuild and restart itself minutes later —
-  // during setup, from the user's point of view for no reason at all.
+  // ⚠ No baseline is NEVER due. The caller records "now" on first look, so the first real run
+  // lands at the next window — a synthetic one would restart a freshly configured install.
   if (!lastRun) return false;
   return now >= nextRunAfter(s, lastRun);
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/** Plain-English summary for the admin page. */
+/** Plain-English summary for the admin page.
+ *  REFS app/admin/updates/page.tsx  PINS tests/unit/update-schedule.test.ts */
 export function describeSchedule(s: UpdateSchedule): string {
   const time = `${String(s.hour).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`;
   if (s.frequency === "daily") return `Every day at ${time}`;
