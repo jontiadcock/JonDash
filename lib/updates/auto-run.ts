@@ -13,24 +13,19 @@ import { dependentsOf } from "@/lib/helpers/registry";
 import { readUpdateSchedule } from "./schedule";
 
 /**
- * Scheduled automatic updates for modules and helpers (BUG-30).
+ * Scheduled automatic updates for modules and helpers (BUG-30, MOD-10) — the half that actually
+ * runs. It refuses more than it applies, and both reasons are load-bearing:
  *
- * MOD-10 shipped the opt-in flag and the planning rules but nothing that CALLED them, so
- * the toggle set a database column and the UI said "Currently on" while no module was ever
- * updated. This is the missing half: the thing that runs.
+ * ⚠ Opt-in is PER ITEM, never global. One tick must not hand every source — including a public
+ * repo added by URL — a standing channel to run new code on this machine.
+ * ⚠ A schedule never implies consent. An update wanting MORE access than the admin approved is
+ * reported and left alone however long it waits; so is a blocked update, a downgrade (that is a
+ * channel change, a decision), and a helper upgrade that would break a dependent module.
+ * ⚠ Does NOT rebuild or restart — applying means both, and the caller owns that.
  *
- * Two properties matter more than convenience here, and both are why this refuses more
- * than it applies:
- *
- *  - **Opt-in is per item, never global.** One tick must not hand every source — including
- *    any public repo added by URL — a standing channel to run new code on this machine.
- *  - **Consent is never implied by a schedule.** An update that asks for MORE access than
- *    the admin approved is reported and left alone, however long it waits. The same goes
- *    for a blocked update, a downgrade (that's a channel change, a decision), and a helper
- *    upgrade that would stop a dependent module working.
- *
- * Applying means a rebuild and a restart, so the CALLER owns that — this reports what it
- * did and lets the scheduler decide when to bounce the server.
+ * REFS lib/updates/scheduler.ts — the only caller; decides when to bounce the server
+ *      lib/modules/updates.ts › getModuleUpdateStatus() · lib/helpers/updates.ts — what is held
+ *      lib/helpers/registry.ts › dependentsOf() — the helper-brought-along rule below
  */
 
 export type AutoUpdateOutcome = {
@@ -41,24 +36,22 @@ export type AutoUpdateOutcome = {
   /** Something went wrong reaching a source or installing. */
   failures: string[];
   /**
-   * The version of JonDash ITSELF that should now be installed, or null.
-   *
-   * Reported rather than applied, because applying it ends this process — the caller decides
-   * when to hand over to the launcher, and doing it here would kill the run mid-way through
-   * auditing what it did.
+   * The version of JonDash ITSELF that should now be installed, or null. ⚠ Reported, never applied
+   * here: applying ends this process, which would kill the run mid-way through auditing it.
    */
   appUpdate: string | null;
 };
 
-/** True when automatic updates are on at all — lets the scheduler skip the network entirely. */
+/** True when automatic updates are on at all — lets the scheduler skip the network entirely.
+ *  REFS lib/updates/scheduler.ts — the only caller · ./schedule.ts › readUpdateSchedule() */
 export async function anythingOptedIn(): Promise<boolean> {
   return (await readUpdateSchedule()).autoEnabled;
 }
 
 /**
- * Apply everything that is opted in AND needs no decision. Returns what happened.
- *
- * Does NOT rebuild or restart — the caller does, once, after this returns.
+ * Apply everything opted in that needs no decision, and report what happened. ⚠ Does not rebuild
+ * or restart — the caller does that once, after this returns.
+ * REFS lib/updates/scheduler.ts — the only caller · auditAutoUpdateRun() below records the result
  */
 export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   const out: AutoUpdateOutcome = { applied: [], held: [], failures: [], appUpdate: null };
@@ -74,14 +67,12 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   const wantModule = new Set(modules.filter((m) => !m.autoUpdateExcluded).map((m) => m.id));
   const wantHelper = new Set(helpers.filter((h) => !h.autoUpdateExcluded).map((h) => h.id));
 
-  // JonDash itself is decided the same way as everything else: included unless excluded. The
-  // exclusion lives in `.data/auto-update` rather than the database because it predates this
-  // and the Updates page already drives it — see lib/update-prefs.ts.
+  // JonDash itself follows the same rule: included unless excluded. ⚠ Its exclusion lives in
+  // `.data/auto-update`, not the database — REFS lib/update-prefs.ts, which the Updates page drives
   const wantApp = readAutoInstall();
 
-  // A helper an updating module depends on is brought along even when excluded. Excluding a
-  // helper opts it out of being updated FOR ITS OWN SAKE — not out of being a working
-  // dependency, and a module updated against a helper it can't use is simply broken.
+  // ⚠ A helper an updating module depends on comes along even when excluded: excluding it opts
+  // it out of being updated for ITS OWN sake, not out of being a working dependency.
   if (wantModule.size > 0) {
     const needed = await prisma.helper.findMany({
       where: { autoUpdateExcluded: true },
@@ -158,15 +149,11 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   }
 
   /*
-   * JonDash itself, LAST — and only reported, never applied here.
-   *
-   * The launcher used to be the only thing that updated core, and it did so at every startup
-   * regardless of the schedule. With that removed (owner, 2026-07-28) this is the sole automatic
-   * path, so without it "update automatically" would quietly cover add-ons and not the app.
-   *
-   * Last because applying it replaces the whole install: the launcher rebuilds everything, so any
-   * module updated above is carried along in the same restart rather than needing a second one.
-   * `modules/` and `helpers/` are preserved by the updater, so their new versions survive it.
+   * ⚠ JonDash itself goes LAST, and is only reported. Applying it replaces the whole install, so
+   * every module updated above is carried along in that one rebuild rather than needing a second
+   * restart; `modules/` and `helpers/` are preserved by the updater, so their new versions survive.
+   * ⚠ This is now the ONLY automatic path for core — the launcher no longer updates at startup —
+   * so removing it would make "update automatically" quietly mean add-ons and not the app.
    */
   if (wantApp) {
     try {
@@ -193,7 +180,11 @@ export async function runAutoUpdates(): Promise<AutoUpdateOutcome> {
   return out;
 }
 
-/** Record what a scheduled run did. Written even when nothing was applied but something was held. */
+/**
+ * Record what a scheduled run did. ⚠ Written even when nothing was APPLIED but something was held —
+ * a run that refused everything is exactly the run someone will later ask about.
+ * REFS lib/updates/scheduler.ts — the only caller · lib/audit.ts › audit()
+ */
 export async function auditAutoUpdateRun(out: AutoUpdateOutcome): Promise<void> {
   if (out.applied.length === 0 && out.held.length === 0 && out.failures.length === 0 && !out.appUpdate) {
     return;

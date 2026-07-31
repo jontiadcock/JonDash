@@ -1,24 +1,22 @@
 import "server-only";
 
 /**
- * The branded email shell (design C2, chosen by the owner 2026-07-27).
+ * The branded email shell.
  *
- * **Why the app's own CSS cannot be reused.** Mail clients strip `<style>` blocks and have no idea
- * what a CSS custom property is, so the entire token system the app is built on is unavailable —
- * every rule has to be inlined as a literal value. The palette is therefore resolved to concrete
- * hex here, server-side, at send time. One template then covers all 140 style × palette
- * combinations rather than 140 hand-built templates.
+ * ⚠ The app's own CSS is unavailable here: mail clients strip `<style>` and know nothing of CSS
+ * custom properties, so every rule is an inlined literal and the palette is resolved to concrete
+ * hex at send time. One template then covers every style × palette pairing.
+ * ⚠ Light ground regardless of palette. Many clients override a dark background and leave the
+ * light text on it, which is less readable than looking plain.
+ * ⚠ Core owns the chrome and a module supplies only the body — so a module cannot ship mail that
+ * renders badly in Outlook, nor mail that looks like it came from JonDash itself when it did not.
  *
- * **Light ground regardless of palette, deliberately.** A good number of clients override a dark
- * background and leave the light text on it, which produces an unreadable message — the one
- * failure mode worse than looking plain. The branding comes through the accent rule, the wordmark
- * and the call to action instead.
- *
- * **Core owns the chrome; a module supplies only the body** (D4). That is not merely tidiness: it
- * means a module cannot ship mail that renders badly in Outlook, and cannot produce a message that
- * looks like it came from JonDash itself when it did not.
+ * REFS lib/email/send.ts · lib/modules/context.ts › sendMail — the two entry points
+ *      lib/styles.ts › resolvePalette() — where the concrete hex comes from
+ * PINS tests/unit/email-template.test.ts
  */
 
+/** REFS STATE_COLOUR below — the fixed semantic colour for each */
 export type RowState = "ok" | "warn" | "bad";
 
 export type MailList = {
@@ -26,6 +24,7 @@ export type MailList = {
   rows: { label: string; value: string; state?: RowState }[];
 };
 
+/** REFS lib/modules/types.ts › the sendMail capability — the module-facing shape of this */
 export type BrandedEmail = {
   /** The instance's name — the wordmark, and what the footer signs off as. */
   appName: string;
@@ -34,12 +33,12 @@ export type BrandedEmail = {
   /** Shown as the heading inside the message. Usually the same as the subject. */
   title: string;
   /**
-   * The body, as PLAIN TEXT. Escaped, then blank line → paragraph and single newline → line
-   * break. Callers must not hard-wrap: a wrapped line becomes a forced break mid-sentence, and
-   * the client then wraps again at its own width.
+   * The body, as PLAIN TEXT. ⚠ Callers must not hard-wrap — a wrapped line becomes a forced break
+   * mid-sentence and the client then wraps again at its own width. REFS textToHtml() below
    */
   text: string;
-  /** Optional single call to action. `url` is already absolute — resolving a path is the caller's job. */
+  /** Optional single call to action. ⚠ `url` must already be absolute — resolving a path is the
+   *  caller's job. REFS lib/app-url.ts › resolveAppUrl() */
   cta?: { label: string; url: string };
   /** Optional repeating blocks — label / value / state. Several are allowed. */
   lists?: MailList[];
@@ -47,8 +46,8 @@ export type BrandedEmail = {
   footer?: string;
 };
 
-/** Semantic colours, fixed rather than palette-derived: "this failed" must not change meaning
- *  with the theme, and these are chosen to stay legible on the white sheet. */
+/** ⚠ Fixed, never palette-derived — "this failed" must not change meaning with the theme, and
+ *  these are picked to stay legible on the white sheet. */
 const STATE_COLOUR: Record<RowState, string> = {
   ok: "#0f7a4d",
   warn: "#9a6100",
@@ -61,6 +60,7 @@ const HAIRLINE = "#e6e6ea";
 const SHEET = "#ffffff";
 const PAGE = "#f2f2f5";
 
+/** ⚠ Every caller-supplied string in this file goes through here. REFS textToHtml() below */
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -71,15 +71,13 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * Plain text → HTML. **Escaped first**, always.
+ * Plain text → HTML. ⚠ Escaped FIRST, always: without it a module could inject markup into a
+ * branded JonDash email, which undoes the point of core owning the chrome. It also means a folder
+ * path containing `<` or `&` renders as itself instead of vanishing.
  *
- * Without the escape a module could inject markup into a branded JonDash email, which would undo
- * the entire point of core owning the chrome. It also means a check name or a folder path
- * containing `<` or `&` renders as itself instead of vanishing.
- *
- * Blank line → paragraph, single newline → `<br>`. Deliberately NOT `white-space: pre-wrap`:
- * Outlook's Word-based renderer handles that unreliably, and Outlook is the client most likely to
- * be reading a server alert.
+ * ⚠ Blank line → paragraph, newline → `<br>`; deliberately NOT `white-space: pre-wrap`, which
+ * Outlook's Word-based renderer handles unreliably — and Outlook is the client most likely to be
+ * reading a server alert. PINS tests/unit/email-template.test.ts
  */
 export function textToHtml(text: string): string {
   return text
@@ -90,11 +88,10 @@ export function textToHtml(text: string): string {
 }
 
 /**
- * Black or white, whichever is readable on `hex`.
- *
- * Needed because a palette accent can be anything from `#000000` (Paper · Ink) to `#ff56c8`
- * (Crystal · Neon), and a CTA button hardcoded to white text is invisible on half of them.
- * Relative luminance per WCAG; the 0.5 threshold is the usual practical split.
+ * Black or white, whichever is readable on `hex`. ⚠ A palette accent ranges from `#000000` to
+ * near-white, so a CTA hardcoded to white text is invisible on half of them. Relative luminance per
+ * WCAG. REFS app/components/branding.tsx › contrastOn() — the same rule for the app's own UI
+ * PINS tests/unit/email-template.test.ts
  */
 export function readableOn(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -111,8 +108,7 @@ export function readableOn(hex: string): string {
   return L > 0.5 ? "#000000" : "#ffffff";
 }
 
-/** A hex we are willing to paint text in on a white sheet. Falls back rather than throwing —
- *  a malformed accent must never stop an email being sent. */
+/** ⚠ Falls back rather than throwing — a malformed accent must never stop an email being sent. */
 function safeAccent(accent: string): string {
   return /^#?[0-9a-f]{6}$/i.test(accent.trim())
     ? accent.trim().startsWith("#")
@@ -138,7 +134,7 @@ function renderList(list: MailList): string {
 </div>`;
 }
 
-/** The plain-text alternative, built from the same inputs — never a stripped copy of the HTML. */
+/** ⚠ The plain-text alternative is built from the same INPUTS, never stripped from the HTML. */
 function renderText(o: BrandedEmail): string {
   const parts = [o.title, "", o.text.trim()];
   for (const list of o.lists ?? []) {
@@ -153,12 +149,13 @@ function renderText(o: BrandedEmail): string {
 /**
  * The instance's own name and accent, resolved to literal values for a message.
  *
- * Precedence matters: a custom accent set under Appearance wins over the palette's, because that
- * is what the person actually chose and what the app itself paints with — an email that used the
- * palette's colour would look like a different product to its own dashboard. `STYLE_SETTINGS`
- * decides whether the current style offers a custom accent at all (only Modern does; the others
- * carry their colour in their palettes), so a stale value stored from a previous style is ignored
- * rather than resurfacing here.
+ * ⚠ Precedence: a custom accent set under Appearance beats the palette's, because that is what the
+ * app itself paints with — mail using the palette colour would look like a different product to
+ * its own dashboard. `STYLE_SETTINGS` decides whether the current style offers a custom accent at
+ * all, so a stale value stored under a previous style is ignored rather than resurfacing here.
+ *
+ * REFS lib/settings.ts › STYLE_SETTINGS — the per-style list · lib/styles.ts › resolveStylePair()
+ *      lib/email/send.ts · lib/modules/context.ts — the callers
  */
 export async function currentBrand(): Promise<{ appName: string; accent: string }> {
   const { getAppName, getAccentColor, getStyleId, getPaletteId, STYLE_SETTINGS } = await import(
@@ -183,6 +180,11 @@ export async function currentBrand(): Promise<{ appName: string; accent: string 
   };
 }
 
+/**
+ * REFS lib/email/send.ts — the core send path · lib/modules/context.ts — the module capability
+ *      lib/modules/types.ts — where that capability is declared
+ * PINS tests/unit/email-template.test.ts
+ */
 export function renderBrandedEmail(o: BrandedEmail): { html: string; text: string } {
   const accent = safeAccent(o.accent);
   const onAccent = readableOn(accent);
@@ -198,9 +200,8 @@ export function renderBrandedEmail(o: BrandedEmail): { html: string; text: strin
     ? `<div style="border-top:1px solid ${HAIRLINE};padding:14px 26px;font-size:12px;color:${MUTED};">${escapeHtml(o.footer)}</div>`
     : "";
 
-  // Tables, inline styles and no shorthand that Outlook mangles. Ugly by modern standards and
-  // correct by mail-client standards — this is the one place in the codebase where that trade
-  // goes the other way.
+  // ⚠ Tables, inline styles, no shorthand Outlook mangles. Ugly by modern standards and correct
+  // by mail-client ones — the one place in this codebase where that trade goes the other way.
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(o.title)}</title></head>
 <body style="margin:0;padding:0;background:${PAGE};">
