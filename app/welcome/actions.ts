@@ -25,7 +25,9 @@ import {
   type BackupInspection,
 } from "@/lib/backup";
 
+/** REFS ./forms.tsx — the setup form's `useActionState` shape */
 export type WelcomeState = { error?: string };
+/** REFS ./forms.tsx — the restore form's shape; `notice` carries what a restore could not do */
 export type WelcomeRestoreState = { error?: string; notice?: string };
 
 async function clientIp(): Promise<string> {
@@ -33,7 +35,9 @@ async function clientIp(): Promise<string> {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
-/** Step 1: create the first admin (email + password), generate a TOTP secret. */
+/** Step 1: create the first admin and generate a TOTP secret. ⚠ Closed the moment an active admin
+ *  exists — that boundary is what stops this being an unauthenticated account-creation endpoint on
+ *  a live install. REFS lib/auth/bootstrap.ts › hasActiveAdmin() · ./forms.tsx */
 export async function welcomeCreateAction(
   _prev: WelcomeState,
   formData: FormData,
@@ -71,7 +75,9 @@ export async function welcomeCreateAction(
   redirect("/welcome"); // page advances to the TOTP step
 }
 
-/** Step 2: confirm TOTP → activate the admin and sign them in. */
+/** Step 2: confirm TOTP, activate the admin and sign them in. ⚠ The account stays PENDING_SETUP
+ *  until the code verifies, so an abandoned step 1 cannot leave a sign-in-able admin.
+ *  REFS lib/auth/totp.ts · lib/auth/session.ts · ./forms.tsx */
 export async function welcomeConfirmAction(
   _prev: WelcomeState,
   formData: FormData,
@@ -108,15 +114,13 @@ export async function welcomeConfirmAction(
 }
 
 /**
- * Say whether a chosen backup is encrypted, on the first-run screen (9.6).
+ * Say whether a chosen backup is encrypted, on the first-run screen.
  *
- * **Its own action, not the admin one, because this surface has no admin to authenticate.** It
- * carries exactly the guards the restore beside it carries — closed the moment an admin exists,
- * same-origin, and the same per-IP rate limit — so it cannot become a way to probe a live install,
- * and it cannot be used to grind through files any faster than the restore itself could.
- *
- * It reveals only what the envelope already keeps outside the ciphertext: whether a passphrase is
- * needed, when the backup was made, and which categories it holds.
+ * ⚠ Its own action, not the admin one, because this surface has no admin to authenticate — so it
+ * must carry exactly the guards the restore beside it carries: closed once an admin exists,
+ * same-origin, and the same per-IP rate limit. Relax any of them and it becomes a way to probe a
+ * live install. It reveals only what the envelope keeps outside the ciphertext anyway.
+ * REFS lib/backup.ts › inspectBackup() · app/admin/backup/actions.ts — the admin equivalent
  */
 export async function welcomeInspectAction(formData: FormData): Promise<BackupInspection> {
   await assertSameOrigin();
@@ -133,10 +137,11 @@ export async function welcomeInspectAction(formData: FormData): Promise<BackupIn
 }
 
 /**
- * First-run alternative: initialise a brand-new install by restoring a backup
- * (e.g. migrating from another machine). Only available before the first admin
- * exists — the same boundary that closes the setup wizard — so it is never an
+ * First-run alternative: initialise a brand-new install from a backup. ⚠ Available ONLY before the
+ * first admin exists — the same boundary that closes the setup wizard — so it can never be an
  * unauthenticated restore of a live install.
+ * REFS lib/auth/bootstrap.ts › hasActiveAdmin() · lib/backup.ts › applyRestore()
+ * PINS tests/integration/welcome-restore.test.ts
  */
 export async function welcomeRestoreAction(
   _prev: WelcomeRestoreState,
@@ -183,7 +188,9 @@ export async function welcomeRestoreAction(
   };
 }
 
-/** Discard the in-progress admin so setup can be restarted with a new email. */
+/** Discard the in-progress admin so setup can restart with a new email. ⚠ Same boundary as the
+ *  rest of this file — refused once an active admin exists, or it would delete a real account.
+ *  REFS lib/auth/bootstrap.ts › hasActiveAdmin() · ./forms.tsx */
 export async function welcomeRestartAction(): Promise<void> {
   await assertSameOrigin();
   if (await hasActiveAdmin()) redirect("/login");

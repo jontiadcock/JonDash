@@ -8,9 +8,14 @@ import { serializeBackup } from "@/lib/backup";
 export const dynamic = "force-dynamic";
 
 /**
- * Admin-only full server backup download. Posted from the admin Backup page. Always
- * exports everything; an optional passphrase encrypts the archive and is the only way
- * the master key + credentials + secret settings are included (enforced strong).
+ * Admin-only full server backup download. ⚠ A route, not a server action, because it streams a file
+ * — so it carries its own same-origin check and its own permission check rather than inheriting an
+ * action's.
+ * ⚠ The passphrase is the ONLY way the master key, credentials and secret settings are included,
+ * and it is strength-checked: a weak one would encrypt the most sensitive artifact the app
+ * produces.
+ * REFS lib/backup.ts › serializeBackup() · lib/auth/password.ts › validateBackupPassphrase()
+ *      app/admin/backup/ui.tsx — the form  PINS tests/integration/backup.test.ts
  */
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -56,11 +61,12 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  // `.dashbk`, not `.zip`. A backup is a JonDash artifact you restore, not a folder to
-  // rummage in — the extension says so, and stops a double-click scattering the contents.
-  // Honest about what it is: still a ZIP inside, and renaming it back to .zip opens it.
-  // That is presentation, not protection — an ENCRYPTED backup is protected because
-  // everything in it is inside the ciphertext (BUG-25), not because of its name.
+  /*
+   * `.dashbk`, not `.zip` — a backup is an artifact you restore, not a folder to rummage in, and
+   * the extension stops a double-click scattering the contents.
+   * ⚠ Presentation, NOT protection: it is still a ZIP and renaming it opens it. An encrypted backup
+   * is protected because everything is inside the ciphertext (BUG-25), never because of its name.
+   */
   const filename = `jondash-backup-${stamp}.dashbk`;
   // Copy into a fresh Uint8Array (backed by a plain ArrayBuffer) so it satisfies
   // the Web `BodyInit` type; fflate returns Uint8Array<ArrayBufferLike>.

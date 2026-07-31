@@ -15,12 +15,11 @@ import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } fr
 import { getModuleUpdateStatus, clearModuleUpdateCache } from "@/lib/modules/updates";
 import { applyModuleUpdates } from "./module-actions";
 
-/**
- * Helper updates and channel pinning (MOD-10).
- *
- * Until now a helper could only change version as a side effect of a module install, so a
- * helper shipping a security fix reached nobody unless a module happened to update too.
- * This is the missing delivery path.
+/*
+ * Helper updates and channel pinning (MOD-10) — the delivery path a helper otherwise lacks. Before
+ * this a helper could only change version as a side effect of a module install, so one shipping a
+ * security fix reached nobody unless a module happened to update too.
+ * REFS lib/helpers/updates.ts · lib/helpers/install.ts · ./module-actions.ts › applyModuleUpdates()
  */
 
 export type HelperUpdateState = { ok?: boolean; error?: string };
@@ -38,13 +37,13 @@ export async function checkHelperUpdatesAction(): Promise<void> {
 }
 
 /**
- * Update one or more helpers. Batched: one rebuild and one restart for the set, matching
- * how modules behave — a helper's code is compiled in exactly like a module's.
+ * Update one or more helpers. Batched: one rebuild and one restart for the set, because a helper's
+ * code is compiled in exactly like a module's.
  *
- * Everything is re-resolved from the official source here, so a tampered form can't change
- * which version lands. `acknowledged` carries the ids whose known-breaking update the admin
- * explicitly accepted; without it a helper that declares `breakingFrom` is refused rather
- * than quietly breaking its consumers.
+ * ⚠ Everything is re-resolved from the official source HERE, so a tampered form cannot change which
+ * version lands.
+ * ⚠ A helper declaring `breakingFrom` is refused unless its id is in `acknowledged` — otherwise it
+ * quietly breaks its consumers. REFS lib/helpers/updates.ts · lib/helpers/install.ts
  */
 export async function updateHelpersAction(
   _prev: HelperUpdateState,
@@ -122,12 +121,10 @@ export async function updateHelpersAction(
 }
 
 /**
- * Pin a helper to a channel, or clear the pin and return to the derived value.
- *
- * The Helpers page is otherwise read-only by design — a helper is not something you
- * install or remove. A channel pin is the one deliberate exception: it exists so an admin
- * can take a security fix early, or step back off beta, without having to move every
- * module that depends on it.
+ * Pin a helper to a channel, or clear the pin and return to the derived value. ⚠ The one write on
+ * an otherwise read-only page — a helper is not something you install or remove — and it exists so
+ * an admin can take a security fix early without moving every module that depends on it.
+ * REFS lib/helpers/channel.ts › resolveHelperChannel()  PINS tests/unit/helper-channel-pin.test.ts
  */
 export async function pinHelperChannelAction(
   _prev: HelperUpdateState,
@@ -158,17 +155,14 @@ export async function pinHelperChannelAction(
 }
 
 /**
- * "Update everything" — every add-on with an update waiting, in ONE rebuild and restart.
+ * "Update everything" — every ADD-ON with an update waiting, in one rebuild and restart.
  *
- * Scoped to add-ons on purpose. JonDash's own update is deliberately NOT included: a
- * module can require a newer app version, so the app would have to go first, restart, and
- * only then could the add-ons proceed — and if the app update failed and rolled back, the
- * add-on updates would be running against an app that no longer exists. Two buttons and
- * one clear order beats one button and a failure mode nobody can reason about.
- *
- * Anything needing a decision is SKIPPED and reported, never auto-approved: a module
- * asking for more access than was granted, and a helper whose new version breaks its
- * consumers.
+ * ⚠ Scoped to add-ons. JonDash's own update is not included here: a module can require a newer app
+ * version, so the app must go first and restart, and if it rolled back the add-on updates would be
+ * running against an app that no longer exists.
+ * ⚠ Anything needing a decision is SKIPPED and reported, never auto-approved — a module asking for
+ * more access, or a helper whose new version breaks its consumers.
+ * REFS ./selection-actions.ts — the chained core-then-add-ons path · ./module-actions.ts
  */
 export async function updateEverythingAction(
   _prev: HelperUpdateState,
@@ -212,9 +206,8 @@ export async function updateEverythingAction(
     }
   }
 
-  // Modules that need no decision. Anything asking for MORE access is skipped and named:
-  // the consent gate holds identically here — "update everything" is a convenience, never
-  // a way past an approval the admin owes.
+  // ⚠ The consent gate holds identically here: "update everything" is a convenience, never a way
+  // past an approval the admin owes. Anything asking for MORE access is skipped and named.
   const eligible: string[] = [];
   for (const m of moduleStatus.modules) {
     if (!m.updateAvailable || !m.latestVersion || m.isDowngrade) continue;

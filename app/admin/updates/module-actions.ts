@@ -30,19 +30,13 @@ export async function checkModuleUpdatesAction(): Promise<void> {
 }
 
 /**
- * Update one or more modules.
+ * Update one or more modules. Batched: five modules is ONE rebuild and restart.
  *
- * Batched deliberately: five modules is ONE rebuild and ONE restart, not five. Everything
- * is re-resolved from the source here, so a tampered form can't change which version gets
- * installed or understate what it asks for.
- *
- * **Permission changes are consented, never inherited.** `grantedPermissions` is only
- * written at enable, so without this an updated module either silently gains access the
- * admin never approved, or (more often) is denied a capability its new code needs and
- * misbehaves with no explanation. Any module whose new version ADDS a permission must be
- * named in `consented`, and grants are rewritten to the new declared set as part of
- * applying. Permissions only removed need no confirmation — losing access is never a
- * surprise worth interrupting for.
+ * ⚠ Everything is re-resolved from the source HERE, so a tampered form cannot change which version
+ * lands or understate what it asks for.
+ * ⚠ Permission changes are CONSENTED, never inherited: a module whose new version ADDS a permission
+ * must be named in `consented`, or it silently gains access the admin never approved. Permissions
+ * only removed need no confirmation. REFS lib/modules/permissions.ts · lib/modules/verify.ts
  */
 export async function updateModulesAction(
   _prev: ModuleUpdateState,
@@ -73,14 +67,13 @@ export async function updateModulesAction(
 }
 
 /**
- * Apply module updates and report what happened — WITHOUT rebuilding.
+ * Apply module updates and report what happened, WITHOUT rebuilding — so "Update everything" can do
+ * modules and helpers in one rebuild rather than duplicating this.
  *
- * Split out so "Update everything" can update modules and helpers in a single rebuild
- * rather than duplicating this logic. Every gate here (blocked, added permissions,
- * minAppVersion, missing helper) applies identically whichever entry point is used —
- * "update everything" is a convenience, never a way past a decision the admin owes.
- *
- * The caller owns the rebuild, the cache clear and the audit summary.
+ * ⚠ Every gate here — blocked, added permissions, `minAppVersion`, missing helper — applies
+ * identically whichever entry point is used. The caller owns the rebuild, the cache clear and the
+ * audit summary. REFS ./helper-actions.ts › updateEverythingAction() · ./selection-actions.ts ·
+ *      lib/updates/auto-run.ts — the scheduled path
  */
 export async function applyModuleUpdates(
   ids: string[],
@@ -137,15 +130,11 @@ export async function applyModuleUpdates(
       }
 
       /*
-       * BUG-56, second site. The verifier has just confirmed the package declares exactly
-       * `entry.permissions` — but writing that set wholesale silently restores anything the
-       * admin revoked on Admin → Addon Permissions, which is the same defect as the enable path.
-       *
-       * So: keep what they currently hold, drop anything this version no longer declares, and
-       * add ONLY the permissions that are new in this version *and* were explicitly consented
-       * to a moment ago. That consent is the gate above (`permissionsAdded` + `consented`), so
-       * this adds exactly what the admin just approved and nothing else. A revoked permission
-       * that is merely re-declared by a new version stays revoked (owner decision, 2026-07-27).
+       * ⚠ BUG-56: never write the declared set wholesale — that silently restores anything the
+       * admin revoked on Admin → Permissions. Keep what they hold, drop what this version no longer
+       * declares, and add ONLY permissions new in this version that were explicitly consented to
+       * above. A revoked permission merely re-declared by a new version stays revoked.
+       * REFS lib/modules/permissions.ts › nextGrants() — the same rule on the enable path
        */
       const row = await prisma.module.findUnique({
         where: { id },

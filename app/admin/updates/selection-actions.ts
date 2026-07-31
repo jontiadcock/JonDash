@@ -17,14 +17,14 @@ import { regenerateRegistry, markModuleInstalling, requestRebuildAndRestart } fr
 import { applyModuleUpdates } from "./module-actions";
 import { queueAddonUpdates, takeQueuedAddonUpdates } from "@/lib/update-queue";
 
+/** REFS ./available-updates.tsx — the `useActionState` shape */
 export type SelectionState = { ok?: boolean; error?: string };
 
 /**
- * Stage one of "Update everything": remember the add-ons, so they can be applied once
- * JonDash's own update has landed and the server has come back.
- *
- * The caller applies the core update immediately afterwards (`/api/update/apply`), which
- * ends this process — hence writing the list down rather than holding it in memory.
+ * Stage one of "Update everything": remember the add-ons for after JonDash's own update lands.
+ * ⚠ Written to disk, not held in memory — the caller applies the core update immediately
+ * afterwards, which ends this process.
+ * REFS lib/update-queue.ts › queueAddonUpdates() · ./available-updates.tsx
  */
 export async function queueAddonUpdatesAction(
   moduleIds: string[],
@@ -41,12 +41,12 @@ export async function queueAddonUpdatesAction(
 }
 
 /**
- * Stage two: apply whatever stage one left behind. Called from the post-update screen once
- * the new build is running.
- *
- * The queue is consumed as it's read, so a failure here is reported once rather than retried
- * on every boot. Items are re-checked against what's actually available on the NEW version —
- * an update that no longer applies is skipped, not forced.
+ * Stage two: apply whatever stage one left behind, from the post-update screen.
+ * ⚠ The queue is consumed AS IT IS READ, so a failure is reported once rather than retried on every
+ * boot. Items are re-checked against what is available on the NEW version — an update that no
+ * longer applies is skipped, not forced.
+ * REFS lib/update-queue.ts › takeQueuedAddonUpdates() ·
+ * app/(app)/update-complete/continue-addons.tsx
  */
 export async function applyQueuedAddonUpdatesAction(): Promise<SelectionState> {
   await assertSameOrigin();
@@ -62,7 +62,9 @@ export async function applyQueuedAddonUpdatesAction(): Promise<SelectionState> {
   return updateSelectedAction({}, form);
 }
 
-/** Force a fresh check of all three — core, modules and helpers — in one click. */
+/** Force a fresh check of core, modules and helpers at once. ⚠ Bypasses every cache, so it is the
+ *  button that makes a channel switch or a new release visible immediately.
+ *  REFS lib/update.ts › getUpdateStatus(true) · lib/helpers/updates.ts · lib/modules/updates.ts */
 export async function checkAllUpdatesAction(): Promise<void> {
   await assertSameOrigin();
   await requirePermission("settings.manage");
@@ -75,13 +77,11 @@ export async function checkAllUpdatesAction(): Promise<void> {
 }
 
 /**
- * Apply a selection of module and helper updates in ONE rebuild and ONE restart.
- *
- * Core is deliberately not handled here: JonDash's own update runs through the launcher
- * (`/api/update/apply`) while these are applied in-process and exit to rebuild. Driving
- * both from one submit can half-apply, so the UI keeps them apart.
- *
- * Helpers go first — a module's new version may need the newer helper, never the reverse.
+ * Apply a selection of module and helper updates in ONE rebuild and restart.
+ * ⚠ Core is not handled here — it runs through the launcher while these apply in-process, and
+ * driving both from one submit can half-apply.
+ * ⚠ Helpers go FIRST: a module's new version may need the newer helper, never the reverse.
+ * REFS ./module-actions.ts › applyModuleUpdates() · ./helper-actions.ts · ./available-updates.tsx
  */
 export async function updateSelectedAction(
   _prev: SelectionState,
