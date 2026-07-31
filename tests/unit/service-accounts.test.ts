@@ -14,6 +14,8 @@ import { isServiceAccount, serviceAccountLabel, serviceAccountHandle } from "@/l
  * so if a service account could satisfy it, an install whose last human admin was deleted would
  * show the login page forever — with nobody able to sign in, and the wizard that exists to rescue
  * exactly that situation permanently suppressed by an account that cannot itself be used.
+ * REFS app/login/actions.ts · app/admin/actions.ts · app/setup/[token]/actions.ts
+ *      lib/auth/bootstrap.ts · lib/auth/service-accounts.ts · lib/auth/permissions.ts — and 2 more
  */
 
 const ROOT = process.cwd();
@@ -70,9 +72,11 @@ describe("audit attribution", () => {
 
 describe("THE LOCKOUT GUARD — a service account must never satisfy 'an admin exists'", () => {
   it("counts humans only", () => {
-    // If this filter goes, deleting the last human admin leaves an install that shows the login
-    // page forever and cannot be recovered, because the wizard is gated on this count and the
-    // account keeping it quiet cannot be signed into.
+    /*
+     * If this filter goes, deleting the last human admin leaves an install that shows the login
+     * page forever and cannot be recovered, because the wizard is gated on this count and the
+     * account keeping it quiet cannot be signed into.
+     */
     expect(SVC).toMatch(/countHumanAdmins[\s\S]*?isServiceAccount:\s*false/);
   });
 
@@ -90,9 +94,11 @@ describe("THE LOCKOUT GUARD — a service account must never satisfy 'an admin e
 
 describe("every way in is closed", () => {
   it("sign-in refuses BEFORE any credential comparison", () => {
-    // Order is the control: refused in the same branch as an unknown address, which spends the
-    // decoy hash. So it answers in the same time with the same words and cannot be probed for
-    // existence. A check after verifyPassword would leak both.
+    /*
+     * Order is the control: refused in the same branch as an unknown address, which spends the
+     * decoy hash. So it answers in the same time with the same words and cannot be probed for
+     * existence. A check after verifyPassword would leak both.
+     */
     const guard = LOGIN.indexOf("isServiceAccount(user)");
     const verify = LOGIN.indexOf("await verifyPassword(");
     expect(guard).toBeGreaterThan(-1);
@@ -110,9 +116,11 @@ describe("every way in is closed", () => {
   });
 
   it("admin reset refuses — it is the sharpest promotion path in the app", () => {
-    // resetAccessAction sets PENDING_SETUP and mints a working setup link, i.e. exactly how an
-    // identity acquires a password and MFA. Unguarded, it converts a service account into a login
-    // and hands someone the URL to finish the job.
+    /*
+     * resetAccessAction sets PENDING_SETUP and mints a working setup link, i.e. exactly how an
+     * identity acquires a password and MFA. Unguarded, it converts a service account into a login
+     * and hands someone the URL to finish the job.
+     */
     const guard = ADMIN.indexOf("A service account has no sign-in to reset");
     const mint = ADMIN.indexOf("const token = await newSetupToken();", ADMIN.indexOf("resetAccessAction"));
     expect(guard).toBeGreaterThan(-1);
@@ -130,18 +138,22 @@ describe("every way in is closed", () => {
 
 describe("disable and re-enable actually work", () => {
   it("re-enabling does not require a password and MFA it can never have", () => {
-    // The completed-setup test is one a service account can never pass, so without the exception
-    // the Enable button would silently do nothing — the worst kind of broken, because the UI
-    // reports success.
+    /*
+     * The completed-setup test is one a service account can never pass, so without the exception
+     * the Enable button would silently do nothing — the worst kind of broken, because the UI
+     * reports success.
+     */
     expect(ADMIN).toMatch(/isServiceAccount\(user\)\s*\|\|\s*\(user\.passwordHash && user\.totpSecretEnc\)/);
   });
 });
 
 describe("the helper-facing surface", () => {
   it("lists service accounts ONLY — a person can never appear", () => {
-    // Stronger than filtering at the helper's end: there is nothing to filter, and no way to bind
-    // to a person even by mistake. The list is also the predicate, so no separate isBindable()
-    // can ever disagree with what the picker shows.
+    /*
+     * Stronger than filtering at the helper's end: there is nothing to filter, and no way to bind
+     * to a person even by mistake. The list is also the predicate, so no separate isBindable()
+     * can ever disagree with what the picker shows.
+     */
     expect(SVC).toMatch(/listBindableAccounts[\s\S]*?where:\s*\{\s*isServiceAccount:\s*true\s*\}/);
     expect(SVC).toMatch(/resolveBindableAccount[\s\S]*?isServiceAccount:\s*true/);
   });
@@ -164,9 +176,11 @@ describe("the helper-facing surface", () => {
 
 describe("permissions outside a request", () => {
   it("exports an uncached sibling, with cache() as a thin wrapper over it", () => {
-    // Owner decision 2026-07-26. Measured: cache() outside a render neither throws nor memoizes,
-    // so calling it would work today — but that is undocumented React internal behaviour, and if
-    // it changed, authorization would break or leak SILENTLY. One body, two named entry points.
+    /*
+     * Owner decision 2026-07-26. Measured: cache() outside a render neither throws nor memoizes,
+     * so calling it would work today — but that is undocumented React internal behaviour, and if
+     * it changed, authorization would break or leak SILENTLY. One body, two named entry points.
+     */
     expect(PERMS).toContain("export async function getEffectivePermissionsUncached");
     expect(PERMS).toContain("export const getEffectivePermissions = cache(getEffectivePermissionsUncached)");
   });
@@ -188,7 +202,8 @@ describe("the deletion hook is hygiene, never safety", () => {
 });
 
 /**
- * Helper lifecycle: an off switch that doesn't stop anything is the defect this guards (2026-07-27).
+ * Helper lifecycle: an off switch that doesn't stop anything is the defect this guards
+ * (2026-07-27).
  *
  * For almost every helper it makes no difference — a helper does nothing until a module calls it.
  * It matters entirely for a helper that holds a resource of its own, and the `mcp` helper (a
@@ -205,9 +220,11 @@ describe("a helper starts only when an enabled module needs it", () => {
   });
 
   it("still migrates every INSTALLED helper, enabled or not", () => {
-    // The trap in the obvious version of this fix. Skipping migrations for a dormant helper leaves
-    // it meeting an old layout the moment someone re-enables the module — the failure modules hit
-    // before ensureModuleMigrations existed.
+    /*
+     * The trap in the obvious version of this fix. Skipping migrations for a dormant helper leaves
+     * it meeting an old layout the moment someone re-enables the module — the failure modules hit
+     * before ensureModuleMigrations existed.
+     */
     const start = BOOT.indexOf("export async function bootHelpers");
     const body = BOOT.slice(start, BOOT.indexOf("\nexport ", start + 1));
     const filter = body.indexOf("required.has(h.id)");

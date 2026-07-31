@@ -6,6 +6,11 @@ import { getUpdateStatus, requestUpdateRestart } from "@/lib/update";
 import { clearUpdateFailure } from "@/lib/update-prefs";
 import { SERVER_BOOT_TIME } from "@/lib/boot";
 
+/**
+ * REFS lib/auth/guards.ts · lib/security/csrf.ts · lib/audit.ts · lib/update.ts
+ *      lib/update-prefs.ts · lib/boot.ts
+ */
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

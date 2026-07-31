@@ -5,6 +5,11 @@ import { audit } from "@/lib/audit";
 import { SERVER_BOOT_TIME } from "@/lib/boot";
 import { requestServerShutdown } from "@/lib/server-control";
 
+/**
+ * REFS lib/auth/guards.ts · lib/security/csrf.ts · lib/audit.ts · lib/boot.ts
+ *      lib/server-control.ts
+ */
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

@@ -18,6 +18,7 @@ import path from "node:path";
  *     at mount, and then ignore the server forever — so after a save the screen can disagree
  *     with the database until someone reloads. The exception is a write-only secret, whose
  *     server value is deliberately never sent and which should clear once saved.
+ * REFS app/components/save-bar.tsx — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 
@@ -61,17 +62,13 @@ describe("settings forms share one save control", () => {
 
 describe("a save does not throw away what was just saved", () => {
   /**
-   * The measured root cause of *"when clicking save, the button reverts"* (1.8.0-beta.11).
+   * The root cause of "clicking save reverts the control".
    *
-   * React 19 calls `form.reset()` once a form action resolves. A reset restores every control to
-   * its **server-rendered** default, so the control you just changed snaps back to the value the
-   * page loaded with — and because React's own state still holds the new value, React sees no
-   * change and never rewrites the DOM. Verified live: after saving, React's prop read `1440`
-   * while the DOM read `480`. The save had worked; only the display lied.
-   *
-   * `reset` is cancelable, so `preventDefault()` on it is the entire fix — and it must be on
-   * `dirtyProps`, so every form that spreads it is covered by construction rather than by
-   * everyone remembering.
+   * React 19 calls `form.reset()` once a form action resolves, restoring every control to its
+   * SERVER-RENDERED default — while React's own state keeps the new value, so it sees no change and
+   * never rewrites the DOM. The save worked; only the display lied.
+   * ⚠ `preventDefault()` on `reset` is the whole fix, and it must live on `dirtyProps` so every
+   * form spreading it is covered by construction rather than by everyone remembering.
    */
   const SRC = strip(read("app", "components", "save-bar.tsx"));
 

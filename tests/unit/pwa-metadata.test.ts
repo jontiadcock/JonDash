@@ -5,11 +5,12 @@ import path from "node:path";
 /**
  * The metadata that makes JonDash installable rather than bookmarkable (CORE-15).
  *
- * **Source-level, because the failure is invisible in a browser.** Every one of these can be removed
- * and the app still works perfectly on a desktop — it just stops being installable on a phone, and
- * nobody finds out until someone tries Add to Home Screen and gets a Safari shortcut. Which is
- * exactly what happened: `appleWebApp.capable` alone produced *"just another link"* on the owner's
- * phone.
+ * **Source-level, because the failure is invisible in a browser.** Every one of these can be
+ * removed and the app still works perfectly on a desktop — it just stops being installable on a
+ * phone, and nobody finds out until someone tries Add to Home Screen and gets a Safari shortcut.
+ * Which is exactly what happened: `appleWebApp.capable` alone produced *"just another link"* on the
+ * owner's phone.
+ * REFS app/layout.tsx · app/manifest.ts — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");

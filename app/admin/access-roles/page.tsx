@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { parsePermissionsJson } from "@/lib/auth/permissions";
 import { CreateAccessRoleForm } from "./ui";
 
+/** REFS lib/auth/guards.ts · lib/auth/permissions.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function AccessRolesPage() {

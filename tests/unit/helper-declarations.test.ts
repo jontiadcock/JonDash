@@ -6,6 +6,7 @@ import { helperIdsOf, helperNeedId } from "@/lib/modules/types";
  * A module's `helpers` may be a bare id or `{ id, minVersion }` (MOD-10). Both forms must
  * work everywhere, because the object form is additive — every module published to date
  * uses bare strings and must keep working untouched.
+ * REFS lib/modules/verify.ts · lib/modules/types.ts
  */
 
 const MOD = (helpers: string) => `
@@ -44,9 +45,11 @@ describe("parsing a module's declared helpers", () => {
   });
 
   it("ignores a commented-out helpers example (BUG-39)", () => {
-    // A worked example left in a comment must not become a real dependency — it would
-    // install that helper, or (if it isn't published on the module's channel) roll the whole
-    // module back at install. This is the same class as matching "eval" in a README.
+    /*
+     * A worked example left in a comment must not become a real dependency — it would
+     * install that helper, or (if it isn't published on the module's channel) roll the whole
+     * module back at install. This is the same class as matching "eval" in a README.
+     */
     const alongsideAComment = `
 const mod = {
   id: "demo", permissions: [],
@@ -81,10 +84,12 @@ describe("helperIdsOf / helperNeedId", () => {
   });
 
   it("is what callers must use instead of Array.includes", () => {
-    // `.includes("filesystem")` on a (string | ModuleHelperNeed)[] COMPILES — the union
-    // accepts a string argument — and silently never matches the object form. Every
-    // dependent lookup would come back empty: no consent roll-up, no pruning, no channel
-    // derivation. It's the sort of bug the type system waves through, so it gets a test.
+    /*
+     * `.includes("filesystem")` on a (string | ModuleHelperNeed)[] COMPILES — the union
+     * accepts a string argument — and silently never matches the object form. Every
+     * dependent lookup would come back empty: no consent roll-up, no pruning, no channel
+     * derivation. It's the sort of bug the type system waves through, so it gets a test.
+     */
     const declared = [{ id: "filesystem", minVersion: "1.0.0" }];
     expect(declared.includes("filesystem" as never)).toBe(false);
     expect(helperIdsOf(declared).includes("filesystem")).toBe(true);

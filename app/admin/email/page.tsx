@@ -3,6 +3,8 @@ import { getRequestOrigin } from "@/lib/request";
 import { readEmailConfig } from "@/lib/email/config";
 import { EmailSettings } from "./ui";
 
+/** REFS lib/auth/guards.ts · lib/request.ts · lib/email/config.ts */
+
 export const dynamic = "force-dynamic";
 
 const ERROR_MESSAGES: Record<string, string> = {

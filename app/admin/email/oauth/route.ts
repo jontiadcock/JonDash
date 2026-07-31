@@ -7,6 +7,11 @@ import { readEmailConfig } from "@/lib/email/config";
 import { buildAuthUrl, isOAuthProvider } from "@/lib/email/oauth";
 import { STATE_COOKIE, STATE_PATH } from "@/lib/email/constants";
 
+/**
+ * REFS lib/auth/guards.ts · lib/auth/permissions.ts · lib/request.ts · lib/email/config.ts
+ *      lib/email/oauth.ts · lib/email/constants.ts
+ */
+
 export const dynamic = "force-dynamic";
 
 /** Start the OAuth consent flow: redirect the admin to the provider. */

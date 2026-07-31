@@ -15,6 +15,7 @@ import path from "node:path";
  * the action — it returns `{ok: true}` either way — and Next's cache is not something a unit
  * test can inspect, so the assertion has to be that the call is present. Same reasoning as
  * dashboard-paint.test.ts: when the failure is an omission, assert against the source.
+ * REFS app/admin/actions.ts — read as text
  */
 const SRC = fs
   .readFileSync(path.join(process.cwd(), "app", "admin", "actions.ts"), "utf8")

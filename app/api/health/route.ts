@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
  * client that just triggered a restart/update can poll it to tell when the server
  * is back — and, via `boot`, that it's the *new* process (the value changes on
  * every restart), not the old one still winding down. Reveals nothing sensitive.
+ * REFS lib/boot.ts
  */
 export function GET() {
   return NextResponse.json(

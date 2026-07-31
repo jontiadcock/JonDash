@@ -7,6 +7,8 @@ import {
   generateToken,
 } from "@/lib/crypto";
 
+/** REFS lib/crypto.ts */
+
 describe("crypto", () => {
   it("AES-GCM round-trips a string", () => {
     const secret = "JBSWY3DPEHPK3PXP";

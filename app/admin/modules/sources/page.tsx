@@ -3,6 +3,8 @@ import { requirePermission } from "@/lib/auth/guards";
 import { ensureDefaultSource, listSources } from "@/lib/modules/sources";
 import { SourcesManager, type SourceItem } from "./ui";
 
+/** REFS lib/auth/guards.ts · lib/modules/sources.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function ModuleSourcesPage() {

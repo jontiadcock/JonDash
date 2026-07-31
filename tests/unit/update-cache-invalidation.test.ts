@@ -17,6 +17,8 @@ import path from "node:path";
  *
  * This is a source test on purpose. The failure is "an action forgot a call", which no
  * behavioural test of a single action would catch — the next action added is the one at risk.
+ * REFS app/admin/updates/schedule-actions.ts · app/admin/modules/actions.ts
+ *      lib/helpers/updates.ts · lib/modules/updates.ts · lib/update.ts — read as text
  */
 
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");

@@ -5,6 +5,8 @@ import { CertPanel } from "./cert-panel";
 import { PublicAddressForm } from "./public-address";
 import { getPublicUrlSetting } from "@/lib/settings";
 
+/** REFS lib/auth/guards.ts · lib/tls/network.ts · lib/settings.ts */
+
 export const dynamic = "force-dynamic";
 
 const STATE_COLOR: Record<string, string> = {

@@ -15,6 +15,9 @@ import path from "node:path";
  * catalogue — a page that renders perfectly well and simply asks for less consent than it should.
  * There is no behaviour to observe: both versions install the module. So the assertion is about
  * where the controls are allowed to exist.
+ * REFS app/admin/modules/browse/browse-grid.tsx · app/admin/modules/browse/page.tsx
+ *      app/admin/modules/browse/[id]/page.tsx · app/admin/modules/browse/[id]/module-actions.tsx
+ *      app/admin/modules/browse/module-detail.tsx · app/admin/modules/browse/@modal — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 // A regex over source is a regex over comments too (BUG-39), and these files explain the rule
@@ -25,7 +28,9 @@ const GRID = strip(read("app", "admin", "modules", "browse", "browse-grid.tsx"))
 const CATALOGUE = strip(read("app", "admin", "modules", "browse", "page.tsx"));
 const DETAIL = strip(read("app", "admin", "modules", "browse", "[id]", "page.tsx"));
 const ACTIONS = strip(read("app", "admin", "modules", "browse", "[id]", "module-actions.tsx"));
-/** The consent screen itself, shared by the full page and the overlay that expands over the grid. */
+/**
+ * The consent screen itself, shared by the full page and the overlay that expands over the grid.
+ */
 const SHARED = strip(read("app", "admin", "modules", "browse", "module-detail.tsx"));
 const OVERLAY = strip(read("app", "admin", "modules", "browse", "@modal", "(.)[id]", "page.tsx"));
 

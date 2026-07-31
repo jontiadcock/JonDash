@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { ReenrollFlow } from "./ui";
 
+/** REFS lib/auth/guards.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function ReenrollPage() {

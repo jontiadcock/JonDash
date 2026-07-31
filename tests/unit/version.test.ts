@@ -56,6 +56,7 @@ describe("version helpers", () => {
  *
  * `updateAvailable` is now `cmp > 0`, not `cmp !== 0`. These assert the ordering that rule
  * depends on.
+ * REFS lib/version.ts
  */
 describe("a pre-release is never newer than its release (BUG-31)", () => {
   it("0.0.5-beta.1 sorts BELOW 0.0.5", () => {

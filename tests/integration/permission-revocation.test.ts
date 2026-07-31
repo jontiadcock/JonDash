@@ -14,6 +14,7 @@ import { parseGrants } from "@/lib/modules/permissions";
  *
  * Owner decision (2026-07-27): an update NEVER re-grants something you revoked. Adding is the
  * consent screen's job, and only for permissions that are genuinely new in that version.
+ * REFS lib/modules/types.ts · lib/modules/manage.ts · lib/modules/permissions.ts
  */
 
 const ID = "revoketest";

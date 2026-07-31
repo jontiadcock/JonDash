@@ -9,6 +9,7 @@ import { fetchSourceManifest, isOfficialSource, DEFAULT_SOURCE_URL, archiveUrlFo
  * inherits that privilege, and every module restriction becomes bypassable.
  *
  * So it is enforced in the manifest parser, and tested here rather than trusted.
+ * REFS lib/modules/sources.ts
  */
 
 const OFFICIAL = DEFAULT_SOURCE_URL;

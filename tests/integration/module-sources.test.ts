@@ -14,6 +14,8 @@ import {
   DEFAULT_SOURCE_URL,
 } from "@/lib/modules/sources";
 
+/** REFS lib/modules/sources.ts */
+
 const REPO = "https://github.com/jontiadcock/JonDash-addons";
 
 function validEntry(over: Record<string, unknown> = {}) {
@@ -94,10 +96,12 @@ describe("module sources", () => {
     expect(m.modules.map((x) => x.id)).toEqual(["health-monitor"]);
   });
 
-  // CONTRACT CHANGE (1.5.1): permissions used to be silently FILTERED to the core taxonomy.
-  // They are now validated by shape and a bad one refuses the whole entry. Silent filtering
-  // is what let a helper's capabilities vanish from the consent screen, so it is gone
-  // everywhere, not just for helpers.
+  /*
+   * CONTRACT CHANGE (1.5.1): permissions used to be silently FILTERED to the core taxonomy.
+   * They are now validated by shape and a bad one refuses the whole entry. Silent filtering
+   * is what let a helper's capabilities vanish from the consent screen, so it is gone
+   * everywhere, not just for helpers.
+   */
   it("accepts core and helper-namespaced permissions", async () => {
     mockFetch({
       manifestVersion: 1,

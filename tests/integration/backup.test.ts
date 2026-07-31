@@ -13,6 +13,11 @@ import { reloadEncryptionKey } from "@/lib/config";
 import { writeNamedIcon, readIcon, deleteIcon } from "@/lib/icons";
 import { resetDb } from "../helpers";
 
+/**
+ * REFS lib/backup.ts · lib/auth/password.ts · lib/crypto.ts · lib/auth/totp.ts · lib/config.ts
+ *      lib/icons.ts
+ */
+
 // Isolate the .data directory (secrets key + config) into a temp dir so the backup
 // tests never touch the real install.
 let DATA: string;
@@ -35,9 +40,11 @@ function user(email: string) {
 const ICON = "a".repeat(32) + ".png";
 const ICON_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4, 5, 6, 7, 8]);
 
-// vitest.config sets ENCRYPTION_KEY for the suite, which would override our file-based
-// key and defeat the key-adoption tests. Drop it here (restored after) so the key
-// genuinely comes from the temp secrets.json we swap.
+/*
+ * vitest.config sets ENCRYPTION_KEY for the suite, which would override our file-based
+ * key and defeat the key-adoption tests. Drop it here (restored after) so the key
+ * genuinely comes from the temp secrets.json we swap.
+ */
 let savedEnvKey: string | undefined;
 beforeAll(() => {
   savedEnvKey = process.env.ENCRYPTION_KEY;
@@ -334,9 +341,11 @@ describe("an encrypted backup is encrypted ALL THE WAY THROUGH", () => {
     });
     try {
       const entries = unzipSync(await serializeBackup(PASS));
-      // The ONLY entry is the sealed envelope. Not "the important part is encrypted" —
-      // a container that seals only its payload grows a new leak every time it gains
-      // content, which is exactly how this bug appeared.
+      /*
+       * The ONLY entry is the sealed envelope. Not "the important part is encrypted" —
+       * a container that seals only its payload grows a new leak every time it gains
+       * content, which is exactly how this bug appeared.
+       */
       expect(Object.keys(entries)).toEqual(["backup.json"]);
       const env = JSON.parse(strFromU8(entries["backup.json"]!));
       expect(env.encrypted).toBe(true);

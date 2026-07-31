@@ -13,6 +13,7 @@ import { resolveHelperChannel, installChannelFor } from "@/lib/helpers/channel";
  * safe because a helper never breaks its own API, so a newer version always satisfies an
  * older consumer — and it is the only choice that can't leave a module short of an API it
  * needs. An explicit admin pin overrides it.
+ * REFS lib/helpers/channel.ts
  */
 
 const HELPER = "chtest";
@@ -74,9 +75,11 @@ describe("a helper follows its dependents", () => {
   });
 
   it("NO LONGER flip-flops with whichever module was touched last", async () => {
-    // The regression in one assertion: with a stable dependent and a beta dependent, the
-    // answer is the same whichever module triggers the resolve. Previously the caller's
-    // own channel won, so the helper's version depended on install order.
+    /*
+     * The regression in one assertion: with a stable dependent and a beta dependent, the
+     * answer is the same whichever module triggers the resolve. Previously the caller's
+     * own channel won, so the helper's version depended on install order.
+     */
     await mockDependents([{ id: "stablemod" }, { id: "betamod" }]);
     await seedModule("stablemod", "stable");
     await seedModule("betamod", "beta");
@@ -86,9 +89,11 @@ describe("a helper follows its dependents", () => {
   });
 
   it("ignores a dependent that isn't enabled yet", async () => {
-    // No Module row means the admin hasn't enabled it, so it has no chosen channel. It
-    // must contribute nothing rather than being counted as stable and dragging the
-    // helper back off beta.
+    /*
+     * No Module row means the admin hasn't enabled it, so it has no chosen channel. It
+     * must contribute nothing rather than being counted as stable and dragging the
+     * helper back off beta.
+     */
     await mockDependents([{ id: "enabled" }, { id: "notyet" }]);
     await seedModule("enabled", "beta");
 

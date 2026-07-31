@@ -6,6 +6,8 @@ import { LogoForm } from "./logo-form";
 import { StyleForm } from "./style-form";
 import { updateSettingsAction, updateBrandingAction } from "./actions";
 
+/** REFS lib/auth/guards.ts · lib/settings.ts · lib/styles.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {

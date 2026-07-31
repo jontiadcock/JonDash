@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { verifyModuleFiles, parseDeclaredPermissions } from "@/lib/modules/verify";
 
-// The verifier is what makes a module's permission list HONEST: it refuses code that
-// reaches for a capability the admin was never asked to approve. It is pattern-based
-// (not a sandbox), so these tests pin the rules that actually matter.
+/*
+ * The verifier is what makes a module's permission list HONEST: it refuses code that
+ * reaches for a capability the admin was never asked to approve. It is pattern-based
+ * (not a sandbox), so these tests pin the rules that actually matter.
+ */
 
 const MODULE_TS = (perms: string[], body = "") => ({
   path: "module.ts",
@@ -97,9 +99,11 @@ const mod = {
     expect(res.issues.map((i) => i.rule)).toContain("permission-mismatch");
   });
 
-  // REGRESSION: a module was refused because its UI said "Bulk import (JSON)". JSX text
-  // is neither a comment nor a string literal, so the noise stripper never saw it —
-  // ordinary English was read as a computed dynamic import.
+  /*
+   * REGRESSION: a module was refused because its UI said "Bulk import (JSON)". JSX text
+   * is neither a comment nor a string literal, so the noise stripper never saw it —
+   * ordinary English was read as a computed dynamic import.
+   */
   it("does not mistake English in JSX text for a computed import()", () => {
     const ui = `export default function P() {
       return (<div>
@@ -133,10 +137,12 @@ const mod = {
     expect(res.ok).toBe(true);
   });
 
-  // MOD-08. The cross-module case is a REGRESSION: the check meant to allow "its own
-  // files" allowed every `@/modules/…` path, so a module could reach into another's
-  // internals — sidestepping that module's permission scoping and coupling the two
-  // invisibly (uninstall one, the other's build breaks and auto-recovery removes it).
+  /*
+   * MOD-08. The cross-module case is a REGRESSION: the check meant to allow "its own
+   * files" allowed every `@/modules/…` path, so a module could reach into another's
+   * internals — sidestepping that module's permission scoping and coupling the two
+   * invisibly (uninstall one, the other's build breaks and auto-recovery removes it).
+   */
   it("allows a module its own files but not another module's", () => {
     const own = verify([MODULE_TS([], 'import { helper } from "@/modules/demo/lib/util";')]);
     expect(own.ok).toBe(true);
@@ -207,6 +213,8 @@ export default mod;`;
 
     const declared = `
 import type { ModuleDefinition } from "@/lib/modules/types";
+
+/** REFS lib/modules/verify.ts · lib/modules/types.ts · lib/modules/api.ts */
 const mod: ModuleDefinition = {
   id: "demo", name: "Demo", description: "d", version: "1.0.0", minAppVersion: "1.5.1",
   permissions: ["backup:restore"], helpers: ["backup"],
@@ -225,17 +233,13 @@ export default mod;`;
   });
 
   /**
-   * REGRESSION (BUG-27, 2026-07-23). Found by testing BYPASSES rather than re-reading the
-   * rules — the existing tests all assert constructs that ARE caught, which is exactly why
-   * these two survived. Both are ordinary code, not obfuscation.
-   *
-   * 1. The fetch rule's lookbehind excludes `.fetch(` so that `ctx.fetch(...)` — the
-   *    sanctioned path — stays legal. That also let `globalThis.fetch(...)` through, which
-   *    is the same capability by a longer name.
-   * 2. A LITERAL `await import("node:fs")` fell between the banned-construct rule (which
-   *    targets *computed* import()) and the filesystem rule (which only knew static
-   *    syntax). Filesystem access is refused outright for modules — it is the ban the whole
-   *    helper model rests on — so this was the more serious of the two.
+   * REGRESSION (BUG-27). ⚠ Found by testing BYPASSES, not by re-reading the rules — every existing
+   * test asserted a construct that IS caught, which is exactly why these two survived. Both are
+   * ordinary code, not obfuscation.
+   *  1. The fetch rule excludes `.fetch(` so the sanctioned `ctx.fetch` stays legal — which also
+   *     let `globalThis.fetch` through, the same capability by a longer name.
+   *  2. A LITERAL `await import("node:fs")` fell between the computed-import rule and the
+   *     filesystem rule, which only knew static syntax. That ban is what the helper model rests on.
    */
   it("catches reaching the network via a global, not just a bare fetch()", () => {
     for (const body of [

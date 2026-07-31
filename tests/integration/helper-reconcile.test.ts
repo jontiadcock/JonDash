@@ -14,6 +14,7 @@ import { DEFAULT_SOURCE_URL } from "@/lib/modules/sources";
  *
  * That distinction is the part worth testing: it decides whether JonDash reaches out to
  * the network on a module's behalf.
+ * REFS lib/modules/types.ts · lib/modules/provenance.ts · lib/modules/sources.ts
  */
 
 const DATA_DIR = path.join(process.cwd(), ".data-test-reconcile");

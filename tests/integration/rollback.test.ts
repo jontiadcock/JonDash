@@ -4,7 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Exercises scripts/rollback.mjs against a fake install in a temp dir (JONDASH_ROOT).
+/*
+ * Exercises the rollback script against a fake install in a temp dir.
+ * ⚠ It SPAWNS the script rather than importing it, so nothing links the two: no import to follow
+ * and no symbol to grep. Editing the script without running this is how a self-recovery path breaks
+ * silently. REFS scripts/rollback.mjs — the subject · scripts/preserve.mjs › isPreserved()
+ */
 
 const ROLLBACK = path.resolve(process.cwd(), "scripts/rollback.mjs");
 

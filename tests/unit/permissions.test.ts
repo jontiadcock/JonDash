@@ -8,6 +8,8 @@ import {
   type Permission,
 } from "@/lib/auth/permissions";
 
+/** REFS lib/auth/permissions.ts */
+
 describe("permission input hardening", () => {
   it("keeps only valid, de-duplicated capability keys", () => {
     const out = sanitizePermissions([

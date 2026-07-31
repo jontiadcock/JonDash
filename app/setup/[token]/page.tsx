@@ -8,6 +8,8 @@ import {
 import { findPendingUserByToken } from "./actions";
 import { SetupForm } from "./form";
 
+/** REFS lib/crypto.ts · lib/auth/totp.ts */
+
 export default async function SetupPage({
   params,
 }: {

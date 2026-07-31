@@ -3,6 +3,8 @@ import { peekRevealCodes } from "@/lib/auth/recovery-reveal";
 import { BackupCodesPanel } from "@/app/components/backup-codes-panel";
 import { continueFromRevealAction } from "./actions";
 
+/** REFS lib/auth/recovery-reveal.ts · app/components/backup-codes-panel.tsx */
+
 // One-time view driven by the reveal cookie; never cache.
 export const dynamic = "force-dynamic";
 

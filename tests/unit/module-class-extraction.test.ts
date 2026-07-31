@@ -15,6 +15,7 @@ import { collectClassTokens, renderTailwindClasses } from "@/scripts/gen-module-
  *
  * Reported by the add-ons session (2026-07-29) after losing time to `text-[clamp(…)]` producing no
  * CSS — and core's own 1.8.0 sizing guidance recommends exactly that shape.
+ * REFS scripts/gen-module-registry.mjs
  */
 function tokensFrom(source: string): string[] {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jondash-classes-"));

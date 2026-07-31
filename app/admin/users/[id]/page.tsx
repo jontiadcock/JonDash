@@ -12,6 +12,11 @@ import {
 } from "@/app/admin/actions";
 import { LinkList } from "@/app/admin/link-list";
 
+/**
+ * REFS lib/auth/service-accounts.ts · lib/auth/guards.ts · app/admin/ui.tsx · app/admin/actions.ts
+ *      app/admin/link-list.tsx
+ */
+
 export const dynamic = "force-dynamic";
 
 export default async function ManageUserPage({

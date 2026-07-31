@@ -6,6 +6,11 @@ import { SessionsList } from "@/app/components/sessions-list";
 import { SessionLengthForm } from "./session-length-form";
 import { revokeSessionAction } from "./actions";
 
+/**
+ * REFS lib/auth/guards.ts · lib/auth/session.ts · lib/sessions.ts · lib/settings.ts
+ *      app/components/sessions-list.tsx
+ */
+
 // Security-sensitive listing; never statically cached.
 export const dynamic = "force-dynamic";
 

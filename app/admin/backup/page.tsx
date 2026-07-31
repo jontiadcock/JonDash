@@ -2,6 +2,8 @@ import { requirePermission } from "@/lib/auth/guards";
 import { hasRecentTotp } from "@/lib/auth/stepup";
 import { ExportForm, ImportForm } from "./ui";
 
+/** REFS lib/auth/guards.ts · lib/auth/stepup.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminBackupPage() {

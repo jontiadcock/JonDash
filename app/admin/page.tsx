@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireAdminArea, firstPermittedAdminPath } from "@/lib/auth/guards";
 import { CreateUserForm } from "./ui";
 
+/** REFS lib/auth/guards.ts */
+
 export const dynamic = "force-dynamic";
 
 const statusStyles: Record<string, string> = {

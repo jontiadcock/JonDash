@@ -8,6 +8,11 @@ import { exchangeCode, isOAuthProvider } from "@/lib/email/oauth";
 import { audit } from "@/lib/audit";
 import { STATE_COOKIE, STATE_PATH } from "@/lib/email/constants";
 
+/**
+ * REFS lib/auth/guards.ts · lib/auth/permissions.ts · lib/request.ts · lib/email/config.ts
+ *      lib/email/oauth.ts · lib/audit.ts — and 1 more
+ */
+
 export const dynamic = "force-dynamic";
 
 /** OAuth callback: verify state, exchange the code for a refresh token, store it. */

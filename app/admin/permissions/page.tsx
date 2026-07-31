@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
  *
  * Grants are per (module, capability). A helper-level switch would silently widen every module
  * that declared that helper — including ones installed earlier for unrelated reasons.
+ * REFS lib/auth/guards.ts · lib/permissions-view.ts
  */
 export default async function AdminPermissionsPage() {
   await requirePermission("modules.manage");

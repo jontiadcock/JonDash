@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
  * white-labelled instance should look like itself. It reveals only that this install has a
  * custom logo, which is visible to anyone who can reach the sign-in page regardless. Service
  * icons stay behind auth (`/api/icons/[id]`), because those would disclose what a user runs.
+ * REFS lib/settings.ts · lib/icons.ts
  */
 export async function GET() {
   // Read past the cache: this route is a separate bundle from the upload action, so it holds

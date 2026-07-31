@@ -10,9 +10,12 @@ import path from "node:path";
  * breaks the installable web app (CORE-15), while loosening `assertSameOrigin` to allow a request
  * with no Origin and no Referer would remove the control that replaced it. Neither would fail any
  * behavioural test — the app works fine in a browser either way.
+ * REFS lib/auth/session.ts · lib/security/csrf.ts — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
-/** A regex over source is a regex over comments too (BUG-39) — and these files explain themselves. */
+/**
+ * A regex over source is a regex over comments too (BUG-39) — and these files explain themselves.
+ */
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 describe("the session cookie", () => {

@@ -8,6 +8,7 @@ import { isPreserved, PRESERVE } from "@/scripts/preserve.mjs";
  * silently skipped. An update then shipped an app whose framework files were missing;
  * the rollback deleted `lib/` and couldn't restore them either, leaving an install that
  * could not build at all. Only the FIRST path segment may ever match.
+ * REFS scripts/preserve.mjs
  */
 describe("update/rollback preserve rule", () => {
   it("preserves user data and regenerables at the top level", () => {

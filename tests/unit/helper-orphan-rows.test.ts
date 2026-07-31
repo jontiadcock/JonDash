@@ -19,6 +19,7 @@ import path from "node:path";
  *
  * Source-level on purpose: reproducing it needs an installed module, its helper, an uninstall
  * and a rebuild. The invariant worth protecting is simply "this reader is registry-gated".
+ * REFS lib/helpers/updates.ts · lib/helpers/registry.ts · lib/helpers/install.ts — read as text
  */
 
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");

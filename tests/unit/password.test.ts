@@ -6,6 +6,8 @@ import {
   verifyDecoyPassword,
 } from "@/lib/auth/password";
 
+/** REFS lib/auth/password.ts */
+
 describe("password strength policy", () => {
   it("requires at least 12 characters", () => {
     expect(validatePasswordStrength("Ab1!aaaa")).toMatch(/12 characters/);

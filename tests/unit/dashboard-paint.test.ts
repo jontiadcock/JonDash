@@ -12,6 +12,7 @@ import path from "node:path";
  *
  * These were found by measuring a seeded dashboard rather than by reading the CSS, and each
  * assertion below fails against the code as it stood before this beta.
+ * REFS app/globals.css · app/styles.css · app/components/service-tile.tsx — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 
@@ -19,10 +20,11 @@ const GLOBALS = read("app", "globals.css");
 const STYLES = read("app", "styles.css");
 
 /**
- * Comments stripped before matching. These files EXPLAIN the rules they follow — "`overflow-hidden`,
- * NOT `overflow-auto`" — so a `not.toMatch` over the raw source matches the very sentence saying the
- * bad thing isn't there. That is BUG-39's trap, and it has now caught me three times in this file
- * alone, which is exactly why the stripping lives at the top rather than in each assertion.
+ * Comments stripped before matching. These files EXPLAIN the rules they follow —
+ * "`overflow-hidden`, NOT `overflow-auto`" — so a `not.toMatch` over the raw source matches the
+ * very sentence saying the bad thing isn't there. That is BUG-39's trap, and it has now caught me
+ * three times in this file alone — which is why the stripping lives at the top rather than in
+ * each assertion.
  */
 const stripComments = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -90,9 +92,11 @@ describe("the page wrapper does not keep a transform forever", () => {
     const rule = GLOBALS.match(/\.page-fade\s*\{[^}]*\}/)?.[0] ?? "";
     expect(rule, ".page-fade rule not found").toContain("animation:");
 
-    // Assert on the DECLARATION, not the rule text. The rule carries a comment explaining
-    // why `both` is wrong, and a regex over source is a regex over comments too — the exact
-    // trap that produced BUG-39, hit again here while writing this test.
+    /*
+     * Assert on the DECLARATION, not the rule text. The rule carries a comment explaining
+     * why `both` is wrong, and a regex over source is a regex over comments too — the exact
+     * trap that produced BUG-39, hit again here while writing this test.
+     */
     const declaration = rule.match(/animation:[^;]*;/)?.[0] ?? "";
     expect(declaration, "no animation declaration found").toContain("page-fade-in");
     expect(declaration, ".page-fade must not retain its final keyframe").not.toMatch(/\bboth\b/);
@@ -151,9 +155,11 @@ describe("the widget grid gives a row span something to multiply", () => {
   });
 
   it("clips an oversized widget rather than scrolling it", () => {
-    // Owner's call: "if something can't be presented, it should be cut off and the module needs
-    // to manage the sizings correctly." A scrollbar inside a tile is noise on every item to
-    // rescue the rare one that overflows, and it lets a badly sized widget look acceptable.
+    /*
+     * Owner's call: "if something can't be presented, it should be cut off and the module needs
+     * to manage the sizings correctly." A scrollbar inside a tile is noise on every item to
+     * rescue the rare one that overflows, and it lets a badly sized widget look acceptable.
+     */
     expect(FRAME, "a scroller is back inside the frame").not.toMatch(/overflow-auto/);
     expect(FRAME).toMatch(/overflow-hidden/);
     expect(FRAME, "without min-h-0 the flex child never shrinks and the clip is inert").toMatch(
@@ -202,9 +208,11 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
   });
 
   it("drives the drag from pointer events", () => {
-    // The frame's own prop is `onGrab`, deliberately not `onDragStart` — that name is a real DOM
-    // handler, so a component prop sharing it turns into one the moment props are spread onto an
-    // element. This assertion tripped over exactly that confusion while being written.
+    /*
+     * The frame's own prop is `onGrab`, deliberately not `onDragStart` — that name is a real DOM
+     * handler, so a component prop sharing it turns into one the moment props are spread onto an
+     * element. This assertion tripped over exactly that confusion while being written.
+     */
     expect(FRAME, "the frame does not start a drag from a pointerdown").toMatch(/onPointerDown=/);
     expect(GRID, "the grid does not track the pointer during a drag").toMatch(
       /addEventListener\("pointermove"/,
@@ -283,9 +291,11 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
   });
 
   it("resolves every frame against the layout as it was at pointerdown", () => {
-    // Against the running result instead, dragging across a full board would push the same items
-    // again and again and scatter it. Against the original, the shuffle undoes itself on the way
-    // back — which is what makes hovering over a crowded board feel safe rather than destructive.
+    /*
+     * Against the running result instead, dragging across a full board would push the same items
+     * again and again and scatter it. Against the original, the shuffle undoes itself on the way
+     * back — which is what makes hovering over a crowded board feel safe rather than destructive.
+     */
     expect(GRID, "displacement is applied cumulatively — the board will scatter").toMatch(
       /displaceFor\(new Map\(base\)\.set\(k, next\), k,/,
     );
@@ -298,19 +308,13 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
   });
 
   /**
-   * A service tile and a module widget must MOVE identically (owner, 2026-07-28: *"make sure
-   * that the module and service moving mechanism is the same"*).
+   * A service tile and a module widget must MOVE identically. They always shared one component and
+   * one drag function, yet two shared rules happened to match only one kind: the handler bailed on
+   * `closest("a")` and a service tile IS an `<a>`, so none could be dragged; and the tile carried
+   * its own `lift`, so once the frame gained one a tile lifted twice inside a clipping container.
    *
-   * They always shared one component and one drag function — but two accidents in the markup
-   * around each kind made them behave differently anyway:
-   *
-   *  - the drag handler bailed on `closest("a")` to protect the arrange controls, and a service
-   *    tile *is* an `<a>` filling the whole frame, so no service could be dragged at all;
-   *  - the tile carried its own `lift`, so once the frame gained one (beta.11) a tile lifted
-   *    twice and the inner lift was clipped by the frame's `overflow-hidden`.
-   *
-   * Neither was kind-specific *code*. Both were shared rules that happened to match one kind, so
-   * the guard is that the drag path contains no per-kind branching and excludes by marker.
+   * ⚠ Neither was kind-specific CODE, so the guard is structural: no per-kind branching in the drag
+   * path, and exclusion by marker.
    */
   it("excludes controls by marker, never by tag name", () => {
     expect(FRAME, "a tag-name exclusion catches a service tile's own anchor").not.toMatch(
@@ -342,9 +346,11 @@ describe("dragging is pointer-driven, not native HTML5 drag", () => {
   });
 
   it("saves once, when the drag ends", () => {
-    // Dragging across six items would otherwise fire six writes, and the arrangements passed
-    // through on the way were never something the user asked for.
-    // `placeItemsAction(` — the call, not the import line above it.
+    /*
+     * Dragging across six items would otherwise fire six writes, and the arrangements passed
+     * through on the way were never something the user asked for.
+     * `placeItemsAction(` — the call, not the import line above it.
+     */
     const moves = GRID.match(/placeItemsAction\(/g) ?? [];
     expect(moves.length, "placeItemsAction is called from more than one place").toBe(1);
   });

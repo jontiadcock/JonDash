@@ -6,6 +6,7 @@ import { nextRunAfter, isRunDue, describeSchedule, type UpdateSchedule } from "@
  *
  * The failure modes here are quiet ones: a schedule that never fires looks exactly like
  * "there was nothing to update", which is the trap MOD-10 already fell into once.
+ * REFS lib/updates/schedule.ts
  */
 
 const base: UpdateSchedule = { autoEnabled: true, frequency: "daily", hour: 3, minute: 0, dayOfWeek: 0, dayOfMonth: 1 };
@@ -54,9 +55,11 @@ describe("nextRunAfter", () => {
 
 describe("isRunDue", () => {
   it("is NEVER due without a baseline — a fresh install must not restart itself", () => {
-    // The scheduler records "now" the first time it looks, so the first real run lands at
-    // the next window. Deriving a synthetic first window instead means a box configured at
-    // 09:00 with a 03:00 schedule rebuilds and restarts minutes later, mid-setup.
+    /*
+     * The scheduler records "now" the first time it looks, so the first real run lands at
+     * the next window. Deriving a synthetic first window instead means a box configured at
+     * 09:00 with a 03:00 schedule rebuilds and restarts minutes later, mid-setup.
+     */
     expect(isRunDue(base, null, at("2026-07-23T03:00:01"))).toBe(false);
     expect(isRunDue(base, null, at("2026-07-23T09:00:00"))).toBe(false);
     expect(isRunDue({ ...base, frequency: "monthly" }, null, at("2030-01-01T00:00:00"))).toBe(false);

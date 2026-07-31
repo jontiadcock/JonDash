@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/guards";
 import { CreateRoleForm } from "@/app/admin/ui";
 
+/** REFS lib/auth/guards.ts · app/admin/ui.tsx */
+
 export const dynamic = "force-dynamic";
 
 export default async function ServiceGroupsPage() {

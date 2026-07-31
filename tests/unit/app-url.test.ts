@@ -11,6 +11,7 @@ import { resolveAppUrl, getPublicUrl } from "@/lib/app-url";
  * materially worse than on a page — a forged header puts an attacker's link, branded as JonDash,
  * into an inbox where it is trusted and long-lived. So "no value, no link" has to be the
  * behaviour, not a fallback that quietly does something reasonable-looking.
+ * REFS lib/settings.ts · lib/app-url.ts
  */
 beforeEach(async () => {
   await prisma.setting.deleteMany({ where: { key: "app.publicUrl" } });

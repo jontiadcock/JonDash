@@ -53,6 +53,7 @@ describe("settings store", () => {
  * The property worth pinning is that merging TWO settings into ONE didn't quietly drop the
  * absolute cap — without it, a stolen token can be kept alive indefinitely because the idle
  * window keeps resetting on every use.
+ * REFS lib/settings.ts
  */
 describe("session length (1.8.0 merge)", () => {
   it("keeps an absolute ceiling that no setting can raise", async () => {

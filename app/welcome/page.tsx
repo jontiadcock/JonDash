@@ -8,6 +8,8 @@ import { buildTotpEnrolment } from "@/lib/auth/totp";
 import { WelcomeCreateForm, WelcomeConfirmForm, WelcomeRestoreForm } from "./forms";
 import { welcomeRestartAction } from "./actions";
 
+/** REFS lib/auth/bootstrap.ts · lib/crypto.ts · lib/auth/totp.ts */
+
 export default async function WelcomePage() {
   // Once an admin exists this wizard is closed for good.
   if (await hasActiveAdmin()) redirect("/login");

@@ -15,6 +15,7 @@ import { getEffectivePermissionsUncached, ALL_PERMISSIONS } from "@/lib/auth/per
  *     forgot to refuse", which no behavioural test of that action can catch (the same reasoning
  *     as the BUG-37 regression test). Hiding the form is not enough: a page that states a rule
  *     while the action still accepts the write is telling the truth by luck.
+ * REFS app/admin/actions.ts · app/admin/users/[id]/page.tsx — read as text
  */
 const ACTIONS = fs.readFileSync(path.join(process.cwd(), "app", "admin", "actions.ts"), "utf8");
 const USER_PAGE = fs.readFileSync(

@@ -6,6 +6,8 @@ import { RenameRoleForm, CreateRoleLinkForm, ConfirmSubmit } from "@/app/admin/u
 import { deleteRoleAction } from "@/app/admin/actions";
 import { LinkList } from "@/app/admin/link-list";
 
+/** REFS lib/auth/guards.ts · app/admin/ui.tsx · app/admin/actions.ts · app/admin/link-list.tsx */
+
 export default async function ManageServiceGroupPage({
   params,
 }: {

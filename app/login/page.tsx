@@ -6,6 +6,11 @@ import { getLoginMessage } from "@/lib/settings";
 import { PasswordForm, SecondFactorForm } from "./forms";
 import { BrandHeading } from "@/app/components/branding";
 
+/**
+ * REFS lib/auth/guards.ts · lib/auth/preauth.ts · lib/auth/bootstrap.ts · lib/settings.ts
+ *      app/components/branding.tsx
+ */
+
 // Auth state must be evaluated per request, never statically cached.
 export const dynamic = "force-dynamic";
 

@@ -5,11 +5,15 @@ import { prisma } from "@/lib/db";
 import { runModuleMigrations } from "@/lib/modules/migrate";
 import type { ModuleDefinition } from "@/lib/modules/types";
 
-// BUG-32: a module migration file must run in ONE transaction. Before the fix, statements
-// applied one at a time and the "applied" record was written only after the whole file — so
-// a mid-file failure committed the earlier statements while leaving the file unrecorded, and
-// the next attempt re-ran from statement 1 and died on the same non-idempotent DDL forever
-// (SQLite has no ADD COLUMN / CREATE TABLE IF-NOT-EXISTS by default here).
+/** REFS lib/modules/migrate.ts · lib/modules/types.ts */
+
+/*
+ * BUG-32: a module migration file must run in ONE transaction. Before the fix, statements
+ * applied one at a time and the "applied" record was written only after the whole file — so
+ * a mid-file failure committed the earlier statements while leaving the file unrecorded, and
+ * the next attempt re-ran from statement 1 and died on the same non-idempotent DDL forever
+ * (SQLite has no ADD COLUMN / CREATE TABLE IF-NOT-EXISTS by default here).
+ */
 
 const ID = "bug32test";
 const MOD_DIR = path.join(process.cwd(), "modules", ID);

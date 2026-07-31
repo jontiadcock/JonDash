@@ -4,9 +4,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Exercises scripts/supervise.mjs by driving it against a fake server whose
-// behaviour is controlled by env, with tiny crash-loop thresholds. Verifies the
-// decision logic via the supervisor's exit codes (what the launcher branches on).
+/*
+ * Drives the supervisor against a fake server, with tiny crash-loop thresholds, and asserts its
+ * EXIT CODES — which is what the launcher branches on.
+ * ⚠ It SPAWNS the script rather than importing it, so nothing links the two. The exit codes are a
+ * contract with the launcher: change one here and in the script, or the launcher takes the wrong
+ * branch and an install cannot self-recover.
+ * REFS scripts/supervise.mjs — the subject · start-dashboard.bat — the other side of the contract
+ *      lib/server-control.ts — writes the signal files it reacts to
+ */
 
 const SUPERVISE = path.resolve(process.cwd(), "scripts/supervise.mjs");
 
@@ -101,13 +107,15 @@ describe("server supervisor", () => {
     expect(await runSupervisor(dir, fake, "clean")).toBe(0);
   }, 15000);
 
-  // WINDOWS ONLY — and it has to be, because the condition can't exist elsewhere.
-  // 0xC000013A (3221225786) is STATUS_CONTROL_C_EXIT, which Windows sets when a process
-  // is ended by a console event (Ctrl+C, window close, logoff). POSIX exit codes are
-  // truncated to 8 bits, so on Linux the fake server would exit 58 — a perfectly ordinary
-  // application exit that the supervisor SHOULD treat as a crash. Asserting a clean stop
-  // there would be asserting the wrong behaviour, so the case is skipped rather than
-  // fudged. JonDash is launched by start-dashboard.bat on Windows, where this runs.
+  /*
+   * WINDOWS ONLY — and it has to be, because the condition can't exist elsewhere.
+   * 0xC000013A (3221225786) is STATUS_CONTROL_C_EXIT, which Windows sets when a process
+   * is ended by a console event (Ctrl+C, window close, logoff). POSIX exit codes are
+   * truncated to 8 bits, so on Linux the fake server would exit 58 — a perfectly ordinary
+   * application exit that the supervisor SHOULD treat as a crash. Asserting a clean stop
+   * there would be asserting the wrong behaviour, so the case is skipped rather than
+   * fudged. JonDash is launched by start-dashboard.bat on Windows, where this runs.
+   */
   it.skipIf(process.platform !== "win32")(
     "exits cleanly (0) on a console-control termination (0xC000013A) — no restart loop",
     async () => {
@@ -119,9 +127,11 @@ describe("server supervisor", () => {
   );
 
   it("restarts in place on a .restart-and-run signal, then exits 0 when the server stops", async () => {
-    // The supervisor should relaunch the server (not exit), then stop cleanly when
-    // the relaunched server exits. The counter proves it ran twice and the signal
-    // file was consumed.
+    /*
+     * The supervisor should relaunch the server (not exit), then stop cleanly when
+     * the relaunched server exits. The counter proves it ran twice and the signal
+     * file was consumed.
+     */
     expect(await runSupervisor(dir, fake, "restart")).toBe(0);
     expect(fs.readFileSync(path.join(dir, ".data", "restart-count"), "utf8")).toBe("2");
     expect(fs.existsSync(path.join(dir, ".restart-and-run"))).toBe(false);

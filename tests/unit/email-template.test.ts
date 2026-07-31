@@ -11,6 +11,7 @@ import { STYLES } from "@/lib/styles";
  * because mail clients are not browsers: escaping, the paragraph rule, contrast on the accent,
  * and — most importantly — that the palette colours this template resolves are the same ones the
  * app actually paints with.
+ * REFS app/styles.css · app/globals.css — read as text
  */
 
 const base = {

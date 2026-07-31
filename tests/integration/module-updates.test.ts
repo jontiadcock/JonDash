@@ -13,6 +13,8 @@ import { removeModuleFiles } from "@/lib/modules/install";
  * The two failure modes that made module updates unsafe. Both are silent: nothing errors,
  * the module just misbehaves afterwards — so they need tests that would actually catch a
  * regression rather than tests that pass either way.
+ * REFS lib/modules/types.ts · lib/modules/manage.ts · lib/modules/migrate.ts
+ *      lib/modules/install.ts
  */
 
 const ID = "updtest";
@@ -119,9 +121,11 @@ describe("permission grants across an update", () => {
     const before = await prisma.module.findUnique({ where: { id: ID } });
     expect(JSON.parse(before!.grantedPermissions)).toEqual(["network:outbound"]);
 
-    // Simulate what the update action does after a version that adds email:send is
-    // approved: the stored grants must become the new declared set, or the module's
-    // ctx.email would be missing and it would fail with no explanation.
+    /*
+     * Simulate what the update action does after a version that adds email:send is
+     * approved: the stored grants must become the new declared set, or the module's
+     * ctx.email would be missing and it would fail with no explanation.
+     */
     await prisma.module.updateMany({
       where: { id: ID },
       data: { version: "1.1.0", grantedPermissions: JSON.stringify(["network:outbound", "email:send"]) },

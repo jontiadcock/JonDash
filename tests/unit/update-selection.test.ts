@@ -10,6 +10,7 @@ import path from "node:path";
  * and the owner reasonably concluded JonDash and the add-ons could not be picked separately.
  * They always could; the UI simply never showed it. Nothing misbehaved, so no behavioural test
  * of the component would have caught it — the same reasoning as the BUG-37 regression test.
+ * REFS app/admin/updates/available-updates.tsx — read as text
  */
 const SRC = fs.readFileSync(
   path.join(process.cwd(), "app", "admin", "updates", "available-updates.tsx"),

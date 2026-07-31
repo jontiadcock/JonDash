@@ -8,10 +8,14 @@ import {
   clearQueuedAddonUpdates,
 } from "@/lib/update-queue";
 
-// "Update everything" runs JonDash first, then its add-ons. The core update restarts the
-// process, so the add-on half is written down and picked up afterwards. The safety property
-// that matters most: the queue is CONSUMED as it is read, so a failing add-on stage is
-// attempted once and reported — never retried into a restart loop.
+/** REFS lib/update-queue.ts */
+
+/*
+ * "Update everything" runs JonDash first, then its add-ons. The core update restarts the
+ * process, so the add-on half is written down and picked up afterwards. The safety property
+ * that matters most: the queue is CONSUMED as it is read, so a failing add-on stage is
+ * attempted once and reported — never retried into a restart loop.
+ */
 
 const QUEUE = path.join(process.cwd(), ".data", "pending-addon-updates");
 

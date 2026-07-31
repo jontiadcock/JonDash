@@ -8,10 +8,14 @@ import { reloadEncryptionKey } from "@/lib/config";
 import { hasActiveAdmin } from "@/lib/auth/bootstrap";
 import { resetDb } from "../helpers";
 
-// The first-run restore action gates on hasActiveAdmin() and, on success, relies
-// on the restore producing a signed-in-able admin. These check that guarantee.
-// Uses an isolated temp .data so the encrypted export/restore never touches the
-// real install's key/config.
+/** REFS lib/backup.ts · lib/config.ts · lib/auth/bootstrap.ts */
+
+/*
+ * The first-run restore action gates on hasActiveAdmin() and, on success, relies
+ * on the restore producing a signed-in-able admin. These check that guarantee.
+ * Uses an isolated temp .data so the encrypted export/restore never touches the
+ * real install's key/config.
+ */
 let DATA: string;
 const KEY = "c".repeat(64);
 

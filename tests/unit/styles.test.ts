@@ -17,6 +17,7 @@ import { STYLE_SETTINGS } from "@/lib/settings";
  * `lib/styles.ts`, the CSS in `app/styles.css`, and the `branding.style` enum in
  * `lib/settings.ts`. Nothing at runtime notices when they drift — a style missing its CSS
  * just renders as the base look, which is easy to miss and hard to attribute.
+ * REFS app/styles.css — read as text
  */
 const CSS = fs.readFileSync(path.join(process.cwd(), "app", "styles.css"), "utf8");
 

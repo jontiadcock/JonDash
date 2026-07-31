@@ -11,9 +11,13 @@ import {
   GEOMETRY,
 } from "@/lib/dashboard/layout";
 
-// Module RBAC decides who can see a module's widget and reach its /m/<id> page, so it is
-// enforced server-side. These pin the rule that matters: NO groups = everyone (the
-// behaviour before the feature existed), groups = members only, admins always.
+/** REFS lib/modules/visibility.ts · lib/dashboard/layout.ts */
+
+/*
+ * Module RBAC decides who can see a module's widget and reach its /m/<id> page, so it is
+ * enforced server-side. These pin the rule that matters: NO groups = everyone (the
+ * behaviour before the feature existed), groups = members only, admins always.
+ */
 
 async function mkUser(email: string, role: "ADMIN" | "USER") {
   return prisma.user.create({ data: { email, role, status: "ACTIVE" } });
@@ -136,9 +140,11 @@ describe("per-user dashboard layout", () => {
    * on read would quietly undo what the user did.
    */
   it("keeps a deliberate gap rather than closing it", async () => {
-    // Column 12 rather than 15: a module's default width is 6, and 18 columns leave 12 as the
-    // furthest it can start. Asking for 15 is correctly clamped — a 6-wide item at column 15
-    // would run off the grid — which is what the next test covers.
+    /*
+     * Column 12 rather than 15: a module's default width is 6, and 18 columns leave 12 as the
+     * furthest it can start. Asking for 15 is correctly clamped — a 6-wide item at column 15
+     * would run off the grid — which is what the next test covers.
+     */
     await placeItems(member.id, "wide", [
       { ...mod("a"), col: 0, row: 0 },
       { ...mod("b"), col: 12, row: 20 },

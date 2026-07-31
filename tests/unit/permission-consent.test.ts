@@ -14,6 +14,7 @@ import {
  * permission becomes a sentence, so every consent surface renders the same thing. The
  * property under test throughout: a capability the admin is about to grant must never
  * render blank, be silently omitted, or be styled as routine when core doesn't know it.
+ * REFS lib/modules/types.ts
  */
 
 describe("core vs helper-provided permissions", () => {

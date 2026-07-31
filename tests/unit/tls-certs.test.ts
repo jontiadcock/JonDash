@@ -16,6 +16,7 @@ import { validateByoPem } from "@/lib/tls/network";
  * match, a key that isn't the one in the cert — fails at the next restart, on an HTTPS listener,
  * with an error most people would read as "HTTPS is broken". Handing the pair to Node's own TLS is
  * the same check the server will make.
+ * REFS lib/tls/certs.mjs · lib/tls/network.ts
  */
 describe("self-signed certificates", () => {
   it("produces a pair Node's TLS accepts", async () => {

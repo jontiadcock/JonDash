@@ -15,6 +15,7 @@ import { audit, auditOrThrow } from "@/lib/audit";
  *
  * These tests run OUTSIDE a request scope, which is precisely the failing condition — so
  * they fail against the old implementation.
+ * REFS lib/audit.ts
  */
 
 beforeEach(async () => {
@@ -65,10 +66,12 @@ describe("audit() from background work (no request scope)", () => {
   });
 
   it("does NOT infer background from a missing ip", async () => {
-    // The tempting shortcut is "no user and no ip means the scheduler". It happens to hold
-    // today, but ip comes from x-forwarded-for/x-real-ip — on a deployment that doesn't set
-    // them a REAL user action would be labelled System. A row created with an explicit
-    // source must keep it regardless of whether an ip is present.
+    /*
+     * The tempting shortcut is "no user and no ip means the scheduler". It happens to hold
+     * today, but ip comes from x-forwarded-for/x-real-ip — on a deployment that doesn't set
+     * them a REAL user action would be labelled System. A row created with an explicit
+     * source must keep it regardless of whether an ip is present.
+     */
     await prisma.auditLog.create({
       data: { action: "test.bug29.reqnoip", source: "request" }, // request-scoped, no ip
     });
@@ -95,18 +98,12 @@ describe("audit() from background work (no request scope)", () => {
 });
 
 /**
- * An unattributable actor must not cost the whole row (2026-07-25).
+ * An unattributable actor must not cost the whole row.
  *
- * Reported by the add-ons session with a repro on the NORMAL path: `auditLog.create` fails
- * with a foreign-key violation when `userId` doesn't resolve to a real User, `audit()`
- * swallows it, and the elevated action proceeds anyway. A grant was created and the task ran
- * with no audit row at all — a privileged action with no trace, which is the single outcome
- * an audit log exists to prevent.
- *
- * A stale id is an ordinary mistake, not an exotic one: a helper acting for a user who has
- * since been deleted hits it. So the write degrades to an unattributed row that SAYS it could
- * not be attributed, rather than vanishing. Losing "who" is a much smaller loss than losing
- * "what happened".
+ * `auditLog.create` fails on a foreign-key violation when `userId` does not resolve, `audit()`
+ * swallows it, and the privileged action proceeds with no trace — the one outcome an audit log
+ * exists to prevent. A stale id is ordinary, not exotic: a helper acting for a since-deleted user
+ * hits it. So the write degrades to a row that SAYS it could not be attributed.
  */
 describe("audit(): an unresolvable actor degrades, it does not vanish", () => {
   const BOGUS = "user_that_does_not_exist_fk_violation";

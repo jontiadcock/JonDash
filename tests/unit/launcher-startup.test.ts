@@ -10,6 +10,7 @@ import { readOpenBrowser, writeOpenBrowser } from "@/lib/launcher-prefs";
  * is what an admin sets from inside JonDash, and the environment variable is the only thing
  * that helps on a headless box — a switch inside the app cannot be reached by somebody who
  * cannot see the window it just opened.
+ * REFS lib/launcher-prefs.ts
  */
 const DATA_DIR = path.join(process.cwd(), ".data-test-launcher");
 const prev = process.env.JONDASH_DATA_DIR;

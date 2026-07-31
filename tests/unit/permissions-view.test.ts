@@ -10,6 +10,8 @@ import type { ModuleDefinition, DeclaredPermission } from "@/lib/modules/types";
  * A helper-level switch would silently widen every module that declared that helper — including
  * ones installed earlier for unrelated reasons. And a grant must never exceed what the module's
  * consent screen showed, or the screen was a lie.
+ * REFS lib/permissions-view.ts · app/admin/permissions/ui.tsx · app/admin/permissions/actions.ts
+ *      lib/helpers/types.ts — read as text
  */
 const def = (permissions: string[]) =>
   ({ id: "m", name: "M", permissions } as unknown as ModuleDefinition);
@@ -56,11 +58,13 @@ describe("the structural rules the page depends on", () => {
   });
 
   it("takes risk from core's existing judgement, not a second opinion", () => {
-    // The first attempt used its own rule, and every core permission came out "High risk" —
-    // which made the genuinely dangerous capability indistinguishable from crypto:use and
-    // defeated the point of showing risk at all. Caught by looking at the page with data in it.
-    // describePermission is documented as THE single place consent text is decided; a second
-    // source of that judgement drifted on day one.
+    /*
+     * The first attempt used its own rule, and every core permission came out "High risk" —
+     * which made the genuinely dangerous capability indistinguishable from crypto:use and
+     * defeated the point of showing risk at all. Caught by looking at the page with data in it.
+     * describePermission is documented as THE single place consent text is decided; a second
+     * source of that judgement drifted on day one.
+     */
     expect(VIEW).toContain("describePermission(permission)");
     expect(VIEW).toMatch(/risk:\s*cap\?\.risk\s*\?\?\s*\(described\.dangerous \? "high" : "low"\)/);
   });
@@ -92,10 +96,12 @@ describe("the structural rules the page depends on", () => {
   });
 
   it("routes EVERY exported action through the gate, including ones added later", () => {
-    // The point of the gate is that it can't be forgotten. A new action added next to five
-    // gated ones looks right while being reachable by anyone who can reach the route, so the
-    // check is enumerated rather than eyeballed. setItemToggleAction was added after the
-    // original five.
+    /*
+     * The point of the gate is that it can't be forgotten. A new action added next to five
+     * gated ones looks right while being reachable by anyone who can reach the route, so the
+     * check is enumerated rather than eyeballed. setItemToggleAction was added after the
+     * original five.
+     */
     const exported = [...ACT.matchAll(/export async function (\w+)/g)].map((m) => m[1]!);
     expect(exported.length).toBeGreaterThan(5);
     for (const name of exported) {
@@ -146,10 +152,12 @@ describe("the dependent option under the unbounded switch", () => {
   const block = UI.slice(UI.indexOf("function Unbounded"));
 
   it("CONFIRMS THE OFF DIRECTION — the asymmetry is inverted here", () => {
-    // This is the one control on the page where ON is the safe direction: the option protects,
-    // so removing it is what widens the grant. Confirming the wrong way round would put the
-    // friction on the safe move and none on the dangerous one, which is worse than no confirm
-    // at all because it reads as though the dangerous move was checked.
+    /*
+     * This is the one control on the page where ON is the safe direction: the option protects,
+     * so removing it is what widens the grant. Confirming the wrong way round would put the
+     * friction on the safe move and none on the dangerous one, which is worse than no confirm
+     * at all because it reads as though the dangerous move was checked.
+     */
     expect(block).toMatch(/if \(e\.target\.checked\) void applyOption\(true\);\s*else setConfirmingOption\(true\);/);
     // And the unbounded switch itself must still confirm the ON direction — the two coexist.
     expect(block).toMatch(/if \(e\.target\.checked\) setConfirming\(true\);\s*else void apply\(false\)/);

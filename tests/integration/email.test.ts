@@ -11,6 +11,8 @@ import { buildAuthUrl, OAUTH_PROVIDERS } from "@/lib/email/oauth";
 import { sendMail, describeTarget, explainMailError } from "@/lib/email/send";
 import { resetDb } from "../helpers";
 
+/** REFS lib/email/config.ts · lib/email/oauth.ts · lib/email/send.ts */
+
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 
@@ -101,9 +103,11 @@ describe("relay mode — no authentication", () => {
   });
 
   it("names the target so a STALE SAVED host is visible in the error", () => {
-    // The test button uses the SAVED config, not what's on screen. Without the target in
-    // the message, "unable to get local issuer certificate" gives no way to tell whether
-    // it even tried the host you are looking at.
+    /*
+     * The test button uses the SAVED config, not what's on screen. Without the target in
+     * the message, "unable to get local issuer certificate" gives no way to tell whether
+     * it even tried the host you are looking at.
+     */
     const t = describeTarget({ ...EMAIL_DEFAULTS, mode: "relay", host: "relay.lan", port: 25 });
     expect(t).toContain("relay.lan:25");
     expect(t).toContain("no authentication");

@@ -14,6 +14,8 @@ import { dropModuleTables } from "@/lib/modules/migrate";
  * action loops over every id and only then hands over to the launcher. Each module's
  * data, files and install record must all be gone — a partial removal would leave the
  * registry pointing at code that isn't there, which is what bricks a build.
+ * REFS lib/modules/types.ts · lib/modules/manage.ts · lib/modules/store.ts · lib/modules/install.ts
+ *      lib/modules/provenance.ts · lib/modules/migrate.ts
  */
 const IDS = ["bulkone", "bulktwo", "bulkthree"];
 const MODULES_DIR = path.join(process.cwd(), "modules");

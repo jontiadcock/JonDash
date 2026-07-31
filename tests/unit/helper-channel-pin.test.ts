@@ -10,7 +10,11 @@ import { describe, it, expect } from "vitest";
  * again. The switch redrew in the same position and nothing had changed. Overriding a
  * derivation requires a pin, not the absence of one.
  *
- * This asserts the mapping in isolation, which is where the bug was — no database needed.
+ * ⚠ This RE-IMPLEMENTS the rule rather than importing it, so it cannot fail when the real action
+ * changes — it pins the DECISION, not the code. Change the mapping in the action and this stays
+ * green while the switch breaks again. Keep the two in step by hand.
+ * REFS app/admin/updates/schedule-actions.ts › setHelperChannelPinAction() — the real mapping
+ *      lib/helpers/channel.ts › resolveHelperChannel() — where `pin ?? derived` lives
  */
 
 /** The rule the action implements: what pin does a switch request produce? */
@@ -51,9 +55,11 @@ describe("helper channel switch", () => {
   });
 
   it("every switch request changes something", () => {
-    // The property the bug broke: from any starting state, flipping the switch must produce
-    // a different resulting channel. A control that can redraw unchanged is indistinguishable
-    // from one that is broken.
+    /*
+     * The property the bug broke: from any starting state, flipping the switch must produce
+     * a different resulting channel. A control that can redraw unchanged is indistinguishable
+     * from one that is broken.
+     */
     for (const derived of ["beta", "stable"] as const) {
       for (const current of ["beta", "stable"] as const) {
         const target = current === "beta" ? "stable" : "beta";

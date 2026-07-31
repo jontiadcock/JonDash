@@ -15,6 +15,8 @@ import path from "node:path";
  *
  * **The thing being bounded could edit its own boundary.** These tests hold the structural fix
  * in place, because every part of it is the kind that looks redundant until it isn't.
+ * REFS app/admin/helpers/actions.ts · app/admin/modules/shared-capabilities.tsx
+ *      lib/helpers/types.ts — read as text
  */
 const ROOT = process.cwd();
 const ACTION = fs.readFileSync(path.join(ROOT, "app", "admin", "helpers", "actions.ts"), "utf8");

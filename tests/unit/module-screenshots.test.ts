@@ -8,6 +8,7 @@ import { sanitiseModuleEntryForTest, MAX_SCREENSHOTS } from "@/lib/modules/sourc
  * else — for a third-party source, by somebody with no relationship to this install. So the
  * interesting tests are not "does a good filename work" but "what happens with the ones an attacker
  * would actually write".
+ * REFS lib/modules/sources.ts
  */
 const base = {
   id: "demo",

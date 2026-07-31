@@ -18,21 +18,20 @@ import { execFileSync } from "node:child_process";
  *
  * So the budget is set once, for the whole file. A genuine hang still fails, 30s later; what it
  * no longer does is fail because a runner was cold.
+ * REFS bin/jondash-grant.exe · tools/grant/Program.cs · tools/grant/build.ps1 · lib/elevation.ts
+ *      bin/jondash-elevate.exe · tools/elevate/Program.cs — and 1 more
  */
 vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * OPS-18. Two things nothing else would notice:
+ *  1. ⚠ The exit codes live in BOTH the C# binary and the TypeScript API. Two copies of a contract
+ *     drift silently, and the symptom is JonDash reporting a failure when somebody simply declined.
+ *  2. ⚠ The binary must actually SHIP — it is committed, not built on the user's machine, so a
+ *     missing or export-ignored file is a feature nobody sees is broken until a grant is attempted.
  *
- *  1. The exit codes live in BOTH `tools/grant/Program.cs` and `lib/elevation.ts`. Two copies
- *     of a contract drift silently, and the symptom would be JonDash telling somebody an
- *     operation failed when they had simply declined the prompt.
- *  2. The binary must actually ship. It is committed rather than built on the user's machine,
- *     so a missing or export-ignored file is a broken feature nobody sees until a grant is
- *     attempted on a real install.
- *
- * The name vectors run against the real binary on Windows and are skipped elsewhere, so CI's
- * ubuntu leg stays green without pretending it verified anything.
+ * The name vectors run against the real binary on Windows and are skipped elsewhere, so CI's ubuntu
+ * leg stays green without pretending it verified anything.
  */
 const ROOT = process.cwd();
 const BIN = path.join(ROOT, "bin", "jondash-grant.exe");
@@ -45,9 +44,11 @@ describe("elevation: the binary ships", () => {
   });
 
   it("is small enough to belong in a source repo", () => {
-    // It is committed, so every clone carries it and git stores each rebuild as a full blob.
-    // A jump here means someone changed the toolchain (a self-contained .NET build is ~15 MB,
-    // a Node SEA ~60 MB+) and the trade-off deserves a fresh decision, not a silent commit.
+    /*
+     * It is committed, so every clone carries it and git stores each rebuild as a full blob.
+     * A jump here means someone changed the toolchain (a self-contained .NET build is ~15 MB,
+     * a Node SEA ~60 MB+) and the trade-off deserves a fresh decision, not a silent commit.
+     */
     expect(fs.statSync(BIN).size).toBeLessThan(256 * 1024);
   });
 
@@ -100,9 +101,11 @@ describe("elevation: exit codes agree between the binary and lib/elevation.ts", 
   });
 
   it("a timeout is its own outcome, not folded into failed", () => {
-    // Node signals a timeout by KILLING the child, which leaves no exit code. Without an
-    // explicit check that silently became "failed", so someone taking three minutes over a UAC
-    // prompt would have been told the operation broke.
+    /*
+     * Node signals a timeout by KILLING the child, which leaves no exit code. Without an
+     * explicit check that silently became "failed", so someone taking three minutes over a UAC
+     * prompt would have been told the operation broke.
+     */
     expect(ts).toContain('"timed-out"');
     expect(ts).toMatch(/killed/);
   });
@@ -117,16 +120,18 @@ describe("elevation: exit codes agree between the binary and lib/elevation.ts", 
   });
 
   it("createGrant reads its result back from Windows, not from the child's stdout", () => {
-    // `--create` re-launches itself elevated and the elevated process owns its own console, so
-    // nothing reaches us — this silently returned an empty array on success (found by manual
-    // testing 2026-07-25, before any consumer depended on it).
-    //
-    // The tempting fix is to pass the child a path to write results to. That would be an
-    // ARBITRARY FILE WRITE AS ADMINISTRATOR, because we choose the path while unprivileged:
-    // `--result C:\Windows\System32\anything`. Guard against it being "simplified" back.
-    // Sliced to the next top-level export rather than regex-matched to a closing brace: the
-    // signature has its own `}` (an inline parameter type), so a non-greedy match captured only
-    // the signature and the assertion below passed for the wrong reason.
+    /*
+     * `--create` re-launches itself elevated and the elevated process owns its own console, so
+     * nothing reaches us — this silently returned an empty array on success (found by manual
+     * testing 2026-07-25, before any consumer depended on it).
+     *
+     * The tempting fix is to pass the child a path to write results to. That would be an
+     * ARBITRARY FILE WRITE AS ADMINISTRATOR, because we choose the path while unprivileged:
+     * `--result C:\Windows\System32\anything`. Guard against it being "simplified" back.
+     * Sliced to the next top-level export rather than regex-matched to a closing brace: the
+     * signature has its own `}` (an inline parameter type), so a non-greedy match captured only
+     * the signature and the assertion below passed for the wrong reason.
+     */
     const from = ts.indexOf("export async function createGrant");
     const to = ts.indexOf("\nexport ", from + 1);
     const create = ts.slice(from, to === -1 ? undefined : to);
@@ -180,9 +185,11 @@ describe.runIf(onWindows)("elevation: name handling (the path-escape defence)", 
   });
 
   it("refuses --run without a grant, and cannot conjure one", () => {
-    // Running is unprivileged BY DESIGN — that asymmetry is what allows unattended automation.
-    // The safety property is that it can only trigger what an admin already approved, so with
-    // no grant present it must fail rather than create anything.
+    /*
+     * Running is unprivileged BY DESIGN — that asymmetry is what allows unattended automation.
+     * The safety property is that it can only trigger what an admin already approved, so with
+     * no grant present it must fail rather than create anything.
+     */
     let code = 0;
     try {
       execFileSync(BIN, ["--run", "--id", "NoSuchGrant"], { windowsHide: true, stdio: "pipe" });
@@ -274,17 +281,14 @@ describe.runIf(onWindows)("elevate shim: the flags that would mean arbitrary cod
   });
 
   it("accepts a well-formed id, and status needs no elevation", () => {
-    // status is a read: it must never prompt, which is what makes polling for progress viable.
-    //
-    // **This is the only case in this block that reaches winget** — every other one is refused by
-    // the shim's own grammar before winget is touched. (Its timeout is now the file-level one; see
-    // the note at the top.)
-    //
-    // The assertion is deliberately a SET, not `toBe(0)`. What this test owns is the shim's
-    // behaviour: 0 means winget answered, 7 (ExitNoManager) means winget isn't installed — both
-    // prove the id got PAST the grammar and that `status` returned without elevating. Only
-    // 2 (ExitUsage) would disprove it. Asserting 0 was really asserting "the CI runner has a warm
-    // winget", which is not a property of this codebase.
+    /*
+     * `status` is a read: it must never prompt, which is what makes polling for progress viable.
+     * This is the only case in the block that reaches winget — every other is refused by the shim's
+     * own grammar first.
+     * ⚠ The assertion is a SET, not `toBe(0)`: 0 means winget answered and 7 means winget is not
+     * installed, and BOTH prove the id got past the grammar without elevating. Only 2 (usage) would
+     * disprove it. Asserting 0 asserts "the CI runner has a warm winget", not a property of ours.
+     */
     const code = run(["--action", "status", "--manager", "winget", "--package", "Docker.DockerDesktop"]);
     expect([0, 7], `got ${code}; 2 would mean the grammar rejected a valid id`).toContain(code);
   });

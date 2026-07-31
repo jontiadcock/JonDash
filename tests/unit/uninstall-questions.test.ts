@@ -10,6 +10,7 @@ import { answersFor } from "@/lib/uninstall-questions";
  *
  * **A MODULE IS THIRD-PARTY CODE PUTTING TEXT ON A CORE ADMIN SCREEN.** That is the risk this
  * feature carries, and these tests are the constraints that make it acceptable.
+ * REFS lib/uninstall-questions.ts · app/admin/modules/uninstall-questions.tsx — read as text
  */
 const SRC = fs.readFileSync(path.join(process.cwd(), "lib", "uninstall-questions.ts"), "utf8");
 const UI = fs.readFileSync(
@@ -71,17 +72,21 @@ describe("the constraints on third-party questions", () => {
   });
 
   it("renders as TEXT — never markup", () => {
-    // The whole point: third-party wording on a core screen must not be able to become HTML.
-    // Matched as the JSX PROP, not the bare word — the comment above the render explains why it
-    // must never be used, and a substring check trips on that explanation instead of on code.
+    /*
+     * The whole point: third-party wording on a core screen must not be able to become HTML.
+     * Matched as the JSX PROP, not the bare word — the comment above the render explains why it
+     * must never be used, and a substring check trips on that explanation instead of on code.
+     */
     expect(UI).not.toMatch(/dangerouslySetInnerHTML\s*=/);
   });
 
   it("attributes every question to whoever asked it, BEFORE the wording", () => {
-    // Core cannot police wording: nothing stops a module writing a label like
-    // "host-services: withdraw Windows permissions?". Attribution below the label is read
-    // after the claim has landed; above it, the claim is framed before it is made. On a
-    // security screen the reading order is the control, so assert the order, not the presence.
+    /*
+     * Core cannot police wording: nothing stops a module writing a label like
+     * "host-services: withdraw Windows permissions?". Attribution below the label is read
+     * after the claim has landed; above it, the claim is framed before it is made. On a
+     * security screen the reading order is the control, so assert the order, not the presence.
+     */
     const owner = UI.indexOf("q.owner.name");
     const label = UI.indexOf("q.question.label");
     expect(owner).toBeGreaterThan(-1);

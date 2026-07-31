@@ -10,6 +10,7 @@ import { inspectBackup } from "@/lib/backup";
  * design rests on it: the restore screens now decide whether to ask for a passphrase *at all* from
  * what this returns. Get it wrong in the "not encrypted" direction and someone is refused a
  * passphrase field for a file that needs one — the exact dead end this replaced.
+ * REFS lib/backup.ts
  */
 function envelope(fields: Record<string, unknown>): Uint8Array {
   return zipSync({ "backup.json": strToU8(JSON.stringify(fields)) });
@@ -28,7 +29,7 @@ describe("inspectBackup", () => {
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.encrypted).toBe(true);
-      // The metadata lives outside the ciphertext by design — that is what makes detection possible.
+      // Metadata lives outside the ciphertext by design — that is what makes detection possible.
       expect(res.includes).toEqual(["users", "settings"]);
       expect(res.exportedAt).toBe("2026-07-29T00:00:00.000Z");
     }

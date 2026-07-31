@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { getEffectivePermissions } from "@/lib/auth/permissions";
 import { resetDb } from "../helpers";
 
+/** REFS lib/auth/permissions.ts */
+
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 

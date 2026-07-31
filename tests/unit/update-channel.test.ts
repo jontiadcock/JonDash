@@ -10,6 +10,8 @@ import {
   DEFAULT_CHANNEL,
 } from "@/lib/update-channel";
 
+/** REFS .data/update-channel — read as text */
+
 // readChannel/writeChannel touch .data/update-channel under cwd — snapshot + restore.
 const FILE = path.join(process.cwd(), ".data", "update-channel");
 const backup = fs.existsSync(FILE) ? fs.readFileSync(FILE) : null;

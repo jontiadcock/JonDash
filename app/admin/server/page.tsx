@@ -3,6 +3,8 @@ import { readOpenBrowser } from "@/lib/launcher-prefs";
 import { ServerPowerPanel } from "./server-power-panel";
 import { setOpenBrowserAction } from "./startup-actions";
 
+/** REFS lib/auth/guards.ts · lib/launcher-prefs.ts */
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminServerPowerPage() {

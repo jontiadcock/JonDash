@@ -7,6 +7,7 @@ import { decideAddonRestore, restoreAddonTables } from "@/lib/backup-addons";
  * The rule is the feature. Carrying the data is easy; the hard part is refusing to write it back
  * into a schema that has moved on, and **saying so** rather than leaving an admin to notice months
  * later that their history is missing.
+ * REFS lib/backup-addons.ts
  */
 describe("deciding whether an add-on's data may be restored", () => {
   const dump = { kind: "module" as const, id: "health-monitor", version: "0.0.7" };

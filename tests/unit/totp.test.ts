@@ -11,6 +11,8 @@ import {
   consumeTotpForUser,
 } from "@/lib/auth/totp";
 
+/** REFS lib/auth/totp.ts */
+
 describe("TOTP", () => {
   it("verifies a current code and rejects a wrong one", () => {
     const secret = generateTotpSecret();
@@ -30,9 +32,11 @@ describe("TOTP", () => {
   });
 });
 
-// BUG-51: a code stays mathematically valid for its whole 30s step plus the drift
-// window, so verifying alone let the same six digits sign in more than once —
-// proven in the field. RFC 6238 §5.2 wants a validated OTP accepted exactly once.
+/*
+ * BUG-51: a code stays mathematically valid for its whole 30s step plus the drift
+ * window, so verifying alone let the same six digits sign in more than once —
+ * proven in the field. RFC 6238 §5.2 wants a validated OTP accepted exactly once.
+ */
 
 const EMAIL = "bug51-replay@test.local";
 

@@ -135,6 +135,8 @@ describe("module installer", () => {
 describe("peeking a ZIP before writing it (BUG-19 rollback support)", () => {
   const PEEK_SRC = `
 import type { ModuleDefinition } from "@/lib/modules/types";
+
+/** REFS lib/modules/install.ts · lib/modules/types.ts */
 const mod: ModuleDefinition = {
   id: "peeked", name: "Peeked", description: "d", version: "1.0.0", minAppVersion: "1.5.0",
   permissions: [], helpers: ["scheduler"],

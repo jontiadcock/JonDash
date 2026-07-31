@@ -7,6 +7,8 @@ import { ConfirmSubmit } from "@/app/admin/ui";
 import { RenameAccessRoleForm, AccessRolePermissionsForm } from "../ui";
 import { deleteAccessRoleAction } from "../actions";
 
+/** REFS lib/auth/guards.ts · lib/auth/permissions.ts · app/admin/ui.tsx */
+
 export const dynamic = "force-dynamic";
 
 export default async function ManageAccessRolePage({

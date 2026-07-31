@@ -12,6 +12,7 @@ import { pruneUnusedHelpers } from "@/lib/helpers/install";
  * module whose files had just changed on disk. That import is fixed at build time, so it
  * can neither contain a module downloaded seconds ago nor forget one being removed right
  * now. Neither failed loudly — helpers simply never installed, and never got pruned.
+ * REFS lib/helpers/install.ts — read as text
  */
 
 const HELPERS_DIR = path.join(process.cwd(), "helpers");

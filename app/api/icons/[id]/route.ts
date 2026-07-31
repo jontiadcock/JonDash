@@ -10,6 +10,7 @@ export const runtime = "nodejs";
  * Serves an uploaded icon by link id. Enforces authentication and ownership:
  * a user may only read icons for their own links (admins may read any). Files
  * live outside the web root and are streamed with hardened headers.
+ * REFS lib/auth/guards.ts · lib/icons.ts · lib/services.ts
  */
 export async function GET(
   _req: NextRequest,

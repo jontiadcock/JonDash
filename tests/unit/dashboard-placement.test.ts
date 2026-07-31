@@ -22,6 +22,7 @@ import {
  * `packLayout` is pure and shared by the server render and the browser's drag, which is what lets
  * a drag test a candidate cell without measuring the DOM. If the two ever disagreed, a drop would
  * land somewhere other than where it was shown.
+ * REFS lib/dashboard/geometry.ts
  */
 const item = (
   id: string,
@@ -53,7 +54,8 @@ describe("overlaps", () => {
 /**
  * Dropping onto an occupied cell moves what is in the way (owner, 2026-07-28: *"when I drop a tile
  * on top of another tile, [make] the other tiles shuffle over"*), and they also asked whether the
- * board **stays organised and nice to look at** — so tidiness is asserted here rather than eyeballed.
+ * board **stays organised and nice to look at** — so tidiness is asserted here rather than
+ * eyeballed.
  *
  * "Organised" is given three concrete meanings, because a vague one cannot be tested:
  *   1. **Nothing overlaps.** Non-negotiable — an overlapped tile is unreachable.

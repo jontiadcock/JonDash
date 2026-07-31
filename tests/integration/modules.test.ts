@@ -16,6 +16,11 @@ import {
 import { writeProvenance, removeProvenance } from "@/lib/modules/provenance";
 import { decryptString } from "@/lib/crypto";
 
+/**
+ * REFS lib/modules/types.ts · lib/modules/store.ts · lib/modules/migrate.ts
+ *      lib/modules/context.ts · lib/modules/manage.ts · lib/modules/provenance.ts — and 1 more
+ */
+
 // JonDash ships no modules of its own, but the migration runner reads REAL files from
 // modules/<id>/migrations — so lay a throwaway module on disk to exercise it genuinely.
 const ID = "testmod";
@@ -253,15 +258,19 @@ describe("module framework", () => {
     expect(await prisma.moduleMigration.count({ where: { moduleId: ID } })).toBe(0);
   });
 
-  // REGRESSION (2026-07-22): installs never wrote a Module row, so enableModule recorded
-  // EVERY module as source:"bundled" — putting source-installed modules inside the
-  // prune's blast radius. A module that failed to load once would have had its tables and
-  // all its data destroyed. Provenance is now recorded at install and the prune is guarded
-  // by it (and by the files still being on disk).
+  /*
+   * REGRESSION (2026-07-22): installs never wrote a Module row, so enableModule recorded
+   * EVERY module as source:"bundled" — putting source-installed modules inside the
+   * prune's blast radius. A module that failed to load once would have had its tables and
+   * all its data destroyed. Provenance is now recorded at install and the prune is guarded
+   * by it (and by the files still being on disk).
+   */
   it("never purges a module whose code is still on disk, even with no install record", async () => {
-    // This is the state of anything installed by v1.4.0-beta.3: row says "bundled"
-    // (the old enableModule hardcoded it) and there is NO provenance file to repair from.
-    // The only thing standing between it and deletion is "its files are still there".
+    /*
+     * This is the state of anything installed by v1.4.0-beta.3: row says "bundled"
+     * (the old enableModule hardcoded it) and there is NO provenance file to repair from.
+     * The only thing standing between it and deletion is "its files are still there".
+     */
     await enableModule(sampleDef());
     await moduleStoreApi(ID).set("k", 1);
     const entry = path.join(MODULE_DIR, "module.ts");

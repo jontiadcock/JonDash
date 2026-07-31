@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
  * A module missing from the manifest says so here rather than calling `notFound()`. The page can
  * 404 because it *is* the page; a 404 rendered into a slot would put an error where an overlay is
  * supposed to be while the catalogue sits behind it, saying nothing about how to get out.
+ * REFS lib/auth/guards.ts · lib/modules/sources.ts
  */
 export default async function ModuleOverlayPage({
   params,

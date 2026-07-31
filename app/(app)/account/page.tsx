@@ -7,6 +7,11 @@ import { SessionsList } from "@/app/components/sessions-list";
 import { RegenerateBackupCodes, ChangePassword } from "./ui";
 import { revokeOwnSessionAction } from "./actions";
 
+/**
+ * REFS lib/auth/guards.ts · lib/auth/session.ts · lib/auth/backup-codes.ts · lib/sessions.ts
+ *      app/components/sessions-list.tsx
+ */
+
 // Account data is per-request and security-sensitive; never statically cached.
 export const dynamic = "force-dynamic";
 

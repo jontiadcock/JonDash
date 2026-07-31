@@ -11,6 +11,8 @@ vi.mock("next/headers", () => ({
 
 import { assertSameOrigin } from "@/lib/security/csrf";
 
+/** REFS lib/security/csrf.ts */
+
 describe("assertSameOrigin (CSRF guard)", () => {
   beforeEach(() => store.clear());
 

@@ -9,6 +9,8 @@ import path from "node:path";
  * *silently*. A banner shown on day one still renders perfectly; a route spelled with four `e`s
  * still resolves. Neither produces a failure anyone would notice, and both are decisions the owner
  * made explicitly.
+ * REFS app/you-are-a-bloody-legend/page.tsx · app/admin/layout.tsx · app/components/support.tsx
+ *      app/components/support-actions.ts — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 /**

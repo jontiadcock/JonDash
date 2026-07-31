@@ -20,6 +20,7 @@ import path from "node:path";
  * process, and by the time anyone observed it, an install would already have been replaced without
  * being asked. A launcher change also carries brick-risk, so the assertions are about shape rather
  * than wording.
+ * REFS scripts/update.mjs · lib/updates/auto-run.ts · lib/updates/scheduler.ts — read as text
  */
 const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p), "utf8");
 

@@ -11,6 +11,8 @@ import {
 } from "@/lib/tls/network-config.mjs";
 import { parseAndSaveNetworkConfig, validateByoCert } from "@/lib/tls/network";
 
+/** REFS .data/network.json — read as text */
+
 // parseAndSaveNetworkConfig writes .data/network.json in the project cwd; snapshot
 // and restore so the test never disturbs a real local config.
 const NET = path.join(process.cwd(), ".data", "network.json");
