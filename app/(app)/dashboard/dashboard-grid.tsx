@@ -14,6 +14,7 @@ import {
   type Placement,
 } from "@/lib/dashboard/geometry";
 
+/** REFS app/(app)/dashboard/page.tsx — builds the list from tiles and module widgets alike */
 export type DashboardItem = {
   kind: DashboardKind;
   id: string;
@@ -26,57 +27,51 @@ export type DashboardItem = {
 };
 
 export type Span = { width: number; height: number };
+/** REFS app/(app)/dashboard/page.tsx — computes one of these per profile, server-side */
 export type ProfileArrangement = {
   order: { kind: DashboardKind; id: string }[];
   /** Every visible item's cell and size, keyed `kind:id`. Computed server-side — see the page. */
   placements: Record<string, Placement>;
 };
 
-/** Measured geometry of one grid cell, so a pointer drag becomes span units. */
+/** Measured geometry of one grid cell, so a pointer drag becomes span units.
+ *  REFS app/(app)/dashboard/dashboard-frame.tsx — converts a corner drag with it */
 export type CellMetrics = { colWidth: number; rowHeight: number; columns: number };
 
 const key = (kind: DashboardKind, id: string) => `${kind}:${id}`;
 
 /**
- * The one place the profile boundary is defined. It must match the grid's `lg:` breakpoint
- * below — two column counts, two saved arrangements — or what you rearrange on a phone would
- * not be the thing being saved for phones.
+ * ⚠ The one place the profile boundary is defined, and it MUST match the grid's `lg:` breakpoint
+ * further down. If they disagree, what you rearrange on a phone is not what gets saved for phones.
+ * REFS lib/dashboard/geometry.ts › GEOMETRY — the column count for each side of this line
  */
 const WIDE_QUERY = "(min-width: 1024px)";
 
 /**
- * Only used for the very first server-rendered paint, before the grid can be measured. Any
- * value is wrong at some window size — that is the whole reason the real one is measured — so
- * this is simply a plausible column width that avoids a visible jump on a typical desktop.
+ * The first server-rendered paint only, before the grid can be measured. Any constant is wrong at
+ * some window size — that is why the real one is measured — so this just avoids a visible jump.
  */
 const FALLBACK_ROW_PX = 160;
 
 /**
- * How still the pointer must be before the board rearranges around it.
- *
- * Long enough that ordinary hand movement never triggers it — a drag is a continuous stream of
- * `pointermove`, so anything much shorter fires mid-gesture and reintroduces the churn this
- * exists to remove. Short enough that pausing over a spot answers "what would happen here?"
- * while you are still asking. A drop always resolves regardless, so nothing depends on waiting.
+ * How still the pointer must be before the board rearranges around it. ⚠ Shorter and it fires
+ * mid-gesture, bringing back the churn it exists to remove; longer and a deliberate pause stops
+ * answering "what would happen here?". A drop always resolves, so nothing depends on the wait.
  */
 const SETTLE_MS = 220;
 
 /**
  * The dashboard grid — service tiles and module widgets in ONE arrangement (CORE-11), saved
- * separately per device profile (CORE-12).
+ * separately per device profile (CORE-12). Arranging is an explicit mode, not chrome on hover,
+ * because hover cannot happen on a touch screen and the old controls sat exactly where a module
+ * puts its own affordance (BUG-53).
  *
- * **Two modes.** Normally an item is simply a thing you click. Arranging is an explicit mode
- * rather than chrome revealed on hover, because hover cannot happen on a touch screen and the
- * old controls sat exactly where a module puts its own affordance (BUG-53).
+ * ⚠ Dragging is pointer-driven, never HTML5 drag-and-drop: the native API paints an unstylable
+ * drag image, ignores touch, and gives no position fine enough to reflow against.
  *
- * **The `lg:` breakpoint IS the profile boundary.** Two column counts, two saved arrangements,
- * one rule — so what you rearrange on a phone is always the thing being saved for phones.
- *
- * **Dragging is pointer-driven, not HTML5 drag-and-drop.** The native API paints its own drag
- * image — the grey box with the URL in it that the owner reported — which cannot be styled away,
- * ignores touch, and gives no position updates fine enough to reflow against. Pointer events give
- * a real position on every move, so the item can follow the cursor and everything else can move
- * out of its way while you are still holding it.
+ * REFS app/(app)/dashboard/page.tsx — the only caller; computes both arrangements server-side
+ *      app/(app)/dashboard/dashboard-frame.tsx — one per item, and owns the resize gesture
+ *      app/(app)/dashboard/layout-actions.ts › placeItemsAction() — where a drop is saved
  */
 export function DashboardGrid({
   items,
@@ -85,11 +80,8 @@ export function DashboardGrid({
   items: DashboardItem[];
   arrangements: Record<DashboardProfile, ProfileArrangement>;
 }) {
-  /*
-   * The server cannot see the viewport, so it renders `wide` and this corrects on mount. Both
-   * profiles start identical, so the correction is invisible until somebody has deliberately
-   * made them differ — see the note on the page.
-   */
+  // The server cannot see the viewport, so it renders `wide` and this corrects on mount. Both
+  // profiles start identical, so the correction is invisible until someone makes them differ.
   const [profile, setProfile] = useState<DashboardProfile>("wide");
   useEffect(() => {
     const mq = window.matchMedia(WIDE_QUERY);
@@ -100,14 +92,12 @@ export function DashboardGrid({
   }, []);
 
   /**
-   * The profile a WRITE is filed under, read from the viewport at the moment of saving rather
-   * than taken from the state above.
+   * The profile a WRITE is filed under, read from the viewport at the moment of saving.
    *
-   * Belt and braces, and worth it here. The state depends on a `change` event arriving; if one
-   * were ever missed the arrangement would be silently saved against the *other* device — which
-   * is precisely the thing this feature exists to prevent, and it would look like the phone
-   * layout mysteriously reordering the desktop. Reading the query costs nothing and cannot be
-   * stale. (State still drives RENDERING, which must stay stable across a render pass.)
+   * ⚠ Do not use the state above for this. It depends on a `change` event arriving, and a missed
+   * one would file the arrangement against the OTHER device — the exact failure CORE-12 exists to
+   * prevent. State still drives RENDERING, which must stay stable across a render pass.
+   * REFS app/(app)/dashboard/dashboard-frame.tsx — passed down and called at save time
    */
   const writeProfile = useCallback(
     (): DashboardProfile => (window.matchMedia(WIDE_QUERY).matches ? "wide" : "narrow"),
@@ -117,12 +107,10 @@ export function DashboardGrid({
   const arrangement = arrangements[profile];
   const [order, setOrder] = useState(() => arrangements.wide.order.map((i) => key(i.kind, i.id)));
   /**
-   * Where every item sits, as grid cells (free placement, 1.8.0).
-   *
-   * Separate from `order`, which is now only the DOM order — it decides tab order and nothing
-   * visual, because every item is placed explicitly. That separation is what makes dragging calm:
-   * moving one item changes one entry here and **nothing else moves at all**, where the previous
-   * ordering model had to reflow every item after the one you touched.
+   * Where every item sits, as grid cells (free placement, 1.8.0). Deliberately separate from
+   * `order`, which is now only DOM order and so decides tab order and nothing visual — that split
+   * is what makes dragging calm: moving one item changes one entry here and nothing else moves.
+   * REFS lib/dashboard/geometry.ts › packLayout() — the server produces the seed values
    */
   const [placements, setPlacements] = useState<Map<string, Placement>>(
     () => new Map(Object.entries(arrangements.wide.placements)),
@@ -142,17 +130,12 @@ export function DashboardGrid({
     else frames.current.delete(k);
   }, []);
 
-  // Re-seed when the profile changes: each profile is its own arrangement, and the optimistic
-  // order held here belongs to the one we were showing.
   /*
-   * Re-seed whenever the SERVER's arrangement changes, not only when the profile does.
-   *
-   * Each profile is its own arrangement, so switching between them obviously has to re-seed. But
-   * the server's placements also change when an item is resized, reset, or added — and holding
-   * them in state alone meant those never reached the screen: a resize wrote to the database,
-   * revalidated, and the grid carried on rendering the size it had cached at mount. Comparing the
-   * serialised placements catches every case with one rule, and a drag's own optimistic update is
-   * safe because it produces the same string the server sends back.
+   * ⚠ Re-seed whenever the SERVER's arrangement changes, not only when the profile does. The
+   * server's placements also change on a resize, a reset or an added item, and keying on profile
+   * alone meant those never reached the screen — the grid kept rendering what it cached at mount.
+   * Comparing the serialised placements catches every case; a drag's own optimistic update is safe
+   * because it produces the same string the server sends back.
    */
   const serverKey = `${profile}:${JSON.stringify(arrangement.placements)}`;
   const [seededFrom, setSeededFrom] = useState(serverKey);
@@ -166,12 +149,11 @@ export function DashboardGrid({
   const ordered = order.map((k) => byKey.get(k)).filter((i): i is DashboardItem => !!i);
 
   /**
-   * Save the WHOLE arrangement, not just the item that moved.
-   *
-   * Most items have no stored position until somebody drags something — they are packed into the
-   * first free space on read — so writing only the moved one would leave every other item free to
-   * shuffle the next time anything was added or removed. Writing them all freezes what the user
-   * is looking at, which is the only reading of "I put it there" that survives the next change.
+   * ⚠ Sends the WHOLE arrangement, not just the item that moved — most items have no stored
+   * position until someone drags something, so writing only the moved one leaves the rest free to
+   * shuffle next time anything is added or removed.
+   * REFS app/(app)/dashboard/layout-actions.ts › placeItemsAction() — filters to visible items
+   *      lib/dashboard/layout.ts › placeItems() — clamps and writes the same whole set
    */
   function commit(next: Map<string, Placement>) {
     setPlacements(next);
@@ -183,48 +165,33 @@ export function DashboardGrid({
   }
 
   /**
-   * Where an item would land, given how far it has been dragged. `null` when that cell is not
-   * available — off the grid, or already occupied.
+   * Where an item would land, given how far it has been dragged; `null` when that is off the grid.
    *
-   * The candidate is computed from the item's ORIGIN plus the distance travelled, in whole cells,
-   * rather than from wherever the pointer happens to be. That keeps the grab point under your
-   * finger: pick a tile up by its corner and it stays held by that corner, instead of jumping so
-   * that the pointer sits at its centre.
+   * ⚠ Computed from the item's ORIGIN plus distance travelled, never from the pointer position —
+   * that is what keeps the grab point under your finger, so a tile picked up by its corner stays
+   * held by that corner instead of jumping to centre itself on the cursor.
    */
   function candidateCell(from: Placement, dx: number, dy: number): Placement | null {
     const metrics = cellMetrics();
     if (!metrics) return null;
     const col = from.col + Math.round(dx / metrics.colWidth);
     const row = from.row + Math.round(dy / metrics.rowHeight);
-    // Only the edges of the grid constrain it now. Landing on something occupied is no longer
-    // refused — `displaceFor` moves whatever is in the way. See the note in beginDrag.
+    // Only the grid edges constrain it — landing on an occupied cell is no longer refused.
+    // REFS lib/dashboard/geometry.ts › displaceFor() — moves whatever is in the way
     if (col < 0 || col + from.width > metrics.columns) return null;
     if (row < 0 || row > MAX_ROWS) return null;
     return { col, row, width: from.width, height: from.height };
   }
 
   /*
-   * Pointer-driven dragging, onto a CELL (free placement, 1.8.0).
+   * Pointer-driven dragging onto a CELL, not into an ordering. The drag asks "which cell am I
+   * over", never "which item am I over, and should we swap" — an ordering cannot express a gap,
+   * and swapping made every item after the held one shuffle along as you moved.
    *
-   * Owner: *"I want to be able to arrange the grid in any way I want… one icon at the top, and
-   * one at the bottom, not directly next to each other."* That is not expressible as an ordering,
-   * so the drag no longer asks "which item am I over, and should we swap" — it asks "which cell
-   * am I over, and is it free". An item is simply put where you put it, gaps and all.
-   *
-   * It also answers *"still doesn't feel super natural"* about the ordering model that preceded
-   * it, and for a structural reason rather than a cosmetic one: swapping meant every item after
-   * the one you held had to shuffle along as you moved, so the grid churned continuously under a
-   * gesture that had not finished.
-   *
-   * **Dropping onto an occupied cell now moves what is in the way** (owner, 2026-07-28), rather
-   * than being refused. Only the items actually overlapped are touched, each going to its nearest
-   * free spot — see `displaceFor`. Everything else keeps its position exactly, which is what stops
-   * a shuffle from tidying away the deliberate gaps free placement exists to allow.
-   *
-   * **Every frame is resolved against `base` — the layout as it was at pointerdown — not against
-   * the running result.** Applied cumulatively, dragging across a full board would push the same
-   * items over and over and scatter it; applied to the original, the shuffle is stable while you
-   * hover and undoes itself exactly if you move back.
+   * ⚠ Every frame resolves against `base`, the layout as it was at pointerdown — never against
+   * the running result, which would push the same items repeatedly and scatter the board.
+   * Dropping onto an occupied cell moves only what is actually in the way.
+   * REFS lib/dashboard/geometry.ts › displaceFor() — enforces both of those rules
    */
   function beginDrag(k: string, e: React.PointerEvent) {
     const startX = e.clientX;
@@ -233,11 +200,10 @@ export function DashboardGrid({
     if (!origin) return;
 
     /*
-     * `base` is the board as it was at pointerdown and is never written to; `working` is what the
-     * screen currently shows. Both are plain closure variables rather than state or a ref: they
-     * have to be readable synchronously inside `pointermove`, state would be a render behind, and
-     * a ref written during render is both illegal and a lie about where the truth lives.
-     * `beginDrag` is defined during render, so it closes over exactly what the user grabbed.
+     * `base` is the board at pointerdown and is never written to; `working` is what the screen
+     * shows. ⚠ Plain closure variables, not state or a ref: `pointermove` must read them
+     * synchronously and state would be a render behind. `beginDrag` is defined during render, so
+     * it closes over exactly what the user grabbed.
      */
     const base = placements;
     let working = placements;
@@ -249,16 +215,12 @@ export function DashboardGrid({
     setDragDelta({ x: 0, y: 0 });
 
     /**
-     * How far the tile must sit from its own cell to stay under the pointer.
+     * How far the tile must sit from its own cell to stay under the pointer. Between resolves this
+     * grows to the full pointer distance; right after one it collapses to the sub-cell remainder.
+     * Both are the same subtraction, which is why the tile never jumps.
      *
-     * The tile's cell only changes when the board is resolved, so between resolves this grows to
-     * the full pointer distance and the tile tracks the cursor exactly. Right after a resolve it
-     * collapses to the sub-cell remainder. Both are the same subtraction, which is why the tile
-     * never jumps: whatever the cell has done, the offset accounts for it.
-     *
-     * A `const` arrow rather than a `function` declaration on purpose — a hoisted declaration is
-     * not covered by the `if (!origin) return` guard above it, so TypeScript rightly refuses to
-     * narrow `origin` inside one.
+     * ⚠ A `const` arrow, not a `function` declaration — a hoisted declaration is not covered by
+     * the `if (!origin) return` above, so TypeScript will not narrow `origin` inside one.
      */
     const remainder = (dx: number, dy: number) => {
       const metrics = cellMetrics();
@@ -268,40 +230,31 @@ export function DashboardGrid({
       return { x: dx - cellDx, y: dy - cellDy };
     };
 
-    /**
-     * Work out the board for where the pointer is now, and show it.
-     *
-     * Called when the pointer PAUSES or when it is released — never continuously. See `move`.
-     */
+    /** Work out the board for where the pointer is now, and show it. ⚠ Called when the pointer
+     *  PAUSES or is released — never continuously; see `move` below. */
     const resolve = () => {
       const next = candidateCell(origin, lastDx, lastDy);
       if (!next) return;
       const at = working.get(k);
       if (at && at.col === next.col && at.row === next.row) return;
-      // Resolved against BASE, not against `working` — so the shuffle undoes itself when you move
-      // back, instead of accumulating as you cross the board.
+      // ⚠ Against BASE, not `working` — so the shuffle undoes itself when you move back rather
+      // than accumulating as you cross the board.
       const columns = cellMetrics()?.columns ?? GEOMETRY[profile].columns;
       working = displaceFor(new Map(base).set(k, next), k, columns);
       setPlacements(working);
-      // The tile has just snapped to a cell, so its offset from the pointer changed. Recompute it
+      // The tile just snapped to a cell, so its offset from the pointer changed. Recompute it
       // here or it visibly jumps by however far the cell moved.
       setDragDelta(remainder(lastDx, lastDy));
     };
 
     /*
-     * **Nothing shuffles while the pointer is moving** (owner, 2026-07-28: *"make it calculate on
-     * drop, or if someone stops moving the cursor"*).
+     * ⚠ Nothing shuffles while the pointer is moving — only on a pause or a drop.
      *
-     * Recomputing on every cell change was genuinely erratic, and their read of it — *"almost as
-     * if it is calculating too fast"* — was the right diagnosis. Two causes compounding: a target
-     * cell derived by rounding flips back and forth on the least jitter near a boundary, and each
-     * flip can send a displaced tile somewhere quite different, since the nearest free space for
-     * one anchor cell need not be adjacent to the nearest free space for the next. Every one of
-     * those changes then animated, so several were in flight at once.
-     *
-     * Waiting for a pause fixes the cause rather than damping the symptom: a shuffle now only
-     * happens at a moment the user has stopped and can see it. It doubles as a preview — hesitate
-     * over a spot and the board shows you what dropping there would do.
+     * Recomputing per cell change was erratic for two compounding reasons: a rounded target cell
+     * flips back and forth on the least jitter near a boundary, and each flip can send a displaced
+     * tile somewhere quite different, because the nearest free space for one anchor cell need not
+     * be near the nearest free space for the next. Every flip then animated, several at once.
+     * Waiting for a pause also doubles as a preview of what dropping there would do.
      */
     const move = (ev: PointerEvent) => {
       lastDx = ev.clientX - startX;
@@ -320,45 +273,25 @@ export function DashboardGrid({
       resolve();
 
       /*
-       * **The dropped tile is not animated at all** — it snaps into its cell.
+       * ⚠ DO NOT animate the dropped tile. Deleting its previous rect is what stops it: the FLIP
+       * effect below iterates `prevRects`, so a missing key is simply not animated.
        *
-       * Forgetting its previous rect is what does that: the FLIP effect below iterates
-       * `prevRects`, so a key that isn't there simply isn't animated, and the pass right
-       * afterwards records its settled position for next time.
-       *
-       * Three attempts at animating this taught the lesson. A drop is the one moment when
-       * *several* things move the tile at once — the drag transform comes off, the layout effect
-       * fires for the local update, and the server round-trip fires it again — and each one
-       * computes its own idea of where the tile was coming from. Measured on a real drop: the
-       * tile flashed to (1010, 244), then to (−108, 715), i.e. off-screen, before easing back in
-       * over 200ms. That is the owner's *"it studders briefly when dropped"*, and their earlier
-       * *"bounce in a random direction"* was the same fault less tamed.
-       *
-       * There is nothing to animate anyway. The tile is already under the pointer, and its cell
-       * is at most half a cell away, because the drag transform is only the sub-cell remainder.
-       * Animating a journey that short is all risk and no benefit.
-       *
-       * The tiles that were SHOVED still animate — they genuinely move, from a position nothing
-       * else is competing to change, and that movement is the point of the shuffle.
+       * A drop is the one moment several things move the tile at once — the drag transform comes
+       * off, the layout effect fires for the local update, and the server round-trip fires it
+       * again — each with its own idea of where the tile came from, which flung it off-screen and
+       * eased it back. There is nothing to animate anyway: the tile is already under the pointer
+       * and its cell is at most half a cell away. The SHOVED tiles still animate, and should.
        */
       prevRects.current.delete(k);
 
       /*
        * Ask the layout effect to take the drag transform off WITHOUT animating it.
        *
-       * **This is what the stutter actually was, and it was never FLIP** — three fixes aimed at
-       * the wrong thing before a probe caught it. The frame carries Tailwind's `transition` class,
-       * which includes `transform`. While dragging, the tile is offset by an inline transform; on
-       * release React removes that property, and the class dutifully **animates the removal**. So
-       * the tile snapped to its new cell and then slid in from wherever it had been held.
-       * Measured: the cell changed at 15ms with the inline style already gone, while the computed
-       * transform was still -340px, easing to zero over the next 180ms.
-       *
-       * **Why a note for later rather than doing it here.** Clearing the transform in this handler
-       * does stop the slide, but React has not yet committed the new cell — so for one frame the
-       * tile paints at the cell it came FROM, which is a flash in the other direction. The layout
-       * effect runs after the DOM has moved and before the browser paints, which is the one moment
-       * both facts are true at once.
+       * ⚠ The frame's `transition` class covers `transform`, so when React removes the inline drag
+       * offset on release the class ANIMATES the removal — the tile snaps to its new cell and then
+       * slides in from where it was held. This is not a FLIP fault.
+       * ⚠ It has to be a note for later, not a fix here: React has not committed the new cell yet,
+       * so clearing it now paints one frame at the OLD cell instead.
        */
       settlingRef.current = k;
 
@@ -373,15 +306,9 @@ export function DashboardGrid({
   }
 
   /*
-   * FLIP, so the items that move actually glide.
-   *
-   * CSS grid does not animate reflow — a reordered item simply appears in its new cell, which is
-   * what "clunky" meant. So: remember where everything was, let React re-render, then put each
-   * moved item back where it started with a transform and release it. The browser animates the
-   * release, and nothing about the layout itself is faked.
-   *
-   * The dragged item is excluded — it is already following the pointer, and animating it too
-   * would fight that.
+   * FLIP, because CSS grid does not animate reflow — a moved item just appears in its new cell.
+   * Remember where everything was, let React re-render, put each moved item back with a transform,
+   * then release it. The dragged item is excluded: it already follows the pointer.
    */
   const prevRects = useRef(new Map<string, DOMRect>());
   /** The tile just dropped, if any — its drag transform must come off without animating. */
@@ -389,13 +316,10 @@ export function DashboardGrid({
 
   useLayoutEffect(() => {
     /*
-     * A dropped tile lands; it does not glide in.
-     *
-     * This runs after React has moved the tile to its new cell and removed the inline drag
-     * transform, but BEFORE the browser paints — the only moment when both the new position and
-     * the absence of the transform are true together. Suppressing the transition and forcing a
-     * flush here makes "no transform" a fact the browser commits rather than a destination it
-     * animates towards. Doing it any earlier paints one frame at the old cell instead.
+     * ⚠ This is the ONLY moment both facts are true: React has moved the tile to its new cell and
+     * removed the inline drag transform, and the browser has not painted yet. Suppressing the
+     * transition and forcing a flush here makes "no transform" something the browser commits
+     * rather than a destination it animates towards. REFS `settlingRef` is set in `end()` above
      */
     const settling = settlingRef.current;
     if (settling) {
@@ -423,47 +347,31 @@ export function DashboardGrid({
         if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
 
         /*
-         * Don't animate a journey nobody could follow.
-         *
-         * Inserting a wide widget pushes everything after it onto the next row, so a tile can
-         * legitimately move most of a screen. Inverting that puts it at its old position — often
-         * outside the viewport — and animates it back in, which reads as the tile having vanished
-         * and then flown across the page rather than as anything moving. Past a screen's worth,
-         * letting it simply be in its new place is calmer and more honest about what happened.
+         * Don't animate a journey nobody could follow. A tile can legitimately move most of a
+         * screen; inverting that starts it outside the viewport and flies it back in, which reads
+         * as vanishing rather than moving. Past a screenful, just let it be in its new place.
          */
         if (Math.abs(dx) > window.innerWidth || Math.abs(dy) > window.innerHeight) return;
         el.style.transition = "none";
         el.style.transform = `translate(${dx}px, ${dy}px)`;
         /*
-         * Release SYNCHRONOUSLY, after forcing a style flush — not from a `requestAnimationFrame`
-         * callback.
-         *
-         * rAF does not run in a backgrounded or hidden tab, and a rAF that never fires leaves the
-         * inverted transform on the element permanently: the item sits visibly displaced, and —
-         * worse — `getBoundingClientRect` then reports the wrong position, so the next drag
-         * hit-tests against geometry that no longer exists. That is not hypothetical; it is what
-         * this code did, and it scrambled the order on every drag.
-         *
-         * Reading `offsetWidth` forces the browser to apply the inverted transform before the
-         * next two lines overwrite it, which is the whole reason the rAF was there. Doing it this
-         * way the animation still runs when frames are being produced, and when they aren't the
-         * element simply lands in the right place with no animation — correct either way.
+         * ⚠ Release SYNCHRONOUSLY after forcing a style flush — never from `requestAnimationFrame`.
+         * rAF does not run in a hidden tab, and one that never fires strands the inverted transform
+         * on the element: the item sits displaced AND `getBoundingClientRect` then reports the
+         * wrong position, so the next drag hit-tests against geometry that no longer exists.
+         * Reading `offsetWidth` applies the transform before the next two lines overwrite it, which
+         * is all the rAF was ever for.
          */
         void el.offsetWidth;
         el.style.transition = "transform 180ms cubic-bezier(0.2, 0, 0.2, 1)";
         el.style.transform = "";
 
         /*
-         * Hand the element back to its stylesheet once the settle finishes.
-         *
-         * Both properties were being left inline forever. The stranded `transition` then governed
-         * everything else the element does — most visibly the hover lift, which is applied by a
-         * class and was being re-timed to 180ms of FLIP's easing. Since the pointer is by
-         * definition over a tile you have just dropped, that lift fires during the settle, and
-         * the two moving together is part of what read as a bounce.
-         *
-         * `once` so the listener cannot accumulate across drags, and it is registered before the
-         * transition can finish, so it cannot be missed.
+         * ⚠ Hand the element back to its stylesheet, or both properties stay inline forever and the
+         * stranded `transition` re-times everything else the element does — most visibly the hover
+         * lift, which then runs on FLIP's 180ms easing during the settle.
+         * `once` so listeners cannot accumulate across drags; registered before the transition can
+         * finish, so it cannot be missed.
          */
         el.addEventListener(
           "transitionend",
@@ -479,18 +387,14 @@ export function DashboardGrid({
   }, [placements, dragKey]);
 
   /*
-   * The one-cell nudge that drove the ←↑↓→ buttons is gone with them (owner, 2026-07-28). Removed
-   * rather than left unused: an exported-looking helper with no caller reads as something that
-   * still works, and the next person would wire a button to it without knowing why it went.
-   *
-   * It is a dozen clicks to cross an eighteen-column grid, which is what made it useless once a
-   * drag could place an item anywhere in one gesture.
+   * ⚠ There is no one-cell nudge helper any more; it went with the ←↑↓→ buttons. Don't re-add one
+   * without the buttons — a helper with no caller reads as something that still works.
    */
 
   /**
-   * Measure a cell from the live grid rather than hardcoding it. The column count changes with
-   * the breakpoint and the row height is now derived from it, so a duplicated constant here
-   * would silently disagree with what is on screen.
+   * ⚠ Measure a cell from the live grid, never hardcode it: the column count changes with the
+   * breakpoint and the row height is derived from it, so a constant here silently disagrees with
+   * what is on screen. REFS app/(app)/dashboard/dashboard-frame.tsx — receives this as a callback
    */
   const cellMetrics = useCallback((): CellMetrics | null => {
     const el = gridRef.current;
@@ -507,18 +411,12 @@ export function DashboardGrid({
   }, []);
 
   /*
-   * SQUARE CELLS — the row height tracks the measured column width (owner, 2026-07-27).
-   *
-   * A fixed row height could never be square, because the columns are fluid: at one window
-   * width a 1×1 was a squat landscape box, at another it was portrait, and no combination of
-   * spans reliably produced a square. The owner's ask was exactly that — "small or large,
-   * square, rectangle, whatever I want" — and that only works if one unit is one unit in both
-   * directions.
-   *
-   * It has to be measured rather than declared: CSS can size a row from its content or from a
-   * fixed value, but not from the width of a column it doesn't know. Recomputed on resize via
-   * ResizeObserver, which also covers the window changing without a `resize` event — the exact
-   * gap that made the profile switch untestable in the browser harness.
+   * SQUARE CELLS — the row height tracks the MEASURED column width. ⚠ It cannot be declared: CSS
+   * can size a row from its content or a fixed value, but not from the width of a column it does
+   * not know, and the columns here are fluid. With a constant, a 1×1 was landscape at one window
+   * width and portrait at another. ResizeObserver rather than a `resize` listener, so a window
+   * change that fires no `resize` event is still caught.
+   * REFS lib/dashboard/geometry.ts › GEOMETRY — states why no row height lives there
    */
   const [rowPx, setRowPx] = useState<number | null>(null);
   useEffect(() => {
@@ -562,17 +460,11 @@ export function DashboardGrid({
       )}
 
       {/*
-        The row track is FIXED (BUG-59) and SQUARE (owner, 2026-07-27).
-
-        Fixed, because a growable track sizes itself to its content and an item spanning several
-        rows spreads its content across all of them — so resizing one item silently re-sized the
-        rows it shared with a neighbour, and the neighbour moved. Content-sized tracks cannot
-        also be independent of content, and independence is what matters here.
-
-        Square, because the columns are fluid: with a constant row height a 1×1 was landscape at
-        one window width and portrait at another, and no combination of spans gave a reliable
-        square. `rowPx` is the measured column width, so one unit is one unit in both directions
-        and N×N is genuinely a square.
+        ⚠ `gridAutoRows` must stay a FIXED pixel value (BUG-59). A growable track sizes itself to
+        its content, and an item spanning several rows spreads content across all of them — so
+        resizing one item silently re-sized the rows it shared with a neighbour, moving it.
+        `rowPx` is the measured column width, which is what makes N×N genuinely square.
+        ⚠ The `lg:` breakpoint here IS the profile boundary — keep it equal to `WIDE_QUERY`.
       */}
       <div
         ref={gridRef}
@@ -582,9 +474,8 @@ export function DashboardGrid({
         {ordered.map((item) => {
           const k = key(item.kind, item.id);
           const fallback = DEFAULT_SPAN[profile][item.kind];
-          // Every item has a cell — the server packs anything without a stored one, so there is
-          // no auto-placed case to fall back to. The default span still covers an item that
-          // appeared between the server render and this one.
+          // Every item has a cell — the server packs anything without a stored one. The fallback
+          // only covers an item that appeared between the server render and this one.
           const at = placements.get(k) ?? { col: 0, row: 0, ...fallback };
           return (
             <DashboardFrame
