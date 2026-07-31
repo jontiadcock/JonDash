@@ -23,17 +23,12 @@ export default async function AppLayout({
 
   return (
     /*
-     * CORE-14 — a page may opt out of the reading measure.
-     *
-     * `max-w-6xl` (1152px) is what keeps prose and forms at a legible line length, and it is
-     * right for almost every page here. It is wrong for the dashboard: a grid of tiles has no
-     * such constraint and simply wants the room, so on a wide display the whole dashboard was
-     * squeezed into the middle third with a large empty margin either side.
-     *
-     * Rather than remove the cap globally — which would make a 2000px-wide settings form worse
-     * than the problem — a page marks itself with `data-wide-page` and `:has()` widens the
-     * shell around it. The header widens with it, or the brand and account menu would sit in a
-     * narrow column above a full-width page and read as misalignment.
+     * CORE-14 — a page opts out of the reading measure by marking itself `data-wide-page`, and
+     * `:has()` widens the shell around it. `max-w-6xl` keeps prose and forms legible and is right
+     * for almost every page, but squeezes a tile grid into the middle third of a wide display.
+     * ⚠ The header must widen with the body, or the brand and account menu sit in a narrow column
+     * above a full-width page and read as misalignment.
+     * REFS app/(app)/dashboard/page.tsx — the only page that sets the attribute
      */
     <div className="group/shell min-h-screen flex flex-col has-[[data-wide-page]]:w-full">
       <header

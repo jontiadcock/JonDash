@@ -6,19 +6,15 @@ import { Heart, SUPPORT_URL } from "@/app/components/support";
 export const dynamic = "force-dynamic";
 
 /**
- * Help &amp; support — CORE-05, and 11.1 of the 1.8.0 rework.
+ * Help and support (CORE-05).
  *
- * **The address is `/help-meeeee`, with five `e`s, and it is not a typo.** The owner wrote it twice,
- * the second time emphasising the spelling. Recorded as a locked decision in `docs/ROADMAP.md`
+ * ⚠ `/help-meeeee` has FIVE `e`s and is not a typo — it is a locked decision in docs/ROADMAP.md,
  * because it is exactly the kind of thing a later tidy-up would "fix".
+ * ⚠ Keep it inside the `(app)` group so it gets the shell. As a top-level route it rendered a bare
+ * column with no navigation at all, and a help page you cannot leave is its own problem.
  *
- * **Tone lives here and nowhere else.** JonDash is otherwise dry and infrastructural — it guards
- * somebody's services — so the personality belongs on this page and on the thank-you page, not
- * sprinkled through the admin UI where someone is trying to fix something.
- *
- * Signed-in only, and **inside the `(app)` group so it gets the shell** — header, the way back, and
- * the support line at the foot. It was briefly a top-level route, which rendered a bare column with
- * no navigation on it at all: a help page you cannot leave is a special kind of unhelpful.
+ * Tone lives here and on the thank-you page, not in the admin UI where someone is fixing something.
+ * REFS app/components/support.tsx › SUPPORT_URL · Heart · app/you-are-a-bloody-legend/page.tsx
  */
 export default async function HelpPage() {
   await requireUser();

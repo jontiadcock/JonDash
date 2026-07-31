@@ -8,16 +8,17 @@ import { hasQueuedAddonUpdates } from "@/lib/update-queue";
 export const dynamic = "force-dynamic";
 
 /**
- * Shown after an in-place update. The overlay sends the admin here once the new build is up
- * — and because an update now keeps the session (lib/boot SESSION_EPOCH), they arrive still
- * signed in, rather than being bounced to /login. A plain restart or module rebuild also
- * keeps the session now, but lands on /dashboard rather than this update-specific screen.
+ * Shown after an in-place update. The admin arrives still signed in, because an update keeps the
+ * session; a plain restart or module rebuild keeps it too but lands on /dashboard instead.
+ *
+ * REFS app/components/server-wait-overlay.tsx — sends them here once the new build answers
+ *      lib/boot.ts › SESSION_EPOCH — the cutoff that decides whether a session survives
  */
 export default async function UpdateCompletePage() {
   await requireUser();
   const version = getAppVersion();
-  // "Update everything" leaves its add-on half queued for after the restart — if one is
-  // waiting, this screen is the middle of the run, not the end of it.
+  // "Update everything" leaves its add-on half queued for after the restart — if one is waiting,
+  // this screen is the middle of the run, not the end. REFS ./continue-addons.tsx drains it
   const addonsPending = hasQueuedAddonUpdates();
 
   if (addonsPending) {

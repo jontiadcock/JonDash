@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 /**
- * Displays a freshly generated set of one-time recovery codes with copy /
- * download / print. Shown once — the raw codes cannot be retrieved again.
+ * A freshly generated set of one-time recovery codes, with copy, download and print. ⚠ Shown
+ * ONCE — only hashes are stored, so the raw codes cannot be produced again.
+ * REFS app/(app)/account/ui.tsx — after a regenerate · app/recovery-codes/page.tsx — at setup
+ *      lib/auth/backup-codes.ts › generateBackupCodes() — what produced them
  */
 export function BackupCodesPanel({ codes }: { codes: string[] }) {
   const [copied, setCopied] = useState(false);

@@ -5,19 +5,20 @@ import { applyQueuedAddonUpdatesAction } from "@/app/admin/updates/selection-act
 import { ServerWaitOverlay } from "@/app/components/server-wait-overlay";
 
 /**
- * Stage two of "Update everything": JonDash itself has just updated and come back, and a
- * queue of add-on updates was left behind for exactly this moment.
+ * Stage two of "Update everything": JonDash has just updated and come back, and a queue of add-on
+ * updates was left for this moment.
  *
- * Runs here, on the post-update screen, rather than at boot: applying add-ons exits the
- * process to rebuild, and doing that from server start-up risks a boot loop on a bad module.
- * Driving it from a page the admin is looking at keeps it visible and bounded — they see it
- * happen, and a failure is reported instead of retried.
+ * ⚠ Runs from this page, never at boot. Applying add-ons exits the process to rebuild, and doing
+ * that from server start-up risks a boot loop on a bad module. Driven from a page the admin is
+ * watching, a failure is reported rather than retried.
+ * REFS app/admin/updates/selection-actions.ts › applyQueuedAddonUpdatesAction() — consumes the
+ *      queue · app/(app)/update-complete/page.tsx — the only caller
  */
 export function ContinueAddons() {
   const [phase, setPhase] = useState<"starting" | "applying" | "failed">("starting");
   const [error, setError] = useState<string | null>(null);
-  // Strict Mode mounts effects twice in development; the queue is consumed on read, so a
-  // second call would find nothing and report a spurious failure.
+  // ⚠ Strict Mode mounts effects twice in development, and the queue is consumed on read — a
+  // second call finds nothing and reports a spurious failure.
   const started = useRef(false);
 
   useEffect(() => {
@@ -28,8 +29,7 @@ export function ContinueAddons() {
       try {
         const res = await applyQueuedAddonUpdatesAction();
         // Success exits the process to rebuild, so this usually never resolves — the overlay
-        // takes over and waits for the new server. Reaching here with an error means the
-        // add-ons could not be applied.
+        // waits for the new server. Reaching here means the add-ons could not be applied.
         if (res?.error) {
           setError(res.error);
           setPhase("failed");

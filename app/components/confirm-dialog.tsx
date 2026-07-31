@@ -4,18 +4,15 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * In-page confirmation modal — replaces the native window.confirm() popup so
- * prompts render inside the app (and don't block automation / look like OS dialogs).
+ * In-page confirmation modal, replacing `window.confirm()` so prompts render inside the app.
  *
- * **Portalled into `document.body` (BUG-23).** `position: fixed` is only relative to the
- * viewport while NO ancestor has a `transform`, `filter`, `perspective`, `backdrop-filter`,
- * `will-change` or `contain` — any of those makes that ancestor the containing block, and
- * the modal is quietly trapped inside it instead of covering the page. Admin pages are
- * wrapped in `.page-fade`, whose keyframes animate `transform` with
- * `animation-fill-mode: both`, so the final transform is retained forever and every dialog
- * rendered from a page was confined to the content column. A portal escapes ancestor
- * transforms, `overflow: hidden` and stacking contexts permanently, rather than depending
- * on layout CSS staying benign — which it didn't.
+ * ⚠ Must stay portalled into `document.body` (BUG-23). `position: fixed` is viewport-relative only
+ * while NO ancestor has `transform`, `filter`, `perspective`, `backdrop-filter`, `will-change` or
+ * `contain`; any of those becomes the containing block and traps the modal inside it. Admin pages
+ * are wrapped in `.page-fade`, which retains its final transform forever.
+ *
+ * REFS app/admin/ui.tsx — the only caller
+ *      app/components/server-wait-overlay.tsx — portalled for the same reason
  */
 export function ConfirmDialog({
   open,
@@ -48,9 +45,8 @@ export function ConfirmDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  // Only ever open after a client action, so the server render is always null anyway;
-  // guarded on `document` rather than a mounted-state flag, which the React Compiler lint
-  // correctly refuses as a cascading render.
+  // ⚠ Guard on `document`, not a mounted-state flag — `useEffect(() => setState(true))` is a
+  // cascading render the React Compiler lint refuses. The server render is null regardless.
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(

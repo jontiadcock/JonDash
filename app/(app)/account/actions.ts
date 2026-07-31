@@ -11,9 +11,16 @@ import { assertSameOrigin } from "@/lib/security/csrf";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { audit } from "@/lib/audit";
 
+/** REFS ./ui.tsx — the `useActionState` shape the regenerate form reads */
 export type RegenState = { error?: string; backupCodes?: string[] };
 
-/** Regenerate the current user's recovery codes (requires a current TOTP code). */
+/**
+ * Regenerate the current user's recovery codes. ⚠ A live TOTP code is the authorisation — there is
+ * no password step — so the rate limit above is the only thing between a stolen session and a
+ * fresh set of codes.
+ * REFS lib/auth/backup-codes.ts › generateBackupCodes() — invalidates the previous set
+ *      app/components/backup-codes-panel.tsx — shows them once · ./ui.tsx — the caller
+ */
 export async function regenerateBackupCodesAction(
   _prev: RegenState,
   formData: FormData,
@@ -39,11 +46,14 @@ export async function regenerateBackupCodesAction(
   return { backupCodes };
 }
 
+/** REFS ./ui.tsx — the `useActionState` shape the password form reads */
 export type ChangePwState = { error?: string; success?: string };
 
 /**
- * Change the signed-in user's password. Requires the current password; on
- * success, signs out the user's OTHER sessions (keeps this one).
+ * Change the signed-in user's password. Requires the current password, and on success signs out
+ * every OTHER session while keeping this one.
+ * REFS lib/auth/session.ts › getCurrentSession() — identifies the session to spare
+ *      lib/auth/password.ts › validatePasswordStrength() · hashPassword() · ./ui.tsx
  */
 export async function changePasswordAction(
   _prev: ChangePwState,
@@ -85,14 +95,16 @@ export async function changePasswordAction(
   return { success: "Password changed. Your other sessions have been signed out." };
 }
 
-/** Revoke one of the current user's own sessions. */
+/** Revoke one of the current user's own sessions.
+ *  REFS ./page.tsx — the only caller · app/components/sessions-list.tsx — posts `sessionId` */
 export async function revokeOwnSessionAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const user = await requireUser();
   const sessionId = String(formData.get("sessionId") ?? "");
   if (!sessionId) return;
 
-  // Scope strictly to the caller's own sessions (no IDOR).
+  // ⚠ Scoped to the caller's own sessions in the WHERE clause — the id comes from the form, so
+  // a missing `userId` here is an IDOR that revokes anybody's session.
   const res = await prisma.session.deleteMany({ where: { id: sessionId, userId: user.id } });
   if (res.count > 0) await audit("session.revoked.self", { userId: user.id });
   revalidatePath("/account");

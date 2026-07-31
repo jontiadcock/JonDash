@@ -11,8 +11,13 @@ export type SessionRow = {
 };
 
 /**
- * Presentational sessions table. `revokeAction` is a server action that reads a
- * `sessionId` field. When `showUser` is set, an owner column is rendered (admin).
+ * Presentational sessions table. `revokeAction` is a server action reading a `sessionId` field;
+ * `showUser` adds the owner column for the admin view.
+ *
+ * ⚠ Purely presentational — the two callers pass DIFFERENT actions, and each is responsible for
+ * scoping what it will revoke. Nothing here restricts the id that is posted.
+ * REFS app/(app)/account/page.tsx — passes `revokeOwnSessionAction`, own sessions only
+ *      app/admin/sessions/page.tsx — the admin-wide equivalent
  */
 export function SessionsList({
   sessions,

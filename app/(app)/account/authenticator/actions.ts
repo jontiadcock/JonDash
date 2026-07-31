@@ -16,15 +16,18 @@ import { assertSameOrigin } from "@/lib/security/csrf";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { audit } from "@/lib/audit";
 
+/** REFS ./ui.tsx — the `useActionState` shape the authorise form reads */
 export type AuthorizeState = { error?: string; qrDataUrl?: string; secret?: string };
+/** REFS ./ui.tsx — the `useActionState` shape the confirm form reads */
 export type ReenrollState = { error?: string };
 
 /**
- * Step 1 — authorise the change with a code from the CURRENT authenticator or a
- * one-time backup code (no password; email later). Only on success do we generate
- * the new secret, stash it in a short-lived cookie, and return the QR to scan.
- * Splitting authorisation from the new-code entry means the user only ever holds
- * one live TOTP code at a time.
+ * Step 1 — authorise the change with a code from the CURRENT authenticator or a one-time backup
+ * code. ⚠ Only generate the new secret on success: splitting authorisation from the new-code entry
+ * is what keeps the user holding exactly one live TOTP secret at a time.
+ *
+ * REFS lib/auth/reenroll.ts › setPendingTotp() — the short-lived cookie the QR is stashed in
+ *      ./ui.tsx — the only caller · confirmReenrollAction() below — step 2, which consumes it
  */
 export async function authorizeReenrollAction(
   _prev: AuthorizeState,
@@ -64,9 +67,11 @@ export async function authorizeReenrollAction(
 }
 
 /**
- * Step 2 — confirm the new authenticator. The pending-secret cookie (only set
- * after step 1 succeeded) is the authorisation proof; the new 6-digit code must
- * match that pending secret. On success the account's TOTP secret is replaced.
+ * Step 2 — confirm the new authenticator. ⚠ The pending-secret cookie IS the authorisation proof;
+ * it is only set once step 1 succeeded, and the new code must match that pending secret.
+ *
+ * REFS lib/auth/reenroll.ts › getPendingTotp() · clearPendingTotp()
+ *      authorizeReenrollAction() above — step 1, which sets that cookie · ./ui.tsx — the caller
  */
 export async function confirmReenrollAction(
   _prev: ReenrollState,

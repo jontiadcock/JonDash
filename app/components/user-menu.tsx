@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/(app)/actions";
 
 /**
- * The account control at the right of every header: a small person icon (not a row of word
- * buttons), so a phone header is just the logo plus one compact control. Clicking it opens a
- * menu with "My account" and a "Sign out" that asks to confirm first — a stray tap can't sign
- * you out. Replaces the separate Account / email / Sign out buttons.
+ * The account control at the right of every header — one compact icon rather than a row of word
+ * buttons, so a phone header is the logo plus this. Sign out asks to confirm, so a stray tap
+ * cannot end the session.
+ * REFS app/(app)/layout.tsx · app/admin/layout.tsx — the two headers
+ *      app/(app)/actions.ts › logoutAction()
  */
 export function UserMenu({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
