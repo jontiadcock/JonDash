@@ -1,18 +1,20 @@
 #!/usr/bin/env node
-// JonDash action log — a small, dependency-free logging helper shared by the
-// launcher (start-dashboard.bat) and the server (server.mjs).
-//
-// Goals:
-//   * A durable, timestamped record of what the launcher/app did, so a failed
-//     startup or a cert-renewal problem can be diagnosed after the fact.
-//   * NEVER write secrets. Every "detail" is passed through a redactor first.
-//   * Self-maintaining: one file per day, older files pruned automatically.
-//
-// Usage as a CLI (from the .bat):
-//   node scripts/log.mjs <phase> <status> [detail...]
-// Usage as a module (from server.mjs):
-//   import { appendLog } from "./scripts/log.mjs";
-//   appendLog("tls", "renew-failed", err.message);
+/*
+ * JonDash action log — a small, dependency-free logging helper shared by the
+ * launcher (start-dashboard.bat) and the server (server.mjs).
+ *
+ * Goals:
+ *   * A durable, timestamped record of what the launcher/app did, so a failed
+ *     startup or a cert-renewal problem can be diagnosed after the fact.
+ *   * NEVER write secrets. Every "detail" is passed through a redactor first.
+ *   * Self-maintaining: one file per day, older files pruned automatically.
+ *
+ * Usage as a CLI (from the .bat):
+ *   node scripts/log.mjs <phase> <status> [detail...]
+ * Usage as a module (from server.mjs):
+ *   import { appendLog } from "./scripts/log.mjs";
+ *   appendLog("tls", "renew-failed", err.message);
+ */
 
 import fs from "node:fs";
 import path from "node:path";
@@ -22,9 +24,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LOG_DIR = path.join(ROOT, "logs");
 const RETENTION_DAYS = 14;
 
-// --- redaction --------------------------------------------------------------
-// Defensive scrubbing: launcher phases carry no secrets, but this is the
-// guarantee for anything that flows through (e.g. OPS-05 cert paths / errors).
+/*
+ * --- redaction --------------------------------------------------------------
+ * Defensive scrubbing: launcher phases carry no secrets, but this is the
+ * guarantee for anything that flows through (e.g. OPS-05 cert paths / errors).
+ */
 const REDACTIONS = [
   // PEM blocks (private keys, certs) — collapse the whole block.
   [/-----BEGIN [A-Z ]+-----[\s\S]*?-----END [A-Z ]+-----/g, "[REDACTED PEM]"],
@@ -38,7 +42,8 @@ const REDACTIONS = [
   [/\b[A-Za-z0-9+/=_-]{40,}\b/g, "[REDACTED]"],
 ];
 
-/** Mask anything secret-looking. Always run before writing to disk. */
+/** ⚠ Mask anything secret-looking. ALWAYS run it before writing to disk — server output goes into
+ *  a daily log a user may send on. REFS scripts/supervise.mjs — tees child output through it */
 export function redact(text) {
   let out = String(text ?? "");
   for (const [re, rep] of REDACTIONS) out = out.replace(re, rep);
@@ -65,8 +70,9 @@ function pruneOldLogs() {
 }
 
 /**
- * Append one event line: "<ISO ts>  <PHASE>  <STATUS>  <detail>".
- * Best-effort: logging must never throw into the caller's path.
+ * Append one event line. ⚠ Best-effort — logging must never throw into the caller's path, and the
+ * supervisor calls it from its own crash handling.
+ * REFS scripts/supervise.mjs · scripts/update.mjs — the launcher-side callers
  */
 export function appendLog(phase, status, detail = "") {
   try {

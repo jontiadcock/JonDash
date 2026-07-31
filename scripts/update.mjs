@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-// JonDash self-updater for ZIP installs of the PUBLIC repo (no Git, no token).
-//
-// Reads the public updates.json manifest and — on `apply` — downloads that
-// version's source ZIP from GitHub's public archive, extracts it, and copies it
-// over this folder.
-//
-//   node scripts/update.mjs check   -> prints status; exit 10 if an update exists
-//   node scripts/update.mjs apply   -> downloads + installs the newest version
-//
-// User data is never touched: .env, .data, uploads and the SQLite database are
-// gitignored, so they aren't in the downloaded archive and are left untouched.
+/*
+ * JonDash self-updater for ZIP installs of the PUBLIC repo (no Git, no token).
+ *
+ * Reads the public updates.json manifest and — on `apply` — downloads that
+ * version's source ZIP from GitHub's public archive, extracts it, and copies it
+ * over this folder.
+ *
+ *   node scripts/update.mjs check   -> prints status; exit 10 if an update exists
+ *   node scripts/update.mjs apply   -> downloads + installs the newest version
+ *
+ * User data is never touched: .env, .data, uploads and the SQLite database are
+ * gitignored, so they aren't in the downloaded archive and are left untouched.
+ */
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -160,9 +162,11 @@ async function cmdAutoCheck() {
 }
 
 async function copyOver(srcRoot) {
-  // What must not be overwritten is defined once, in scripts/preserve.mjs — and matches
-  // the TOP-LEVEL segment only. Matching a bare entry name at any depth once caused
-  // `lib/modules/` to be skipped along with the top-level `modules/` folder.
+  /*
+   * What must not be overwritten is defined once, in scripts/preserve.mjs — and matches
+   * the TOP-LEVEL segment only. Matching a bare entry name at any depth once caused
+   * `lib/modules/` to be skipped along with the top-level `modules/` folder.
+   */
   async function walk(relDir) {
     const entries = await fsp.readdir(path.join(srcRoot, relDir), { withFileTypes: true });
     for (const e of entries) {
@@ -241,9 +245,11 @@ async function cmdApply() {
 
 const cmd = process.argv[2];
 const run = cmd === "apply" ? cmdApply : cmd === "autocheck" ? cmdAutoCheck : cmdCheck;
-// Set exitCode and let the process end on its own. Calling process.exit() here can
-// race with the fetch socket tearing down and crash libuv on Windows (which would
-// give a bogus non-zero code the launcher misreads as "update available").
+/*
+ * Set exitCode and let the process end on its own. Calling process.exit() here can
+ * race with the fetch socket tearing down and crash libuv on Windows (which would
+ * give a bogus non-zero code the launcher misreads as "update available").
+ */
 run()
   .then((code) => {
     process.exitCode = code;

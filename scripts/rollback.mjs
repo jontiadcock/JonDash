@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// JonDash rollback helper (OPS-10).
-//
-// Snapshots the current source before an update, and restores it if the update
-// fails (build error or boot-crash) — reverting to a like-for-like copy of what
-// was running before. The snapshot lives under .data/rollback/ (preserved by the
-// updater, gitignored). Source only — never node_modules/.next or user data.
-//
-//   node scripts/rollback.mjs backup    -> snapshot the current source + version
-//   node scripts/rollback.mjs restore   -> restore the snapshot over the install
-//   node scripts/rollback.mjs version   -> print the snapshot's version (or nothing)
-//
-// The ROOT can be overridden with JONDASH_ROOT for tests.
+/*
+ * JonDash rollback helper (OPS-10).
+ *
+ * Snapshots the current source before an update, and restores it if the update
+ * fails (build error or boot-crash) — reverting to a like-for-like copy of what
+ * was running before. The snapshot lives under .data/rollback/ (preserved by the
+ * updater, gitignored). Source only — never node_modules/.next or user data.
+ *
+ *   node scripts/rollback.mjs backup    -> snapshot the current source + version
+ *   node scripts/rollback.mjs restore   -> restore the snapshot over the install
+ *   node scripts/rollback.mjs version   -> print the snapshot's version (or nothing)
+ *
+ * The ROOT can be overridden with JONDASH_ROOT for tests.
+ */
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";

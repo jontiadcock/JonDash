@@ -1,18 +1,20 @@
-// JonDash custom server.
-//
-// Replaces `next start` so the app can (optionally) terminate TLS itself:
-//   * mode "off"        — plain HTTP on httpPort (default 3000). Identical to
-//                         `next start`; this is the default when no config exists.
-//   * mode "letsencrypt"— obtain/auto-renew a Let's Encrypt cert (HTTP-01) and
-//                         serve HTTPS; HTTP port answers the ACME challenge and
-//                         redirects to HTTPS.
-//   * mode "byo"        — serve an admin-supplied cert/key; no ACME.
-//
-// Fail-open: any TLS problem (cert pending, issuance error, bad BYO paths) leaves
-// the app serving over HTTP rather than failing to start. Errors are logged
-// (redacted) and surfaced in the admin "cert status" panel.
-//
-// Plain JS on purpose (Node runs it directly, not through the Next compiler).
+/*
+ * JonDash custom server.
+ *
+ * Replaces `next start` so the app can (optionally) terminate TLS itself:
+ *   * mode "off"        — plain HTTP on httpPort (default 3000). Identical to
+ *                         `next start`; this is the default when no config exists.
+ *   * mode "letsencrypt"— obtain/auto-renew a Let's Encrypt cert (HTTP-01) and
+ *                         serve HTTPS; HTTP port answers the ACME challenge and
+ *                         redirects to HTTPS.
+ *   * mode "byo"        — serve an admin-supplied cert/key; no ACME.
+ *
+ * Fail-open: any TLS problem (cert pending, issuance error, bad BYO paths) leaves
+ * the app serving over HTTP rather than failing to start. Errors are logged
+ * (redacted) and surfaced in the admin "cert status" panel.
+ *
+ * Plain JS on purpose (Node runs it directly, not through the Next compiler).
+ */
 
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
@@ -22,10 +24,12 @@ import { readNetworkConfigResult, writeTlsStatus, NETWORK_FILE } from "./lib/tls
 import { readChallenge, clearChallenges } from "./lib/tls/challenge-store.mjs";
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
-// BUG-28: a network.json that EXISTS but can't be parsed used to fall through to plain
-// HTTP on port 3000, silently. We can't tell from an unreadable file whether HTTPS was
-// configured, and guessing "no TLS" is the unsafe direction — so refuse to start and say
-// exactly what to fix, rather than quietly serving an HTTPS install unencrypted.
+/*
+ * BUG-28: a network.json that EXISTS but can't be parsed used to fall through to plain
+ * HTTP on port 3000, silently. We can't tell from an unreadable file whether HTTPS was
+ * configured, and guessing "no TLS" is the unsafe direction — so refuse to start and say
+ * exactly what to fix, rather than quietly serving an HTTPS install unencrypted.
+ */
 const netResult = readNetworkConfigResult();
 if (netResult.error) {
   console.error(
@@ -97,20 +101,13 @@ function httpRequestHandler(req, res) {
 /**
  * Record which certificate the listener is actually serving.
  *
- * **This exists because "Being served" used to be a guess.** The admin page compared the expiry in
- * `status.json` against the expiry of the file on disk — but on a Let's Encrypt restart nothing
- * writes status at all: `startHttps` serves the existing certificate and `ensure()` returns early
- * because renewal is not due. So the page was comparing a live certificate against an artifact
- * written at some unrelated earlier moment, and told the owner *"not until you restart"* about a
- * certificate it was already serving — after they had restarted twice.
- *
- * `servingNotAfter` is written **only here**, by the code that binds the credential. That makes it a
- * fact rather than an inference, and it fixes the opposite error too: issuing a certificate from the
- * admin page writes `notAfter` (it is installed) and deliberately does not write this (it is not
- * being served until a restart).
- *
- * Best-effort and fire-and-forget: `writeTlsStatus` never throws, and a status file is never worth
- * failing a boot over.
+ * ⚠ `servingNotAfter` is written ONLY here, by the code that binds the credential, which is what
+ * makes it a fact rather than an inference. The admin page used to compare the stored expiry
+ * against the file on disk — but a restart that serves an existing certificate writes no status at
+ * all, so it reported "not until you restart" about a certificate already being served.
+ * ⚠ Issuing a certificate writes `notAfter` and deliberately NOT this: installed is not served.
+ * Best-effort — a status file is never worth failing a boot over.
+ * REFS lib/tls/certs.mjs › writeTlsStatus() · app/admin/network/cert-panel.tsx — the reader
  */
 function recordServing(cred) {
   import("./lib/tls/certs.mjs")

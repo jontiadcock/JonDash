@@ -1,14 +1,16 @@
-// Module build-failure recovery (MOD-01 Phase 2, chunk B).
-//
-// The launcher runs this when a build fails while a module install/update was in flight
-// (.data/module-installing names it). It removes that module's source, regenerates the
-// registry so the next build compiles without it, and records what happened so the app
-// can tell the admin. The launcher then retries the build from a known-good state.
-//
-// One-shot by construction: the marker is deleted here, so a second failure falls
-// through to the launcher's normal clean-rebuild / snapshot-rollback recovery.
-//
-// Plain JS, run directly by Node (never imported).
+/*
+ * Module build-failure recovery (MOD-01 Phase 2, chunk B).
+ *
+ * The launcher runs this when a build fails while a module install/update was in flight
+ * (.data/module-installing names it). It removes that module's source, regenerates the
+ * registry so the next build compiles without it, and records what happened so the app
+ * can tell the admin. The launcher then retries the build from a known-good state.
+ *
+ * One-shot by construction: the marker is deleted here, so a second failure falls
+ * through to the launcher's normal clean-rebuild / snapshot-rollback recovery.
+ *
+ * Plain JS, run directly by Node (never imported).
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { appendLog } from "./log.mjs";

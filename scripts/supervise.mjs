@@ -1,25 +1,27 @@
 #!/usr/bin/env node
-// JonDash server supervisor (OPS-10 / BUG-10).
-//
-// Owns the running server: spawns `node server.mjs`, tees its output (redacted)
-// to logs/server-YYYY-MM-DD.log so a crash is actually captured, restarts it on an
-// unexpected crash (with a crash-loop guard), and reports a bad boot to the
-// launcher so it can revert. Exits cleanly when the user stops it (Ctrl+C / window
-// close). The launcher (start-dashboard.bat) runs this instead of `npm run start`.
-//
-// Exit codes tell the launcher what to do next:
-//   0   clean stop (user Ctrl+C / window close, in-app shutdown, or exit-on-request)
-//   10  in-app update requested (.update-and-restart sentinel present)
-//   11  boot-crash loop right after an update  -> launcher should REVERT
-//   12  boot-crash loop (not after an update)  -> persistent failure; show help
-//   13  module installed/removed (.rebuild-and-restart) -> launcher should REBUILD
-//
-// Two in-app controls are handled here without a launcher round-trip: a `.restart-and-run`
-// signal relaunches the server in place (stay supervising); a `.shutdown` signal stops for
-// good (exit 0 -> the launcher window closes). Both are written by lib/server-control.ts.
-//
-// Plain JS, run directly by Node (never imported). Tunables can be overridden with
-// env vars for testing (JONDASH_MIN_UPTIME_MS / _MAX_CRASHES / _RESTART_DELAY_MS).
+/*
+ * JonDash server supervisor (OPS-10 / BUG-10).
+ *
+ * Owns the running server: spawns `node server.mjs`, tees its output (redacted)
+ * to logs/server-YYYY-MM-DD.log so a crash is actually captured, restarts it on an
+ * unexpected crash (with a crash-loop guard), and reports a bad boot to the
+ * launcher so it can revert. Exits cleanly when the user stops it (Ctrl+C / window
+ * close). The launcher (start-dashboard.bat) runs this instead of `npm run start`.
+ *
+ * Exit codes tell the launcher what to do next:
+ *   0   clean stop (user Ctrl+C / window close, in-app shutdown, or exit-on-request)
+ *   10  in-app update requested (.update-and-restart sentinel present)
+ *   11  boot-crash loop right after an update  -> launcher should REVERT
+ *   12  boot-crash loop (not after an update)  -> persistent failure; show help
+ *   13  module installed/removed (.rebuild-and-restart) -> launcher should REBUILD
+ *
+ * Two in-app controls are handled here without a launcher round-trip: a `.restart-and-run`
+ * signal relaunches the server in place (stay supervising); a `.shutdown` signal stops for
+ * good (exit 0 -> the launcher window closes). Both are written by lib/server-control.ts.
+ *
+ * Plain JS, run directly by Node (never imported). Tunables can be overridden with
+ * env vars for testing (JONDASH_MIN_UPTIME_MS / _MAX_CRASHES / _RESTART_DELAY_MS).
+ */
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -49,10 +51,12 @@ let child = null;
 let childAlive = false;
 let restartTimer = null;
 
-// STATUS_CONTROL_C_EXIT (0xC000013A): Windows sets this exit code when a process
-// is ended by a console control event — Ctrl+C, Ctrl+Break, the window closing,
-// logoff/shutdown, or an external kill (e.g. a security tool). It is NOT an
-// application crash, so it must be treated as a clean stop, not a restart.
+/*
+ * STATUS_CONTROL_C_EXIT (0xC000013A): Windows sets this exit code when a process
+ * is ended by a console control event — Ctrl+C, Ctrl+Break, the window closing,
+ * logoff/shutdown, or an external kill (e.g. a security tool). It is NOT an
+ * application crash, so it must be treated as a clean stop, not a restart.
+ */
 const CONTROL_EXIT = 3221225786;
 
 /** Append server output to a daily server log, redacted, best-effort + durable. */
@@ -104,9 +108,11 @@ function stopChild(signal) {
   }
 }
 
-// A stop requested by the user or the OS: shut the child down and exit — never
-// restart (restarting would turn a Ctrl+C / window-close / external kill into a
-// loop, signing everyone out each time).
+/*
+ * A stop requested by the user or the OS: shut the child down and exit — never
+ * restart (restarting would turn a Ctrl+C / window-close / external kill into a
+ * loop, signing everyone out each time).
+ */
 function shutdown(reason) {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -128,12 +134,14 @@ function runOnce() {
   childAlive = true;
   child = startServer();
 
-  // Once the server has run past the healthy threshold, a pending update has
-  // proven it boots — clear the post-update marker so a *later* unrelated crash
-  // never rolls back a version that actually works. (Previously this only happened
-  // on a crash-after-healthy, so the marker lingered on a server that kept running.)
-  // The keep-sessions marker (an in-app restart / module rebuild kept everyone signed
-  // in) is cleared the same way, so it can't carry sessions into a later ordinary restart.
+  /*
+   * Once the server has run past the healthy threshold, a pending update has
+   * proven it boots — clear the post-update marker so a *later* unrelated crash
+   * never rolls back a version that actually works. (Previously this only happened
+   * on a crash-after-healthy, so the marker lingered on a server that kept running.)
+   * The keep-sessions marker (an in-app restart / module rebuild kept everyone signed
+   * in) is cleared the same way, so it can't carry sessions into a later ordinary restart.
+   */
   const healthyTimer = setTimeout(() => {
     if (!childAlive) return;
     for (const [marker, label] of [
@@ -161,18 +169,13 @@ function runOnce() {
     // stop (an OS signal / window close sets shuttingDown; honour that instead).
     if (!shuttingDown) {
       /*
-       * SHUTDOWN IS CHECKED FIRST, and it clears everything else (BUG-63).
-       *
-       * This was last, after the update, rebuild and restart signals — so any one of those
-       * present at the same moment beat an explicit "stop", and the server came back up. The
-       * owner pressed Shut down, saw "JonDash has been shut down", and watched it restart AND
-       * install an update: a stale `.update-and-restart` won the race, so the launcher took the
-       * update path instead of stopping.
-       *
-       * A server that comes back after being told to stop cannot be taken out of service at all,
-       * which makes this worse than the unwanted update riding along with it. "Stop" is the one
-       * instruction nothing else may override, so it is tested before anything else and the
-       * competing signals are removed rather than left to fire on the next boot.
+       * ⚠ SHUTDOWN IS CHECKED FIRST and clears everything else (BUG-63). It used to be last, so a
+       * stale `.update-and-restart` present at the same moment beat an explicit stop — the server
+       * came back up AND installed an update after the owner pressed Shut down.
+       * ⚠ A server that returns after being told to stop cannot be taken out of service at all, so
+       * "stop" is the one instruction nothing may override. Remove the competing signals rather
+       * than leaving them to fire on the next boot.
+       * REFS lib/server-control.ts — writes all four of these signals
        */
       if (exists(SHUTDOWN_SIGNAL)) {
         for (const f of [SHUTDOWN_SIGNAL, SENTINEL, REBUILD_SIGNAL, RESTART_SIGNAL]) {
