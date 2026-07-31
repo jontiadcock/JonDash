@@ -1,7 +1,11 @@
 /**
- * A single service tile: icon on top, name underneath. Purely presentational
- * and view-only. Title/URL are rendered as text/attributes so React escapes
- * them; links open in a new tab with rel="noopener noreferrer".
+ * A single service tile: icon on top, name underneath. Purely presentational. Title and URL are
+ * rendered as text and attributes so React escapes them; the link opens in a new tab with
+ * `rel="noopener noreferrer"`.
+ *
+ * REFS app/(app)/dashboard/page.tsx — the only caller; supplies the icon URL
+ *      app/(app)/dashboard/dashboard-frame.tsx — wraps this, and owns the hover lift
+ * PINS tests/unit/dashboard-paint.test.ts
  */
 export function ServiceTile({
   title,
@@ -14,32 +18,16 @@ export function ServiceTile({
 }) {
   const initial = title.trim().charAt(0).toUpperCase() || "?";
   /*
-   * **No `lift` here — the dashboard frame owns the hover lift.**
+   * ⚠ DO NOT add `lift` here — the dashboard frame owns the hover lift for both kinds. A tile that
+   * lifts here too lifts twice, and the inner one moves it inside a container that clips, slicing
+   * the top off the card. Whether a tile rises at all belongs to the style (CORE-07).
    *
-   * It used to carry its own, and once the frame started lifting too (1.8.0-beta.11, so module
-   * widgets would rise like tiles) a service tile lifted *twice*: once with the frame and again
-   * inside it. The inner lift moved the tile up within a container that clips
-   * (`overflow-hidden`, which is what stops an oversized widget spilling), so the top of the
-   * card was sliced off on hover — visible on tiles and not on modules, because only tiles had
-   * the second lift. Owner-reported with a screenshot, 2026-07-28.
-   *
-   * Whether a tile rises at all, and how far, still belongs to the style (XP windows don't
-   * float) — CORE-07. That decision now lives in one place instead of two.
-   */
-  /*
-   * **The tile adapts to whatever size it has been given.**
-   *
-   * The frame clips what overflows, deliberately — a module widget that doesn't fit should look
-   * obviously wrong rather than quietly scroll. But a service tile is CORE's content, not a
-   * module's, so "the author must handle it" points back at us: at a small size the fixed 64px
-   * icon plus 20px padding plus a label needed more height than the cell had, and the bottom of
-   * the card was sliced off. Owner-reported with a screenshot, 2026-07-28.
-   *
-   * Sized against the FRAME (`@container`, set by dashboard-frame.tsx), not the viewport — a
-   * viewport breakpoint says nothing about how big this particular tile is, and the whole point
-   * of the grid is that one tile can be a sixth the size of its neighbour. So: below ~6rem there
-   * is only room for the icon and the label is dropped; above ~8rem it returns to full size. The
-   * icon is a proportion of the tile with a ceiling, so it shrinks rather than being cropped.
+   * ⚠ The tile must adapt to whatever size it is given. The frame clips overflow deliberately, but
+   * a service tile is CORE's content — at a small size a fixed 64px icon plus padding plus a label
+   * needed more height than the cell had and the bottom was sliced off. Sized against the FRAME
+   * (`@container`, set by dashboard-frame.tsx), never the viewport: a breakpoint says nothing about
+   * how big THIS tile is. Below ~6rem the label is dropped; the icon is a proportion with a ceiling
+   * so it shrinks rather than being cropped.
    */
   return (
     <a

@@ -3,24 +3,15 @@ import { getAccentColor, getAppName, getLogoFilename, getStyleId, getPaletteId, 
 import { resolvePalette, resolveStylePair } from "@/lib/styles";
 
 /**
- * During `next build` there is no database — JonDash builds on each machine, often before
- * `prisma migrate` has run. Querying anyway still *works* (the read is caught below) but
- * Prisma logs `prisma:error` first, so every build printed alarming errors for a
- * perfectly healthy install. Skip the read entirely in that phase and use the defaults.
+ * ⚠ Every export here must check this before reading settings. JonDash builds on each machine,
+ * often before `prisma migrate` has run; the catch below would cope, but Prisma logs
+ * `prisma:error` first and every build printed alarming errors for a healthy install.
  */
 const isBuildPhase = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
 
-/**
- * Rebranding (CORE-06) runtime.
- *
- * The UI is themed entirely through CSS variables (`--primary`, `--background`, …), so an
- * instance-wide accent is just an override of `--primary` on `:root` — no per-component
- * styling, and it inherits everywhere including modules. Emitted as an inline `<style>`
- * (allowed: `style-src` still permits inline — BUG-50 tracks tightening that, and this will
- * need a nonce when it does).
- *
- * Everything here is best-effort: a settings read that fails (no DB yet during a build-time
- * prerender, for instance) must not take the page down, so callers get the stock look.
+/*
+ * Rebranding (CORE-06) runtime. ⚠ Every function here is best-effort — a settings read that fails
+ * must return the stock look rather than take the page down.
  */
 
 /** The accent's readable foreground. Relative luminance → black or white. */
@@ -34,15 +25,25 @@ function contrastOn(hex: string): string {
   return luminance > 0.45 ? "#16181d" : "#ffffff";
 }
 
-/** Instance accent colour, injected as a `:root` override. Renders nothing when unset. */
+/**
+ * Instance accent colour as a `:root` override; renders nothing when unset. The UI is themed
+ * entirely through CSS variables, so overriding `--primary` reaches every component and module
+ * with no per-component styling.
+ *
+ * ⚠ Inline `<style>`, which only works while `style-src` permits inline — BUG-50 tracks tightening
+ * that, and this needs a nonce when it does.
+ * REFS app/layout.tsx — the only caller, renders it into <head>
+ *      proxy.ts — the Content-Security-Policy that currently allows it
+ */
 export async function BrandingStyle() {
   if (isBuildPhase) return null;
   let accent = "";
   try {
-    // The accent is a **style-specific** setting (CORE-07): only Modern uses it. XP and
-    // Crystal carry their own palette as part of their identity — and would win on
-    // specificity regardless, since `:root[data-style=…]` outranks this `:root` override.
-    // Checking here rather than emitting CSS that does nothing keeps the two consistent.
+    /*
+     * ⚠ The accent is style-specific (CORE-07). A style not listing it carries its own palette and
+     * outranks this override anyway, since `:root[data-style=…]` beats bare `:root`.
+     * REFS lib/settings.ts › STYLE_SETTINGS — the per-style list this is checked against
+     */
     if (!STYLE_SETTINGS[await styleId()]?.includes("branding.accent")) return null;
     accent = await getAccentColor();
   } catch {
@@ -50,23 +51,18 @@ export async function BrandingStyle() {
   }
   if (!/^#[0-9a-fA-F]{6}$/.test(accent)) return null;
 
-  // `--primary` drives buttons/links; its foreground follows so text on the accent stays
-  // readable whatever colour is picked. Both light and dark inherit this single override.
+  // `--primary` drives buttons and links; the foreground follows so text stays readable on any
+  // chosen colour. Both light and dark inherit this one override.
   const css = `:root{--primary:${accent};--primary-foreground:${contrastOn(accent)};}`;
   return <style dangerouslySetInnerHTML={{ __html: css }} />;
 }
 
-/** The configured app name, falling back to "JonDash" if settings can't be read. */
-/*
- * ## Related code — the lettered fallback mark exists in THREE places
+/**
+ * The configured app name, falling back to "JonDash" when settings can't be read.
  *
- * `BrandHeading` and `BrandMark` below both draw "first letter of the app name, white on the
- * primary, rounded square" in JSX — and since CORE-15 **`app/api/branding/icon/route.ts` draws the
- * same mark as an SVG** for the browser tab, the iOS home screen and the Android launcher.
- *
- * They are three implementations of one design and nothing enforces that they agree. If you change
- * the letter, the colour or the corner radius, change it in all three or the tab icon stops matching
- * the header. (`app/manifest.ts` and `app/layout.tsx` consume the route, not this file.)
+ * REFS app/layout.tsx · app/manifest.ts · app/api/branding/icon/route.ts · lib/settings.ts
+ *      lib/email/send.ts · lib/email/template.ts · lib/modules/context.ts — the name a module sees
+ * PINS tests/unit/email-template.test.ts
  */
 export async function appName(): Promise<string> {
   if (isBuildPhase) return "JonDash";
@@ -78,19 +74,18 @@ export async function appName(): Promise<string> {
 }
 
 /**
- * The header brand: the square mark (first letter of the app name) plus the wordmark.
- * `suffix` is the admin header's " Settings", hidden on small screens by the caller.
- */
-/**
- * The chosen interface style id (CORE-07), for the `data-style` attribute on <html>.
- * Everything is keyed off that attribute in `globals.css` — see docs/STYLES.md.
+ * The chosen interface style id (CORE-07), for the `data-style` attribute on <html> that
+ * `globals.css` keys everything off — see docs/STYLES.md.
+ *
+ * REFS app/layout.tsx — sets the attribute · lib/styles.ts › resolveStylePair()
+ *      app/admin/settings/style-form.tsx — where it is chosen · lib/email/template.ts
  */
 export async function styleId(): Promise<string> {
   if (isBuildPhase) return "default";
   try {
     const stored = (await getStyleId()) || "default";
-    // A pairing may have MOVED between releases (Aero left Crystal in 1.7.0-beta.10), which
-    // can change the style, not just the palette — so the style is resolved through the pair.
+    // ⚠ Resolve through the PAIR: a palette promoted between releases can change the style, not
+    // just the palette. REFS lib/styles.ts › MOVED — the table that carries those users across
     return resolveStylePair(stored, await getPaletteId()).style;
   } catch {
     return "default";
@@ -98,22 +93,24 @@ export async function styleId(): Promise<string> {
 }
 
 /**
- * The palette for the current style, as the `data-palette` attribute. Normalised through
- * `resolvePalette`, so a pairing left over from a previous style resolves to the new style's
- * default rather than matching no CSS at all.
+ * The palette for the current style, as the `data-palette` attribute. ⚠ Normalise it — a pairing
+ * left over from a previous style matches no CSS at all otherwise.
+ * REFS app/layout.tsx — sets the attribute · lib/styles.ts › resolvePalette() · resolveStylePair()
+ *      app/admin/settings/style-form.tsx · lib/email/template.ts
  */
 export async function paletteId(style: string): Promise<string> {
   if (isBuildPhase) return resolvePalette("default", "").id;
   try {
-    // `style` has already been through resolveStylePair above, so the stored palette is
-    // normalised against the style that will actually be applied.
+    // `style` has already been through `resolveStylePair` in `styleId()`, so the stored palette
+    // is normalised against the style that will actually be applied.
     return resolveStylePair(await getStyleId(), await getPaletteId()).palette ?? resolvePalette(style, "").id;
   } catch {
     return resolvePalette(style, "").id;
   }
 }
 
-/** The configured logo's stored filename, or "" when none is set. Never throws. */
+/** The configured logo's stored filename, or "" when none is set. Never throws.
+ *  REFS app/layout.tsx — cache-busts the icon URLs with it · BrandHeading() · BrandMark() below */
 export async function logoFilename(): Promise<string> {
   if (isBuildPhase) return "";
   try {
@@ -124,12 +121,14 @@ export async function logoFilename(): Promise<string> {
 }
 
 /**
- * The large, centred brand for the sign-in and first-run screens.
+ * The large, centred brand for the sign-in and first-run screens, which sit outside the app shell
+ * and so never get `BrandMark`. ⚠ The logo route is deliberately readable signed-out for this.
  *
- * These pages sit outside the app shell, so they don't get the header's `BrandMark` — which
- * meant a renamed, re-logoed instance still greeted people with a purple "J" and the word
- * JonDash at the one moment branding matters most. The logo route is deliberately readable
- * signed-out for exactly this.
+ * ⚠ The lettered fallback mark exists in THREE places and nothing enforces that they agree: here,
+ * `BrandMark` below, and `app/api/branding/icon/route.ts`, which redraws it as SVG for the browser
+ * tab and the iOS/Android home screen — with a hardcoded fill rather than the live accent. Change
+ * the letter, the colour or the corner radius in all three.
+ * REFS app/login/page.tsx — the only caller · app/api/branding/logo/route.ts — serves the image
  */
 export async function BrandHeading({ subtitle }: { subtitle: string }) {
   const name = await appName();
@@ -158,6 +157,13 @@ export async function BrandHeading({ subtitle }: { subtitle: string }) {
   );
 }
 
+/**
+ * The header brand: the square mark plus the wordmark. `suffix` is the admin header's
+ * " Settings", hidden on small screens by the caller.
+ *
+ * REFS app/(app)/layout.tsx · app/admin/layout.tsx — the two headers
+ *      BrandHeading() above — the same mark at sign-in size, and the three-way warning on it
+ */
 export async function BrandMark({ suffix }: { suffix?: React.ReactNode }) {
   const name = await appName();
   const logo = await logoFilename();
@@ -165,9 +171,11 @@ export async function BrandMark({ suffix }: { suffix?: React.ReactNode }) {
   return (
     <>
       {logo ? (
-        // Plain <img>: the file is served by our own route, and next/image would want
-        // configuration for a dynamic local endpoint to no benefit at this size. The
-        // filename is random per upload, so the URL changes when the logo does.
+        /*
+         * Plain <img>: our own route serves it, and next/image would need configuring for a
+         * dynamic local endpoint to no benefit at 28px. The filename is random per upload, so
+         * the URL changes whenever the logo does.
+         */
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/api/branding/logo?v=${logo.slice(0, 8)}`}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+/** REFS app/admin/server/server-power-panel.tsx · app/admin/modules/rebuild-watch.tsx */
 export type ServerWaitMode = "updating" | "restarting" | "shutdown" | "modules";
 
 const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
@@ -26,26 +27,25 @@ const COPY: Record<ServerWaitMode, { title: string; body: string }> = {
   },
 };
 
-// Reconnect as soon as the NEW process is reliably answering — poll briskly and require just
-// two consecutive healthy responses (so a port that briefly opens then fails doesn't count)
-// with a tiny settle. The wait is then only the real downtime, not a fixed pause on top.
+// Two consecutive healthy responses, so a port that briefly opens then fails does not count.
+// The wait is then only the real downtime rather than a fixed pause on top of it.
 const REQUIRED_OKS = 2;
 const POLL_MS = 800;
 const SETTLE_MS = 400;
-// If the server never even goes down, nothing is going to bring us back — surface that
-// rather than spinning forever, which is indistinguishable from the app being broken.
+// If the server never goes down, nothing will bring us back — say so rather than spinning
+// forever, which is indistinguishable from the app being broken.
 const STALL_AFTER_MS = 90_000;
 
 /**
- * Full-screen "please wait" cover shown after the admin triggers an update, restart,
- * or shutdown. For update/restart/rebuild it polls the public /api/health probe and, once
- * the *new* server (a changed `boot`) answers reliably, sends the user back into the app —
- * an update to its success screen, a restart or module rebuild straight to the dashboard,
- * both still signed in (the session survives a graceful restart). For shutdown it just
- * explains the server is down.
+ * Full-screen "please wait" cover for an update, restart, rebuild or shutdown. It polls
+ * `/api/health` and returns the user to the app once the NEW server answers reliably.
  *
- * It's a pure client overlay with no server dependency of its own, so it keeps
- * rendering while the server is offline — the user should not refresh.
+ * ⚠ A pure client overlay with no server dependency of its own — that is what lets it keep
+ * rendering while the server is offline, which is the whole job. Keep it that way.
+ *
+ * REFS app/api/health/route.ts › boot — the value that identifies a new process
+ *      app/admin/server/server-power-panel.tsx · app/admin/modules/rebuild-watch.tsx ·
+ *      app/admin/modules/browse/module-overlay.tsx · app/(app)/update-complete/continue-addons.tsx
  */
 export function ServerWaitOverlay({
   mode,
@@ -75,9 +75,8 @@ export function ServerWaitOverlay({
     const done = () => {
       if (cancelled) return;
       cancelled = true;
-      // Every graceful restart now keeps the session (lib/boot keep-sessions / post-update).
-      // An update lands on its success screen; a restart or module rebuild drops straight back
-      // into the app, still signed in. (Shutdown never reaches here — it isn't coming back.)
+      // Still signed in: a graceful restart keeps sessions. Shutdown never reaches here.
+      // REFS lib/boot.ts · lib/server-control.ts — what makes the session survive
       window.location.href = mode === "updating" ? "/update-complete" : "/dashboard";
     };
 
@@ -87,9 +86,8 @@ export function ServerWaitOverlay({
         const res = await fetch("/api/health", { cache: "no-store" });
         const data = res.ok ? ((await res.json()) as { boot?: number }) : null;
         const boot = typeof data?.boot === "number" ? data.boot : null;
-        // "New process" = a boot value different from the one before we restarted.
-        // When we don't know the old boot, fall back to "answered again after we
-        // saw it go down".
+        // "New process" = a `boot` different from the one before we restarted. Without an old
+        // boot, fall back to "answered again after we saw it go down".
         const isNewProcess = oldBoot != null ? boot != null && boot !== oldBoot : sawDown;
         if (isNewProcess) {
           oks += 1;
@@ -100,8 +98,8 @@ export function ServerWaitOverlay({
           }
         } else {
           oks = 0; // still the old process, or not confirmably new yet
-          // Answering happily as the SAME process long after we asked it to restart
-          // means the restart never began. Don't spin silently.
+          // Answering as the SAME process long after we asked it to restart means the restart
+          // never began. Don't spin silently.
           if (!sawDown && Date.now() - startedAt > STALL_AFTER_MS) setStalled(true);
         }
       } catch {
@@ -122,16 +120,14 @@ export function ServerWaitOverlay({
   const copy = COPY[mode];
   const isShutdown = mode === "shutdown";
 
-  // Portalled into document.body (BUG-23). `fixed` is only viewport-relative while NO
-  // ancestor has a transform — and every admin page is wrapped in `.page-fade`, whose
-  // keyframes animate transform with `animation-fill-mode: both`, so the final transform is
-  // retained forever. That made this cover the content column instead of the page, during
-  // the exact moments it exists to say "don't touch anything".
-  //
-  // Guarded on `document` rather than a mounted-state flag: this only ever renders after a
-  // client action (an update/restart the admin triggered), so the server render is always
-  // null anyway, and `useEffect(() => setState(true))` is a cascading render the React
-  // Compiler lint correctly refuses.
+  /*
+   * ⚠ Must be portalled into `document.body` (BUG-23). `fixed` is only viewport-relative while NO
+   * ancestor has a transform, and every admin page is wrapped in `.page-fade`, whose keyframes
+   * retain their final transform — so this covered the content column instead of the page.
+   * ⚠ Guarded on `document`, not a mounted-state flag: this only renders after a client action, so
+   * the server render is null anyway, and `useEffect(() => setState(true))` is a cascading render
+   * the React Compiler lint refuses.
+   */
   if (typeof document === "undefined") return null;
 
   return createPortal(

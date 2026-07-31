@@ -4,36 +4,29 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { dismissSupportBannerAction } from "./support-actions";
 
-/**
- * CORE-05 — asking for support, without ever nagging.
+/*
+ * CORE-05 — asking for support without nagging. Two deliberately unequal pieces: the line is always
+ * there and never moves; the banner appears once, after a week, and never returns once dismissed.
  *
- * Two pieces, deliberately unequal. **The line is always there and never moves**; the banner appears
- * once, after the install has been in use for a week, and never comes back once dismissed. A
- * self-hosted personal-use app that pesters its owner for money is worse than one that never asks.
+ * REFS app/(app)/layout.tsx · app/admin/layout.tsx — both render `SupportBanner` + `SupportLine`
  */
 
-/** Where "buy me a coffee" goes. One place, so it is changed once. Owner's link, 2026-07-29. */
+/** Where "buy me a coffee" goes. One place, so it is changed once.
+ *  REFS app/(app)/help-meeeee/page.tsx — the only other place the link is shown */
 export const SUPPORT_URL = "https://buymeacoffee.com/k1jcmlkxsn";
 
 /*
- * Dismissal is stored **against the person, on the server** — not in `localStorage`, which is where
- * this started and which was BUG-74.
- *
- * `localStorage` is scoped per browser *and per origin*. A self-hosted dashboard gets opened at
- * `localhost:3000` on the machine it runs on and at `192.168.1.50:3000` from a phone; those are
- * different origins, so "No thanks" on one was invisible to the other — and it is plainly the same
- * person either way. The owner dismissed it on their phone and met it again on a desktop.
- *
- * CORE-05's own wording was "once dismissed it stays dismissed — **per user**". That is a promise
- * about a person, and only per-user server-side state can keep it.
+ * ⚠ Dismissal is per-PERSON server state, never `localStorage` (BUG-74). A self-hosted dashboard is
+ * opened at `localhost` on its own machine and at a LAN address from a phone — different origins,
+ * so "No thanks" on one was invisible on the other. CORE-05 promises "dismissed per user", which
+ * only server-side state can keep.
+ * REFS app/components/support-actions.ts › dismissSupportBannerAction() — the write
  */
 
 /**
  * A heart drawn from the appearance tokens, so it belongs to whichever style and palette is on.
- *
- * Owner's wording: *"a JonDash-style love heart drawn from the user's own appearance tokens, so it
- * takes their palette."* `currentColor` rather than a fixed pink — on Terminal it is the terminal's
- * green, on XP the XP blue, and it never looks like something pasted in from another website.
+ * ⚠ `currentColor`, never a fixed pink — on Terminal it is the terminal's green, on XP the XP blue.
+ * REFS app/(app)/help-meeeee/page.tsx · app/you-are-a-bloody-legend/page.tsx
  */
 export function Heart({ size = 12 }: { size?: number }) {
   return (
@@ -51,11 +44,10 @@ export function Heart({ size = 12 }: { size?: number }) {
 }
 
 /**
- * The quiet line at the foot of the app (11.2).
- *
- * **Not highlighted, on purpose** — no card, no colour, no button. It is the same weight as the
- * version number it sits beside, because a permanent ask that shouts becomes something you learn to
- * ignore, and then the one time it matters you have already stopped seeing it.
+ * The quiet line at the foot of the app. ⚠ Deliberately unhighlighted — no card, no colour, no
+ * button, the same weight as the version number beside it. A permanent ask that shouts is one
+ * people learn to stop seeing.
+ * REFS app/(app)/layout.tsx · app/admin/layout.tsx — the two footers
  */
 export function SupportLine() {
   return (
@@ -71,11 +63,10 @@ export function SupportLine() {
 }
 
 /**
- * The banner (11.3) — shown only once the install has been in use for a week.
- *
- * `installedDays` is computed on the server from when the first account was created. Somebody who
- * has just finished setup has no idea yet whether they like this, and asking them for money is the
- * fastest way to make sure they don't.
+ * The banner — shown only once the install has been in use for a week. Somebody who has just
+ * finished setup has no idea yet whether they like this.
+ * REFS app/(app)/layout.tsx · app/admin/layout.tsx — both compute `installedDays` from the first
+ *      account's creation date and read this person's dismissal flag
  */
 export function SupportBanner({
   installedDays,
@@ -86,17 +77,12 @@ export function SupportBanner({
   dismissed: boolean;
 }) {
   /*
-   * Three states: asking, acknowledged, gone.
+   * Three states: asking, acknowledged, gone. The acknowledgement replaces the banner IN PLACE
+   * rather than opening a dialog — handing somebody a modal at the moment they said "no thanks"
+   * gives them something larger to dismiss.
    *
-   * **The acknowledgement replaces the banner in place rather than opening a dialog.** The owner
-   * asked for a popup; a modal is the one thing I would push back on here, because it arrives at
-   * the exact moment somebody has said "no thanks" — pressing dismiss and being handed something
-   * larger to dismiss is the opposite of what they asked for. In place, they are already looking
-   * at it, it says the one thing worth saying, and it goes when they say so. Easy to change to a
-   * dialog if the owner still wants one.
-   *
-   * The state moves the moment it is pressed rather than when the write returns: the server write
-   * is what makes it stick, but nobody should watch a banner they have dismissed sit there.
+   * The state moves on press, not when the write returns: the server write makes it stick, but
+   * nobody should watch a banner they have dismissed sit there.
    */
   const [phase, setPhase] = useState<"asking" | "acknowledged" | "gone">("asking");
   const [, startDismiss] = useTransition();
@@ -147,12 +133,10 @@ export function SupportBanner({
   }
 
   /*
-   * **Stacks on a phone; one row from `sm` up.**
-   *
-   * It was a single `flex-wrap` row with the text on `flex-1`. That never wrapped: the two buttons
-   * kept their intrinsic width, `min-w-0` let the text shrink to whatever was left, and on a 375px
-   * screen the message became a fifteen-line column an inch wide beside them. Nothing overflowed —
-   * which is why a sweep that only looked for content escaping the viewport called it fine.
+   * ⚠ Stacks on a phone, one row from `sm` up. A single `flex-wrap` row never wraps here: the
+   * buttons keep their intrinsic width and `min-w-0` lets the text shrink to whatever is left, so
+   * on a 375px screen the message became a fifteen-line column an inch wide. Nothing overflowed,
+   * so a check that only looks for content escaping the viewport passes it.
    */
   return (
     <div className={shell} style={shellStyle}>

@@ -22,10 +22,12 @@ export default async function DashboardPage() {
   const isAdmin = user.role === "ADMIN";
   const links = await getUserVisibleLinks(user.id);
 
-  // Enabled modules with a widget, limited to what this user may see: adminOnly modules
-  // are admin-only, and a module assigned to Service Groups only shows to their members.
-  // A module updated in the last restart may ship new migrations; apply them before its
-  // widget renders against the old schema. Memoised, so this is a no-op after the first.
+  /*
+   * ⚠ Migrate before rendering: a module updated at the last restart may ship new migrations, and
+   * its widget would otherwise query the old schema. Memoised, so this is a no-op after the first.
+   * REFS lib/modules/manage.ts › ensureModuleMigrations()
+   *      lib/modules/visibility.ts › visibleModuleIds() — the adminOnly + Service Group filter
+   */
   await ensureModuleMigrations();
   const visible = await visibleModuleIds({ id: user.id, role: user.role as "ADMIN" | "USER" });
   const allowedWidgets = (await getEnabledModules()).filter(
@@ -33,9 +35,9 @@ export default async function DashboardPage() {
   );
 
   /*
-   * ONE list, tiles and widgets together (CORE-11). Each is rendered here — a widget is a
-   * server component that may query, and a tile needs the icon URL — and handed to the grid
-   * as a node, so the grid can reorder without either becoming client code.
+   * ONE list, tiles and widgets together (CORE-11). ⚠ Each is rendered HERE and handed to the grid
+   * as a node — a widget is a server component that may query — so the grid can reorder either
+   * kind without it becoming client code. REFS ./dashboard-grid.tsx › DashboardItem
    */
   const items: DashboardItem[] = [
     ...links.map((link) => ({
@@ -63,8 +65,8 @@ export default async function DashboardPage() {
         kind: "module" as const,
         id: s.def.id,
         name: s.def.name,
-        // Clicking opens the module's own page — but only where there is one. A card that
-        // looks clickable and does nothing is worse than one that plainly isn't.
+        // Only where the module actually has a page — a card that looks clickable and does
+        // nothing is worse than one that plainly isn't.
         href: s.def.Page ? `/m/${s.def.id}` : null,
         external: false,
         node: <Widget ctx={ctx} />,
@@ -73,30 +75,23 @@ export default async function DashboardPage() {
   ];
 
   /*
-   * BOTH profiles are computed server-side and sent down (CORE-12).
+   * BOTH profiles are computed server-side and sent down (CORE-12) — which one applies depends on
+   * the viewport, which the server cannot see. Sending both lets the client switch with no round
+   * trip, so rotating a phone or crossing the breakpoint is instant.
    *
-   * Which one applies is a client fact — it depends on the viewport, which the server cannot
-   * see. Sending both means the client can switch without a round trip, and rotating a phone
-   * or dragging a window across the breakpoint is instant.
-   *
-   * **Honest limit:** the server has to render *something*, and it renders `wide`. A narrow
-   * client corrects on mount, so someone whose two arrangements have actually diverged sees one
-   * reflow on first load. The alternative — a cookie carrying the profile — costs a round trip
-   * on first visit and is wrong for the visit where it was set. Since both profiles start
-   * identical (the migration copies one into the other), the reflow only appears once someone
-   * has deliberately made them differ, which is exactly when they would expect two layouts.
+   * ⚠ Known limit: the server renders `wide`, and a narrow client corrects on mount — so someone
+   * whose two arrangements have diverged sees one reflow on first load. A cookie would cost a
+   * round trip and be wrong for the visit that set it.
+   * REFS ./dashboard-grid.tsx — does that correction · lib/dashboard/geometry.ts › PROFILES
    */
   const arrangements = {} as Record<DashboardProfile, ProfileArrangement>;
   for (const profile of PROFILES) {
     const layout = await getUserLayout(user.id, profile);
     /*
-     * Every item gets a concrete cell here, on the server (free placement, 1.8.0).
-     *
-     * Stored positions win; anything without one — a newly added service, or every item on an
-     * install that has just upgraded — is packed into the first free space in the saved order.
-     * Doing it here rather than leaving it to CSS auto-placement means the browser and the
-     * server agree on exactly which cells are occupied, which is what lets a drag test a
-     * candidate cell for collisions without measuring anything.
+     * ⚠ Every item gets a concrete cell HERE, on the server. Leaving it to CSS auto-placement
+     * would mean the browser and the server disagree about which cells are occupied, and a drag
+     * could no longer test a candidate cell for collisions without measuring the DOM.
+     * REFS lib/dashboard/geometry.ts › packLayout() — the packing rule itself
      */
     const ordered = applyLayoutOrder(items, layout);
     const placements = packLayout(
@@ -114,9 +109,8 @@ export default async function DashboardPage() {
   }
 
   return (
-    // `data-wide-page` releases the shell's reading measure (CORE-14) — see app/(app)/layout.tsx.
-    // A dashboard is a grid, not prose: it has no line length to protect and simply wants the
-    // screen it was given.
+    // `data-wide-page` releases the shell's reading measure (CORE-14) — a grid has no line
+    // length to protect. REFS app/(app)/layout.tsx — the only reader of this attribute
     <div data-wide-page>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -151,8 +145,8 @@ export default async function DashboardPage() {
           )}
         </div>
       ) : (
-        /* Keyed on the SET of items (sorted, so a reorder isn't a new key): adding or removing
-           one re-seeds the grid; rearranging leaves it mounted and keeps the optimistic order. */
+        /* ⚠ Keyed on the SET of items, sorted so a reorder is not a new key: adding or removing
+           one re-seeds the grid, rearranging keeps it mounted and keeps the optimistic order. */
         <DashboardGrid
           key={items.map((i) => `${i.kind}:${i.id}`).sort().join(",")}
           items={items}
