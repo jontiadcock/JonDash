@@ -3,16 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { encryptString, decryptString } from "@/lib/crypto";
 
-/**
- * Typed, cached configuration store (global scope for now; the table also
- * supports per-user / per-module scopes for later). Each key has a zod schema,
- * a default, and UI metadata. Secret values are encrypted at rest.
+/*
+ * Typed configuration store, global scope. Each key carries a zod schema, a default and UI
+ * metadata; anything marked `secret` is encrypted at rest.
+ * ⚠ NOT cached — see the note above `clearSettingsCache`, which explains why one cannot work here.
+ * REFS lib/user-prefs.ts — the same table's `user` scope, deliberately not routed through here
  */
 
 type FieldKind = "string" | "int";
 
-// Which admin page a setting is surfaced on. "general" = the Settings page
-// (non-critical); "sessions" lives on the Sessions page; "audit" on the Audit page.
+// Which admin page a setting is surfaced on. REFS settingKeysByGroup() below — how each page
+// restricts what its own form may write.
 export type SettingGroup =
   | "general"
   | "sessions"
@@ -20,14 +21,9 @@ export type SettingGroup =
   | "updates"
   | "branding"
   /**
-   * Settings that belong on **Admin → Network & HTTPS**, alongside the ports and certificates
-   * (owner, 2026-07-30). That page's other controls write `.data/network.json` rather than this
-   * table — a setting still lands here, it is just rendered and saved there.
-   *
-   * ## Related code
-   * - `app/admin/network/public-address.tsx` + `actions.ts` — renders and saves this group.
-   * - `lib/tls/network-config.mjs` — the *other* store the same page writes to. Two stores, one
-   *   page: don't assume a control there is a Setting.
+   * Surfaced on Admin → Network & HTTPS. ⚠ That page writes TWO stores — this table, and
+   * `.data/network.json` for the ports and certificates. Do not assume a control there is a
+   * Setting. REFS app/admin/network/public-address.tsx · actions.ts · lib/tls/network-config.mjs
    */
   | "network";
 
@@ -44,6 +40,8 @@ type SettingDef<T> = {
 };
 
 // Registry of global settings.
+/** ⚠ The registry IS the validation. A key absent here cannot be written at all — see
+ *  `writeSetting`. REFS app/admin/settings/ui.tsx  PINS tests/unit/settings-audit.test.ts */
 export const SETTINGS = {
   "login.message": {
     label: "Sign-in page message",
@@ -65,26 +63,24 @@ export const SETTINGS = {
     group: "branding",
   } as SettingDef<string>,
 
-  // Interface style (CORE-07). Chrome, not brand — the accent and logo compose on top of
-  // whichever style is chosen. Adding one: see docs/STYLES.md §6. Hidden from the generic
-  // form; it has a visual picker.
+  // ⚠ The enum below must stay in step with `lib/styles.ts › STYLES` and `app/styles.css`, or a
+  // style is selectable with no CSS behind it. Hidden here — it has a visual picker.
   "branding.style": {
     label: "Interface style",
     help: "How the interface is drawn.",
     kind: "string",
     default: "default",
-    // Structure only. The palette is stored separately — see `branding.palette`.
-    // Keep in step with lib/styles.ts and app/styles.css (docs/STYLES.md §6).
+    // Structure only; the colour is `branding.palette` below. REFS lib/styles.ts › STYLES
     schema: z.enum(["default", "crystal", "aero", "xp", "terminal", "brutalist", "paper"]),
     group: "branding",
     hidden: true,
   } as SettingDef<string>,
 
-  // The colour palette WITHIN the chosen style (CORE-07). Stored loosely on purpose: a
-  // palette id only means something inside its style ("cyan" exists for both Terminal and
-  // Brutalist), so the style/palette pairing is validated together at write time and
-  // `resolvePalette` falls back to the style's default whenever the stored one doesn't
-  // belong. That keeps a stale pairing from a style change harmless.
+  /*
+   * ⚠ Stored loosely on purpose: a palette id only means something inside its style, so the PAIRING
+   * is validated at write time and normalised on read.
+   * REFS lib/styles.ts › resolveStylePair() — the choke point making a stale pairing harmless
+   */
   "branding.palette": {
     label: "Palette",
     help: "Colour scheme within the chosen style.",
@@ -95,9 +91,8 @@ export const SETTINGS = {
     hidden: true,
   } as SettingDef<string>,
 
-  // The uploaded logo's stored filename (not a path, and never user-supplied text — it is
-  // written by the upload action after sharp has re-encoded the image). Empty = the default
-  // lettermark. Hidden from the generic settings form; it has its own file input.
+  // ⚠ A filename, never a path and never user-supplied text — written by the upload action after
+  // the image is re-encoded. REFS lib/security/upload.ts · lib/icons.ts › saveIconPng()
   "branding.logo": {
     label: "Logo",
     help: "Uploaded logo filename.",
@@ -108,10 +103,8 @@ export const SETTINGS = {
     hidden: true,
   } as SettingDef<string>,
 
-  // A STYLE-SPECIFIC setting (CORE-07): only Modern uses it. XP and Crystal carry their own
-  // palettes as part of their identity, so an accent there would either be ignored or wreck
-  // the look. Surfaced under the chosen style rather than as a global, so it isn't offered
-  // where it does nothing. See STYLE_SETTINGS below.
+  // ⚠ STYLE-SPECIFIC (CORE-07): only Modern uses it, and a style's own `--primary` outranks it on
+  // specificity anyway. REFS STYLE_SETTINGS below — the list that decides where it is offered
   "branding.accent": {
     label: "Accent colour",
     help: "A hex colour like #4f46e5 for buttons and highlights, or blank for the default. Used in both light and dark mode.",
@@ -126,30 +119,10 @@ export const SETTINGS = {
   } as SettingDef<string>,
 
   /**
-   * How long you stay signed in WITHOUT using JonDash — the one session control (1.8.0).
-   *
-   * This replaced two settings that overlapped confusingly: an absolute "Session lifetime
-   * (days)" and an "Idle timeout (minutes)" that could be switched off, at which point the
-   * lifetime silently became the only thing ending a session.
-   *
-   * **The idle window is the one worth exposing**, because it is what people actually mean by
-   * "how long do I stay signed in". The absolute cap is not discarded — it survives as a fixed
-   * ceiling (`SESSION_ABSOLUTE_CAP_DAYS`), so a session still cannot live forever no matter how
-   * often it is used, which is what stops a stolen token being kept alive indefinitely. It is
-   * stated in the help text rather than being a second control nobody could relate to the first.
-   *
-   * Hidden from the generic form: the Sessions page renders a purpose-built picker, because a
-   * raw minutes box that has to express both "2 hours" and "30 days" is a bad control.
-   */
-  /**
-   * The address this JonDash is reached at from outside — for links in EMAIL (1.8.0).
-   *
-   * Not derived from the request, on purpose. JonDash builds absolute URLs from
-   * `x-forwarded-host`, which any client can send and nothing validates (BUG-41). On a settings
-   * page a forged header shows a wrong link to somebody already signed in and looking at it; in
-   * an email it puts an attacker's link, branded as JonDash, into an inbox where it is trusted
-   * and long-lived. Blank means links are simply omitted — see `lib/app-url.ts` for why guessing
-   * is the one thing that must not happen.
+   * The address this JonDash is reached at from outside, for links in EMAIL. ⚠ Never derived from
+   * the request: `x-forwarded-host` is client-controlled and unvalidated (BUG-41), and in an email
+   * a forged one puts an attacker's link, branded as JonDash, into a trusted inbox. Blank means
+   * links are omitted. REFS lib/app-url.ts — why guessing must not happen
    */
   "app.publicUrl": {
     label: "Public address",
@@ -172,6 +145,18 @@ export const SETTINGS = {
     group: "network",
   } as SettingDef<string>,
 
+  /**
+   * How long you stay signed in WITHOUT using JonDash — the one session control.
+   *
+   * It replaced an absolute lifetime and a switchable idle timeout, which overlapped: turning the
+   * idle timeout off silently made the lifetime the only thing ending a session.
+   *
+   * ⚠ The absolute cap is NOT gone — it survives as `SESSION_ABSOLUTE_CAP_DAYS`, which is what
+   * stops a stolen token being kept alive indefinitely by simply continuing to use it.
+   * ⚠ Hidden here: the Sessions page renders a purpose-built picker, because one minutes box
+   * expressing both "2 hours" and "30 days" is a bad control.
+   * REFS app/admin/sessions/session-length-form.tsx · getSessionLengthMs() below
+   */
   "session.lengthMinutes": {
     label: "Session length",
     help: "How long you stay signed in without using JonDash.",
@@ -183,9 +168,9 @@ export const SETTINGS = {
   } as SettingDef<number>,
 
   /**
-   * LEGACY, superseded by `session.lengthMinutes` (1.8.0). Kept in the registry rather than
-   * deleted: existing installs have rows for these, and the migration that derives the new
-   * value reads them. Hidden, and nothing else consults them.
+   * ⚠ LEGACY, superseded by `session.lengthMinutes`. Kept rather than deleted because existing
+   * installs have rows for it and the migration that derives the new value reads them. Nothing
+   * else consults it. REFS prisma/migrations/20260727230000_session_length
    */
   "session.lifetimeDays": {
     label: "Session lifetime (days) — replaced by Session length",
@@ -201,15 +186,12 @@ export const SETTINGS = {
   "session.idleTimeoutMinutes": {
     hidden: true,
     label: "Idle timeout (minutes) — replaced by Session length",
-    // The old wording said "its full 7-day lifetime", which stopped being true the moment
-    // anyone changed Session lifetime — it read as a fact while being a stale default. Point
-    // at the other setting by name instead, so it cannot go out of date again.
+    // ⚠ Help text names the other setting rather than quoting its default — the old wording
+    // said "its full 7-day lifetime", which read as a fact while being a stale default.
     help: "Sign out sessions inactive for this long. Defaults to 120 (2 hours). Set 0 to disable — but then an untouched session survives for the whole of Session lifetime above, however long it sits unused.",
     kind: "int",
-    // Non-zero by default: with 0, an untouched session survived the whole 7-day
-    // absolute lifetime, and a server restart was the only thing that reliably
-    // ended it — which 1.6.0 narrowed further by keeping sessions across an
-    // in-place update. 0 remains available as an explicit opt-out.
+    // Non-zero by default: with 0 an untouched session survived the whole absolute lifetime, and
+    // a restart was the only thing reliably ending it. 0 stays available as an explicit opt-out.
     default: 120,
     schema: z.coerce
       .number()
@@ -229,12 +211,11 @@ export const SETTINGS = {
     group: "audit",
   } as SettingDef<number>,
 
-  // When opted-in automatic updates run. Applying one means a rebuild and a restart,
-  // which signs everyone out — so this is never "whenever an update appears", it's a
-  // window the admin picks. Nothing runs unless something is individually opted in.
-  // The master switch. Off by default: turning it on gives every source you have added a
-  // standing channel to run new code here, so it must be a deliberate act. Individual
-  // modules and helpers can then be excluded.
+  /*
+   * ⚠ The master switch, off by default: turning it on gives every source you have added a standing
+   * channel to run new code here, so it must be a deliberate act.
+   * REFS lib/updates/schedule.ts — reads this and the four keys below as one schedule
+   */
   "updates.autoEnabled": {
     label: "Update automatically",
     help: "Keep JonDash, your modules and their helpers up to date on the schedule below. You can exclude individual ones.",
@@ -271,8 +252,8 @@ export const SETTINGS = {
     group: "updates",
   } as SettingDef<number>,
 
-  // Capped at 28 on purpose: 29–31 would silently skip February, and an update schedule
-  // that quietly does nothing for a month is worse than one that runs slightly early.
+  // ⚠ Capped at 28: 29–31 would silently skip February, and a schedule that quietly does nothing
+  // for a month is worse than one running slightly early. REFS lib/updates/schedule.ts
   "updates.dayOfMonth": {
     label: "Day of the month",
     help: "Used when checking monthly. 1–28, so it never skips a short month.",
@@ -286,28 +267,19 @@ export const SETTINGS = {
 export type SettingKey = keyof typeof SETTINGS;
 
 /**
- * **There is no settings cache any more, and that is the fix (1.8.0-beta.11).**
+ * ⚠ DO NOT add a settings cache. A module-level `Map` cannot work here: Next gives server actions
+ * and page renders SEPARATE module instances, so a `cache.delete` inside an action never reaches
+ * the copy the page reads from, and the page re-renders stale. That single cause presented as
+ * several different bugs — a session-length control snapping back, mail settings needing a refresh.
  *
- * There used to be a module-level `Map` with a 30-second TTL, which `writeSetting` cleared on
- * save. It could not work, and the codebase already knew why: **Next gives server actions and
- * page renders separate module instances**, so the `cache.delete` performed inside an action
- * ran against the action's own copy of this Map and never reached the one the page reads from.
- * The page then re-rendered from a stale entry for up to 30 seconds.
- *
- * The symptom was reported repeatedly and looked like several different bugs: choosing a new
- * Session length and watching the control snap back; saving mail settings and having to refresh
- * before the change showed. It was one cause. A previous fix worked around it for a single
- * setting by adding a `fresh` flag to the logo getter — a hint that the cache, not the callers,
- * was the problem.
- *
- * Nothing replaces it. A per-render memo (React's `cache()`) would still be wrong here, because
- * a server action and the re-render it triggers can share a request scope — so the write would
- * again be invisible to the render that follows it. These are a handful of tiny rows in a local
- * SQLite file, indexed by a unique key; reading them per call costs almost nothing, and being
- * right about what an admin just saved is worth considerably more than that.
+ * ⚠ React's `cache()` is not a substitute either: an action and the re-render it triggers can share
+ * a request scope, so the write is again invisible to the render that follows. These are a handful
+ * of tiny rows in local SQLite indexed by a unique key.
+ * REFS getLogoFilename() below — its `_fresh` flag is the fossil of the old workaround
  */
 
-/** No-op, kept so tests and existing callers need no change. There is nothing to clear. */
+/** No-op, kept so tests and existing callers need no change. There is nothing to clear.
+ *  REFS lib/backup.ts — calls it after a restore  PINS tests/integration/settings.test.ts */
 export function clearSettingsCache(): void {
   /* intentionally empty — see the note above */
 }
@@ -327,7 +299,7 @@ async function readValue<K extends SettingKey>(
       if (parsed.success) value = parsed.data as (typeof SETTINGS)[K]["default"];
     }
   } catch {
-    // Fall back to default on any read/parse error.
+    // ⚠ Fall back to the default on any read or parse error — a corrupt row must not 500 a page.
   }
 
   return value as (typeof SETTINGS)[K]["default"];
@@ -335,38 +307,30 @@ async function readValue<K extends SettingKey>(
 
 // ---- Typed getters (consumers use these) ----
 
+/** REFS app/login/page.tsx  PINS tests/integration/settings.test.ts */
 export async function getLoginMessage(): Promise<string> {
   return readValue("login.message");
 }
+/** REFS app/components/branding.tsx · app/manifest.ts · app/api/branding/icon/route.ts ·
+ *       lib/email/template.ts · lib/auth/totp.ts — the authenticator issuer name */
 export async function getAppName(): Promise<string> {
   return readValue("branding.appName");
 }
+/** ⚠ Only meaningful for a style listing `branding.accent` — REFS STYLE_SETTINGS below ·
+ *  app/components/branding.tsx › BrandingStyle() · lib/email/template.ts › currentBrand() */
 export async function getAccentColor(): Promise<string> {
   return readValue("branding.accent");
 }
 /**
- * The logo's stored filename.
- *
- * `fresh` bypasses the 30s cache. Needed because that cache is **module state, and Next gives
- * route handlers and server actions separate module instances** — so the `cache.delete` that
- * `writeSetting` performs in the action's copy doesn't reach the route's. Without this, the
- * logo route kept serving 404 (or the previous logo) for up to 30 seconds after an upload:
- * you'd change the logo, the header would update, and the image itself would not.
- */
-/**
- * Which settings each interface style exposes (CORE-07).
- *
- * A style's palette is part of its identity — XP is grey-and-blue, Crystal is glass — so an
- * accent colour is meaningful for **Modern** and nowhere else. Rather than offer a control
- * that silently does nothing (a style's own `--primary` wins on specificity anyway), each
- * style declares what it actually supports, and the UI shows only that.
- *
- * A new style adds its own entry here; an empty list is normal and means "no options".
+ * Which settings each interface style exposes (CORE-07). ⚠ A new style needs an entry here; an
+ * empty list is normal and means "no options". Offering a control that silently does nothing is
+ * the thing this prevents — a style's own `--primary` outranks the accent anyway.
+ * REFS lib/styles.ts › STYLES — every id here must exist there
+ *      app/components/branding.tsx · lib/email/template.ts  PINS tests/unit/styles.test.ts
  */
 export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
-  // Modern is the neutral structure, so a free-choice accent is meaningful there — it
-  // composes with whichever Modern palette is picked. The other styles get their colour from
-  // their palettes instead; an arbitrary accent would fight the look rather than serve it.
+  // Modern is the neutral structure, so a free-choice accent composes with any Modern palette.
+  // The others take their colour from their palettes; an arbitrary accent would fight the look.
   default: ["branding.accent"],
   crystal: [],
   aero: [],
@@ -376,7 +340,7 @@ export const STYLE_SETTINGS: Record<string, SettingKey[]> = {
   paper: [],
 };
 
-/** The settings the given style exposes, as views for the form. */
+/** REFS app/admin/settings/page.tsx — renders these under the style picker */
 export async function listStyleSettings(styleId: string): Promise<SettingView[]> {
   const keys = STYLE_SETTINGS[styleId] ?? [];
   const all = await listSettings("branding", true);
@@ -385,76 +349,75 @@ export async function listStyleSettings(styleId: string): Promise<SettingView[]>
     .filter((s): s is SettingView => !!s);
 }
 
-/** The chosen interface style id (CORE-07); "default" when unset. */
+/** The chosen interface style id (CORE-07); "default" when unset. ⚠ Resolve it through
+ *  `resolveStylePair` before use — a promoted palette can change the style.
+ *  REFS lib/styles.ts · app/components/branding.tsx · lib/email/template.ts */
 export async function getStyleId(): Promise<string> {
   return readValue("branding.style");
 }
 
-/** The chosen palette id. Meaningful only alongside the style — see `resolvePalette`. */
+/** The chosen palette id. ⚠ Meaningful only alongside its style.
+ *  REFS lib/styles.ts › resolvePalette() · app/components/branding.tsx · lib/email/template.ts */
 export async function getPaletteId(): Promise<string> {
   return readValue("branding.palette");
 }
 
 /**
- * The logo's stored filename.
- *
- * `fresh` is now a no-op and kept only so existing callers compile. It existed to punch through
- * the 30-second settings cache, because the logo route and the upload action held separate
- * copies of it — the upload succeeded, the header updated, and the image itself kept 404ing for
- * up to half a minute. That workaround was the clearest sign the cache was the problem rather
- * than its callers; the cache is gone, so every read is fresh and the flag has nothing to do.
+ * The logo's stored filename. `_fresh` is a no-op kept so existing callers compile — it punched
+ * through the old 30-second cache, whose absence is now the rule.
+ * REFS clearSettingsCache() above — why there is no cache to bypass
+ *      app/api/branding/logo/route.ts · app/api/branding/icon/route.ts ·
+ *      app/components/branding.tsx
  */
 export async function getLogoFilename(_fresh = false): Promise<string> {
   return readValue("branding.logo");
 }
 /**
- * The absolute ceiling on a session, in days — a constant, not a setting (1.8.0).
- *
- * Merging the two session controls into one could have quietly dropped this, and it is the
- * property that matters most: without an absolute cap, a stolen token can be kept alive
- * indefinitely by an attacker who simply keeps using it, because the idle window keeps
- * resetting. A year is generous enough that nobody legitimately notices and short enough that
- * a session cannot outlive the machine it was created on.
- *
- * Stated in the Session length help text rather than being a second control, because two
- * numbers that interact was exactly the confusion this replaced.
+ * The absolute ceiling on a session, in days — ⚠ a CONSTANT, not a setting, and the property that
+ * matters most: without it a stolen token can be kept alive indefinitely by an attacker who simply
+ * keeps using it, because the idle window keeps resetting. Stated in the Session length help text
+ * rather than becoming a second control.
+ * REFS getSessionLifetimeMs() below · app/admin/sessions/page.tsx
+ * PINS tests/integration/settings.test.ts
  */
 export const SESSION_ABSOLUTE_CAP_DAYS = 365;
 
 /**
- * How long a session survives WITHOUT use — the single "Session length" (1.8.0).
- *
- * **Migration lives in SQL, not here** (`20260727230000_session_length`): an install that had
- * an idle timeout keeps it; one that had it switched off keeps the absolute lifetime it was
- * relying on instead, so nobody's session silently gets shorter *or* longer on upgrade. Doing
- * it once in a migration rather than deriving on every read means the value is visible in the
- * settings table and can be changed afterwards without the old rows haunting it.
+ * How long a session survives WITHOUT use. ⚠ The upgrade from the two old settings lives in SQL,
+ * not here, so the value is visible in the settings table and editable afterwards without the old
+ * rows haunting it. REFS prisma/migrations/20260727230000_session_length
+ *      lib/auth/session.ts — enforces it  PINS tests/integration/settings.test.ts
  */
 export async function getSessionLengthMs(): Promise<number> {
   return (await readValue("session.lengthMinutes")) * 60 * 1000;
 }
 
-/** The absolute expiry stamped on a new session. Fixed — see SESSION_ABSOLUTE_CAP_DAYS. */
+/** The absolute expiry stamped on a new session. Fixed — see `SESSION_ABSOLUTE_CAP_DAYS`.
+ *  REFS lib/auth/session.ts  PINS tests/integration/settings.test.ts */
 export async function getSessionLifetimeMs(): Promise<number> {
   return SESSION_ABSOLUTE_CAP_DAYS * 24 * 60 * 60 * 1000;
 }
 
 /**
- * The idle window enforced on every request. Now the same number as Session length — the two
- * concepts merged, and this name is kept because that is what the check in `lib/auth/session.ts`
- * is doing.
+ * The idle window enforced on every request — the same number as Session length since the two
+ * concepts merged. The name is kept because it describes what the check actually does.
+ * REFS lib/auth/session.ts  PINS tests/integration/settings.test.ts ·
+ * tests/unit/session-idle.test.ts
  */
 export async function getIdleTimeoutMs(): Promise<number> {
   return getSessionLengthMs();
 }
-/** Raw `app.publicUrl` as stored. `lib/app-url.ts` normalises and validates it. */
+/** Raw `app.publicUrl` as stored — ⚠ unvalidated here; `lib/app-url.ts` normalises it and is the
+ *  only thing that should build a URL from it. REFS app/admin/network/page.tsx */
 export async function getPublicUrlSetting(): Promise<string> {
   return readValue("app.publicUrl");
 }
+/** REFS lib/audit.ts › pruneAuditLog()  PINS tests/integration/settings.test.ts */
 export async function getAuditRetentionDays(): Promise<number> {
   return readValue("audit.retentionDays");
 }
-/** Raw schedule settings for automatic updates; `lib/updates/schedule.ts` normalises them. */
+/** Raw schedule settings; ⚠ unnormalised — REFS lib/updates/schedule.ts, the only caller, which
+ *  is what makes them safe to act on including the local-time comparison. */
 export async function getUpdateScheduleSettings(): Promise<{
   autoEnabled: boolean;
   frequency: string;
@@ -474,6 +437,7 @@ export async function getUpdateScheduleSettings(): Promise<{
 
 // ---- Admin UI helpers ----
 
+/** REFS app/admin/settings/ui.tsx — the generic form renders exactly these fields */
 export type SettingView = {
   key: SettingKey;
   label: string;
@@ -484,19 +448,22 @@ export type SettingView = {
   group: SettingGroup;
 };
 
-/** The setting keys belonging to a given group. */
+/** ⚠ This is what restricts a page's form to its own group — REFS applySettingsForm() below,
+ *  which takes the result as `allowedKeys`. Callers: app/admin/settings · sessions · audit ·
+ *  network · updates actions.  PINS tests/unit/settings-audit.test.ts */
 export function settingKeysByGroup(group: SettingGroup): SettingKey[] {
   return (Object.keys(SETTINGS) as SettingKey[]).filter((k) => SETTINGS[k].group === group);
 }
 
-/** All settings (optionally just one group) with their current values, for admin forms. */
+/** All settings, optionally one group, with current values.
+ *  REFS app/admin/settings/page.tsx · app/admin/audit/page.tsx */
 export async function listSettings(group?: SettingGroup, includeHidden = false): Promise<SettingView[]> {
   const out: SettingView[] = [];
   for (const key of Object.keys(SETTINGS) as SettingKey[]) {
     const def = SETTINGS[key];
     if (group && def.group !== group) continue;
-    // Hidden settings have their own control (the logo's file input, a style's own options),
-    // so they're kept out of the generic form unless a caller asks for them by name.
+    // Hidden settings have their own control, so they stay out of the generic form unless a
+    // caller asks for them by name.
     if (def.hidden && !includeHidden) continue;
     const value = await readValue(key);
     out.push({
@@ -512,12 +479,14 @@ export async function listSettings(group?: SettingGroup, includeHidden = false):
   return out;
 }
 
+/** REFS app/admin/settings/ui.tsx · sessions/session-length-form.tsx · settings/logo-form.tsx ·
+ *       settings/style-form.tsx — the `useActionState` shape every settings form reads */
 export type SettingsFormState = { errors?: Record<string, string>; success?: string };
 
 /**
- * Validate + persist the submitted settings, restricted to `allowedKeys` (so a
- * page/action can only ever write its own group — a form can't inject other
- * keys). Only keys actually present in the form are touched. Returns field errors.
+ * Validate and persist submitted settings. ⚠ `allowedKeys` is the boundary — without it a crafted
+ * form writes any key in the registry, so every caller must pass its own group.
+ * REFS settingKeysByGroup() above · applySettingsFormDetailed() below — same rule, plus the audit
  */
 export async function applySettingsForm(
   formData: FormData,
@@ -527,19 +496,14 @@ export async function applySettingsForm(
 }
 
 /**
- * As `applySettingsForm`, but also reports WHAT it wrote, for the audit entry (BUG-24).
+ * As `applySettingsForm`, but reports WHAT it wrote for the audit entry (BUG-24) — a bare
+ * "settings.updated" records that a setting changed but not which, which is most of the value.
  *
- * Every settings save used to be logged as a bare `settings.updated` with no detail, so the
- * log recorded that *a* setting changed but never which, or to what — for a security
- * product that is most of the value of the entry. The single-value toggles beside them
- * (`settings.auto-update`, `settings.update-channel`) always logged theirs, which is why
- * the gap survived review: the file looked like it did the right thing.
- *
- * **`changed` deliberately carries no VALUES for secret settings.** `writeSetting`
- * encrypts anything the registry marks `secret`, so putting submitted values in the audit
- * detail would write them back out in plaintext — into a log readable by anyone holding
- * the *delegable* `audit.view` capability, and carried in every backup. Key names always;
- * values only where the registry says the setting isn't secret.
+ * ⚠ `changed` carries NO VALUES for secret settings. The registry encrypts those, so putting the
+ * submitted value in the audit detail writes it back out in plaintext — into a log readable via the
+ * DELEGABLE `audit.view` capability and carried in every backup. Key names always; values only
+ * where the registry says the setting is not secret.
+ * REFS lib/audit.ts · lib/auth/permissions.ts › audit.view  PINS tests/unit/settings-audit.test.ts
  */
 export async function applySettingsFormDetailed(
   formData: FormData,
@@ -573,7 +537,10 @@ function summariseValue(raw: string): string {
   return clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
 }
 
-/** Validate + persist one setting from raw string input. Returns an error message or null. */
+/** Validate and persist one setting from raw string input. ⚠ Refuses any key not in the registry,
+ *  and encrypts anything marked `secret` — both are why a caller may pass user input straight in.
+ *  REFS app/admin/settings/actions.ts · app/admin/updates/schedule-actions.ts
+ *  PINS tests/integration/settings.test.ts · tests/unit/settings-audit.test.ts */
 export async function writeSetting(key: string, rawInput: string): Promise<string | null> {
   if (!(key in SETTINGS)) return "Unknown setting.";
   const def = SETTINGS[key as SettingKey];

@@ -37,7 +37,9 @@ export async function saveAutoInstallAction(
   return { ok: true, autoInstall: on };
 }
 
-/** Dismiss the "last update failed" notice (clears the rollback marker). */
+/** Dismiss the "last update failed" notice. ⚠ Clearing the marker also lets the failed version be
+ *  offered again — it is a dismissal, not a fix.
+ *  REFS lib/update-prefs.ts › clearUpdateFailure() · app/admin/settings/updates-panel.tsx */
 export async function dismissUpdateFailureAction(): Promise<void> {
   await assertSameOrigin();
   await requirePermission("settings.manage");
@@ -59,17 +61,16 @@ export async function saveUpdateChannelAction(
   writeChannel(raw);
   await audit("settings.update-channel", { userId: admin.id, detail: raw });
   revalidatePath("/admin/updates");
-  // Return the saved channel so the client can reflect it immediately — the
-  // client component's `channel` prop wouldn't otherwise update until a reload.
+  // Returned so the client reflects it immediately — its `channel` prop would not update until
+  // a reload otherwise.
   return { ok: true, channel: raw };
 }
 
 /**
- * Save the branding settings (app name, accent colour) — CORE-06.
- *
- * Kept separate from the general save so the audit entry names it as a branding change, and
- * so a validation error in one section doesn't discard the other's input. Revalidates the
- * layout because the name and accent render in every header.
+ * Save the branding settings (CORE-06). Separate from the general save so the audit entry names it
+ * as a branding change and a validation error in one section does not discard the other's input.
+ * ⚠ Revalidates the LAYOUT, not the page — the name and accent render in every header.
+ * REFS app/admin/settings/page.tsx · lib/settings.ts › settingKeysByGroup("branding")
  */
 export async function updateBrandingAction(
   _prev: SettingsState,
@@ -87,12 +88,10 @@ export async function updateBrandingAction(
 }
 
 /**
- * Choose the interface style and its palette (CORE-07). Re-renders every layout — it
- * restyles the whole app.
- *
- * The two are written together and the pairing is normalised through `resolvePalette`: a
- * palette id only means something inside its style, so a stale one from a previous style
- * silently becomes that style's default rather than being stored as an invalid combination.
+ * Choose the interface style and its palette (CORE-07). ⚠ Both are written together and the
+ * pairing normalised, because a palette id only means something inside its style — a stale one
+ * would otherwise be stored as an invalid combination.
+ * REFS lib/styles.ts › resolvePalette() · app/admin/settings/style-form.tsx
  */
 export async function saveStyleAction(
   _prev: SettingsState,
@@ -114,11 +113,10 @@ export async function saveStyleAction(
 }
 
 /**
- * Upload (or remove) the instance logo — CORE-06.
- *
- * Reuses the hardened icon path: size-capped, magic-byte allowlisted (SVG refused — script
- * risk), and re-encoded through sharp, which drops any embedded payload. The stored file
- * keeps a random name and lives outside the web root.
+ * Upload or remove the instance logo (CORE-06). ⚠ Must keep using the hardened icon path —
+ * size-capped, magic-byte allowlisted with SVG refused for script risk, and re-encoded so any
+ * embedded payload is dropped. The stored file gets a random name outside the web root.
+ * REFS lib/security/upload.ts · lib/icons.ts › saveIconPng() · app/admin/settings/logo-form.tsx
  */
 export async function uploadLogoAction(
   _prev: SettingsState,
@@ -153,7 +151,9 @@ export async function uploadLogoAction(
   return { success: "Logo updated." };
 }
 
-/** Save the general (non-critical) settings on the Settings page. */
+/** Save the general settings. ⚠ Scoped to the "general" group, so this form cannot write a
+ *  sessions, audit or network key. REFS lib/settings.ts › settingKeysByGroup() ·
+ *  app/admin/settings/page.tsx */
 export async function updateSettingsAction(
   _prev: SettingsState,
   formData: FormData,

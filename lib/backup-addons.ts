@@ -7,20 +7,20 @@ import { helperTableName } from "@/lib/helpers/migrate";
 import type { BackupTableDecl } from "@/lib/modules/types";
 
 /**
- * OPS-16 — a module's and a helper's **own SQL tables** in a backup.
+ * OPS-16 — a module's and a helper's own SQL tables in a backup.
  *
- * Until now a backup carried a module's settings and stored records but not the tables its
- * migrations created, and said so in a comment: writing rows from one version into a schema built
- * by another is how you corrupt a module rather than restore it. That reasoning was right and the
- * conclusion — omit them entirely — was too blunt: restoring left a health monitor with its checks
- * configured and no history, and an install that *is* on the same version had nothing wrong with it.
+ * The data travels tagged with the version that produced it, and is written back ONLY when the
+ * installed version is identical; anything else is skipped and named in a report.
  *
- * So the data travels, **tagged with the version that produced it**, and is written back only when
- * the installed version is the same. Anything else is skipped and named in a report. The rule is
- * strict equality, deliberately: core cannot know whether 0.0.7 → 0.0.8 changed a column, and
- * guessing wrong writes rows into a schema that no longer fits them.
+ * ⚠ Strict equality is the whole design. Core cannot know whether 0.0.7 → 0.0.8 changed a column,
+ * and writing rows into a schema that no longer fits them corrupts a module rather than restoring
+ * it. Never relax it to "same major" or "installed is newer".
+ * REFS decideAddonRestore() below — that rule as a pure, testable decision
+ *      lib/modules/types.ts › BackupTableDecl — what an author declares
+ *      lib/backup.ts — the only caller  PINS tests/unit/backup-addons.test.ts
  */
 
+/** ⚠ `version` is what makes a dump restorable — REFS decideAddonRestore() below · lib/backup.ts */
 export type AddonTableDump = {
   kind: "module" | "helper";
   id: string;
@@ -28,20 +28,17 @@ export type AddonTableDump = {
   tables: { name: string; rows: Record<string, unknown>[] }[];
 };
 
-/** What was skipped and why, so a restore is never silently partial. */
+/** ⚠ What was skipped and why — a restore must never be silently partial.
+ *  REFS lib/backup.ts · app/admin/backup/ui.tsx — where the report is shown */
 export type AddonRestoreReport = { skipped: string[]; restored: string[] };
 
 /**
- * Whether a dump may be written back — the whole rule of OPS-16, as a pure decision.
+ * Whether a dump may be written back — the OPS-16 rule as a pure decision, separated from the
+ * writing so the part that protects data can be tested directly rather than through a database.
  *
- * Separated from the writing so it can be tested for what it *is* rather than through a database:
- * the decision is the part that protects data, and "strict equality, and say why when it isn't"
- * is a claim worth pinning directly.
- *
- * **Strict equality is deliberate.** Not "same major", not "installed is newer" — core has no way
- * to know whether 0.0.7 → 0.0.8 renamed a column, and an add-on author has no way to tell it. The
- * cost of being wrong is asymmetric: refusing costs the admin a re-run after installing the right
- * version, while writing costs them a corrupted module and a backup they already trusted.
+ * ⚠ Strict equality: not "same major", not "installed is newer". The cost is asymmetric — refusing
+ * costs a re-run after installing the right version; writing costs a corrupted module and a backup
+ * the admin already trusted. PINS tests/unit/backup-addons.test.ts
  */
 export function decideAddonRestore(
   dump: Pick<AddonTableDump, "kind" | "id" | "version">,
@@ -63,17 +60,17 @@ export function decideAddonRestore(
   return { restore: true };
 }
 
-/** Physical table name for a declaration, by kind. */
+/** REFS lib/modules/migrate.ts › moduleTableName() · lib/helpers/migrate.ts › helperTableName() —
+ *  the same naming the migrations used, or the dump addresses a table that does not exist */
 function physicalName(kind: "module" | "helper", id: string, logical: string): string {
   return kind === "module" ? moduleTableName(id, logical) : helperTableName(id, logical);
 }
 
 /**
- * Table names reach a query as identifiers, which cannot be parameterised — so they are
- * **constructed, never accepted**. `moduleTableName`/`helperTableName` already reduce anything
- * outside `[a-z0-9]` to `_`, and this re-checks the finished string rather than trusting that,
- * because the declaration comes from third-party code and this is the last point before it becomes
- * SQL.
+ * ⚠ Table names reach a query as IDENTIFIERS, which cannot be parameterised, so they are
+ * constructed and never accepted. The naming helpers already reduce anything outside `[a-z0-9]` to
+ * `_`; this re-checks the finished string anyway, because the declaration is third-party code and
+ * this is the last point before it becomes SQL.
  */
 function safeTableName(name: string): boolean {
   return /^(mod|hlp)_[a-z0-9_]+$/.test(name);
@@ -87,7 +84,8 @@ async function tableExists(table: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-/** Every installed add-on that declares tables, paired with its installed version. */
+/** ⚠ Registry AND database: a definition on disk that is not installed must not be dumped.
+ *  REFS lib/modules/registry.ts › getAllModules() · lib/helpers/registry.ts › getAllHelpers() */
 async function declaringAddons(): Promise<
   { kind: "module" | "helper"; id: string; version: string; tables: BackupTableDecl[] }[]
 > {
@@ -116,11 +114,10 @@ async function declaringAddons(): Promise<
 }
 
 /**
- * Read every declared add-on table.
- *
- * `includeSecrets` follows the passphrase, exactly as core's own settings do. A secret column in an
- * unencrypted backup is blanked rather than dropped, so the row still restores with its shape
- * intact and the gap is visible.
+ * Read every declared add-on table. ⚠ `includeSecrets` follows the passphrase, exactly as core's
+ * own settings do; a secret column in an unencrypted backup is BLANKED rather than dropped, so the
+ * row restores with its shape intact and the gap is visible.
+ * REFS lib/backup.ts — passes the same flag core uses  PINS tests/unit/backup-addons.test.ts
  */
 export async function collectAddonTables(includeSecrets: boolean): Promise<AddonTableDump[]> {
   const dumps: AddonTableDump[] = [];
@@ -140,9 +137,8 @@ export async function collectAddonTables(includeSecrets: boolean): Promise<Addon
       const cleaned = rows.map((row) => {
         const copy: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(row)) {
-          // BigInt is not JSON-serialisable, and SQLite integers arrive as BigInt through
-          // Prisma's raw path. Numbers survive the round trip; the alternative is a backup that
-          // throws while being written.
+          // ⚠ SQLite integers arrive as BigInt through Prisma's raw path and BigInt is not
+          // JSON-serialisable — without this the backup throws while being written.
           const value = typeof v === "bigint" ? Number(v) : v;
           copy[k] = !includeSecrets && secrets.has(k) ? null : value;
         }
@@ -158,12 +154,12 @@ export async function collectAddonTables(includeSecrets: boolean): Promise<Addon
 }
 
 /**
- * Write add-on tables back, **only where the installed version matches the backup's**.
+ * Write add-on tables back, only where the installed version matches the backup's.
  *
- * Runs outside the main restore transaction on purpose: these are third-party schemas addressed by
- * name, and a failure in one add-on's data must not roll back the restore of the app itself. Each
- * table is replaced wholesale inside its own transaction, so a table is either the backup's or
- * untouched — never half of each.
+ * ⚠ Runs OUTSIDE the main restore transaction: these are third-party schemas addressed by name, and
+ * a failure in one add-on's data must not roll back the restore of the app itself. Each table is
+ * replaced wholesale in its own transaction, so it is either the backup's or untouched.
+ * REFS decideAddonRestore() above · lib/backup.ts  PINS tests/unit/backup-addons.test.ts
  */
 export async function restoreAddonTables(dumps: AddonTableDump[]): Promise<AddonRestoreReport> {
   const report: AddonRestoreReport = { skipped: [], restored: [] };

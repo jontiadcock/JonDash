@@ -14,26 +14,24 @@ import {
 } from "@/lib/backup-addons";
 
 /**
- * Full server backup / selective restore.
+ * Full server backup, selective restore.
  *
- * Export is always FULL: every table (users, roles, access-roles, the whole
- * settings table, audit), the `.data` configuration, the master encryption key,
- * and icons. Sensitive material (credentials, secret settings, TLS keys, and the
- * encryption key) is only included when the backup is passphrase-encrypted; an
- * unencrypted backup omits it, so restoring users from one recreates them as
- * PENDING_SETUP (they go through account setup again).
+ * Export is always FULL — every table, the `.data` configuration, the master key and icons.
+ * Restore is SELECTIVE: each chosen category is a full REPLACE, which is why the calling action
+ * gates it behind step-up and a typed confirmation.
  *
- * Restore is SELECTIVE: the caller picks which of the categories present to apply,
- * each a full REPLACE (a major destructive action, gated by step-up + typed confirm
- * in the calling action).
+ * ⚠ Sensitive material — credentials, secret settings, TLS keys, the encryption key, and since v4
+ * the icons — travels ONLY in a passphrase-encrypted archive. Restoring users from an unencrypted
+ * one recreates them as PENDING_SETUP, which is correct, not a bug.
+ * ⚠ An encrypted backup carries `.data/secrets.json` (BUG-04). Adopting it is what keeps TOTP
+ * secrets and email config decryptable after a restore, and the in-process key cache must be
+ * reloaded or they fail until a restart.
  *
- * Format v3 is a ZIP: backup.json (the envelope — plain, or scrypt+AES-GCM encrypted)
- * plus icons/<file>. v2 archives still restore; v1 (single JSON) is no longer read.
- *
- * BUG-04 fix: an encrypted backup carries the install's encryption key
- * (`.data/secrets.json`). Restoring users adopts it, so TOTP secrets + email config
- * (encrypted at rest) keep working after a restore/migration — the in-process key
- * cache is reloaded so it takes effect without a restart.
+ * Formats: v4/v3 are ZIPs, v2 still restores, v1 is no longer read.
+ * REFS lib/config.ts › writeSecretsFileText() · reloadEncryptionKey()
+ *      lib/backup-addons.ts — the add-on tables · lib/config-backup.ts — the `.data` files
+ *      app/admin/backup/actions.ts · app/welcome/actions.ts — the two restore entry points
+ * PINS tests/integration/backup.test.ts · tests/integration/welcome-restore.test.ts
  */
 
 export const BACKUP_CATEGORIES = [
@@ -48,6 +46,9 @@ export const BACKUP_CATEGORIES = [
 ] as const;
 export type BackupCategory = (typeof BACKUP_CATEGORIES)[number];
 
+/** ⚠ The wording an admin ticks before a destructive REPLACE — each label must say what will be
+ *  overwritten, not what will be added.
+ *  REFS app/admin/backup/actions.ts · app/admin/backup/ui.tsx */
 export const CATEGORY_LABELS: Record<BackupCategory, string> = {
   users: "Users & accounts",
   roles: "Service groups & shared services",
@@ -59,9 +60,11 @@ export const CATEGORY_LABELS: Record<BackupCategory, string> = {
   audit: "Audit log",
 };
 
-// v4 = icons sealed inside the encrypted payload (BUG-25); v3/v2 ZIPs still restorable;
-// v1 (single JSON) dropped. The version only rises for ENCRYPTED backups — an unencrypted
-// one is byte-identical to v3, so nothing that can already read v3 loses the ability.
+/*
+ * v4 = icons sealed inside the encrypted payload (BUG-25); v3/v2 ZIPs still restorable;
+ * v1 (single JSON) dropped. The version only rises for ENCRYPTED backups — an unencrypted
+ * one is byte-identical to v3, so nothing that can already read v3 loses the ability.
+ */
 const FORMAT_VERSION = 4;
 const MIN_RESTORABLE_VERSION = 2;
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 32 } as const;
@@ -101,31 +104,20 @@ type BackupData = {
   accessRoles?: { id: string; name: string; permissionsJson: string; userIds: string[] }[];
   settings?: SettingExport[];
   config?: ConfigExport[];
-  encryptionKey?: string; // secrets.json text — encrypted backups only (BUG-04 fix)
+  /** ⚠ `secrets.json` text — encrypted backups ONLY (BUG-04). REFS lib/config.ts › secretsPath() */
+  encryptionKey?: string;
   /**
-   * Icon images, carried INSIDE the encrypted payload (format v4, BUG-25 fix).
-   *
-   * Only present in an encrypted backup. Until v4 icons were written to the ZIP as raw
-   * bytes whatever the passphrase, so an "encrypted" archive handed over every uploaded
-   * image — in practice an inventory of which services the owner runs. An unencrypted
-   * backup still stores them as ordinary `icons/` entries: there is nothing to protect,
-   * and leaving them browsable is useful.
+   * ⚠ Icon images INSIDE the encrypted payload (v4, BUG-25). Until v4 they were ZIP entries
+   * whatever the passphrase, so an "encrypted" archive handed over every uploaded image — an
+   * inventory of which services the owner runs. An unencrypted backup still stores them as
+   * ordinary `icons/` entries, where there is nothing to protect.
    */
   icons?: { filename: string; dataBase64: string }[];
   /**
-   * Installed modules and everything they own (owner ask, 2026-07-23).
-   *
-   * Backing up the app but not the modules meant restoring left a dashboard whose modules
-   * had forgotten their configuration and their stored data — the module was still
-   * installed, and empty.
-   *
-   * `records` is the generic per-module store; `layouts` is each user's widget arrangement.
-   *
-   * **The module's own `mod_<id>_*` SQL tables now travel too** — see `addonTables` below (OPS-16,
-   * v1.8.0-beta.23). They used to be omitted entirely, on the reasoning that writing rows from one
-   * version into a schema built by another corrupts a module rather than restoring it. That
-   * reasoning still holds and is now enforced by a version check, rather than by leaving the data
-   * behind for everyone including the installs where it would have been perfectly safe.
+   * Installed modules and everything they own. `records` is the generic per-module store;
+   * `layouts` is the deprecated per-module widget arrangement.
+   * A module's own `mod_<id>_*` SQL tables travel separately — REFS `addonTables` below (OPS-16),
+   * which enforces the version check that makes writing them back safe.
    */
   modules?: {
     id: string;
@@ -137,29 +129,23 @@ type BackupData = {
     grantedPermissions: string;
     records: { key: string; valueJson: string; secret: boolean }[];
     /**
-     * DEPRECATED as of CORE-11 — kept written and kept read.
-     *
-     * Widget arrangements used to live per module. They now live in `dashboardLayouts` below,
-     * because one ordering spans widgets and service tiles and a tile's layout has no module
-     * to nest under. This field is still WRITTEN (module rows, wide profile only) so a backup
-     * taken here restores into an older build, and still READ on restore so an older backup
-     * restores here.
+     * ⚠ DEPRECATED (CORE-11) but still written AND still read — written so a backup taken here
+     * restores into an older build, read so an older backup restores here. Removing either half
+     * breaks one direction silently. REFS `dashboardLayouts` below — where arrangements live now
      */
     layouts: { userId: string; width: number; height: number; sortOrder: number }[];
   }[];
   /**
-   * Add-ons' own SQL tables (OPS-16) — the gap the `modules` note above used to describe as a
-   * known limit. Each dump carries the version that produced it; restore writes it back only into
-   * that same version and reports anything it skipped.
+   * Add-ons' own SQL tables (OPS-16). Each dump carries the version that produced it, and restore
+   * writes it back only into that same version, reporting anything it skipped.
+   * REFS lib/backup-addons.ts › decideAddonRestore() — the rule
    */
   addonTables?: AddonTableDump[];
   /**
-   * The whole dashboard arrangement — widgets AND service tiles, per device profile
-   * (CORE-11 / CORE-12). Top-level rather than nested under modules, because a `link` row
-   * belongs to no module.
-   *
-   * Absent in backups taken before this existed; those are reconstructed from each module's
-   * `layouts` on restore.
+   * The whole dashboard arrangement — widgets AND tiles, per device profile (CORE-11/12).
+   * ⚠ Top-level, not nested under modules: a `link` row belongs to no module, so nesting it would
+   * discard a tile arrangement whenever no module was selected. Absent in older backups, which are
+   * reconstructed from each module's `layouts`. REFS lib/dashboard/layout.ts
    */
   dashboardLayouts?: {
     userId: string;
@@ -208,8 +194,9 @@ function toLinkExport(l: {
 }
 
 /**
- * Build the full in-memory backup payload. `includeSensitive` (set when a passphrase
- * is given) adds credentials, secret settings, TLS key material, and the master key.
+ * Build the full in-memory backup payload. ⚠ `includeSensitive` follows the passphrase and is the
+ * single switch deciding whether credentials, secret settings, TLS key material and the master key
+ * are present at all. REFS serializeBackup() below — the only caller; sets it from the passphrase
  */
 export async function buildBackupData(includeSensitive: boolean): Promise<BackupData> {
   const data: BackupData = {};
@@ -306,29 +293,37 @@ export async function buildBackupData(includeSensitive: boolean): Promise<Backup
       grantedPermissions: m.grantedPermissions,
       records: records
         .filter((r) => r.moduleId === m.id)
-        // A module record marked `secret` is encrypted at rest with the install's key, so
-        // it only travels in an ENCRYPTED backup — which is the only kind that carries the
-        // key needed to read it back (BUG-04). Otherwise it restores as undecryptable junk.
+        /*
+         * A module record marked `secret` is encrypted at rest with the install's key, so
+         * it only travels in an ENCRYPTED backup — which is the only kind that carries the
+         * key needed to read it back (BUG-04). Otherwise it restores as undecryptable junk.
+         */
         .filter((r) => includeSensitive || !r.secret)
         .map((r) => ({ key: r.key, valueJson: r.valueJson, secret: r.secret })),
-      // Deprecated shape, still written: module rows from the WIDE profile only, which is
-      // what an older build understands. It restores this backup into a pre-CORE-11 JonDash
-      // rather than that install silently losing every widget arrangement.
+      /*
+       * Deprecated shape, still written: module rows from the WIDE profile only, which is
+       * what an older build understands. It restores this backup into a pre-CORE-11 JonDash
+       * rather than that install silently losing every widget arrangement.
+       */
       layouts: layouts
         .filter((l) => l.kind === "module" && l.refId === m.id && l.profile === "wide")
         .map((l) => ({ userId: l.userId, width: l.width, height: l.height, sortOrder: l.sortOrder })),
     }));
   }
 
-  // Add-ons' own tables (OPS-16). Independent of the `modules` rows above: a HELPER has no Module
-  // row at all, and its stored credentials are exactly the thing whose absence makes a restored
-  // install look complete and fail to talk to anything.
+  /*
+   * Add-ons' own tables (OPS-16). Independent of the `modules` rows above: a HELPER has no Module
+   * row at all, and its stored credentials are exactly the thing whose absence makes a restored
+   * install look complete and fail to talk to anything.
+   */
   const addonTables = await collectAddonTables(includeSensitive);
   if (addonTables.length) data.addonTables = addonTables;
 
-  // The real arrangement: both kinds, both profiles, top-level because a service tile's
-  // layout belongs to no module. Written independently of `modules` — a dashboard can be
-  // arranged with no modules installed at all, and that arrangement is still worth keeping.
+  /*
+   * The real arrangement: both kinds, both profiles, top-level because a service tile's
+   * layout belongs to no module. Written independently of `modules` — a dashboard can be
+   * arranged with no modules installed at all, and that arrangement is still worth keeping.
+   */
   const allLayouts = await prisma.dashboardLayout.findMany({
     orderBy: [{ profile: "asc" }, { sortOrder: "asc" }],
   });
@@ -375,8 +370,8 @@ function includesFor(data: BackupData, hasIcons: boolean): BackupCategory[] {
 }
 
 /**
- * Collect every icon image referenced by any link (personal or role), as real files
- * for the archive.
+ * Every icon image referenced by any link, as real files for the archive.
+ * REFS lib/icons.ts › readIcon() · isValidIconFilename()  PINS tests/integration/backup.test.ts
  */
 export async function collectBackupIcons(): Promise<IconFile[]> {
   const links = await prisma.link.findMany({
@@ -438,13 +433,13 @@ function buildEnvelopeJson(
 /**
  * Serialize a full backup to a ZIP archive.
  *
- * Encrypted (v4): ONE entry, `backup.json`, and everything is inside its ciphertext —
- * icons included. Not "encrypt the important part": a container that seals only its main
- * payload grows a new plaintext leak every time it gains content, which is exactly how
- * BUG-25 happened. Icons were added *beside* the envelope by an earlier fix and the
- * encryption boundary silently didn't move with them.
+ * ⚠ Encrypted (v4) is ONE entry with everything inside the ciphertext. Never "encrypt the important
+ * part": a container sealing only its main payload grows a new plaintext leak every time it gains
+ * content, which is exactly how BUG-25 happened — icons were added BESIDE the envelope and the
+ * encryption boundary did not move with them. Anything added later goes inside.
  *
- * Unencrypted (v3 layout): `backup.json` + `icons/<file>`, unchanged.
+ * Unencrypted keeps the v3 layout: `backup.json` + `icons/<file>`.
+ * REFS app/api/backup/export/route.ts  PINS tests/integration/backup.test.ts
  */
 export async function serializeBackup(passphrase: string | null): Promise<Uint8Array> {
   const data = await buildBackupData(!!passphrase);
@@ -471,6 +466,8 @@ export async function serializeBackup(passphrase: string | null): Promise<Uint8A
   return zipSync(files, { level: 6 });
 }
 
+/** ⚠ Its message reaches the admin verbatim, so it must never carry archive contents.
+ *  REFS app/admin/backup/actions.ts · app/welcome/actions.ts */
 export class BackupError extends Error {}
 
 function isZip(bytes: Uint8Array): boolean {
@@ -524,7 +521,9 @@ function parseEnvelope(
   }
 }
 
-/** What a backup file is, learned without being able to open it. */
+/** What a backup file is, learned without being able to open it.
+ *  REFS inspectBackup() below — what produces it · app/admin/backup/ui.tsx · app/welcome/forms.tsx
+ *       app/admin/backup/actions.ts · app/welcome/actions.ts */
 export type BackupInspection =
   | {
       ok: true;
@@ -536,17 +535,13 @@ export type BackupInspection =
   | { ok: false; error: string };
 
 /**
- * Look at a backup file and report what it is — **without a passphrase**.
+ * What a backup file is, WITHOUT a passphrase — so the restore screens can ask for one only when it
+ * is genuinely needed, rather than failing after the upload and the destructive confirmation.
  *
- * The envelope keeps `encrypted`, `includes` and `exportedAt` outside the ciphertext, so this is
- * readable for an encrypted archive too. That is deliberate and was already true: identifying an
- * archive is what the metadata is for, and it carries nothing about the user's data.
- *
- * **Why this exists** (owner, 2026-07-28): the restore screens used to show an optional passphrase
- * box and leave you to know whether yours needed one. Picking an encrypted file and leaving the box
- * empty failed with "This backup is encrypted — enter its passphrase" only *after* uploading and
- * committing to a destructive action. Now the file is inspected on selection and the passphrase is
- * asked for only when it is genuinely needed — and then it is required rather than optional.
+ * ⚠ `encrypted`, `includes` and `exportedAt` are deliberately outside the ciphertext. That is what
+ * makes this readable, and it is safe because identifying an archive is what the metadata is for —
+ * but it means anything added to the envelope header is readable without the passphrase.
+ * REFS app/admin/backup/ui.tsx · app/welcome/forms.tsx  PINS tests/unit/backup-inspect.test.ts
  */
 export function inspectBackup(input: Uint8Array): BackupInspection {
   if (!isZip(input)) return { ok: false, error: "That file isn’t a JonDash backup archive." };
@@ -588,8 +583,10 @@ export function inspectBackup(input: Uint8Array): BackupInspection {
 }
 
 /**
- * Parse a backup file (v2/v3 ZIP: backup.json + icons/). Returns the data, the
- * included categories, and any icon files.
+ * Parse a backup file, any supported format. ⚠ Every input here came from an upload — icon names
+ * are checked before they reach the filesystem. REFS lib/icons.ts › isValidIconFilename()
+ *      app/admin/backup/actions.ts · app/welcome/actions.ts
+ * PINS tests/integration/backup.test.ts · tests/integration/welcome-restore.test.ts
  */
 export function parseBackup(
   input: Uint8Array | string,
@@ -613,9 +610,11 @@ export function parseBackup(
 
   const iconFiles: IconFile[] = [];
 
-  // v4 encrypted: icons live inside the decrypted payload. Older archives (and every
-  // unencrypted one) keep them as ZIP entries, so both are read here — a format change
-  // that stopped old backups restoring would be a worse bug than the one it fixed.
+  /*
+   * v4 encrypted: icons live inside the decrypted payload. Older archives (and every
+   * unencrypted one) keep them as ZIP entries, so both are read here — a format change
+   * that stopped old backups restoring would be a worse bug than the one it fixed.
+   */
   for (const icon of data.icons ?? []) {
     if (isValidIconFilename(icon.filename)) {
       iconFiles.push({ filename: icon.filename, data: Buffer.from(icon.dataBase64, "base64") });
@@ -630,17 +629,16 @@ export function parseBackup(
 }
 
 /**
- * Full REPLACE restore of the categories the backup contains. Roles + access roles are
- * restored before users so memberships reconnect. Filesystem writes (config, key,
- * icons) happen after the DB transaction commits.
+ * Full REPLACE restore of the selected categories.
  *
- * When users are restored from an ENCRYPTED backup, the backup's encryption key is
- * adopted so their TOTP + secret settings decrypt (BUG-04); the in-process key cache
- * is reloaded so it takes effect immediately.
- *
- * **Returns what it could not do.** Add-on tables are only written back into the same version that
- * produced them (OPS-16), so a restore can legitimately leave some data behind — and the one thing
- * that must never happen is that happening quietly. The caller surfaces this list.
+ * ⚠ Order matters: roles and access roles before users, so memberships reconnect; filesystem writes
+ * after the transaction commits.
+ * ⚠ Restoring users from an ENCRYPTED backup adopts its encryption key (BUG-04) and reloads the
+ * cache, or their TOTP and secret settings stay undecryptable until a restart.
+ * ⚠ Returns what it could NOT do. Add-on tables restore only into the version that produced them,
+ * so a restore can legitimately leave data behind — and the caller must surface that.
+ * REFS lib/config.ts › writeSecretsFileText() · lib/backup-addons.ts › restoreAddonTables()
+ *      app/admin/backup/actions.ts — the step-up gate  PINS tests/integration/backup.test.ts
  */
 export async function applyRestore(
   data: BackupData,
@@ -757,20 +755,26 @@ export async function applyRestore(
     }
 
     if (restore("modules") && data.modules) {
-      // Rows only — the module's FILES are not in the backup. Restoring onto an install
-      // that doesn't have a module installed leaves its settings waiting for it, which is
-      // the useful behaviour: install the module and its configuration is already there.
+      /*
+       * Rows only — the module's FILES are not in the backup. Restoring onto an install
+       * that doesn't have a module installed leaves its settings waiting for it, which is
+       * the useful behaviour: install the module and its configuration is already there.
+       */
       await tx.moduleRecord.deleteMany({});
-      // Only the OLD-format path clears layouts here; the new one owns that in its own block
-      // below. Without this condition an old backup would append to the existing arrangement
-      // and collide on the unique index.
+      /*
+       * Only the OLD-format path clears layouts here; the new one owns that in its own block
+       * below. Without this condition an old backup would append to the existing arrangement
+       * and collide on the unique index.
+       */
       if (!data.dashboardLayouts) await tx.dashboardLayout.deleteMany({});
 
       const validUserIds = new Set((await tx.user.findMany({ select: { id: true } })).map((u) => u.id));
       for (const m of data.modules) {
-        // Update, never create: a Module row asserts that code is installed on disk. Making
-        // one for a module whose files are absent invents an install that isn't there, and
-        // the registry is generated at build time so it would not appear anyway.
+        /*
+         * Update, never create: a Module row asserts that code is installed on disk. Making
+         * one for a module whose files are absent invents an install that isn't there, and
+         * the registry is generated at build time so it would not appear anyway.
+         */
         await tx.module.updateMany({
           where: { id: m.id },
           data: {
@@ -786,14 +790,10 @@ export async function applyRestore(
           });
         }
         /*
-         * Only for a backup taken BEFORE `dashboardLayouts` existed. A newer archive carries
-         * the real arrangement top-level and this deprecated copy alongside it; reading both
-         * would write each module row twice and hit the unique index.
-         *
-         * An old row is module-only and had no notion of a device profile, so it is restored
-         * into BOTH — matching the schema migration, and for the same reason: one layout used
-         * to serve every screen size, so putting it in `wide` alone would silently discard the
-         * arrangement on a phone.
+         * ⚠ Only for a backup taken BEFORE `dashboardLayouts` existed. A newer archive carries
+         * both, and reading both writes each module row twice, hitting the unique index.
+         * ⚠ An old row had no device profile, so it restores into BOTH — one layout used to serve
+         * every screen size, and putting it in `wide` alone discards the phone arrangement.
          */
         if (!data.dashboardLayouts) {
           for (const l of m.layouts) {
@@ -819,22 +819,21 @@ export async function applyRestore(
     }
 
     /*
-     * The dashboard arrangement, restored on its OWN — not inside the modules branch.
-     *
-     * Since CORE-11 it covers service tiles as well as widgets, so it is not module data: a
-     * backup with no modules at all can still carry a perfectly good arrangement of tiles, and
-     * nesting this under `modules` would have silently thrown that away. It is gated on either
-     * category because it spans both, and the delete happens here so it runs exactly once
-     * however many of them were selected.
+     * ⚠ Restored on its OWN, not inside the modules branch: since CORE-11 it covers service tiles
+     * too, so a backup with no modules can still carry a perfectly good arrangement. Gated on
+     * EITHER category because it spans both, with the delete here so it runs exactly once however
+     * many were selected. REFS lib/dashboard/layout.ts
      */
     if ((restore("modules") || restore("users")) && data.dashboardLayouts) {
       await tx.dashboardLayout.deleteMany({});
       const layoutUserIds = new Set((await tx.user.findMany({ select: { id: true } })).map((u) => u.id));
       for (const l of data.dashboardLayouts) {
         if (!layoutUserIds.has(l.userId)) continue;
-        // A row naming a module or link that didn't come back is harmless — nothing renders
-        // it — so it is kept rather than dropped: reinstalling that module restores its
-        // place, the same reasoning as keeping a helper's data across an uninstall.
+        /*
+         * A row naming a module or link that didn't come back is harmless — nothing renders
+         * it — so it is kept rather than dropped: reinstalling that module restores its
+         * place, the same reasoning as keeping a helper's data across an uninstall.
+         */
         await tx.dashboardLayout.create({
           data: {
             userId: l.userId,
@@ -889,13 +888,10 @@ export async function applyRestore(
   }
 
   /*
-   * Add-on tables last, and outside the transaction above (OPS-16).
-   *
-   * These are third-party schemas addressed by name, so a failure in one add-on's data must not
-   * roll back the restore of the app itself — by this point the accounts, settings and
-   * configuration are already in place, and losing all of that because a module's table had an
-   * unexpected column would be the wrong trade by a wide margin. Each table gets its own
-   * transaction inside `restoreAddonTables`, so a table is either the backup's or untouched.
+   * ⚠ Add-on tables LAST and OUTSIDE the transaction above (OPS-16). These are third-party schemas
+   * addressed by name, and losing an entire restored install because one module's table had an
+   * unexpected column is the wrong trade. Each table gets its own transaction inside
+   * `restoreAddonTables`, so it is either the backup's or untouched.
    */
   if (restore("modules") && data.addonTables?.length) {
     return await restoreAddonTables(data.addonTables);

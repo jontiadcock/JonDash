@@ -3,17 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Generic capture/restore of the `.data` configuration directory for full server
- * backups. Deliberately an *exclude* list (not an include list) so future config
- * files are backed up automatically: everything under `.data` travels except the
- * transient/regenerable markers and the master key (handled separately as the key).
+ * Capture and restore of the `.data` configuration directory for full backups.
  *
- * Sensitivity: anything under `tls/` is private key material, so it's only gathered
- * for an encrypted backup. Restore writes sensitive files with mode 0600.
+ * ⚠ An EXCLUDE list, never an include list, so a config file added later travels automatically.
+ * The cost of that choice is that anything new is in a backup by default — which is why
+ * `secrets.json` and the transient markers are named explicitly below.
+ * ⚠ Anything under `tls/` is private key material and is gathered only for an ENCRYPTED backup.
+ * REFS lib/config.ts › secretsPath() — the file this must always exclude
+ *      lib/backup.ts — the only caller  PINS tests/integration/backup.test.ts
  */
 
-// Resolved lazily (per call) so it honours JONDASH_DATA_DIR (test isolation /
-// relocated installs), matching lib/config.ts.
+// ⚠ Must match `lib/config.ts › dataDir()` — a local copy that drifts backs up the wrong tree.
 function dataDir(): string {
   return process.env.JONDASH_DATA_DIR || path.join(process.cwd(), ".data");
 }
@@ -30,6 +30,8 @@ const EXCLUDE_TOP = new Set([
   "update-failed",
 ]);
 
+/** `path` is `.data`-relative and comes from an ARCHIVE on restore — REFS writeDataConfigFiles()
+ *  below, which is what confines it. */
 export type ConfigFile = { path: string; data: Buffer };
 
 /** A `.data`-relative path holding private key material (encrypted backups only). */
@@ -60,7 +62,9 @@ function walk(dir: string, relBase: string, out: ConfigFile[]): void {
   }
 }
 
-/** Gather the `.data` config files. `includeSensitive` adds TLS private material. */
+/** Gather the `.data` config files. ⚠ `includeSensitive` adds TLS PRIVATE key material, so it
+ *  follows the passphrase and never travels in an unencrypted backup.
+ *  REFS lib/backup.ts — the only caller  PINS tests/integration/backup.test.ts */
 export function collectDataConfigFiles(includeSensitive: boolean): ConfigFile[] {
   const all: ConfigFile[] = [];
   walk(dataDir(), "", all);
@@ -68,8 +72,9 @@ export function collectDataConfigFiles(includeSensitive: boolean): ConfigFile[] 
 }
 
 /**
- * Write config files back under `.data`. Each path is confined to `.data` (a crafted
- * backup can't escape via `..`); TLS/private files are written 0600.
+ * Write config files back under `.data`. ⚠ Every path is confined to `.data` — the names come from
+ * an archive, so without the containment check a crafted backup writes anywhere via `..`.
+ * Sensitive files are written 0600. REFS lib/backup.ts  PINS tests/integration/backup.test.ts
  */
 export function writeDataConfigFiles(files: ConfigFile[]): void {
   const base = dataDir();

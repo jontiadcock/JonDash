@@ -15,15 +15,17 @@ import {
   type BackupInspection,
 } from "@/lib/backup";
 
+/** `notices` is what a restore could NOT do — REFS lib/backup.ts › applyRestore(), which returns
+ *  it, and app/admin/backup/ui.tsx, which must show it. */
 export type ImportState = { error?: string; success?: string; notices?: string[] };
 
 /**
- * Say what a chosen file is, before anyone commits to restoring it.
+ * Say what a chosen file is, before anyone commits to restoring it — so the form asks for a
+ * passphrase only when the file has one, and requires it when it does.
  *
- * Called as the file is picked, so the form can ask for a passphrase only when the file actually
- * has one — and require it when it does (9.5). Admin-gated like the restore itself: this reads a
- * file the caller supplied, but it is still an authenticated surface and there is no reason for it
- * to be reachable by anyone who could not restore anyway.
+ * ⚠ Admin-gated like the restore itself. It only reads a file the caller supplied, but there is no
+ * reason for it to be reachable by anyone who could not restore anyway.
+ * REFS lib/backup.ts › inspectBackup() · app/admin/backup/ui.tsx — calls it on selection
  */
 export async function inspectBackupAction(formData: FormData): Promise<BackupInspection> {
   await assertSameOrigin();
@@ -40,17 +42,14 @@ export async function inspectBackupAction(formData: FormData): Promise<BackupIns
 }
 
 /**
- * Restore from a backup file. **Everything the backup contains, all at once** — there is no longer
- * a category picker (9.1).
+ * Restore from a backup file — ⚠ everything it contains, all at once. Do not re-add a category
+ * picker: the parts of a backup are not independent. Users carry the encryption key that makes
+ * their own 2FA secrets and every secret setting readable, so restoring settings without users
+ * silently dropped them, and restoring users without roles orphaned memberships. Every combination
+ * except "all of it" produced an install subtly unlike the one backed up.
  *
- * Choosing categories read as flexibility and behaved as a trap: the parts of a backup are not
- * independent. Users carry the encryption key that makes their own 2FA secrets and every secret
- * setting readable, so restoring settings without users silently dropped them; restoring users
- * without roles orphaned memberships. Every combination that wasn't "all of it" produced an install
- * subtly unlike the one that was backed up, and the notices explaining that were longer than the
- * feature was worth.
- *
- * Still gated by **step-up TOTP**. The "type Everything" box is gone — see `verifyStepUp`.
+ * ⚠ Still gated by step-up TOTP — this is the most destructive action in the product.
+ * REFS lib/auth/stepup.ts › verifyStepUp() · lib/backup.ts › applyRestore()
  */
 export async function importBackupAction(
   _prev: ImportState,
