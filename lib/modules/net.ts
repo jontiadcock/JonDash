@@ -2,17 +2,17 @@ import "server-only";
 import { execFile } from "node:child_process";
 import { isIP } from "node:net";
 
-/**
- * ICMP ping for modules (MOD-01 Phase 3), exposed as `ctx.net.ping` when the module was
- * granted "network:outbound".
+/*
+ * ICMP ping for modules, exposed as `ctx.net.ping` when "network:outbound" was granted.
  *
- * ICMP can't be done from Node without either a privileged raw socket or the OS `ping`
- * binary, so the framework offers it rather than leaving every module to shell out —
- * which the module verifier bans outright. All the hardening therefore lives here, once:
- *   - the host is validated against an IP literal or a strict hostname before use, so it
- *     can never begin with "-" and be swallowed as a flag;
- *   - execFile with a fixed argument list and NO shell, so nothing is ever interpolated;
- *   - a hard timeout and a small output cap.
+ * ICMP needs a privileged raw socket or the OS binary, so core offers it rather than leaving every
+ * module to shell out — which the verifier bans outright. ⚠ **All the hardening lives here, once**:
+ * the host is validated against an IP literal or strict hostname so it can never begin with "-" and
+ * be read as a flag; `execFile` with a fixed argument list and NO shell; a timeout and output cap.
+ *
+ * REFS lib/modules/context.ts — where it is attached to the ctx · lib/modules/verify.ts — bans the
+ *      alternative · lib/modules/types.ts › ModuleNetApi — the contract
+ * PINS tests/unit/module-net.test.ts
  */
 
 /** Labels per RFC 1123: alphanumeric start/end, hyphens inside, ≤63 chars each. */
@@ -20,6 +20,7 @@ const HOSTNAME_RE =
   /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 /** A host safe to hand to the ping binary as a positional argument. */
+/** ⚠ The flag-injection guard. PINS tests/unit/module-net.test.ts */
 export function isSafePingHost(host: string): boolean {
   if (typeof host !== "string" || host.length === 0 || host.length > 253) return false;
   if (isIP(host) !== 0) return true; // IPv4/IPv6 literal
@@ -27,6 +28,7 @@ export function isSafePingHost(host: string): boolean {
 }
 
 /** Round-trip time from the ping binary's output, in ms (null if not reported). */
+/** PINS tests/unit/module-net.test.ts — pins the per-platform output parsing. */
 export function parsePingMs(output: string): number | null {
   // Windows: "time=12ms" / "time<1ms" · Linux+macOS: "time=12.3 ms"
   const m = /time[=<]\s*([\d.]+)\s*ms/i.exec(output);
@@ -49,6 +51,7 @@ function pingArgs(host: string, timeoutMs: number): string[] {
  * (or ping isn't available). Rejects only on an invalid host — an unreachable host is a
  * normal result for a monitor, not an error.
  */
+/** REFS lib/modules/context.ts — attaches this as ctx.net.ping · types.ts › ModuleNetApi */
 export function pingHost(host: string, opts: { timeoutMs?: number } = {}): Promise<number | null> {
   if (!isSafePingHost(host)) {
     return Promise.reject(new Error("Invalid host for ping."));

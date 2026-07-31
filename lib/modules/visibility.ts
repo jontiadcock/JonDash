@@ -1,22 +1,20 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 
-/**
- * Who may see a module (MOD-01 P2 — module RBAC via Service Groups).
+/*
+ * Who may see a module — module RBAC via Service Groups, mirroring how service tiles are shared.
  *
- * Mirrors how service tiles are shared, with one deliberate difference: a module with NO
- * groups assigned stays visible to every signed-in user. That was its behaviour before
- * this existed, so adding the feature doesn't silently hide working modules from people;
- * assigning groups is the act that restricts it. `adminOnly` on the definition still wins
- * over everything — a module that declares itself admin-only is never shown to a USER.
- *
- * This is enforced server-side at BOTH entry points (the dashboard widget list and the
- * /m/<id> route), not just hidden in the UI.
+ * ⚠ **No groups assigned means visible to everyone signed in.** That was the behaviour before this
+ *   existed, so adding the feature does not silently hide working modules; assigning groups is the
+ *   act that restricts. `adminOnly` on the definition still wins over everything.
+ * ⚠ **Enforced server-side at BOTH entry points**, not hidden in the UI.
+ * REFS app/(app)/dashboard/page.tsx — the widget list · app/(app)/m/[module]/[[...path]]/page.tsx
+ * PINS tests/integration/module-rbac.test.ts
  */
 
 export type ModuleViewer = { id: string; role: "ADMIN" | "USER" };
 
-/** Group ids a module is limited to. Empty = unrestricted. */
+/** Groups a module is limited to; empty is unrestricted. REFS app/admin/modules/[id]/page.tsx */
 export async function moduleGroupIds(moduleId: string): Promise<string[]> {
   const row = await prisma.module.findUnique({
     where: { id: moduleId },
@@ -38,6 +36,7 @@ export async function userGroupIds(userId: string): Promise<string[]> {
  * Module ids this viewer may see. Admins see everything; a USER sees modules with no
  * group restriction plus those shared with a group they're in.
  */
+/** REFS app/(app)/dashboard/page.tsx · layout-actions.ts — entry point one. */
 export async function visibleModuleIds(viewer: ModuleViewer): Promise<Set<string>> {
   const rows = await prisma.module.findMany({
     where: { enabled: true },
@@ -54,6 +53,7 @@ export async function visibleModuleIds(viewer: ModuleViewer): Promise<Set<string
 }
 
 /** Whether one module is visible to this viewer (the /m/<id> route guard). */
+/** REFS app/(app)/m/[module]/[[...path]]/page.tsx — entry point two. */
 export async function canViewModule(moduleId: string, viewer: ModuleViewer): Promise<boolean> {
   if (viewer.role === "ADMIN") return true;
   const groups = await moduleGroupIds(moduleId);
@@ -63,6 +63,7 @@ export async function canViewModule(moduleId: string, viewer: ModuleViewer): Pro
 }
 
 /** Replace the Service Groups a module is limited to (admin action). */
+/** REFS app/admin/modules/actions.ts › setModuleGroupsAction(). */
 export async function setModuleGroups(moduleId: string, groupIds: string[]): Promise<void> {
   await prisma.module.update({
     where: { id: moduleId },

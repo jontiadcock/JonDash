@@ -7,26 +7,19 @@ import { helperFilesExist, ensureHelpersFor } from "./install";
 import { helperIdsOf } from "@/lib/modules/types";
 
 /**
- * Detect — and for first-party modules, repair — a module whose declared helper isn't
- * installed (BUG-20).
+ * Detect — and for first-party modules repair — a module whose declared helper is not installed
+ * (BUG-20). ⚠ Such a module is **silently inert**: nothing imports the helper, so the build
+ * succeeds, the module looks installed and enabled, and its declared work never runs.
  *
- * A module in that state is **silently inert**: a scheduler-style helper is imported by
- * nothing, so the build succeeds, the module looks installed and enabled, and its declared
- * work simply never runs. It happens three ways: modules installed by 1.5.0-beta.1–beta.3
- * (when helpers never installed at all, and which upgrading does NOT repair, because the
- * fix runs on install and they are already installed); an update that couldn't resolve a
- * helper and kept the module rather than destroying it; and files disappearing any other
- * way — a partial restore, a manual delete.
+ * ⚠ **Only official-source modules heal themselves.** Provenance makes that a fact rather than a
+ *   guess; a third-party or sideloaded module is reported and left alone, because fetching code on
+ *   its behalf is not a decision to make quietly.
+ * ⚠ **Healing does not restart.** A helper is a compile-time import, so it activates on the next
+ *   rebuild — and quietly signing everyone out is the surprise the governing rule prevents.
  *
- * **Only modules from the official source heal themselves.** Provenance records where each
- * module came from, so this is a fact rather than a guess: a third-party or sideloaded
- * module is reported and left alone. Fetching code on behalf of a module the user got from
- * somewhere else is not a decision this should make quietly.
- *
- * Healing downloads the files and regenerates the registry, but **does not restart**. A
- * helper is a compile-time import, so it only becomes active on the next rebuild — and a
- * first-party module quietly signing everyone out is exactly the surprise the governing
- * rule exists to prevent. The admin is told, and restarts when it suits them.
+ * REFS lib/modules/provenance.ts — where a module came from · lib/helpers/install.ts — the fetch
+ *      app/admin/modules/page.tsx — the caller, and where the gap is reported
+ * PINS tests/integration/helper-reconcile.test.ts
  */
 
 export type HelperGap = {
@@ -42,7 +35,11 @@ export type HelperGap = {
   reason?: string;
 };
 
-/** Modules whose declared helpers aren't all present, having healed what it may. */
+/**
+ * Modules whose declared helpers are not all present, having healed what it may.
+ * REFS app/admin/modules/page.tsx — the caller and the reporter
+ * PINS tests/integration/helper-reconcile.test.ts
+ */
 export async function reconcileHelpers(): Promise<HelperGap[]> {
   const enabled = new Set(
     (await prisma.module.findMany({ where: { enabled: true }, select: { id: true } })).map((r) => r.id),

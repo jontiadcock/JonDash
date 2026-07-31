@@ -7,6 +7,7 @@ import type { DeclaredPermission, ModuleDefinition } from "./types";
  */
 
 /** The permissions granted when a module is enabled (its declared set, de-duped). */
+/** REFS lib/modules/manage.ts › enableModule() — the intersect that keeps a revocation revoked. */
 export function grantsForModule(def: ModuleDefinition): DeclaredPermission[] {
   return [...new Set(def.permissions)];
 }
@@ -14,19 +15,16 @@ export function grantsForModule(def: ModuleDefinition): DeclaredPermission[] {
 /**
  * Turn one capability on or off for one module (CORE-10).
  *
- * **Per (module, capability), never per helper.** A helper-level switch would silently widen
- * every module that declared that helper — including ones installed earlier for unrelated
- * reasons. The helper's own configuration is the ceiling; this is each module's grant inside it.
+ * ⚠ **Per (module, capability), never per helper.** A helper-level switch would silently widen
+ *   every module that declared it, including ones installed earlier for unrelated reasons.
+ * ⚠ **This only ever narrows.** The declared set is the ceiling, so a tampered form cannot widen a
+ *   module beyond what its consent screen showed.
  *
- * **Enforcement is free.** `ctx.can()` and `ctx.grants` already read the STORED list
- * (`registry.ts` → `parseGrants(row.grantedPermissions)`), not the declared one — so removing a
- * capability here takes effect everywhere the next time a context is built, with no change to
- * any call site. What did not exist before was any way to store a subset: consent was
- * all-or-nothing at enable time.
+ * Enforcement is free: `ctx.can()` and `ctx.grants` already read the STORED list, so removing a
+ * capability takes effect the next time a context is built, with no call site changing.
  *
- * A capability the module never declared cannot be granted. The declared set stays the ceiling;
- * this only ever narrows within it, so a tampered form cannot widen a module beyond what its
- * consent screen showed.
+ * REFS lib/modules/registry.ts › parseGrants() — reads the stored list
+ *      lib/modules/context.ts — builds the ctx from it · app/admin/permissions/actions.ts — the UI
  */
 export function nextGrants(
   def: ModuleDefinition,
@@ -44,6 +42,10 @@ export function nextGrants(
 }
 
 /** Parse the JSON grant list stored on the Module row. */
+/**
+ * REFS lib/modules/registry.ts · lib/modules/context.ts — the enforcement path ·
+ *      lib/permissions-view.ts · app/admin/permissions/actions.ts — the admin view
+ */
 export function parseGrants(json: string): DeclaredPermission[] {
   try {
     const arr = JSON.parse(json);

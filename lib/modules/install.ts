@@ -23,7 +23,7 @@ const MODULES_DIR = path.join(process.cwd(), "modules");
 const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 30_000;
 
-/** Its message reaches the admin. REFS app/admin/modules/actions.ts · app/admin/updates/module-actions.ts */
+/** Its message reaches the admin. REFS app/admin/modules/actions.ts · updates/module-actions.ts */
 export class InstallError extends Error {}
 
 /** Text-ish files get scanned by the verifier; the rest are checked by size/extension. */
@@ -136,7 +136,7 @@ export function writeModuleFiles(moduleId: string, files: ExtractedFile[]): void
 }
 
 /** Delete a module's source folder + install record (uninstall). Safe if never installed. */
-/** REFS app/admin/modules/actions.ts · scripts/module-recover.mjs — removal and failed-build recovery. */
+/** REFS app/admin/modules/actions.ts · scripts/module-recover.mjs — removal and recovery. */
 export function removeModuleFiles(moduleId: string): void {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) throw new InstallError("Invalid module id.");
   fs.rmSync(path.join(MODULES_DIR, moduleId), { recursive: true, force: true });
@@ -168,7 +168,7 @@ export function peekZipModuleId(zip: Uint8Array): string | null {
 }
 
 /** Whether a module's source is present on disk. */
-/** REFS lib/modules/manage.ts › pruneRemovedBundledModules() — the guard that stops a data purge. */
+/** REFS lib/modules/manage.ts › pruneRemovedBundledModules() — the guard against a data purge. */
 export function moduleFilesExist(moduleId: string): boolean {
   return (
     fs.existsSync(path.join(MODULES_DIR, moduleId, "module.ts")) ||

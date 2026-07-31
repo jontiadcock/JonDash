@@ -4,21 +4,20 @@ import path from "node:path";
 import { prisma } from "@/lib/db";
 import type { HelperDefinition } from "./types";
 
-/**
- * Raw-SQL migrations for a helper's OWN tables (MOD-08) — the module runner's twin, with
- * a distinct `hlp_` prefix so a helper and a module of the same name can never collide.
+/*
+ * Raw-SQL migrations for a helper's OWN tables — the module runner's twin, with a distinct `hlp_`
+ * prefix so a helper and a module of the same name can never collide.
  *
- * Applied at boot, before `onBoot` runs: a helper that gained a table in an update must
- * never run against the old layout. That is the exact failure modules hit before
- * `ensureModuleMigrations` existed, and it's cheaper to not repeat it.
- *
- * Migration bookkeeping reuses the `ModuleMigration` table with the helper id namespaced,
- * rather than adding a near-identical table.
+ * ⚠ Applied at boot **before `onBoot`**: a helper that gained a table in an update must never run
+ *   against the old layout. Bookkeeping reuses `ModuleMigration` with the helper id namespaced.
+ * REFS lib/helpers/boot.ts — the caller · lib/modules/migrate.ts — the module twin
+ *      lib/modules/manage.ts › ensureModuleMigrations() — the failure this mirrors
  */
 
 const HELPERS_DIR = path.join(process.cwd(), "helpers");
 
 /** Namespaced physical table name for a helper's logical table. */
+/** REFS lib/backup-addons.ts · lib/helpers/boot.ts · lib/helpers/types.ts › backup */
 export function helperTableName(helperId: string, name: string): string {
   const safe = (s: string) => s.replace(/[^a-z0-9]/gi, "_").toLowerCase();
   return `hlp_${safe(helperId)}_${safe(name)}`;
@@ -38,6 +37,7 @@ function splitStatements(sql: string): string[] {
 }
 
 /** Apply any not-yet-applied SQL migrations for a helper (files sorted by name). */
+/** REFS lib/helpers/boot.ts — the only caller; runs before onBoot. */
 export async function runHelperMigrations(def: HelperDefinition): Promise<void> {
   if (!def.migrations) return;
   const dir = path.join(HELPERS_DIR, def.id, def.migrations.replace(/^\.\//, ""));
@@ -66,10 +66,10 @@ export async function runHelperMigrations(def: HelperDefinition): Promise<void> 
 }
 
 /**
- * Drop a helper's tables. Deliberately NOT called when a helper is removed: a helper can
- * own real data (a scheduler's jobs), and destroying it because the last dependent module
- * happened to be uninstalled is the same class of mistake that has already cost this
- * project a bricked install. Removal takes the files; the data stays.
+ * ⚠ **Deliberately NOT called when a helper is removed.** A helper can own real data, and
+ *   destroying it because the last dependent module happened to be uninstalled is how an install
+ *   gets bricked. Removal takes the files; the data stays.
+ * REFS lib/helpers/install.ts › removeHelperFiles() — what removal actually does
  */
 export async function dropHelperTables(helperId: string): Promise<void> {
   const prefix = helperTableName(helperId, "");

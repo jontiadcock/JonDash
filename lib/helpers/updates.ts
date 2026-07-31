@@ -13,17 +13,17 @@ import { getAllHelpers } from "./registry";
 import { resolveHelperChannel } from "./channel";
 import { helperIdsOf } from "@/lib/modules/types";
 
-/**
- * Helper updates (MOD-10).
+/*
+ * Helper updates (MOD-10). ⚠ Without this a helper could ship a security fix that **no existing
+ * install would ever receive** — reconcile heals only *absent* helpers, so a stale-but-present one
+ * was never touched, and `ensureHelpersFor` only re-installed as a side effect of a module update.
  *
- * Before this, a helper had no update path at all: `lib/modules/updates.ts` never
- * mentioned helpers, and `ensureHelpersFor` only re-installed one as a side effect of a
- * module install/update, when the versions happened to differ. A helper could therefore
- * ship a security fix that **no existing install would ever receive** — reconcile only
- * heals *absent* helpers, so a stale-but-present one was never touched.
+ * Helpers come from the official source only, so there is exactly one manifest per channel.
  *
- * Helpers come from the official source only, so unlike modules there is exactly one
- * manifest to consult per channel.
+ * REFS lib/helpers/channel.ts › resolveHelperChannel() — which manifest to read
+ *      lib/helpers/install.ts — applies what this reports · lib/updates/auto-run.ts
+ *      app/admin/updates/page.tsx · app/api/update/status/route.ts — the surfaces
+ * PINS tests/unit/update-cache-invalidation.test.ts
  */
 
 export type HelperUpdate = {
@@ -59,15 +59,18 @@ export type HelperUpdateStatus = {
 const CACHE_MS = 3 * 60 * 1000;
 let cache: { at: number; status: HelperUpdateStatus } | null = null;
 
+/**
+ * ⚠ Call after anything that changes what an update check would return, or the page shows a stale
+ *   answer. PINS tests/unit/update-cache-invalidation.test.ts
+ */
 export function invalidateHelperUpdateCache(): void {
   cache = null;
 }
 
 /**
- * What each installed module declares it needs from a helper — `helpers` may be a bare
- * id (no floor stated) or `{ id, minVersion }`. Reading it here rather than in the
- * registry keeps the module contract additive: a module that says nothing is treated as
- * "built against whatever was current", which is what every module says today.
+ * What each module declares it needs from a helper. ⚠ Reading it here rather than in the registry
+ * keeps the module contract additive: a module that says nothing is treated as "built against
+ * whatever was current". REFS lib/modules/types.ts › ModuleHelperNeed
  */
 function declaredNeed(moduleHelpers: unknown, helperId: string): string | null {
   if (!Array.isArray(moduleHelpers)) return null;
@@ -81,6 +84,10 @@ function declaredNeed(moduleHelpers: unknown, helperId: string): string | null {
   return null;
 }
 
+/**
+ * REFS app/admin/updates/page.tsx · app/api/update/status/route.ts · lib/updates/auto-run.ts ·
+ *      app/admin/updates/{helper,schedule,selection}-actions.ts — eight callers
+ */
 export async function getHelperUpdateStatus(force = false): Promise<HelperUpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
 
