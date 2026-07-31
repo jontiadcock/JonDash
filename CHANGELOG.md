@@ -9,6 +9,21 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.4-beta.5] — 2026-07-31
+
+**Renumbering only — the content is exactly `beta.1` + `beta.2`, which are superseded by this.**
+
+The first four `1.8.4-beta.N` builds were withdrawn and their tags deleted, and numbering restarted
+at `beta.1`. That was wrong: **an install that had already taken the withdrawn `beta.4` could never
+be offered `beta.1` or `beta.2`**, because a release is only offered when its version is *higher*
+than the installed one. Deleting a tag from the remote does not uninstall it. Numbering now resumes
+above the highest version that ever shipped.
+
+No behaviour changed between `beta.2` and this — one comment line was added to
+`lib/auth/stepup.ts`, because the new step-up test gave `STEP_UP_WINDOW_MS` its first caller and the
+reference check requires one. Both earlier entries below still describe what is in this build.
+
+
 ## [1.8.4-beta.2] — 2026-07-31
 
 The four code changes the CORE-18 sweep identified but deliberately did not make.

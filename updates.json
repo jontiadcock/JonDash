@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.4-beta.5",
+      "date": "2026-07-31",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Same content as 1.8.4-beta.2, renumbered so installs that had already taken the withdrawn 1.8.4-beta.4 can see it - a version is only ever offered if its number is higher than the one you are running, so beta.1 and beta.2 were invisible to you. Nothing else has changed. Arranging your dashboard now has a Reset positions button next to Done arranging, which puts every tile and widget back to its default place and size for the screen size you are on - your other layout is left alone, and it asks before doing it. The arranging help text no longer mentions arrow buttons that were removed a while ago; the bottom-right corner of each item resizes it and works with the arrow keys. Under the bonnet, every part of the code now says which other parts depend on it, sign-in lockout and the authenticator check that guards restoring a backup are now covered by tests, and a test build can no longer read the wrong settings folder and try to start on a port already in use."
+    },
+    {
       "version": "1.8.4-beta.2",
       "date": "2026-07-31",
       "type": "patch",

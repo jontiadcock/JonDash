@@ -3,8 +3,12 @@ import { getCurrentSession, markCurrentSessionTotpVerified } from "@/lib/auth/se
 import { getCurrentUser } from "@/lib/auth/guards";
 import { consumeTotpForUser } from "@/lib/auth/totp";
 
-// A major destructive action needs proof of TOTP within this window. If the user
-// verified TOTP more recently (login or a prior step-up), no re-entry is asked.
+/*
+ * A major destructive action needs proof of TOTP within this window; a more recent verification —
+ * login, or a prior step-up — counts, so it is not asked for twice in quick succession.
+ * ⚠ Widening it widens how long a walked-away-from session can restore a backup.
+ * PINS tests/unit/stepup.test.ts
+ */
 export const STEP_UP_WINDOW_MS = 1000 * 60 * 30; // 30 minutes
 
 /** True if the current session verified TOTP within the step-up window. */
