@@ -10,6 +10,7 @@ import {
 import { loadModeCert, describeCertificate } from "./certs.mjs";
 
 /** What the installed certificate for this mode actually is — issuer, names, expiry (OPS-07). */
+/** REFS app/admin/network/cert-panel.tsx */
 export type CertSummary = {
   ok: boolean;
   issuer?: string;
@@ -32,6 +33,7 @@ export type CertSummary = {
  */
 
 export type TlsMode = "off" | "letsencrypt" | "selfsigned" | "byo";
+/** REFS app/admin/network/cert-panel.tsx · app/admin/network/ui.tsx · lib/tls/network-config.mjs */
 export type NetworkConfig = {
   mode: TlsMode;
   httpPort: number;
@@ -43,9 +45,15 @@ export type NetworkConfig = {
   selfSignedDays: number;
 };
 
+/**
+ * REFS app/admin/network/actions.ts · app/admin/network/page.tsx · lib/tls/network-config.mjs
+ *      scripts/print-url.mjs
+ * PINS tests/unit/network.test.ts
+ */
 export function readNetworkConfig(): NetworkConfig {
   return readRaw() as NetworkConfig;
 }
+/** REFS app/admin/network/page.tsx · lib/tls/network-config.mjs */
 export function readTlsStatus() {
   return readStatus() as {
     state: string;
@@ -54,17 +62,11 @@ export function readTlsStatus() {
     /** Expiry of the certificate **installed** on disk, written when one is issued or imported. */
     notAfter: string;
     /**
-     * Expiry of the certificate the HTTPS listener is **actually serving**.
-     *
-     * Written **only** by `startHttps` in `server.mjs`, at the moment it binds the credential — so
-     * "is this being served?" is a fact reported by the thing doing the serving, not a comparison
-     * between two files. Absent until the server has bound a certificate at least once, which
-     * correctly reads as "installed, not yet applied".
-     *
-     * ## Related code
-     * - `server.mjs` → `recordServing` — the only writer.
-     * - `app/admin/network/page.tsx` — the only reader, and the note there explains what the
-     *   previous inference got wrong in both directions.
+     * Expiry of the certificate the HTTPS listener is ACTUALLY serving. ⚠ Written only by the code
+     * that binds the credential, so "is this being served?" is a fact rather than a comparison
+     * between two files. Absent until the server has bound one, which correctly reads as
+     * "installed, not yet applied".
+     * REFS server.mjs › recordServing() — the only writer · app/admin/network/page.tsx — the reader
      */
     servingNotAfter?: string;
     lastRenewal: string;
@@ -80,6 +82,7 @@ export function readTlsStatus() {
  * last time the server started; this says what is on disk *now*, which is what matters after
  * generating or importing one and before restarting to apply it. The two disagreeing is exactly the
  * state the page needs to be able to show.
+ * REFS app/admin/network/page.tsx
  */
 export function describeInstalledCert(cfg: NetworkConfig): CertSummary | null {
   const pair = loadModeCert(cfg);
@@ -115,6 +118,7 @@ const baseSchema = z.object({
 });
 
 /** Verify a cert/key pair on disk parses and the key matches the cert. */
+/** PINS tests/unit/network.test.ts */
 export function validateByoCert(
   certPath: string,
   keyPath: string,
@@ -143,12 +147,16 @@ export function validateByoCert(
 /**
  * Validate a submitted config (mode-dependent required fields) and, on success,
  * persist it. Returns a friendly error string on failure.
+ * REFS app/admin/network/actions.ts
+ * PINS tests/unit/network.test.ts
  */
 export function parseAndSaveNetworkConfig(input: unknown): { ok: true } | { ok: false; error: string } {
-  // A mode can hide a port field (e.g. "Off" doesn't render an HTTPS port), so it
-  // posts empty/absent. Coalesce any missing/blank port from the existing config
-  // rather than coercing "" → 0 (which failed min(1) and blocked every Off save,
-  // BUG-05), and so a hidden field never wipes a previously-saved port.
+  /*
+   * A mode can hide a port field (e.g. "Off" doesn't render an HTTPS port), so it
+   * posts empty/absent. Coalesce any missing/blank port from the existing config
+   * rather than coercing "" → 0 (which failed min(1) and blocked every Off save,
+   * BUG-05), and so a hidden field never wipes a previously-saved port.
+   */
   const existing = readNetworkConfig();
   const merged: Record<string, unknown> = { ...(input as Record<string, unknown>) };
   if (merged.httpPort === "" || merged.httpPort == null) merged.httpPort = existing.httpPort;
@@ -188,6 +196,10 @@ export function parseAndSaveNetworkConfig(input: unknown): { ok: true } | { ok: 
 }
 
 /** PEM in hand (an upload), rather than a path on disk — the 1.8.0 import path. */
+/**
+ * REFS app/admin/network/actions.ts
+ * PINS tests/unit/tls-certs.test.ts
+ */
 export function validateByoPem(
   cert: string,
   key: string,

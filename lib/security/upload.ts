@@ -28,6 +28,7 @@ export type UploadResult =
  *  - magic-byte allowlist (PNG/JPEG/WebP/GIF); SVG is rejected (script risk)
  *  - re-encode with sharp to a small PNG, which strips any embedded payload
  *    or metadata (defence against polyglot / malicious files)
+ * REFS app/admin/actions.ts · app/admin/settings/actions.ts
  */
 export async function processIconUpload(file: File): Promise<UploadResult> {
   if (!file || file.size === 0) return { ok: false, error: "No file provided." };

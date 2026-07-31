@@ -8,6 +8,7 @@ import { consumeTotpForUser } from "@/lib/auth/totp";
 export const STEP_UP_WINDOW_MS = 1000 * 60 * 30; // 30 minutes
 
 /** True if the current session verified TOTP within the step-up window. */
+/** REFS app/admin/backup/page.tsx */
 export async function hasRecentTotp(): Promise<boolean> {
   const session = await getCurrentSession();
   if (!session?.totpVerifiedAt) return false;
@@ -26,6 +27,7 @@ export type StepUpResult = { ok: true } | { ok: false; error: string };
  * was a speed bump, and one that reliably taught people to type the word without reading the
  * sentence above it. **The authenticator step-up below is the real gate and is unchanged**: omit
  * the phrase and you still cannot restore without proving TOTP within the window.
+ * REFS app/admin/backup/actions.ts
  */
 export async function verifyStepUp(opts: {
   typed?: string;

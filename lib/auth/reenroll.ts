@@ -11,6 +11,7 @@ import { isSecureRequest } from "@/lib/request";
 const REENROLL_COOKIE = "dashboard_reenroll";
 const REENROLL_TTL_MS = 1000 * 60 * 10; // 10 minutes
 
+/** REFS app/(app)/account/authenticator/actions.ts */
 export async function setPendingTotp(secret: string): Promise<void> {
   const payload = JSON.stringify({ secret, exp: Date.now() + REENROLL_TTL_MS });
   const jar = await cookies();
@@ -23,6 +24,7 @@ export async function setPendingTotp(secret: string): Promise<void> {
   });
 }
 
+/** REFS app/(app)/account/authenticator/actions.ts */
 export async function getPendingTotp(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(REENROLL_COOKIE)?.value;
@@ -36,6 +38,7 @@ export async function getPendingTotp(): Promise<string | null> {
   }
 }
 
+/** REFS app/(app)/account/authenticator/actions.ts */
 export async function clearPendingTotp(): Promise<void> {
   const jar = await cookies();
   jar.delete(REENROLL_COOKIE);

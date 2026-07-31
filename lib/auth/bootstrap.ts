@@ -12,6 +12,9 @@ import { countHumanAdmins } from "@/lib/auth/service-accounts";
  *
  * The delegation lives in `service-accounts.ts` so there is one definition of "human", not a
  * `isServiceAccount: false` clause copied into every future admin-count query.
+ * REFS app/login/page.tsx · app/page.tsx · app/welcome/actions.ts · app/welcome/page.tsx
+ *      lib/auth/service-accounts.ts
+ * PINS tests/integration/welcome-restore.test.ts · tests/unit/service-accounts.test.ts
  */
 export async function hasActiveAdmin(): Promise<boolean> {
   return (await countHumanAdmins()) > 0;
@@ -22,6 +25,8 @@ export async function hasActiveAdmin(): Promise<boolean> {
  *
  * A service account is never `PENDING_SETUP` — it has no setup to complete — but the filter is
  * explicit rather than assumed, because "it can't happen" is how it eventually happens.
+ * REFS app/welcome/actions.ts · app/welcome/page.tsx
+ * PINS tests/unit/service-accounts.test.ts
  */
 export async function getPendingAdmin() {
   return prisma.user.findFirst({

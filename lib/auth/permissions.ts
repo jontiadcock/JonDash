@@ -15,10 +15,13 @@ import { prisma } from "@/lib/db";
  * restoring a backup. See the individual server actions.
  */
 
-// The delegable admin capabilities. Keep this in sync with the admin feature
-// surface: when a new admin section/page is added, add a matching capability here
-// (or make a deliberate decision to keep it ADMIN-only — see the not-delegable list
-// above). Full ADMIN implies every capability.
+/*
+ * The delegable admin capabilities. Keep this in sync with the admin feature
+ * surface: when a new admin section/page is added, add a matching capability here
+ * (or make a deliberate decision to keep it ADMIN-only — see the not-delegable list
+ * above). Full ADMIN implies every capability.
+ * REFS app/admin/access-roles/[id]/page.tsx
+ */
 export const PERMISSIONS = {
   "users.manage": "Manage users (create, disable, delete, services)",
   "users.reset": "Reset access (password + 2FA)",
@@ -32,8 +35,16 @@ export const PERMISSIONS = {
   "modules.manage": "Manage modules (install, enable, configure)",
 } as const;
 
+/**
+ * REFS app/admin/updates/module-actions.ts · lib/auth/guards.ts
+ * PINS tests/unit/permissions.test.ts
+ */
 export type Permission = keyof typeof PERMISSIONS;
 
+/**
+ * REFS app/admin/access-roles/[id]/page.tsx · app/admin/users/[id]/page.tsx
+ * PINS tests/unit/admin-roles-guard.test.ts · tests/unit/permissions.test.ts
+ */
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 
 export function isPermission(value: unknown): value is Permission {
@@ -41,6 +52,10 @@ export function isPermission(value: unknown): value is Permission {
 }
 
 /** Keep only valid, de-duplicated capability keys from arbitrary input. */
+/**
+ * REFS app/admin/access-roles/actions.ts
+ * PINS tests/unit/permissions.test.ts
+ */
 export function sanitizePermissions(values: unknown[]): Permission[] {
   const seen = new Set<Permission>();
   for (const v of values) if (isPermission(v)) seen.add(v);
@@ -48,6 +63,10 @@ export function sanitizePermissions(values: unknown[]): Permission[] {
 }
 
 /** Parse a stored permissionsJson string into a valid permission list. */
+/**
+ * REFS app/admin/access-roles/[id]/page.tsx · app/admin/access-roles/page.tsx
+ * PINS tests/unit/permissions.test.ts
+ */
 export function parsePermissionsJson(json: string): Permission[] {
   try {
     const arr = JSON.parse(json);
@@ -61,6 +80,7 @@ export function parsePermissionsJson(json: string): Permission[] {
  * The effective capabilities for a user. ADMIN => all; otherwise the union of
  * the permissions on their assigned access roles. Memoized per request so the
  * many per-page/per-action guard checks share one query.
+ * PINS tests/unit/admin-roles-guard.test.ts · tests/unit/service-accounts.test.ts
  */
 export async function getEffectivePermissionsUncached(
   user: Pick<User, "id" | "role">,
@@ -76,26 +96,20 @@ export async function getEffectivePermissionsUncached(
 }
 
 /**
- * The same answer, memoized per request. **This is the one to use inside a request** — pages,
- * actions and guards all hit it many times per render and should share a single query.
- *
- * `cache()` is a thin wrapper over the uncached implementation above, so the two can never
- * disagree: there is one body, reached two ways.
- *
- * **Why the uncached sibling exists (SEC-07, owner decision 2026-07-26).** A helper's listener
- * runs outside any request — no React render, no request scope — and still needs to authorize.
- * Measured rather than assumed: React's `cache()` called outside a render **neither throws nor
- * memoizes**, so calling this one would work today, and the absent memoization is actually the
- * safer behaviour (a process-wide permission cache shared across agents would be worse than none).
- *
- * But that is undocumented React internal behaviour, not a contract. If a future React made it
- * throw, or memoize process-globally, authorization would break or leak — **silently**, in the one
- * function where that matters most. So work outside a request calls
- * `getEffectivePermissionsUncached` by name, and says so.
+ * The same answer, memoized per request — ⚠ use THIS one inside a request. It wraps the uncached
+ * body above, so the two cannot disagree.
+ * ⚠ Work OUTSIDE a request — a helper's listener, with no React render — must call
+ * `getEffectivePermissionsUncached` by name. `cache()` outside a render happens to neither throw
+ * nor memoize today, but that is undocumented React internal behaviour: if it ever threw, or
+ * memoized process-globally, authorization would break or leak silently.
+ * REFS app/(app)/layout.tsx · app/admin/actions.ts · app/admin/users/[id]/page.tsx
+ *      app/api/backup/export/route.ts · lib/auth/guards.ts · lib/auth/service-accounts.ts
+ * PINS tests/integration/access-roles.test.ts · tests/unit/service-accounts.test.ts
  */
 export const getEffectivePermissions = cache(getEffectivePermissionsUncached);
 
 /** Does the user (ADMIN or via access roles) have this capability? */
+/** REFS app/admin/email/oauth/callback/route.ts · app/admin/email/oauth/route.ts */
 export async function userHasPermission(
   user: Pick<User, "id" | "role">,
   cap: Permission,
@@ -128,6 +142,10 @@ export const ADMIN_SECTIONS: {
 ];
 
 /** The nav sections a permission set may see (href + label). */
+/**
+ * REFS lib/auth/guards.ts
+ * PINS tests/unit/permissions.test.ts
+ */
 export function allowedSections(perms: Set<Permission>): { href: string; label: string }[] {
   return ADMIN_SECTIONS.filter((s) => s.anyOf.some((c) => perms.has(c))).map(
     ({ href, label }) => ({ href, label }),
@@ -135,6 +153,10 @@ export function allowedSections(perms: Set<Permission>): { href: string; label: 
 }
 
 /** The first admin section a permission set may land on, or /dashboard if none. */
+/**
+ * REFS app/admin/page.tsx · app/admin/users/[id]/page.tsx · lib/auth/guards.ts
+ * PINS tests/unit/permissions.test.ts
+ */
 export function firstPermittedAdminPath(perms: Set<Permission>): string {
   return allowedSections(perms)[0]?.href ?? "/dashboard";
 }

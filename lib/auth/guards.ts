@@ -10,11 +10,16 @@ import {
 } from "@/lib/auth/permissions";
 
 /** Return the current active user or null. */
+/** REFS 12 callers — `git grep -l -w getCurrentUser -- app lib` */
 export async function getCurrentUser(): Promise<User | null> {
   return getSessionUser();
 }
 
 /** Require any authenticated active user; redirect to /login otherwise. */
+/**
+ * REFS 13 callers — `git grep -l -w requireUser -- app lib`
+ * PINS tests/unit/support-page.test.ts
+ */
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -22,6 +27,11 @@ export async function requireUser(): Promise<User> {
 }
 
 /** Require a full admin; redirect non-admins to their dashboard, anon to /login. */
+/**
+ * REFS app/admin/access-roles/[id]/page.tsx · app/admin/access-roles/actions.ts
+ *      app/admin/access-roles/page.tsx · app/admin/actions.ts · app/admin/backup/actions.ts
+ *      app/admin/server/page.tsx · app/admin/server/startup-actions.ts · lib/modules/actions.ts
+ */
 export async function requireAdmin(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -33,6 +43,9 @@ export async function requireAdmin(): Promise<User> {
  * Require a specific admin capability (full ADMIN satisfies all). Anonymous
  * users go to /login; authenticated users lacking the capability go to their
  * own dashboard.
+ * REFS 31 callers — `git grep -l -w requirePermission -- app lib`
+ * PINS tests/unit/browse-consent.test.ts · tests/unit/helper-settings.test.ts
+ *      tests/unit/permissions-view.test.ts
  */
 export async function requirePermission(cap: Permission): Promise<User> {
   const user = await getCurrentUser();
@@ -43,6 +56,7 @@ export async function requirePermission(cap: Permission): Promise<User> {
 }
 
 /** Require at least one of the given capabilities. */
+/** REFS app/admin/actions.ts */
 export async function requireAnyPermission(caps: Permission[]): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -55,6 +69,7 @@ export async function requireAnyPermission(caps: Permission[]): Promise<User> {
  * Gate the admin area: the user must be a full ADMIN or hold at least one
  * capability. Returns the user plus the nav sections they may see. Used by the
  * admin layout; each page still enforces its own specific capability.
+ * REFS app/admin/layout.tsx · app/admin/page.tsx · app/admin/users/[id]/page.tsx
  */
 export async function requireAdminArea(): Promise<{
   user: User;

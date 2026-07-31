@@ -16,14 +16,24 @@ import { INSTALLED } from "./generated";
  */
 const BUNDLED: ModuleDefinition[] = INSTALLED;
 
+/**
+ * REFS 10 callers — `git grep -l -w getAllModules -- app lib`
+ * PINS tests/integration/helper-channel.test.ts · tests/integration/helper-reconcile.test.ts
+ *      tests/integration/module-updates.test.ts · tests/unit/helper-resolution.test.ts
+ */
 export function getAllModules(): ModuleDefinition[] {
   return BUNDLED;
 }
 
+/**
+ * REFS app/admin/modules/actions.ts · app/admin/permissions/actions.ts · lib/modules/install.ts
+ *      lib/uninstall-questions.ts
+ */
 export function getModuleDef(id: string): ModuleDefinition | undefined {
   return BUNDLED.find((m) => m.id === id);
 }
 
+/** REFS 15 callers — `git grep -l -w ModuleChannel -- app lib` */
 export type ModuleChannel = "stable" | "beta";
 
 export type ModuleState = {
@@ -43,6 +53,10 @@ function channelOf(row: { channel: string } | null | undefined): ModuleChannel {
 }
 
 /** Enabled modules joined with their granted permissions, for rendering widgets/pages. */
+/**
+ * REFS app/(app)/dashboard/page.tsx · lib/helpers/registry.ts
+ * PINS tests/unit/service-accounts.test.ts
+ */
 export async function getEnabledModules(): Promise<ModuleState[]> {
   const rows = await prisma.module.findMany({ where: { enabled: true } });
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -60,6 +74,10 @@ export async function getEnabledModules(): Promise<ModuleState[]> {
 }
 
 /** A single module's def + installed/enabled state, or null if not a known module. */
+/**
+ * REFS app/(app)/m/[module]/[[...path]]/page.tsx · app/admin/modules/[id]/page.tsx
+ *      lib/modules/actions.ts · lib/modules/context.ts
+ */
 export async function getModuleState(id: string): Promise<ModuleState | null> {
   const def = getModuleDef(id);
   if (!def) return null;
@@ -75,6 +93,7 @@ export async function getModuleState(id: string): Promise<ModuleState | null> {
 }
 
 /** Every bundled module + its current state, for the admin Modules list. */
+/** REFS app/admin/modules/page.tsx */
 export async function listModulesForAdmin(): Promise<ModuleState[]> {
   const rows = await prisma.module.findMany();
   const byId = new Map(rows.map((r) => [r.id, r]));

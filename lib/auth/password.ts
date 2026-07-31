@@ -9,10 +9,18 @@ const ARGON2_OPTS = {
   parallelism: 1,
 };
 
+/**
+ * REFS app/(app)/account/actions.ts · app/setup/[token]/actions.ts · app/welcome/actions.ts
+ * PINS tests/unit/password.test.ts
+ */
 export async function hashPassword(password: string): Promise<string> {
   return hash(password, ARGON2_OPTS);
 }
 
+/**
+ * REFS app/(app)/account/actions.ts · app/login/actions.ts
+ * PINS tests/unit/password.test.ts · tests/unit/service-accounts.test.ts
+ */
 export async function verifyPassword(storedHash: string, password: string): Promise<boolean> {
   try {
     return await verify(storedHash, password);
@@ -37,6 +45,10 @@ export async function verifyPassword(storedHash: string, password: string): Prom
  */
 let decoyHash: Promise<string> | null = null;
 
+/**
+ * REFS app/login/actions.ts
+ * PINS tests/unit/password.test.ts
+ */
 export async function verifyDecoyPassword(password: string): Promise<false> {
   decoyHash ??= hashPassword(randomBytes(32).toString("hex"));
   await verifyPassword(await decoyHash, password);
@@ -46,6 +58,8 @@ export async function verifyDecoyPassword(password: string): Promise<false> {
 /**
  * Password policy: min 12 chars, and at least three of four character classes.
  * Returns an error string, or null if acceptable.
+ * REFS app/(app)/account/actions.ts · app/setup/[token]/actions.ts · app/welcome/actions.ts
+ * PINS tests/unit/password.test.ts
  */
 export function validatePasswordStrength(password: string): string | null {
   if (password.length < 12) return "Password must be at least 12 characters long.";
@@ -62,6 +76,8 @@ export function validatePasswordStrength(password: string): string | null {
  * an encrypted backup carries the master key + every credential, so require length
  * ≥12 with at least one uppercase letter, one number, and one symbol. Returns an
  * error string, or null if acceptable.
+ * REFS app/admin/backup/ui.tsx · app/api/backup/export/route.ts
+ * PINS tests/integration/backup.test.ts
  */
 export function validateBackupPassphrase(passphrase: string): string | null {
   if (passphrase.length < 12) return "Passphrase must be at least 12 characters long.";

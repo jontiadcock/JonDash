@@ -40,9 +40,11 @@ function buildCsp(nonce: string, isHttps: boolean): string {
     `frame-ancestors 'none'`,
     `frame-src 'none'`,
     `manifest-src 'self'`,
-    // Only upgrade subresources when actually served over HTTPS. Emitting this
-    // over plain HTTP (e.g. a LAN IP like 192.168.x.x) makes the browser upgrade
-    // CSS/JS to https:// where no server exists, breaking all styling/scripts.
+    /*
+     * Only upgrade subresources when actually served over HTTPS. Emitting this
+     * over plain HTTP (e.g. a LAN IP like 192.168.x.x) makes the browser upgrade
+     * CSS/JS to https:// where no server exists, breaking all styling/scripts.
+     */
     isHttps ? `upgrade-insecure-requests` : ``,
   ]
     .filter(Boolean)
@@ -67,6 +69,10 @@ function applySecurityHeaders(res: NextResponse, csp: string, isHttps: boolean) 
   }
 }
 
+/**
+ * REFS 9 callers — `git grep -l -w proxy -- app lib`
+ * PINS tests/integration/helper-sources.test.ts · tests/unit/session-cookie-samesite.test.ts
+ */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const nonce = generateNonce();

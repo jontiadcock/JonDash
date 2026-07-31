@@ -20,20 +20,23 @@ import { prisma } from "@/lib/db";
 export type MaybeServiceAccount = Pick<User, "isServiceAccount">;
 
 /** The one definition. Never test the column directly. */
+/**
+ * REFS app/admin/actions.ts · app/admin/page.tsx · app/admin/users/[id]/page.tsx
+ *      app/login/actions.ts · app/setup/[token]/actions.ts · lib/auth/bootstrap.ts
+ * PINS tests/unit/admin-roles-guard.test.ts · tests/unit/service-accounts.test.ts
+ */
 export function isServiceAccount(user: MaybeServiceAccount | null | undefined): boolean {
   return user?.isServiceAccount === true;
 }
 
 /**
- * How an account should read **in the audit log**.
- *
- * Owner requirement (SEC-07, 2026-07-26): an action taken under a service account is attributed to
- * *that account*, never to a person. Half the reason this feature exists is that the log currently
- * says `"jonti revoked session X"` when it was an agent.
- *
- * A person is still their email — that is what admins recognise. A service account is its name plus
- * an explicit marker, because a bare name in a log column that usually holds an address is exactly
- * the ambiguity this is meant to remove.
+ * How an account should read in the AUDIT LOG. ⚠ An action taken under a service account is
+ * attributed to that account, never to a person — half the reason SEC-07 exists is a log that said
+ * a person revoked a session when it was an agent. A person stays their email; a service account is
+ * its name plus an explicit marker, because a bare name in a column that usually holds an address
+ * is the ambiguity being removed.
+ * REFS app/admin/actions.ts
+ * PINS tests/unit/service-accounts.test.ts
  */
 export function serviceAccountLabel(
   user: Pick<User, "email" | "isServiceAccount"> & { displayName?: string | null },
@@ -43,17 +46,14 @@ export function serviceAccountLabel(
 }
 
 /**
- * Whether an ACTIVE **human** admin exists.
+ * Whether an ACTIVE HUMAN admin exists — the lockout guard.
  *
- * **This is the lockout guard, and it is the reason SEC-07 needed care.** `hasActiveAdmin()` in
- * `lib/auth/bootstrap.ts` gates the first-run recovery wizard — it is consulted by `app/page.tsx`,
- * `app/login/page.tsx` and repeatedly in `app/welcome/actions.ts`. If a service account could
- * satisfy it, then once every human admin was gone the wizard would never appear, and nobody could
- * sign in as the account keeping it quiet. The install would be permanently unrecoverable, which is
- * the owner's one absolute line.
- *
- * So the count excludes service accounts. Anything else that ever asks "is there still an admin?"
- * must use this, not a bare `role: ADMIN` count.
+ * ⚠ Excludes service accounts, and anything asking "is there still an admin?" must use this rather
+ * than a bare `role: ADMIN` count. If a service account satisfied it, then once every human admin
+ * was gone the first-run recovery wizard would never appear and nobody could sign in as the account
+ * keeping it quiet — a permanently unrecoverable install.
+ * REFS lib/auth/bootstrap.ts
+ * PINS tests/unit/service-accounts.test.ts
  */
 export async function countHumanAdmins(): Promise<number> {
   return prisma.user.count({
@@ -78,6 +78,8 @@ export const SERVICE_ACCOUNT_EMAIL_SUFFIX = "@service.invalid";
  * account can be created in a single write with Prisma issuing the id as it does for everyone else.
  * Uses `randomUUID()` rather than pulling in a cuid package: this only has to be unique, and
  * [[install-footprint]] says don't add a dependency for something the platform already does.
+ * REFS app/admin/actions.ts
+ * PINS tests/unit/service-accounts.test.ts
  */
 export function serviceAccountHandle(): string {
   return `svc-${randomUUID()}${SERVICE_ACCOUNT_EMAIL_SUFFIX}`;
@@ -92,6 +94,7 @@ export function serviceAccountHandle(): string {
  *
  * **Nothing else is exposed, and that is a ceiling rather than a starting point** — their words:
  * *"if it ever grows a secret, I don't want to be able to read it."*
+ * PINS tests/unit/service-accounts.test.ts
  */
 export type BindableAccount = {
   id: string;
@@ -110,6 +113,7 @@ export type BindableAccount = {
  * **The list is also the predicate.** A helper decides "may I bind to this?" by asking whether the
  * id is in here — there is deliberately no separate `isBindable(id)` that could one day disagree
  * with what the picker shows.
+ * PINS tests/unit/service-accounts.test.ts
  */
 export async function listBindableAccounts(): Promise<BindableAccount[]> {
   const rows = await prisma.user.findMany({
@@ -136,6 +140,8 @@ export async function listBindableAccounts(): Promise<BindableAccount[]> {
  *
  * Note it does **not** filter on status. A helper needs to distinguish "disabled" from "gone" to
  * report a useful error, so status is returned and the caller fails closed on anything but ACTIVE.
+ * REFS lib/helpers/boot.ts · lib/helpers/types.ts
+ * PINS tests/unit/service-accounts.test.ts
  */
 export async function resolveBindableAccount(
   id: string,
@@ -153,7 +159,9 @@ export async function resolveBindableAccount(
   return { id: r.id, displayName: r.displayName ?? r.email, status: r.status, role: r.role };
 }
 
-/** Don't write on every single call — a busy agent would otherwise generate one UPDATE per request. */
+/**
+ * Don't write on every single call — a busy agent would otherwise generate one UPDATE per request.
+ */
 const USAGE_STAMP_INTERVAL_MS = 60_000;
 
 /**

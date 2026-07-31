@@ -15,6 +15,10 @@ import type { ModuleDefinition } from "./types";
 const MODULES_DIR = path.join(process.cwd(), "modules");
 
 /** Namespaced physical table name for a module's logical table. */
+/**
+ * REFS lib/backup-addons.ts · lib/modules/context.ts · lib/modules/types.ts
+ * PINS tests/integration/modules.test.ts
+ */
 export function moduleTableName(moduleId: string, name: string): string {
   const safe = (s: string) => s.replace(/[^a-z0-9]/gi, "_").toLowerCase();
   return `mod_${safe(moduleId)}_${safe(name)}`;
@@ -30,6 +34,10 @@ function splitStatements(sql: string): string[] {
 }
 
 /** Apply any not-yet-applied SQL migrations for a module (files sorted by name). */
+/**
+ * REFS lib/modules/manage.ts
+ * PINS tests/integration/modules.test.ts · tests/unit/module-migrate.test.ts
+ */
 export async function runModuleMigrations(def: ModuleDefinition): Promise<void> {
   if (!def.migrations) return;
   const dir = path.join(MODULES_DIR, def.id, def.migrations.replace(/^\.\//, ""));
@@ -48,13 +56,15 @@ export async function runModuleMigrations(def: ModuleDefinition): Promise<void> 
     if (applied.has(file)) continue;
     const sql = fs.readFileSync(path.join(dir, file), "utf8");
     const statements = splitStatements(sql);
-    // BUG-32: run the whole file in ONE transaction, with the "applied" record written in
-    // the same transaction. SQLite has transactional DDL, so a statement failing part-way
-    // rolls back every earlier statement in the file AND the record — nothing is applied and
-    // nothing is recorded, so a retry starts clean. Without this, statements 1..n-1 committed
-    // one at a time while the file stayed unrecorded, and the retry re-ran from statement 1
-    // and died on the same `ALTER TABLE ADD COLUMN` forever (SQLite has no ADD COLUMN IF NOT
-    // EXISTS) — recoverable only by hand. Affects every module's migrations, not one module's.
+    /*
+     * BUG-32: run the whole file in ONE transaction, with the "applied" record written in
+     * the same transaction. SQLite has transactional DDL, so a statement failing part-way
+     * rolls back every earlier statement in the file AND the record — nothing is applied and
+     * nothing is recorded, so a retry starts clean. Without this, statements 1..n-1 committed
+     * one at a time while the file stayed unrecorded, and the retry re-ran from statement 1
+     * and died on the same `ALTER TABLE ADD COLUMN` forever (SQLite has no ADD COLUMN IF NOT
+     * EXISTS) — recoverable only by hand. Affects every module's migrations, not one module's.
+     */
     await prisma.$transaction([
       ...statements.map((stmt) => prisma.$executeRawUnsafe(stmt)),
       prisma.moduleMigration.create({ data: { moduleId: def.id, filename: file } }),
@@ -63,6 +73,11 @@ export async function runModuleMigrations(def: ModuleDefinition): Promise<void> 
 }
 
 /** Drop all of a module's `mod_<id>_*` tables + its migration records (uninstall). */
+/**
+ * REFS lib/modules/manage.ts
+ * PINS tests/integration/module-bulk.test.ts · tests/integration/module-updates.test.ts
+ *      tests/integration/modules.test.ts
+ */
 export async function dropModuleTables(moduleId: string): Promise<void> {
   const prefix = moduleTableName(moduleId, ""); // "mod_<id>_"
   const rows = await prisma.$queryRawUnsafe<{ name: string }[]>(

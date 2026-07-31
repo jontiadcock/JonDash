@@ -6,6 +6,7 @@ import { hashToken } from "@/lib/crypto";
 // One-time 2FA recovery codes. Ten codes per set. Each is high-entropy and
 // single-use; only the SHA-256 hash is stored (raw shown to the user once).
 
+/** PINS tests/integration/backup-codes.test.ts */
 export const BACKUP_CODE_COUNT = 10;
 
 // Unambiguous alphabet (no 0/O/1/I/l) so codes are easy to read/type.
@@ -34,6 +35,9 @@ function hashOf(raw: string): string {
 /**
  * Replace a user's backup codes with a fresh set. Returns the raw codes to
  * display ONCE — they cannot be retrieved again.
+ * REFS app/(app)/account/actions.ts · app/components/backup-codes-panel.tsx
+ *      app/setup/[token]/actions.ts · app/welcome/actions.ts
+ * PINS tests/integration/backup-codes.test.ts
  */
 export async function generateBackupCodes(userId: string): Promise<string[]> {
   const codes = new Set<string>();
@@ -51,6 +55,10 @@ export async function generateBackupCodes(userId: string): Promise<string[]> {
 }
 
 /** How many codes remain unused, and the total in the current set. */
+/**
+ * REFS app/(app)/account/page.tsx · app/login/actions.ts
+ * PINS tests/integration/backup-codes.test.ts
+ */
 export async function backupCodeStatus(
   userId: string,
 ): Promise<{ remaining: number; total: number }> {
@@ -64,6 +72,8 @@ export async function backupCodeStatus(
 /**
  * Atomically consume a matching unused backup code. Returns true if a code was
  * consumed. The updateMany guard makes double-use impossible under races.
+ * REFS app/(app)/account/authenticator/actions.ts · app/login/actions.ts
+ * PINS tests/integration/backup-codes.test.ts
  */
 export async function consumeBackupCode(userId: string, raw: string): Promise<boolean> {
   const normalized = normalizeBackupCode(raw);

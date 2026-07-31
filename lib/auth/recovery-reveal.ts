@@ -15,6 +15,7 @@ import { isSecureRequest } from "@/lib/request";
 const REVEAL_COOKIE = "dashboard_reveal";
 const REVEAL_TTL_MS = 1000 * 60 * 10; // 10 minutes
 
+/** REFS app/setup/[token]/actions.ts · app/welcome/actions.ts */
 export async function setRevealCodes(codes: string[], next: string): Promise<void> {
   const payload = JSON.stringify({ codes, next, exp: Date.now() + REVEAL_TTL_MS });
   const jar = await cookies();
@@ -27,6 +28,7 @@ export async function setRevealCodes(codes: string[], next: string): Promise<voi
   });
 }
 
+/** REFS app/recovery-codes/actions.ts · app/recovery-codes/page.tsx */
 export async function peekRevealCodes(): Promise<{ codes: string[]; next: string } | null> {
   const jar = await cookies();
   const raw = jar.get(REVEAL_COOKIE)?.value;
@@ -45,6 +47,7 @@ export async function peekRevealCodes(): Promise<{ codes: string[]; next: string
   }
 }
 
+/** REFS app/recovery-codes/actions.ts */
 export async function clearRevealCodes(): Promise<void> {
   const jar = await cookies();
   jar.delete(REVEAL_COOKIE);

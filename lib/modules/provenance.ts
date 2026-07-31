@@ -34,6 +34,11 @@ function fileFor(moduleId: string): string {
   return path.join(dataDir(), "modules", `${moduleId}.json`);
 }
 
+/**
+ * REFS lib/modules/install.ts
+ * PINS tests/integration/helper-reconcile.test.ts · tests/integration/module-bulk.test.ts
+ *      tests/integration/modules.test.ts
+ */
 export function writeProvenance(moduleId: string, p: Omit<ModuleProvenance, "installedAt">): void {
   const file = fileFor(moduleId);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -41,6 +46,10 @@ export function writeProvenance(moduleId: string, p: Omit<ModuleProvenance, "ins
   fs.writeFileSync(file, JSON.stringify(record, null, 2), "utf8");
 }
 
+/**
+ * REFS lib/helpers/reconcile.ts · lib/modules/manage.ts · lib/modules/updates.ts
+ * PINS tests/integration/module-bulk.test.ts
+ */
 export function readProvenance(moduleId: string): ModuleProvenance | null {
   try {
     const raw = JSON.parse(fs.readFileSync(fileFor(moduleId), "utf8")) as Partial<ModuleProvenance>;
@@ -56,11 +65,16 @@ export function readProvenance(moduleId: string): ModuleProvenance | null {
   }
 }
 
+/**
+ * REFS lib/modules/install.ts
+ * PINS tests/integration/helper-reconcile.test.ts · tests/integration/modules.test.ts
+ */
 export function removeProvenance(moduleId: string): void {
   fs.rmSync(fileFor(moduleId), { force: true });
 }
 
 /** Every module id we hold provenance for (i.e. was installed, not shipped). */
+/** REFS lib/modules/manage.ts */
 export function installedModuleIds(): string[] {
   try {
     return fs

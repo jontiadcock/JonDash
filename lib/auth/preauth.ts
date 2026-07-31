@@ -14,6 +14,7 @@ import { SERVER_BOOT_TIME } from "@/lib/boot";
 const PREAUTH_COOKIE = "dashboard_preauth";
 const PREAUTH_TTL_MS = 1000 * 60 * 5; // 5 minutes
 
+/** REFS app/login/actions.ts */
 export async function setPreAuth(userId: string): Promise<void> {
   const payload = JSON.stringify({ userId, exp: Date.now() + PREAUTH_TTL_MS, boot: SERVER_BOOT_TIME });
   const jar = await cookies();
@@ -26,6 +27,7 @@ export async function setPreAuth(userId: string): Promise<void> {
   });
 }
 
+/** REFS app/login/actions.ts · app/login/page.tsx */
 export async function getPreAuthUserId(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(PREAUTH_COOKIE)?.value;
@@ -46,6 +48,7 @@ export async function getPreAuthUserId(): Promise<string | null> {
   }
 }
 
+/** REFS app/login/actions.ts */
 export async function clearPreAuth(): Promise<void> {
   const jar = await cookies();
   jar.delete(PREAUTH_COOKIE);

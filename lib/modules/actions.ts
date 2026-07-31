@@ -22,6 +22,8 @@ import { getModuleState } from "./registry";
  * of those failures rather than returning a falsy value, so a failure can't be mistaken
  * for a no-op. Next runs its Server Action origin check too; the explicit same-origin
  * assertion here matches the rest of the app's actions and keeps the guarantee local.
+ * REFS lib/modules/api.ts
+ * PINS tests/unit/module-verify.test.ts
  */
 export function moduleAction<Args extends unknown[], R>(
   moduleId: string,

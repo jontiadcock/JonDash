@@ -22,6 +22,11 @@ function decode(valueJson: string, secret: boolean, fallback: unknown = null): u
 }
 
 /** A module's declared settings (auto-form + programmatic access). */
+/**
+ * REFS app/admin/modules/[id]/page.tsx · app/admin/modules/actions.ts · lib/modules/context.ts
+ *      lib/modules/types.ts
+ * PINS tests/integration/modules.test.ts
+ */
 export function moduleSettingsApi(def: ModuleDefinition): ModuleSettingsApi {
   const fields = def.settings ?? [];
   const secretKeys = new Set(fields.filter((f) => f.secret).map((f) => f.key));
@@ -55,6 +60,10 @@ export function moduleSettingsApi(def: ModuleDefinition): ModuleSettingsApi {
 }
 
 /** A module's generic key/value store (no migration needed). */
+/**
+ * REFS lib/modules/context.ts · lib/modules/types.ts
+ * PINS tests/integration/module-bulk.test.ts · tests/integration/modules.test.ts
+ */
 export function moduleStoreApi(moduleId: string): ModuleStoreApi {
   return {
     async get(key) {
@@ -84,6 +93,7 @@ export function moduleStoreApi(moduleId: string): ModuleStoreApi {
 }
 
 /** Remove a module's settings + generic store rows (called on uninstall). */
+/** REFS lib/modules/manage.ts */
 export async function purgeModuleData(moduleId: string): Promise<void> {
   await prisma.setting.deleteMany({ where: { scope: MODULE_SCOPE, ownerId: moduleId } });
   await prisma.moduleRecord.deleteMany({ where: { moduleId } });

@@ -7,6 +7,10 @@ import "server-only";
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
+/**
+ * REFS app/(app)/account/actions.ts · app/(app)/account/authenticator/actions.ts
+ *      app/login/actions.ts · app/setup/[token]/actions.ts · app/welcome/actions.ts
+ */
 export function rateLimit(
   key: string,
   limit: number,
