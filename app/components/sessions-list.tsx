@@ -1,5 +1,6 @@
 import { formatWhen } from "@/lib/format";
 
+/** REFS lib/sessions.ts › SessionView · AdminSessionView — both must satisfy this shape */
 export type SessionRow = {
   id: string;
   ip: string | null;

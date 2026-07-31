@@ -1,16 +1,18 @@
 import "server-only";
 
-/** Bound on the token endpoint. Generous enough for a slow tenant, short enough that a
- *  dead endpoint reports rather than hangs (BUG-21). */
+/** ⚠ Never remove this bound (BUG-21): the caller catches and reports thrown errors, so a HANG is
+ *  the one failure mode that produces no message at all. REFS lib/email/send.ts › TIMEOUTS */
 const TOKEN_TIMEOUT_MS = 15_000;
 
 /**
- * OAuth2 (XOAUTH2) for sending mail via Google and Microsoft. The admin registers
- * their own OAuth app (we can't ship a shared client for a self-hosted app),
- * connects it via a consent flow, and we store the refresh token. Access tokens
- * are minted fresh from the refresh token per send.
+ * OAuth2 (XOAUTH2) for sending mail via Google and Microsoft. ⚠ The admin registers their OWN
+ * OAuth app — a self-hosted product cannot ship a shared client — so only the refresh token is
+ * stored, and an access token is minted fresh per send.
+ * REFS lib/email/config.ts — where those secrets are stored, encrypted
+ *      app/admin/email/oauth/route.ts · oauth/callback/route.ts — the consent flow
  */
 
+/** REFS lib/email/constants.ts › EmailProvider — the wider stored type, which also allows "" */
 export type OAuthProvider = "google" | "microsoft";
 
 type ProviderMeta = {
@@ -23,6 +25,8 @@ type ProviderMeta = {
   extraAuthParams: Record<string, string>;
 };
 
+/** REFS lib/email/send.ts › describeTarget() · buildTransport() — the SMTP half of each entry
+ *  PINS tests/integration/email.test.ts */
 export const OAUTH_PROVIDERS: Record<OAuthProvider, ProviderMeta> = {
   google: {
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -31,7 +35,7 @@ export const OAUTH_PROVIDERS: Record<OAuthProvider, ProviderMeta> = {
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
     smtpSecure: true,
-    // access_type=offline + prompt=consent guarantees a refresh_token is returned.
+    // ⚠ Both are required, or Google returns no refresh_token and the connection lasts an hour.
     extraAuthParams: { access_type: "offline", prompt: "consent" },
   },
   microsoft: {
@@ -45,10 +49,13 @@ export const OAUTH_PROVIDERS: Record<OAuthProvider, ProviderMeta> = {
   },
 };
 
+/** REFS app/admin/email/oauth/route.ts · oauth/callback/route.ts · lib/email/send.ts */
 export function isOAuthProvider(v: unknown): v is OAuthProvider {
   return v === "google" || v === "microsoft";
 }
 
+/** REFS app/admin/email/oauth/route.ts — the only caller; `state` is checked on the way back
+ *       lib/email/constants.ts › STATE_COOKIE  PINS tests/integration/email.test.ts */
 export function buildAuthUrl(
   provider: OAuthProvider,
   clientId: string,
@@ -74,9 +81,8 @@ async function tokenRequest(provider: OAuthProvider, params: Record<string, stri
   error_description?: string;
 }> {
   const p = OAUTH_PROVIDERS[provider];
-  // BUG-21: this had no timeout, so a token endpoint that never answers hung forever —
-  // and because the caller catches and reports errors, a HANG was the one failure mode
-  // that produced no message at all. "Send test email" sat on "Sending…" indefinitely.
+  // ⚠ The timeout is load-bearing (BUG-21): without it a token endpoint that never answers hangs
+  // forever, and a hang is the one failure the caller's catch cannot report.
   const res = await fetch(p.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -103,7 +109,9 @@ async function tokenRequest(provider: OAuthProvider, params: Record<string, stri
   return json;
 }
 
-/** Exchange an authorization code for a refresh token. */
+/** Exchange an authorization code for a refresh token — the one moment a refresh token exists to
+ *  be stored. REFS app/admin/email/oauth/callback/route.ts — the only caller; it writes the result
+ *  through lib/email/config.ts › writeEmailConfig() */
 export async function exchangeCode(
   provider: OAuthProvider,
   clientId: string,
@@ -126,7 +134,8 @@ export async function exchangeCode(
   return { refreshToken: json.refresh_token };
 }
 
-/** Mint a fresh access token from the stored refresh token (used per send). */
+/** Mint a fresh access token from the stored refresh token, per send.
+ *  REFS lib/email/send.ts › buildTransport() — the only caller */
 export async function getAccessToken(
   provider: OAuthProvider,
   clientId: string,

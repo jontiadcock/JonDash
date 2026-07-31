@@ -15,6 +15,8 @@ export type ReleaseInfo = {
   summary: string;
 };
 
+/** REFS app/api/update/status/route.ts — served as JSON · app/admin/updates/page.tsx
+ *       lib/version.ts › ReleaseType — the `type` field */
 export type UpdateStatus = {
   supported: boolean; // build supports self-update
   updateAvailable: boolean;

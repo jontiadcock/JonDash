@@ -1,4 +1,6 @@
 /** Compact relative time ("just now", "5m ago", "3h ago", "2d ago", else date). */
+/** One date format for every "when" in the UI, so the audit log and the session list cannot
+ *  disagree. REFS app/admin/audit/page.tsx · app/components/sessions-list.tsx */
 export function formatWhen(date: Date): string {
   const diff = Date.now() - date.getTime();
   const min = Math.floor(diff / 60000);

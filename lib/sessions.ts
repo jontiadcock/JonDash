@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { resolveLocation } from "@/lib/geo";
 
+/** REFS app/components/sessions-list.tsx › SessionRow — the presentational shape this feeds */
 export type SessionView = {
   id: string;
   ip: string | null;
@@ -13,7 +14,8 @@ export type SessionView = {
   current: boolean;
 };
 
-/** Very small user-agent summariser — enough for a recognisable device label. */
+/** A very small user-agent summariser — enough for a recognisable device label, and deliberately
+ *  not fingerprinting. No caller outside this file. */
 export function describeDevice(ua: string | null | undefined): string {
   if (!ua) return "Unknown device";
   const browser =
@@ -34,8 +36,9 @@ export function describeDevice(ua: string | null | undefined): string {
 }
 
 /**
- * Resolve + persist a coarse location for any sessions that don't have one yet.
- * Best-effort; failures leave location null (UI falls back to the raw IP).
+ * Resolve and PERSIST a coarse location for sessions that lack one, so the external lookup happens
+ * once per session rather than per page view. ⚠ Best-effort — a failure leaves it null and the UI
+ * falls back to the raw IP. REFS lib/geo.ts › resolveLocation()
  */
 async function enrichLocations(
   sessions: { id: string; ip: string | null; location: string | null }[],
@@ -83,7 +86,8 @@ function toView(
   };
 }
 
-/** Active (non-expired) sessions for one user, newest activity first. */
+/** Active sessions for ONE user, newest activity first. ⚠ Scoped by `userId` here, which is what
+ *  keeps the account page from listing anyone else's. REFS app/(app)/account/page.tsx */
 export async function listUserSessions(
   userId: string,
   currentId: string | null,
@@ -96,9 +100,11 @@ export async function listUserSessions(
   return sessions.map((s) => toView(s, locs.get(s.id) ?? null, currentId));
 }
 
+/** REFS app/components/sessions-list.tsx › SessionRow — `showUser` renders the extra column */
 export type AdminSessionView = SessionView & { userId: string; userEmail: string };
 
-/** All active sessions across all users (admin view). */
+/** Every active session, across all users. ⚠ Admin-only — the page is what enforces that, not
+ *  this. REFS app/admin/sessions/page.tsx · lib/auth/permissions.ts › the sessions capability */
 export async function listAllSessions(currentId: string | null): Promise<AdminSessionView[]> {
   const sessions = await prisma.session.findMany({
     where: { expiresAt: { gt: new Date() } },

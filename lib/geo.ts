@@ -1,13 +1,13 @@
 import "server-only";
 
 /**
- * Best-effort IP -> coarse location ("City, Country") for the session list.
- * Uses free external geo-IP providers with automatic failover and an in-memory
- * cache. Private / loopback addresses resolve locally without any external call.
+ * Best-effort IP → coarse location ("City, Country") for the session list, via free external
+ * geo-IP providers with failover and an in-memory cache.
  *
- * Privacy note: for public IPs, the address is sent to the external provider.
- * Results are cached to minimise calls. Lookups never throw — on any failure the
- * caller simply gets null and the UI shows the raw IP.
+ * ⚠ For a PUBLIC ip the address is sent to a third party. Private and loopback addresses are
+ * resolved locally and never leave the machine — keep that branch first.
+ * ⚠ Never throws: on any failure the caller gets null and the UI shows the raw IP.
+ * REFS lib/sessions.ts — the only caller
  */
 
 type CacheEntry = { value: string | null; expires: number };
@@ -66,7 +66,8 @@ async function providerIpWho(ip: string): Promise<string | null> {
   return fmt(j.city, j.country);
 }
 
-/** Resolve a coarse location for an IP. Never throws. */
+/** Resolve a coarse location for an IP. ⚠ Never throws, and private addresses return without any
+ *  external call. REFS lib/sessions.ts — the only caller; renders it in the session list */
 export async function resolveLocation(ip: string | null | undefined): Promise<string | null> {
   if (!ip) return null;
   if (isPrivateIp(ip)) return "Local network";
