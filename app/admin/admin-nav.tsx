@@ -9,23 +9,21 @@ type Item = { href: string; label: string };
 type Group = { label: string | null; items: Item[] };
 
 /**
- * How long the panel stays mounted after closing, so the slide-out is visible.
- *
- * The *visual* duration is `--motion-slow`, which each interface style sets (CORE-07) — this
- * is only the unmount fallback, so it must be at least the slowest style's value (Crystal,
- * 380ms). Overshooting is harmless: the panel is `pointer-events: none` once it starts
- * leaving, so a style with instant motion doesn't leave anything in the way.
+ * How long the panel stays mounted after closing, so the slide-out is visible. ⚠ Only the unmount
+ * fallback — the visual duration is `--motion-slow`, which each style sets, so this must be at
+ * least the slowest style's value. Overshooting is harmless: the panel is `pointer-events: none`
+ * once it starts leaving. REFS app/styles.css — where each style sets that variable
  */
 const SLIDE_MS = 420;
 
 /**
- * Mobile admin navigation: a hamburger that slides a panel out from the left. Picking an
- * item navigates and the panel hides itself again. Shown only below `md` (the layout wraps
- * this in `md:hidden`); desktop uses the always-visible AdminSidebar instead.
+ * Mobile admin navigation — a hamburger sliding a panel out from the left, shown only below `md`;
+ * desktop uses the always-visible sidebar instead.
  *
- * The panel is portalled to `document.body` so it covers the whole viewport rather than the
- * header it sits in — the same reason the server-wait overlay portals (an ancestor transform,
- * e.g. `.page-fade`, otherwise makes `fixed` relative to the content column, BUG-23).
+ * ⚠ Portalled to `document.body` so it covers the viewport rather than the header it sits in: an
+ * ancestor transform such as `.page-fade` otherwise makes `fixed` relative to the content column
+ * (BUG-23). REFS app/admin/admin-sidebar.tsx — the desktop half; both read the same `groups`
+ *      app/admin/layout.tsx — builds them · app/components/server-wait-overlay.tsx — same portal
  */
 export function AdminNav({ groups }: { groups: Group[] }) {
   const pathname = usePathname();
@@ -133,9 +131,8 @@ export function AdminNav({ groups }: { groups: Group[] }) {
                   {groups.map((g, i) => (
                     <div key={g.label ?? i} className="flex flex-col gap-1">
                       {g.label && (
-                        // A section heading, not an option: smaller and bolder than the
-                        // links, wide-tracked, and sitting on a divider so it can't be
-                        // mistaken for something tappable.
+                        // A section heading, not an option — smaller and bolder than the links,
+                        // on a divider so it cannot be mistaken for something tappable.
                         <div
                           className="mt-1 border-t px-3 pt-3 pb-1 text-[10px] font-bold uppercase"
                           style={{ color: "var(--muted)", borderColor: "var(--border)", letterSpacing: "0.12em", opacity: 0.85 }}

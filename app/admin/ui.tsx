@@ -17,12 +17,13 @@ import { SaveBar, selectSync, useFormDirty, useServerValue } from "@/app/compone
 
 const initial: AdminState = {};
 
-const MAX_ICON_BYTES = 2 * 1024 * 1024; // keep in sync with lib/security/upload.ts
+// ⚠ Keep in step with the server cap — this is only a friendlier pre-check, not the limit.
+const MAX_ICON_BYTES = 2 * 1024 * 1024; // REFS lib/security/upload.ts
 
 /**
- * Icon file input with a client-side size pre-check: an oversized image shows a
- * friendly message and is cleared before submit, so it never hits the server and
- * can't trigger a body-size (413) crash. The server-side cap stays authoritative.
+ * Icon file input with a client-side size pre-check, so an oversized image is cleared before submit
+ * rather than triggering a body-size 413. ⚠ The SERVER cap stays authoritative — this only improves
+ * the message. REFS lib/security/upload.ts
  */
 function IconFileInput({ id, name = "icon" }: { id?: string; name?: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -83,21 +84,18 @@ export function SetupLinkBox({ url }: { url: string }) {
 }
 
 /**
- * One form for both kinds of account, switched by a **type** selector (owner, 2026-07-27).
- *
- * They were two separate cards at first, on the reasoning that a checkbox on the user form is one
- * somebody eventually ticks by mistake. A *type selector* isn't that: it's an explicit choice with
- * no default drift, and one place to look beats two cards that share a purpose. The fields swap
- * with it rather than being disabled, so the form never shows a box that doesn't apply — a service
- * account has no email to type (the handle is generated) and a person has no name field.
+ * One form for both kinds of account, switched by a TYPE selector rather than a checkbox — a
+ * checkbox is one somebody eventually ticks by mistake, a type selector is an explicit choice with
+ * no default drift. ⚠ The fields SWAP rather than being disabled: a service account has no email to
+ * type (the handle is generated) and a person has no name field.
+ * REFS ./actions.ts › createUserAction() · createServiceAccountAction() — two actions, not a flag
  */
 export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
   const [kind, setKind] = useState<"person" | "service">("person");
   const isService = kind === "service";
 
-  // Two actions behind one form. Deliberately NOT one action with a flag: creating a login and
-  // creating a thing-that-can-never-be-a-login have different invariants, and the service path
-  // must never be reachable by a payload that merely omits a field.
+  // ⚠ Two actions behind one form, never one action with a flag: the service path must not be
+  // reachable by a payload that merely omits a field.
   const [personState, personAction, personPending] = useActionState(createUserAction, initial);
   const [svcState, svcAction, svcPending] = useActionState(createServiceAccountAction, initial);
 
@@ -187,6 +185,8 @@ export function CreateUserForm({ isAdmin = true }: { isAdmin?: boolean }) {
   );
 }
 
+/** REFS ./actions.ts › resetAccessAction() — refuses a service account; a delegate may not run
+ *  it on an ADMIN · app/admin/users/[id]/page.tsx */
 export function ResetAccessForm({ userId }: { userId: string }) {
   const [state, action, pending] = useActionState(resetAccessAction, initial);
   return (
@@ -208,6 +208,7 @@ export function ResetAccessForm({ userId }: { userId: string }) {
   );
 }
 
+/** REFS ./actions.ts › createLinkAction() — must revalidate /dashboard · lib/services.ts */
 export function CreateLinkForm({ userId }: { userId: string }) {
   const [state, action, pending] = useActionState(createLinkAction, initial);
   const ref = useRef<HTMLFormElement>(null);
@@ -249,9 +250,9 @@ export function CreateLinkForm({ userId }: { userId: string }) {
 }
 
 /**
- * The expanded "edit service" form. Rendered full-width *below* its list row (the
- * open state is owned by the row in link-list.tsx) so it stacks vertically instead
- * of being crammed into the horizontal controls, which overflowed on mobile (BUG-13).
+ * The expanded "edit service" form, rendered full-width BELOW its list row so it stacks vertically
+ * rather than being crammed into the horizontal controls, which overflowed on mobile (BUG-13).
+ * REFS app/admin/link-list.tsx — owns the open state · ./actions.ts › updateLinkAction()
  */
 export function EditLinkFields({
   link,
@@ -307,6 +308,10 @@ export function EditLinkFields({
   );
 }
 
+/** A submit button that confirms first. ⚠ The confirmation is the only thing between a click and
+ *  a destructive action here — every delete on this page routes through it.
+ *  REFS app/components/confirm-dialog.tsx · app/admin/link-list.tsx · users/[id]/page.tsx ·
+ *       service-groups/[id]/page.tsx */
 export function ConfirmSubmit({
   children,
   message,
@@ -349,6 +354,8 @@ export function ConfirmSubmit({
   );
 }
 
+/** Create a Service Group. REFS ./actions.ts › createRoleAction() · lib/services.ts — every
+ *  member sees the group's tiles */
 export function CreateRoleForm() {
   const [state, action, pending] = useActionState(createRoleAction, initial);
   const ref = useRef<HTMLFormElement>(null);
@@ -374,6 +381,7 @@ export function CreateRoleForm() {
   );
 }
 
+/** REFS ./actions.ts › renameRoleAction() · lib/services.ts › VisibleLink.source */
 export function RenameRoleForm({ role }: { role: { id: string; name: string } }) {
   const [state, action, pending] = useActionState(renameRoleAction, initial);
   const { dirty, dirtyProps } = useFormDirty(state);
@@ -412,6 +420,7 @@ export function RenameRoleForm({ role }: { role: { id: string; name: string } })
   );
 }
 
+/** A tile shared with every member. REFS ./actions.ts › createRoleLinkAction() */
 export function CreateRoleLinkForm({ roleId }: { roleId: string }) {
   const [state, action, pending] = useActionState(createRoleLinkAction, initial);
   const ref = useRef<HTMLFormElement>(null);

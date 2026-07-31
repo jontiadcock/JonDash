@@ -6,31 +6,19 @@ export const dynamic = "force-dynamic";
 /**
  * The web app manifest — what makes JonDash installable to a phone's home screen (CORE-15).
  *
- * **Readable signed-out, deliberately.** A browser fetches this before deciding to offer "Install",
- * often with no session attached, and a manifest behind auth means the prompt simply never appears.
- * It carries the app's name and its icon, both of which the sign-in page already shows to anyone who
- * can reach it.
+ * ⚠ Readable SIGNED-OUT: a browser fetches this before offering "Install", usually with no session,
+ * so a manifest behind auth means the prompt never appears. It carries only the name and icon, both
+ * already on the sign-in page.
+ * ⚠ `start_url` is `/dashboard`, and that only works because the session cookie is `SameSite=Lax`
+ * (BUG-73). Under Strict, launching from the home-screen icon withholds the cookie and the app
+ * opens on /login every single time.
+ * ⚠ An install prompt needs a secure context with a certificate the DEVICE trusts — a self-signed
+ * one does not count, so a LAN-only install needs its CA on the phone first. iOS is more forgiving.
  *
- * **`start_url` is `/dashboard`, not `/`.** Launching the installed app should land where the person
- * actually wants to be; if they are not signed in, the normal guard sends them to /login and back
- * again afterwards. That round trip only works because the session cookie is `SameSite=Lax`
- * (BUG-73) — under Strict, launching from the home-screen icon withholds the cookie and the app
- * opens on a login page **every single time**. The two changes ship together for that reason.
- *
- * ⚠ **An install prompt needs a secure context with a certificate the device trusts.** Plain HTTP
- * will not do it (localhost excepted), and **a self-signed certificate does not count** — so the
- * LAN-only installs most likely to want this need their own CA trusted on the phone first. iOS is
- * more forgiving: "Add to Home Screen" works over plain HTTP and honours the Apple touch icon, so
- * the icon lands there regardless; only the standalone-window behaviour is gated.
- *
- * ## Related code
- * | File | Relationship |
- * | --- | --- |
- * | `app/api/branding/icon/route.ts` | Serves every icon referenced here. Its `ALLOWED` size set must contain 192 and 512 or these entries 400. |
- * | `app/layout.tsx` | The iOS half — `appleWebApp` + the Apple touch icon, which iOS uses **instead of** this manifest. |
- * | `lib/auth/session.ts` | `SameSite=Lax` is what makes `start_url` work from a home-screen launch. Revert it and the installed app opens on /login every time (BUG-73). |
- * | `proxy.ts` | Redirects an anonymous request off `/dashboard`, which is why `start_url` needs the cookie to arrive. |
- * | `lib/settings.ts` | `branding.appName` — the `name` and `short_name` here. |
+ * REFS app/api/branding/icon/route.ts — its `ALLOWED` set must contain 192 and 512 or these 400
+ *      app/layout.tsx — the iOS half, which iOS uses INSTEAD of this · lib/auth/session.ts
+ *      proxy.ts — redirects an anonymous request off `/dashboard` · lib/settings.ts
+ * PINS tests/unit/pwa-metadata.test.ts
  */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const name = await getAppName().catch(() => "");

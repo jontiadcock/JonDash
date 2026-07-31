@@ -13,7 +13,9 @@ import {
 } from "./actions";
 import type { ScopeItem, ScopeCandidate } from "@/lib/helpers/types";
 
-/** Shapes mirrored from lib/permissions-view.ts — a server type can't cross as a prop. */
+/** ⚠ Mirrored from the server shape, because a `server-only` type cannot cross as a prop. Keep
+ *  the fields in step or the page silently renders undefined.
+ *  REFS lib/permissions-view.ts › CapabilityInfo · ModulePermissions · CapabilityHolders */
 export type CapabilityInfo = {
   permission: string;
   label: string;
@@ -40,12 +42,13 @@ const RISK: Record<string, { label: string; colour: string }> = {
 };
 
 /**
- * Admin → Permissions (CORE-10).
- *
- * **Two axes over the same rows.** By module answers "what can this thing do"; by capability
- * answers "what can reach my files" — the one that catches trouble, and the one you cannot
- * reconstruct by clicking through modules one at a time.
+ * Admin → Permissions (CORE-10). Two axes over the SAME rows: by module answers "what can this
+ * thing do", by capability answers "what can reach my files" — the one that catches trouble, and
+ * the one you cannot reconstruct by clicking through modules one at a time.
+ * REFS lib/permissions-view.ts › modulePermissions() · capabilityHolders() — both from one read
+ *      ./actions.ts — every switch on this page  PINS tests/unit/permissions-view.test.ts
  */
+/** REFS app/admin/permissions/page.tsx — the only caller */
 export function PermissionsView({ modules, capabilities }: { modules: ModuleRow[]; capabilities: CapabilityRow[] }) {
   const [axis, setAxis] = useState<"module" | "capability">("capability");
 
@@ -213,7 +216,9 @@ function GrantToggle({
   );
 }
 
-/** The admin-owned set that bounds a capability — rendered by core from the helper's declaration. */
+/**
+ * The admin-owned set that bounds a capability — rendered by core from the helper's declaration.
+ */
 function ScopeEditor({ helperId, permission }: { helperId: string; permission: string }) {
   const [items, setItems] = useState<ScopeItem[] | null>(null);
   const [toggle, setToggle] = useState<{ label: string; warning?: string } | null>(null);
@@ -333,13 +338,11 @@ function ScopeEditor({ helperId, permission }: { helperId: string; permission: s
 }
 
 /**
- * The per-item switch — "may a module act on this one without asking?".
- *
- * Sits **on the item**, not under the capability, because that is the thing it qualifies: a list
- * of five services where one runs unattended has to read as exactly that at a glance. It follows
- * the same asymmetry as the unbounded switch — turning one ON asks, turning it OFF doesn't —
- * because these two are the only controls on the page that remove a prompt the admin would
- * otherwise see, and a confirmation on the safe direction only trains people to click through.
+ * The per-item switch — "may a module act on this one without asking?". ⚠ It sits ON the item, not
+ * under the capability, so a list of five services where one runs unattended reads as exactly that.
+ * ⚠ Turning it ON asks, turning it OFF does not: this and the unbounded switch are the only
+ * controls here that REMOVE a prompt, and confirming the safe direction trains click-through.
+ * REFS ./actions.ts › setItemToggleAction()
  */
 function ItemToggle({
   helperId,
@@ -401,13 +404,10 @@ function ItemToggle({
 }
 
 /**
- * Tick what you want instead of typing it.
- *
- * Owner, 2026-07-26: *"I want the add/remove to be a lot easier so people aren't driven to use
- * it"* — "it" being the unbounded switch below. This is the mitigation that makes "everything" a
- * rare choice rather than the path of least resistance. A helper offering `unbounded` and no
- * `browse` has built the trap; core can't force it to provide one, but the UI puts browsing
- * first and pushes typing behind a fold regardless.
+ * Tick what you want instead of typing it. ⚠ This is the mitigation that makes "everything" a rare
+ * choice rather than the path of least resistance — a helper offering `unbounded` and no `browse`
+ * has built that trap, so the UI puts browsing first and pushes typing behind a fold regardless.
+ * REFS ./actions.ts › browseScopeAction() · lib/helpers/types.ts › the `browse` capability
  */
 function Picker({
   helperId,
@@ -522,11 +522,9 @@ function Picker({
 }
 
 /**
- * The "everything" switch — no list at all.
- *
- * Kept apart from the list and styled as the serious choice it is. The helper's own warning is
- * shown verbatim, because only the helper knows what "everything" reaches; core's job is to make
- * sure it is read before the click rather than to paraphrase it.
+ * The "everything" switch — no list at all. ⚠ The helper's own warning is shown VERBATIM: only the
+ * helper knows what "everything" reaches, and core's job is to make sure it is read before the
+ * click rather than to paraphrase it. REFS ./actions.ts › setUnboundedAction()
  */
 type OptionState = { label: string; warning?: string; on: boolean };
 
@@ -538,10 +536,11 @@ function Unbounded({ helperId, permission }: { helperId: string; permission: str
   const [confirming, setConfirming] = useState(false);
   const [confirmingOption, setConfirmingOption] = useState(false);
 
-  // Kept inline rather than extracted into a shared `load()`: the React Compiler rejects a
-  // component-scope function that calls setState being invoked from an effect
-  // (react-hooks/set-state-in-effect), and it can see through the extraction. Same reason the
-  // widget grid ended up keyed rather than synced in 1.7.0-beta.3.
+  /*
+   * ⚠ Kept inline, not extracted into a shared `load()`: the React Compiler rejects a
+   * component-scope function that calls setState being invoked from an effect
+   * (react-hooks/set-state-in-effect), and it sees through the extraction.
+   */
   useEffect(() => {
     let live = true;
     unboundedStateAction(helperId, permission)

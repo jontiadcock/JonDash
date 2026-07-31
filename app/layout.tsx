@@ -15,18 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 /**
- * The browser-tab title follows the configured app name (CORE-06), and **every icon now comes from
- * one route** (CORE-15).
+ * The tab title follows the configured app name (CORE-06), and every icon comes from one route
+ * (CORE-15) — never a bundled `favicon.ico`, which is how an unbranded install ended up showing a
+ * stock logo in the tab while the header showed a lettered mark.
  *
- * Previously the tab icon pointed at the uploaded logo *only when one existed*, and otherwise fell
- * through to the bundled `app/favicon.ico` — which had been the stock create-next-app file since the
- * very first commit. An install that had not uploaded a logo, which is most of them, showed
- * **Vercel's triangle**, while the header and sign-in page showed a lettered mark. `/api/branding/icon`
- * serves the logo when there is one and draws the same lettered mark when there is not, so the tab,
- * the phone home screen and the header cannot disagree.
- *
- * `v=` busts the cache when the logo changes; the filename is random per upload, and `name` is in
- * there so renaming an unbranded install repaints the letter too.
+ * ⚠ `v=` must include the NAME as well as the logo filename: renaming an unbranded install changes
+ * the drawn letter, and without it the old icon stays cached.
+ * REFS app/api/branding/icon/route.ts — what serves them · app/manifest.ts — the Android half
  */
 export async function generateMetadata(): Promise<Metadata> {
   const [logo, name] = await Promise.all([logoFilename(), appName()]);
@@ -35,8 +30,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: name,
     description: "Your personal dashboard of services.",
     robots: { index: false, follow: false },
-    // `appleTouchIcon` is a separate path: iOS ignores the web app manifest when adding to the home
-    // screen, so without this it screenshots the page or shows a blank tile.
+    // ⚠ The Apple touch icon is separate: iOS ignores the web app manifest when adding to the
+    // home screen, so without it you get a screenshot of the page or a blank tile.
     icons: {
       icon: [
         { url: `/api/branding/icon?size=32&v=${v}`, sizes: "32x32", type: "image/png" },
@@ -48,23 +43,15 @@ export async function generateMetadata(): Promise<Metadata> {
       capable: true,
       title: name,
       // The status bar sits over the app in standalone mode; translucent lets the page's own
-      // background show through rather than a black band above it.
+      // background show through instead of a black band.
       statusBarStyle: "black-translucent",
     },
     /*
-     * **`apple-mobile-web-app-capable`, by hand, and it is the difference between an app and a
-     * bookmark on an iPhone.**
-     *
-     * `appleWebApp.capable: true` above emits only `<meta name="mobile-web-app-capable">` — checked
-     * in `next/dist/lib/metadata/metadata.js`, and its own docs show that as the expected output.
-     * Next dropped the `apple-` prefixed name because the web standard deprecated it. **iOS Safari
-     * has not caught up**: it still reads only the prefixed name, so without this, Add to Home
-     * Screen produces a shortcut that opens in Safari with the address bar — which is exactly what
-     * the owner reported, *"it was just another link rather than a pwa"*.
-     *
-     * Both names are emitted now. The unprefixed one is correct and future-proof; the prefixed one
-     * is what actually works today. Remove it only when iOS honours the standard name — not when a
-     * linter calls it deprecated.
+     * ⚠ DO NOT delete this because a linter calls it deprecated. `appleWebApp.capable` above emits
+     * only the unprefixed `mobile-web-app-capable`; iOS Safari still reads ONLY the `apple-`
+     * prefixed name, so without it Add to Home Screen produces a Safari shortcut with an address
+     * bar rather than a standalone app. Both are emitted: one correct, one that works today.
+     * Remove it when iOS honours the standard name. REFS app/manifest.ts
      */
     other: { "apple-mobile-web-app-capable": "yes" },
   };

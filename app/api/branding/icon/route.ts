@@ -9,32 +9,19 @@ export const dynamic = "force-dynamic";
 const ALLOWED = new Set([32, 96, 180, 192, 512]);
 
 /**
- * This install's icon, at a requested size (CORE-15).
+ * This install's icon at a requested size (CORE-15) — ONE source for the browser tab, the iOS home
+ * screen, the Android launcher and the web app manifest. With a logo it serves the resized upload;
+ * without one it draws the same lettered mark the header does, so an unbranded install looks like
+ * itself everywhere instead of falling back to a stock favicon.
  *
- * **One source for every icon surface** — the browser tab, the iOS home screen, the Android
- * launcher and the web app manifest all come through here. Before this, the tab fell back to a
- * bundled `favicon.ico` that had been the stock create-next-app file since the first commit, so an
- * install without an uploaded logo showed **Vercel's triangle** while every other surface showed a
- * lettered mark. One route means they can never disagree again.
+ * ⚠ Unauthenticated on purpose, like the logo route beside it: a favicon and a home-screen icon are
+ * fetched with no session, and a manifest behind auth means the install prompt never appears.
+ * ⚠ The lettered mark is DUPLICATED in JSX — change the letter, colour or corner radius in both or
+ * the tab icon stops matching the header. This is the duplication to watch in this feature.
  *
- * **With a logo:** the uploaded image, resized. **Without one:** the same lettered mark the header
- * and sign-in page already draw — first letter of the app name on the palette's primary — rendered
- * as an SVG and rasterised. An unbranded install then looks like itself everywhere.
- *
- * **Unauthenticated, like the logo route it sits beside.** A home-screen icon and a favicon are
- * fetched by the browser with no session in contexts we do not control, and the manifest that
- * references them must be readable signed-out or the install prompt never appears. It reveals the
- * app's name and logo, both of which the sign-in page already shows to anyone who can reach it.
- *
- * ## Related code — keep these in step
- * | File | Relationship |
- * | --- | --- |
- * | `app/components/branding.tsx` | **Draws the same lettered mark in JSX** (`BrandMark`, `BrandHeading`). Change the letter, the colour or the corner radius here and it must change there, or the tab icon and the header stop matching. **This is the duplication to watch in this feature.** |
- * | `app/api/branding/logo/route.ts` | Serves the raw uploaded logo at its original size. This route resizes the same file; both read `branding.logo` through `getLogoFilename`. |
- * | `app/manifest.ts` | Consumes this route for the 192/512 and maskable icons. |
- * | `app/layout.tsx` | Consumes it for the tab icon and the Apple touch icon. |
- * | `lib/settings.ts` | Owns `branding.logo` and `branding.appName`, the two inputs. |
- * | `lib/icons.ts` | `readIcon` — the validated read of an uploaded file. |
+ * REFS app/components/branding.tsx › BrandMark() · BrandHeading() — the JSX copy
+ *      app/manifest.ts — the 192/512 and maskable entries · app/layout.tsx — tab + Apple touch
+ *      lib/icons.ts › readIcon() · lib/settings.ts — `branding.logo` and `branding.appName`
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -42,11 +29,10 @@ export async function GET(req: Request): Promise<Response> {
   if (!ALLOWED.has(size)) return new Response("Bad size", { status: 400 });
 
   /*
-   * `maskable` pads the artwork into the middle 80% of the canvas.
-   *
-   * Android crops a launcher icon to whatever shape the device uses — circle, squircle, rounded
-   * square — and anything in the outer fifth is simply cut off. Declaring an icon maskable without
-   * leaving that margin is how a logo ends up beheaded on someone's home screen.
+   * ⚠ `maskable` MUST pad the artwork into the middle 80%. Android crops a launcher icon to
+   * whatever shape the device uses and cuts off the outer fifth, so declaring an icon maskable
+   * without that margin beheads the logo on someone's home screen.
+   * REFS app/manifest.ts — where it is declared maskable
    */
   const maskable = url.searchParams.get("maskable") === "1";
 

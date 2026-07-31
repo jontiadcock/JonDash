@@ -3,29 +3,26 @@ import { browseAvailableModules, parseRepoUrl, type ModuleChannel } from "@/lib/
 
 export const dynamic = "force-dynamic";
 
-/** A picture, not a payload. Anything larger is a mistake or an attack, and neither needs serving. */
+/**
+ * A picture, not a payload. Anything larger is a mistake or an attack, and neither needs serving.
+ */
 const MAX_BYTES = 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 /** GitHub is normally instant; a source that hangs must not hold a request thread open. */
 const TIMEOUT_MS = 8000;
 
 /**
- * Serve a module's screenshot, fetched from its source (8.2).
+ * Serve a module's screenshot, fetched from its source.
  *
- * **Proxied rather than linked, for two reasons.** The CSP is `img-src 'self'` and widening it to
- * a third-party host for decorative images would be a poor trade — it would apply to every page in
- * the app, forever. And a direct `<img src="https://raw.githubusercontent.com/…">` makes the
- * admin's *browser* talk to GitHub on every catalogue view, which tells GitHub who is looking at
- * what from which address; the server already fetches the manifest, so this keeps the traffic where
- * it already was.
+ * ⚠ PROXIED, never linked. `img-src 'self'` would have to be widened for every page in the app,
+ * forever, and a direct third-party `<img>` makes the admin's browser talk to GitHub on every
+ * catalogue view — the server already fetches the manifest, so this keeps the traffic where it was.
+ * ⚠ No SSRF surface BY CONSTRUCTION: the caller passes a module id, a channel and an index — never
+ * a URL, a host or a path. Keep it that way; accepting any part of the URL from the caller is what
+ * would create one.
  *
- * **There is no SSRF surface here, by construction.** The caller passes a module id, a channel and
- * an index — never a URL, a host or a path. The URL is built on this side from the source repo the
- * admin configured, the tag pinned in the manifest, and a filename that
- * `sanitiseScreenshots` already reduced to one segment with a known image extension. There is no
- * input that can point this at another host.
- *
- * Gated on `modules.manage`: it is the same information the Browse page shows, and no wider.
+ * REFS lib/modules/sources.ts › sanitiseScreenshots() — reduces a filename to one safe segment
+ *      app/admin/modules/browse/screenshots.tsx — the only consumer · proxy.ts — the CSP
  */
 export async function GET(req: Request): Promise<Response> {
   await requirePermission("modules.manage");
