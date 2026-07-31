@@ -72,7 +72,7 @@ export function buildModuleContext(
           const brand = await currentBrand();
 
           // No base URL means no button. ⚠ Never derive one from the request Host — forgeable,
-          // and a forged link in mail beats one on a page (BUG-41). REFS lib/app-url.ts › resolveAppUrl()
+          // and a forged link in mail beats one on a page (BUG-41). REFS lib/app-url.ts
           const url = msg.cta ? await resolveAppUrl(msg.cta.path) : null;
 
           const body = renderBrandedEmail({

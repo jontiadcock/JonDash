@@ -3,26 +3,22 @@ import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { getModuleUpdateStatus } from "./updates";
 
-/**
- * Opt-in automatic module updates (MOD-10).
+/*
+ * Opt-in automatic module updates (MOD-10). Narrows the standing rule to "never, unless you asked
+ * for it, for that module" — `Module.autoUpdate` is off by default and set per module, so opting in
+ * is a deliberate act about one module rather than a standing channel for every source.
  *
- * JonDash shipped with a firm rule: *modules are never updated automatically, even when
- * JonDash installs its own updates automatically.* This does not overturn it — it narrows
- * it to "never, unless you asked for it, for that module". `Module.autoUpdate` is off by
- * default and set per module, so opting in is a deliberate act about a module you trust,
- * not one tick that hands every source a standing channel to run new code here.
+ * ⚠ **Never automatic, whatever the flag says:** an update that ADDS a permission (consent is the
+ *   security model, so it must interrupt), a blocked update, or a downgrade — that is a channel
+ *   switch and a decision.
+ * ⚠ This only **reports**. Applying means a rebuild and a restart that signs everyone out, so the
+ *   caller decides when, never mid-request.
  *
- * What is deliberately NOT automatic, whatever the flag says:
- *
- * - **An update that ADDS a permission.** Consent is the whole security model; an update
- *   gaining access the admin never approved must interrupt them. Reported, not applied.
- * - **A blocked update** (needs a newer JonDash, source gone, installed manually).
- * - **A downgrade.** That is a channel switch, and it is a decision.
- *
- * This only *reports* what may be applied. Doing it means a rebuild and a restart, which
- * signs everyone out, so the caller decides when — never mid-request.
+ * REFS lib/modules/updates.ts › getModuleUpdateStatus() — what this filters
+ *      lib/updates/auto-run.ts — the caller that decides when
  */
 
+/** REFS lib/updates/auto-run.ts — consumes the plan. */
 export type AutoUpdatePlan = {
   /** Module ids safe to update with no further input. */
   eligible: string[];

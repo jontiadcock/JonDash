@@ -8,28 +8,18 @@ import { getHelperDef } from "@/lib/helpers/registry";
 import type { HelperSettingsResult } from "@/lib/helpers/types";
 
 /**
- * The ONLY way a helper's settings are saved.
+ * ⚠ **The ONLY way a helper's settings are saved.** Core owns this rather than each helper defining
+ *   its own action, because the bug this feature fixes was a first-party helper exposing something
+ *   it should not: a module could edit the allowlist meant to bound it, displaying one service and
+ *   submitting another. **A check that must be remembered is eventually forgotten**, so the gated
+ *   path is the only path.
  *
- * **Why core owns this rather than each helper defining its own action.** A helper is
- * first-party and perfectly capable of calling `requirePermission` itself — but the bug this
- * feature exists to fix was a first-party helper exposing something it should not have.
- * `host-services` put `admin.add` on the surface a *module* could reach, so a module could edit
- * the allowlist that was supposed to bound it: display "Add Plex", submit "sshd". The UAC prompt
- * names the binary and never the service, so nothing on screen caught it.
+ * Verified before the helper is reached: same-origin · the admin permission · that the helper
+ * exists and declares a handler, so a payload aimed at one without is refused rather than silently
+ * ignored. `ctx.user` is then built from the resolved session, never from a caller.
  *
- * The lesson is not "helpers should remember to check". It is that a check which must be
- * remembered will eventually be forgotten by someone. So the gated path is the only path: this
- * action checks, then dispatches. A helper cannot skip it without writing a server action of its
- * own, which the contract forbids and review can see.
- *
- * What is verified here, before the helper is reached at all:
- *  - **same-origin**, so this cannot be driven from another site;
- *  - **the admin permission**, so a signed-in non-admin cannot reach a helper's settings;
- *  - **that the helper exists and actually declares a handler** — a payload aimed at a helper
- *    that has none is refused rather than silently doing nothing.
- *
- * `ctx.user` is then built from the resolved session. It is not a value any caller supplied,
- * which is exactly the property the old module-supplied context lacked.
+ * REFS lib/helpers/types.ts › onSettingsSubmit, SettingsPanel — the contract this enforces
+ *      app/admin/permissions/actions.ts — the scope edits that route through here too
  */
 export async function saveHelperSettingsAction(
   helperId: string,

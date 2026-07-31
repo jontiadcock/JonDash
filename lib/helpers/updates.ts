@@ -91,11 +91,11 @@ function declaredNeed(moduleHelpers: unknown, helperId: string): string | null {
 export async function getHelperUpdateStatus(force = false): Promise<HelperUpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
 
-  // Only helpers that are ACTUALLY INSTALLED. A row outlives its files on purpose:
-  // uninstalling the last module that needed a helper prunes the helper's files but keeps
-  // its row so reinstalling brings the data back. Reading rows alone therefore reports
-  // helpers that are gone — they kept a channel switch and could be offered updates on the
-  // Updates page while the Helpers page (which reads the registry) correctly hid them.
+  /*
+   * ⚠ Only helpers ACTUALLY INSTALLED. A row outlives its files on purpose (pruning keeps it so a
+   *   reinstall restores the data), so reading rows alone offers updates for helpers that are gone,
+   *   while the page reading the registry correctly hides them.
+   */
   const installedIds = new Set(getAllHelpers().map((h) => h.id));
   const rows = (await prisma.helper.findMany()).filter((r) => installedIds.has(r.id));
   const errors: { source: string; message: string }[] = [];
@@ -156,11 +156,8 @@ export async function getHelperUpdateStatus(force = false): Promise<HelperUpdate
     const cmp = compareVersions(entry.version, row.version);
     const needsNewerApp = compareVersions(entry.minAppVersion, appVersion) > 0;
 
-    // Which dependents this update would BREAK: the helper declares where it last broke
-    // compatibility, and any module built against something older than that stops working
-    // until it is updated too. Helpers promise never to break except for security, so this
-    // is expected to be empty almost always — which is exactly why it must be surfaced
-    // loudly on the rare occasion it isn't.
+    // ⚠ Dependents this update would BREAK — expected empty almost always, since helpers promise
+    // never to break except for security, which is exactly why it must be surfaced loudly.
     const breaksModules = entry.breakingFrom
       ? installedModules
           .filter((m) => {

@@ -7,18 +7,17 @@ import { useRebuildWatch } from "../rebuild-watch";
 import { useInstallQueue, clearQueue, toggleQueued } from "./install-queue";
 
 /**
- * The batch you have built up, and the one place it is installed from.
+ * The batch you have built up, and the one place it is installed from. Each install costs a rebuild
+ * and a restart that signs everyone out, so installing several together is one interruption.
  *
- * A module's code is compiled into the app, so each install costs a rebuild and a restart — and a
- * restart signs everyone out. Queuing several and installing them together turns "install, wait
- * for a restart, repeat" into one interruption.
+ * ⚠ **Nothing is queued from here.** Adding happens on a module's own page, where its permissions
+ *   are written out in full — that separation is what stops a module being queued without its
+ *   permissions having been read. Renders nothing when the queue is empty; an empty bar is
+ * furniture.
  *
- * **Nothing is queued from here.** Adding happens on a module's own page, where its permissions
- * are written out in full; this bar only shows what is waiting and installs it. That separation is
- * what stops a module being queued without its permissions having been read — the previous design
- * put a checkbox on every row of the catalogue, which allowed exactly that.
- *
- * Renders nothing at all when the queue is empty: a permanently-present empty bar is furniture.
+ * REFS app/admin/modules/browse/install-queue.ts — the store · browse/[id]/module-actions.tsx —
+ *      where things are added · app/admin/modules/actions.ts › installModuleAction() — the submit
+ * PINS tests/unit/browse-consent.test.ts
  */
 export function QueuedInstallBar({
   channel,
@@ -34,19 +33,13 @@ export function QueuedInstallBar({
   const raw = useInstallQueue();
 
   /*
-   * **Anything already installed is dropped from the queue.**
+   * ⚠ **Anything already installed is dropped from the queue.** A successful install never returns
+   *   — the process exits so the launcher can rebuild — so nothing here ever runs "it worked, clear
+   *   the queue", and the ids survived the restart with the bar still offering them.
    *
-   * A successful install never returns: the process exits so the launcher can rebuild, so nothing
-   * on this page ever gets to run "the install worked, clear the queue". The ids therefore
-   * survived in session storage across the restart, and the bar came back afterwards still
-   * offering to install modules that were now installed — the owner, testing beta.17: *"after
-   * queuing an install of 2 modules, the server restarted but the modules [were] still available
-   * to install."*
-   *
-   * Filtering on what the server says is installed, rather than clearing the queue at submit
-   * time, is deliberate: it self-heals whatever happened, and a failed install still leaves the
-   * batch intact to retry. Clearing on submit would throw the batch away precisely when it was
-   * most annoying to rebuild.
+   * ⚠ Filtered on what the server reports, **not cleared at submit time**: that self-heals whatever
+   *   happened, and a failed install leaves the batch intact to retry rather than throwing it away
+   *   exactly when it is most annoying to rebuild.
    */
   const done = new Set(installed);
   const queued = raw.filter((id) => !done.has(id));

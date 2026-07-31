@@ -153,9 +153,8 @@ export function peekZipModuleId(zip: Uint8Array): string | null {
     const entries = unzipSync(zip);
     const entryFile = Object.keys(entries)
       .map((n) => n.replace(/\\/g, "/"))
-      // A traversal path must never yield an id: basename("../evil/") is "evil", which
-      // looks perfectly valid. Nothing is written from this, but a function that reports
-      // an id for an unsafe path is a trap for whoever uses it next.
+      // ⚠ A traversal path must never yield an id — basename("../evil/") is "evil", which looks
+      // valid. Nothing is written here, but reporting an id for an unsafe path is a trap.
       .filter((n) => !n.split("/").includes("..") && !n.startsWith("/"))
       .filter((n) => /(^|\/)module\.tsx?$/.test(n))
       .sort((a, b) => a.split("/").length - b.split("/").length)[0];

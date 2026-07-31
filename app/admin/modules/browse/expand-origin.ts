@@ -1,33 +1,27 @@
-/**
- * Where the overlay should appear to grow *from*.
+/*
+ * Where the overlay should appear to grow *from*. The card is in one route's tree and the panel in
+ * another, and nothing in the routing layer carries a rect between them.
  *
- * The owner's instruction for the catalogue was that a module should *"expand over the other apps
- * in an animation and take the stage"* — so the panel has to start life at the card that was
- * clicked, not in the middle of the screen. Nothing in the routing layer carries that: the card is
- * in one route's component tree and the panel is in another, and by the time the panel mounts the
- * click is long over.
+ * ⚠ **Parked on `window`, not a module variable.** A module-scoped `let` assumes the two routes
+ *   share one instance of this file — usually true, and not something to bet a feature on, since
+ *   they are separate route entries. `window` has exactly one of everything by definition.
+ * ⚠ **Reading it CONSUMES it.** A rect is only true for the click that produced it: a pasted link
+ *   or Back/Forward has no origin, and a stale rect animates out of a card that has since moved.
  *
- * **Parked on `window`, not in a module variable.** A module-scoped `let` is the obvious way to do
- * this and it assumes the two routes share one instance of this file. That is *usually* true and
- * it is not something to bet a feature on — the catalogue and the intercepted overlay are separate
- * route entries, and this project has already been bitten once by assuming two places got the same
- * module (server actions and page renders do not). `window` has exactly one of everything by
- * definition, which is the property actually needed here.
- *
- * **Reading it CONSUMES it.** A rect is only true for the click that produced it: opening a module
- * by pasted link, or by Back/Forward, has no origin at all, and a leftover rect from ten minutes
- * ago would animate the panel out of some card that has since scrolled elsewhere. Absent is the
- * honest answer in those cases, and the overlay has a fallback for it.
+ * REFS app/admin/modules/browse/browse-grid.tsx — writes it on click
+ *      app/admin/modules/browse/module-overlay.tsx — reads it once, and falls back when absent
  */
 const KEY = "__jondashExpandOrigin";
 
 type OriginHolder = { [KEY]?: DOMRect | null };
 
+/** REFS browse-grid.tsx — called on the card click that opens the overlay. */
 export function rememberOrigin(el: Element | null): void {
   if (typeof window === "undefined") return;
   (window as unknown as OriginHolder)[KEY] = el?.getBoundingClientRect() ?? null;
 }
 
+/** ⚠ Consumes. REFS module-overlay.tsx — claims it at commit, never during render. */
 export function takeOrigin(): DOMRect | null {
   if (typeof window === "undefined") return null;
   const holder = window as unknown as OriginHolder;

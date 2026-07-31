@@ -6,15 +6,12 @@ import type { PermissionRisk } from "@/lib/modules/types";
 import { rememberOrigin } from "./expand-origin";
 
 /**
- * "You already have this one" — the owner's ask, 2026-07-28.
+ * "You already have this one". A tick rather than a word because the catalogue is scanned, not
+ * read.
  *
- * A tick rather than a word because the catalogue is scanned, not read: the question a returning
- * visitor has is *which of these do I already have*, and a green mark answers it in one sweep
- * where "installed" printed on eight cards does not.
- *
- * Drawn in theme tokens, not `green` and `white`. `--success` is a different green in each of the
- * seven styles, and the tick is cut out in `--background` so it stays legible whether the palette
- * makes that green dark or pale.
+ * ⚠ Theme tokens, never literal colours — `--success` differs in each of the seven styles, and the
+ *   tick is cut out in `--background` so it stays legible whether that green is dark or pale.
+ * REFS app/globals.css — where the style tokens are defined
  */
 function InstalledTick() {
   return (
@@ -41,6 +38,7 @@ function InstalledTick() {
 }
 
 /** One catalogue entry, flattened to plain data so the grid can be a client component. */
+/** REFS app/admin/modules/browse/page.tsx — builds these from browseAvailableModules(). */
 export type BrowseCard = {
   id: string;
   name: string;
@@ -60,13 +58,8 @@ const PER_PAGE_KEY = "jondash.browsePerPage";
 const DEFAULT_PER_PAGE = 12;
 
 /*
- * The saved page size, as an external store.
- *
- * `localStorage` is a mutable source outside React with a different answer on the server, which is
- * precisely what `useSyncExternalStore` exists for. Reading it in an effect instead paints one
- * render at the default before correcting — a visible reflow of the whole grid — and React 19
- * objects to setting state from an effect body for the same reason.
- *
+ * The saved page size, as an external store. ⚠ `useSyncExternalStore`, not an effect — an effect
+ * paints one render at the default before correcting, which is a visible reflow of the whole grid.
  * A number, so no snapshot caching is needed: primitives compare by value.
  */
 const PER_PAGE_CHANGED = "jondash:browse-per-page";
@@ -107,18 +100,16 @@ const RISK_STYLE: Record<PermissionRisk, { fg: string; bg: string }> = {
 };
 
 /**
- * The module catalogue as a dense grid (design A1) — three across, no imagery.
+ * The module catalogue as a dense grid — three across, no imagery.
  *
- * **A card is a summary and a way in, never a place to install from.** It carries the name, the
- * add-ons author's own summary, and a chip saying roughly how much access is asked for; clicking
- * opens the module's page, where the permissions are written out in full and the install actions
- * live. That is the whole point of the split: a module cannot be queued or installed without its
- * permissions having been on screen. The previous design put a checkbox on every row of one long
- * list, which allowed exactly that.
- *
- * **No imagery here on purpose.** Screenshots belong on the detail page, where there is room to
- * read them; in a catalogue they would halve the number of modules visible and tell you less than
- * a sentence of description does.
+ * ⚠ **A card is a summary and a way in, never a place to install from.** Clicking opens the
+ * module's page, where permissions are written out in full, so **a module cannot be queued or
+ * installed without its permissions having been on screen.** The old design put a checkbox on every
+ * row.
+ * No imagery on purpose: screenshots belong on the detail page, where there is room for them.
+ * REFS browse/page.tsx — the caller · browse/[id]/page.tsx — where install lives ·
+ *      lib/modules/types.ts › permissionRisk() — the chip
+ * PINS tests/unit/browse-consent.test.ts
  */
 export function BrowseGrid({
   items,
@@ -130,12 +121,9 @@ export function BrowseGrid({
   page: number;
 }) {
   /*
-   * The page number lives in the URL; the page SIZE lives in the browser.
-   *
-   * They are different kinds of fact. Which page you are on is part of where you are — it has to
-   * survive opening a module and coming back (design B1), and that is what a URL is for. How many
-   * you like to see is a preference about you, the same on every visit, and putting it in the URL
-   * would mean carrying it through every link to keep it.
+   * ⚠ Page NUMBER in the URL, page SIZE in the browser. Which page you are on must survive opening
+   *   a module and coming back, which is what a URL is for; how many you like to see is a
+   *   preference, and putting it in the URL means carrying it through every link to keep it.
    */
   const perPage = useSyncExternalStore(subscribePerPage, readPerPage, () => DEFAULT_PER_PAGE);
 
@@ -155,13 +143,11 @@ export function BrowseGrid({
             key={m.id}
             // Carry where you were, so the module's own page can send you back to it (8.4).
             href={`/admin/modules/browse/${encodeURIComponent(m.id)}?channel=${channel}&page=${current}`}
-            // The panel opens over this grid, so the grid must not move under it. Next scrolls to
-            // the top on navigation by default, which would leave the catalogue somewhere else
-            // when the panel closes — and would drag the card out from under the animation.
+            // ⚠ The panel opens over this grid, so it must not move: Next's default scroll-to-top
+            // would drag the card out from under the animation and lose your place.
             scroll={false}
-            // Hand the panel the rectangle it should grow out of. The overlay mounts in a
-            // different route tree, long after this click, so nothing else can tell it where
-            // the module was on screen.
+            // Hand the panel the rect to grow from — it mounts in another route tree, long after
+            // this click. REFS ./expand-origin.ts · ./module-overlay.tsx
             onClick={(e) => rememberOrigin(e.currentTarget)}
             className="card lift flex flex-col gap-2 p-4"
             style={m.tooOld ? { opacity: 0.55 } : undefined}

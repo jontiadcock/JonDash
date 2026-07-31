@@ -2,7 +2,8 @@ import type { ComponentType, ReactNode } from "react";
 
 /*
  * The module contract (MOD-01). A module ADDS functionality without modifying the base app; core
- * imports only the generated registry, so with zero modules the app is byte-for-byte its current self.
+ * imports only the generated registry, so with zero modules the app is byte-for-byte its current
+ * self.
  *
  * REFS lib/modules/context.ts › buildModuleContext() — turns a grant into a capability
  *      lib/modules/verify.ts — enforces the declaration rules at install
@@ -161,7 +162,9 @@ export type ModuleEmailApi = {
      * REFS lib/app-url.ts › resolveAppUrl() — the resolver, and why a Host header is not used
      */
     cta?: { label: string; path: string };
-    /** Escape hatch: raw HTML, no branded shell. ⚠ Outlook rendering becomes the module's problem. */
+    /**
+     * Escape hatch: raw HTML, no branded shell. ⚠ Outlook rendering becomes the module's problem.
+     */
     html?: string;
   }): Promise<void>;
 };
@@ -190,7 +193,7 @@ export type ModuleContext = {
    * is imported directly, so no field can be withheld — without it a module could declare only
    * `filesystem:read` and call every write method, with nothing able to notice.
    *
-   * **Helpers: check `ctx.can(...)` at the top of every privileged call** — core never sees the call.
+   * **Helpers: check `ctx.can(...)` at the top of every privileged call** — core never sees it.
    *
    * ⚠ **ADVISORY, NOT A SECURITY BOUNDARY, and it reads like one.** The module hands this object to
    *   the helper and can hand a lookalike; freezing does not help, because a spread builds a new
@@ -260,12 +263,16 @@ export type ModuleSettingsPanelProps = { ctx: ModuleContext };
 /**
  * One table an add-on wants carried in backups (OPS-16). ⚠ Lives here rather than beside the backup
  * code, which is `server-only` and would break any client component touching a definition.
- * REFS lib/backup-addons.ts — the implementation · lib/helpers/types.ts — the helper-side declaration
+ * REFS lib/backup-addons.ts — the implementation · lib/helpers/types.ts — the helper-side
+ * declaration
+ *
  */
 export type BackupTableDecl = {
   /** The logical, un-prefixed name used in the add-on's own migrations. */
   name: string;
-  /** Columns holding credentials or tokens: kept in an encrypted backup, blanked from a plain one. */
+  /**
+   * Columns holding credentials or tokens: kept in an encrypted backup, blanked from a plain one.
+   */
   secret?: string[];
 };
 
@@ -295,7 +302,7 @@ export type ModuleDefinition = {
    * ```
    *
    * A floor reports a too-OLD helper rather than letting the module misbehave silently.
-   * REFS lib/modules/verify.ts — enforces the import rule · lib/helpers/channel.ts — resolves versions
+   * REFS lib/modules/verify.ts — enforces the import rule · lib/helpers/channel.ts
    */
   helpers?: (string | ModuleHelperNeed)[];
 
@@ -349,7 +356,11 @@ export type ModuleDefinition = {
    *  state outside those. REFS lib/modules/manage.ts — does the purging */
   onEnable?: (ctx: ModuleContext) => Promise<void>;
   onDisable?: (ctx: ModuleContext) => Promise<void>;
-  /** `answers` is keyed by question id; one never asked, or dropped by core, is absent. Read defensively. */
+  /**
+   * `answers` is keyed by question id; one never asked, or dropped by core, is absent. Read
+   * defensively.
+   *
+   */
   onUninstall?: (ctx: ModuleContext, answers: Record<string, boolean>) => Promise<void>;
 
   /**
@@ -392,7 +403,11 @@ export type InstalledModule = {
   installedAt: string;
 };
 
-/** The sentence shown at install for each permission. REFS describePermission() below — the only reader */
+/**
+ * The sentence shown at install for each permission. REFS describePermission() below — the only
+ * reader
+ *
+ */
 export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
   "network:outbound": "Connect out to other servers (web requests, and raw TCP, DNS, TLS and ping checks)",
   "crypto:use": "Encrypt and decrypt data with your app's key",
@@ -402,7 +417,9 @@ export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
 
 /**
  * High-risk permissions, highlighted on the consent screen. **Empty for now** — the genuinely
- * dangerous capabilities are exactly the ones still to be built, and must be listed the day they land.
+ * dangerous capabilities are exactly the ones still to be built, and must be listed the day they
+ * land.
+ *
  */
 /** PINS tests/unit/permission-consent.test.ts — asserts the styling follows this set. */
 export const DANGEROUS_PERMISSIONS: ReadonlySet<ModulePermission> = new Set<ModulePermission>([]);

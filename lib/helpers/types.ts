@@ -28,7 +28,9 @@ export type HelperSettingsResult = { ok: true; message?: string } | { ok: false;
  *
  * ⚠ `label` and `value` are separate deliberately, and **both are always shown**: a module once
  *   displayed "Add Plex" while submitting `sshd`. A friendly name is never the only thing on
- * screen. REFS app/admin/permissions/ui.tsx — renders both · app/admin/permissions/actions.ts — acts on `value`
+ * screen. REFS app/admin/permissions/ui.tsx — renders both · app/admin/permissions/actions.ts —
+ * acts on `value`
+ *
  */
 export type ScopeItem = {
   /** Stable identifier for removal. Opaque to core. */
@@ -54,7 +56,9 @@ export type ScopeItem = {
 export type ScopeCandidate = {
   value: string;
   label: string;
-  /** Optional context that helps the choice — "Running", "12 GB free", "not currently installed". */
+  /**
+   * Optional context that helps the choice — "Running", "12 GB free", "not currently installed".
+   */
   detail?: string;
   /** Already on the list. Core shows it ticked and disabled rather than hiding it. */
   alreadyAdded?: boolean;
@@ -65,14 +69,18 @@ export type ScopeCandidate = {
  *
  * ⚠ CORE-10: the switch and the set it bounds must appear on the SAME screen. A bound living
  *   somewhere other than where the admin looks is a bug this project has hit twice.
- * REFS app/admin/permissions/ui.tsx — the screen · app/admin/permissions/actions.ts — the gated writes
+ * REFS app/admin/permissions/ui.tsx — the screen · app/admin/permissions/actions.ts — the gated
+ * writes
+ *
  */
 export type HelperCapabilityScope = {
   /** Singular noun for UI wording — "service", "folder", "package". */
   noun: string;
   /** Placeholder / help text for the add field. */
   addHint?: string;
-  /** Adding or removing raises an elevation prompt: core warns first and allows the longer budget. */
+  /**
+   * Adding or removing raises an elevation prompt: core warns first and allows the longer budget.
+   */
   mayPrompt?: boolean;
   /** Current members. ⚠ Bounded and best-effort — throwing must not take the page down. */
   list: () => Promise<ScopeItem[]>;
@@ -96,7 +104,10 @@ export type HelperCapabilityScope = {
      *
      * ⚠ Where "everything" includes JonDash's own `.data/`, `prisma/` or `bin/` — the master key,
      *   the database, the elevation binaries — **it does, and this must say so.** It is the only
-     *   sentence the admin reads before agreeing. Where `option` exists, describe the grant **without** it.
+     *   sentence the admin reads before agreeing. Where `option` exists, describe the grant
+     ***without** it. 
+     *
+     *
      */
     warning: string;
     isOn: () => Promise<boolean>;
@@ -178,7 +189,9 @@ export type HelperCapability = {
    */
   describe: (config: Record<string, unknown>) => string;
 
-  /** Short label — "Control Windows services". Falls back to the key, which tells a person nothing. */
+  /**
+   * Short label — "Control Windows services". Falls back to the key, which tells a person nothing.
+   */
   label?: string;
 
   /**
@@ -187,7 +200,9 @@ export type HelperCapability = {
    */
   risk?: "low" | "medium" | "high";
 
-  /** The bounding set, if any — see `HelperCapabilityScope`. Omit for a simple on/off capability. */
+  /**
+   * The bounding set, if any — see `HelperCapabilityScope`. Omit for a simple on/off capability.
+   */
   scope?: HelperCapabilityScope;
 };
 
@@ -197,7 +212,11 @@ export type HelperCapability = {
  */
 export type HelperBootContext = {
   helperId: string;
-  /** Scoped raw SQL over its own `hlp_<id>_*` tables only. REFS lib/helpers/migrate.ts › helperTableName() */
+  /**
+   * Scoped raw SQL over its own `hlp_<id>_*` tables only. REFS lib/helpers/migrate.ts ›
+   * helperTableName()
+   *
+   */
   db?: {
     table(name: string): string;
     query<T = unknown>(sql: string, ...params: unknown[]): Promise<T[]>;
@@ -236,7 +255,9 @@ export type HelperDefinition = {
   /**
    * The helper's own config, so `describe(config)` names real specifics (MOD-10). **Core cannot
    * read it** — a helper's config lives in its own `hlp_<id>_*` tables — so the helper hands over
-   * only what consent needs. ⚠ Bounded and best-effort: throwing falls back to generic wording, never an error.
+   * only what consent needs. ⚠ Bounded and best-effort: throwing falls back to generic wording,
+   * never an error.
+   *
    */
   readConfig?: () => Promise<Record<string, unknown>>;
 
@@ -245,7 +266,8 @@ export type HelperDefinition = {
 
   /**
    * Which `hlp_<id>_*` tables belong in a backup (OPS-16). Logical un-prefixed names; **undeclared
-   * means not exported**; `secret` columns kept in an encrypted backup and blanked from a plain one.
+   * means not exported**; `secret` columns kept in an encrypted backup and blanked from a plain
+   * one.
    *
    * REFS lib/backup-addons.ts — the implementation · lib/helpers/migrate.ts › helperTableName() —
    *      resolves the physical name · lib/modules/types.ts › ModuleDefinition.backup — same rules
@@ -295,7 +317,8 @@ export type HelperDefinition = {
   /**
    * A settings panel rendered by CORE, so admin-owned configuration is edited on a core page behind
    * a core permission check, **with no module anywhere in the path**. Without it a helper exposed
-   * its allowlist on its module-facing API and **the thing being bounded could edit its own boundary**.
+   * its allowlist on its module-facing API and **the thing being bounded could edit its own
+   * boundary**.
    *
    * ⚠ A client component that must submit through `saveHelperSettingsAction` — never its own
    * action. REFS app/admin/helpers/actions.ts › saveHelperSettingsAction()
@@ -307,7 +330,9 @@ export type HelperDefinition = {
    * checked same-origin and the admin permission and built `ctx` from the real session.
    *
    * ⚠ **A helper may not define its own server action for this.** It is first-party and *could* —
-   *   and that is the point: the gated path being the only path means the check cannot be forgotten.
+   *   and that is the point: the gated path being the only path means the check cannot be
+   * forgotten.
+   *
    */
   onSettingsSubmit?: (
     ctx: HelperSettingsContext,

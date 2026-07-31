@@ -20,6 +20,7 @@ import { moduleFilesExist } from "./install";
  * PINS tests/integration/modules.test.ts · tests/integration/module-bulk.test.ts
  */
 
+/** REFS app/admin/modules/actions.ts · lib/modules/install.ts · lib/modules/provenance.ts */
 export async function enableModule(def: ModuleDefinition): Promise<void> {
   const declared = grantsForModule(def);
 
@@ -40,9 +41,8 @@ export async function enableModule(def: ModuleDefinition): Promise<void> {
   const granted = current ? declared.filter((p) => current.includes(p)) : declared;
 
   await runModuleMigrations(def); // create mod_<id>_* tables before onEnable runs
-  // Where it came from is only knowable from the install record — a ModuleDefinition
-  // says nothing about its repo or channel. Applied on UPDATE too, so a row written by
-  // an older build (which assumed "bundled") is corrected the next time it's enabled.
+  // Provenance is knowable only from the install record — a ModuleDefinition says nothing about its
+  // repo or channel. Applied on UPDATE too, so an older "bundled" row corrects itself.
   const prov = readProvenance(def.id);
   await prisma.module.upsert({
     where: { id: def.id },
@@ -68,6 +68,7 @@ export async function enableModule(def: ModuleDefinition): Promise<void> {
   if (def.onEnable) await def.onEnable(buildModuleContext(def, granted, null));
 }
 
+/** REFS app/admin/modules/actions.ts — the only production caller. */
 export async function disableModule(def: ModuleDefinition): Promise<void> {
   const row = await prisma.module.findUnique({ where: { id: def.id } });
   await prisma.module.updateMany({ where: { id: def.id }, data: { enabled: false } });
@@ -76,6 +77,7 @@ export async function disableModule(def: ModuleDefinition): Promise<void> {
   }
 }
 
+/** REFS app/admin/modules/actions.ts › uninstallModuleAction() — purges, then rebuilds. */
 export async function uninstallModule(
   def: ModuleDefinition,
   /** Replies to the module's `uninstallQuestions`, keyed by question id. */
@@ -93,15 +95,18 @@ export async function uninstallModule(
  * new code running against the old schema, with nothing warning.
  *
  * Idempotent — only files absent from `ModuleMigration` run — so it self-heals modules updated
- * before this existed. ⚠ Must run AFTER the rebuild and restart, because the new definition is not
- * loadable until then; hence lazily, on the first registry read of a fresh process. One module
- * failing must not stop the others or block the page.
- *
+ * before this existed. ⚠ Must run AFTER the rebuild and restart; hence lazily, on the first
+ * read of a fresh process. One module failing must not stop the others or block the page.
  * REFS lib/modules/migrate.ts — runs the files · app/(app)/dashboard/page.tsx ·
  *      app/(app)/m/[module]/[[...path]]/page.tsx · app/admin/modules/page.tsx · lib/helpers/boot.ts
  */
 let migrationSync: Promise<void> | null = null;
 
+/**
+ * REFS app/(app)/dashboard/page.tsx · app/(app)/m/[module]/[[...path]]/page.tsx ·
+ *      app/admin/modules/page.tsx · lib/helpers/boot.ts · lib/helpers/migrate.ts — every path that
+ *      reads the registry in a fresh process
+ */
 export function ensureModuleMigrations(): Promise<void> {
   // Once per process, and concurrent callers share the same run rather than racing.
   migrationSync ??= (async () => {
