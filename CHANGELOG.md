@@ -9,6 +9,27 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.4-beta.1] — 2026-07-31
+
+**Code notes only — no behaviour change of any kind.** Nothing an end user can see is different.
+
+CORE-18, the whole sweep in one release: every one of the 308 source files in core now carries
+cross-references, so opening a line to change it shows what else depends on it.
+
+- **951 `REFS` and 247 `PINS` lines, from none.** Every caller list was produced by `git grep`, not
+  written by hand, and a build check fails if a note names a file that does not exist.
+- **692 `⚠` markers, from none** — the rules that must not be reversed are now flagged at the line
+  they govern rather than buried in a paragraph.
+- **Tests point back at what they guard.** The source side names its tests; each test now names the
+  code it protects. That matters most for the tests that read a source file as text, which have no
+  import to follow and nothing linking them to what they assert against.
+- Narration cut throughout: roughly 1,150 lines of explanation removed, replaced by roughly 1,200
+  lines of verified reference. The total is 0.7% larger, which is the intended outcome — the point
+  was the references, not a smaller file.
+
+Verified comments-only: the de-commented source is byte-identical to 1.8.3 for every file changed.
+
+
 ## [1.8.3] — 2026-07-30
 
 **You can install JonDash on your phone.** Open it in your phone's browser and use *Add to Home

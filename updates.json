@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.4-beta.1",
+      "date": "2026-07-31",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Nothing you can see has changed - this release only rewrites the notes developers read inside the code. Every part of the app now says which other parts depend on it, so anyone changing something can see what else moves with it. The wording was also tightened throughout, so the warnings that matter are not buried in paragraphs. Your settings, data, modules and layout are untouched."
+    },
+    {
       "version": "1.8.3",
       "date": "2026-07-30",
       "type": "minor",
