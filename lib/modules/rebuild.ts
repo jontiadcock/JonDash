@@ -83,7 +83,7 @@ export function clearFailedModule(): void {
 /**
  * Drop the sentinel, then exit shortly after so the response can flush. Safe unsupervised — the
  * process simply exits.
- * REFS lib/restart.ts › requestServerRestart() — the same shape for an app restart
+ * REFS lib/server-control.ts › requestServerRestart() — the same shape for an app restart
  *      lib/updates/scheduler.ts · app/admin/updates/*-actions.ts — the callers
  */
 export function requestRebuildAndRestart(): void {

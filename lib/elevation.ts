@@ -6,34 +6,29 @@ import { audit, auditOrThrow } from "@/lib/audit";
 
 /**
  * Core-side API for `jondash-grant` (OPS-18) — the only supported way for a helper to create,
- * remove or list OS-level grants.
+ * remove or list OS-level grants. A grant is one saved Windows Task Scheduler instruction with the
+ * service name baked in when an admin approved it under UAC; it has no trigger and never fires by
+ * itself, so JonDash can perform that one fixed action later with no prompt.
  *
- * A grant is one saved instruction in Windows Task Scheduler: "stop then start the Plex
- * service", with the service name baked in when an admin approved it under UAC. It has no
- * trigger and never fires by itself; it exists so JonDash can perform that one fixed action
- * later without an admin prompt. See docs/ROADMAP.md § OPS-18 and
- * JonDash-addons/helpers/ELEVATION.md.
+ * ⚠ Pass STRUCTURED VALUES, never a command string. Nothing here takes arbitrary arguments, so a
+ * fully compromised caller can only ask for verbs the binary implements. Keep it that way.
+ * ⚠ A helper may spawn processes and so COULD invoke the binary itself. It must not: one place
+ * resolves the path, one place audits (a caller that forgot would be invisible), and one place maps
+ * exit codes, because "declined" and "failed" carry different retry policies.
  *
- * WHY HELPERS GO THROUGH HERE RATHER THAN SPAWNING IT THEMSELVES
- * Helpers are allowed to spawn processes, so a helper *could* invoke the binary directly. It
- * must not, and this module exists so it doesn't have to:
- *  - **One place resolves the path.** A helper hardcoding it would break on the next install
- *    layout change, and a helper *computing* it is a helper that can be made to compute a
- *    different one.
- *  - **One place audits.** Every elevated action must be logged (ELEVATION.md rule 7). If each
- *    caller did its own, the one that forgot would be invisible — which is the case that matters.
- *  - **One place maps exit codes.** "The admin declined" and "the action failed" mean different
- *    things and carry different retry policies; conflating them is how a UI ends up telling
- *    somebody an operation broke when they simply said no.
+ * REFS tools/grant/Program.cs — the binary; its exit codes are mirrored below
+ *      docs/ROADMAP.md § OPS-18 · JonDash-addons/helpers/ELEVATION.md — the helper-facing contract
+ *      lib/audit.ts › auditOrThrow() — what makes the fail-closed path possible
+ * PINS tests/unit/elevation.test.ts · tests/unit/audit.test.ts
  *
- * THIS MODULE PASSES STRUCTURED VALUES, NEVER A COMMAND STRING. There is deliberately no
- * function here that takes arbitrary arguments, because a fully compromised caller must only
- * be able to ask for verbs the binary implements.
+ * ⚠ Most exports here have NO caller inside core — helpers are their callers and live in the
+ * add-ons repo, so a repo-wide search will wrongly read them as dead.
  */
 
 /** The verbs a grant can express. Deliberately closed — this is a grammar, not a config. */
 export type GrantVerb = "start" | "stop" | "restart";
 
+/** REFS app/admin/permissions/actions.ts · app/admin/users/[id]/page.tsx — the admin surface */
 export type Grant = {
   /** Task name inside `\JonDash\`, e.g. `Plex-restart`. */
   name: string;
@@ -44,8 +39,8 @@ export type Grant = {
 };
 
 /**
- * Why a call didn't do what was asked. Callers must distinguish these — particularly
- * `declined`, which is a person exercising a choice rather than anything going wrong.
+ * Why a call didn't do what was asked. ⚠ Callers must distinguish these — especially `declined`,
+ * which is a person exercising a choice rather than anything going wrong.
  */
 export type GrantFailure =
   | "unsupported-platform" // not Windows
@@ -62,31 +57,26 @@ export type GrantFailure =
 export type GrantResult<T> = { ok: true; value: T } | { ok: false; reason: GrantFailure; message: string };
 
 /**
- * Exit codes, mirrored from tools/grant/Program.cs. Kept in step by
- * tests/unit/elevation.test.ts, which fails if the binary's --help stops documenting them —
- * two copies of a contract need something that notices when they diverge.
+ * Exit codes, mirrored from the binary.
+ *
+ * ⚠ The LITERAL's shape is parsed out of this file by a regex in the test below — keep it a single
+ * flat object literal, or the check that the two copies agree silently stops checking.
+ * REFS tools/grant/Program.cs — the other copy
+ * PINS tests/unit/elevation.test.ts — fails when they diverge
  */
 const EXIT = { ok: 0, usage: 2, failed: 3, noDesktop: 4, declined: 1223 } as const;
 
 /**
- * How long to wait for the binary.
- *
- * This was 2 minutes and that was too short: a `--create` sits at a UAC prompt until a human
- * decides, and 2 minutes is not long for someone weighing up whether to grant admin rights.
- *
- * Found while investigating a suspected declined/failed mis-mapping that turned out **not to
- * exist** — the add-ons session verified the 1223 path end to end and withdrew the report. The
- * timeout gap is real and separate: Node signals a timeout by killing the child, which leaves
- * no exit code, so it was silently folded into "failed". Someone taking three minutes over the
- * prompt would have been told the operation broke.
- *
- * Now 10 minutes, and a timeout is its own outcome.
+ * ⚠ Must be generous: a `--create` sits at a UAC prompt until a human decides, and someone weighing
+ * up whether to grant admin rights can easily take minutes. At 2 minutes they were told the
+ * operation broke. A timeout is its own outcome — see `run()` for why it needs detecting.
  */
 const TIMEOUT_MS = 600_000;
 
 /**
- * The binary ships inside the release archive at `bin/jondash-grant.exe`, so it sits next to
- * the app rather than anywhere the user configures. Resolved here and nowhere else.
+ * ⚠ Resolved here and nowhere else. The binary ships inside the release archive at
+ * `bin/jondash-grant.exe`, next to the app rather than anywhere the user configures — a caller
+ * that computes its own path is a caller that can be made to compute a different one.
  */
 export function grantBinaryPath(): string {
   return path.join(process.cwd(), "bin", "jondash-grant.exe");
@@ -98,8 +88,8 @@ export function grantSupport(): { available: true } | { available: false; reason
     return {
       available: false,
       reason: "unsupported-platform",
-      // Stated plainly rather than hinted at: the Linux design exists (OPS-18) but is not
-      // built, because JonDash has no Linux launcher yet (OPS-19).
+      // Stated plainly: the Linux design exists (OPS-18) but is unbuilt, because there is no
+      // Linux launcher yet (OPS-19).
       message: "Service grants are Windows-only in this release.",
     };
   }
@@ -117,13 +107,11 @@ type RunOutcome = { code: number; stdout: string; stderr: string; timedOut: bool
 
 function run(args: string[]): Promise<RunOutcome> {
   return new Promise((resolve) => {
-    // execFile, never a shell: arguments are passed as an argv array, so nothing in a service
-    // name can be reinterpreted as shell syntax. A `shell: true` here would undo the binary's
-    // whole grammar argument.
+    // ⚠ `execFile`, NEVER a shell. Arguments go as an argv array, so nothing in a service name
+    // can be reinterpreted as shell syntax; `shell: true` would undo the whole grammar argument.
     execFile(grantBinaryPath(), args, { timeout: TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => {
-      // Node reports a timeout by KILLING the child, which leaves no exit code — so this has to
-      // be detected separately or it silently becomes "failed", which is the mis-report the
-      // add-ons session hit.
+      // ⚠ Node reports a timeout by KILLING the child, leaving no exit code — detect it separately
+      // or a slow UAC prompt silently becomes "failed".
       const killed = Boolean(err && (err as NodeJS.ErrnoException & { killed?: boolean }).killed);
       const numeric = err && typeof (err as { code?: unknown }).code === "number"
         ? (err as unknown as { code: number }).code
@@ -149,28 +137,23 @@ function messageFrom(o: RunOutcome, fallback: string): string {
 }
 
 /**
- * Run the binary and record it.
+ * Run the binary and record it. `mustAudit` encodes a deliberate ASYMMETRY and the direction is
+ * the whole point:
  *
- * `mustAudit` encodes a deliberate ASYMMETRY, and the direction matters:
- *
- *  - **Granting privilege (`--create`) fails closed.** The intent is written *before* the
- *    action; if that write fails, the action does not happen. The add-ons session found a
- *    `removeAllGrants` that succeeded while its audit write failed (no `DATABASE_URL` in a
- *    script context), leaving a privileged action with no record. "Audited" and "attempted to
- *    audit" are different promises and only one of them was made.
- *  - **Revoking privilege (`--remove`) proceeds regardless.** Refusing to revoke because a log
- *    is unavailable would leave an elevated grant in place, which is plainly worse than
- *    revoking it unlogged. An unrecorded revocation is a gap in the record; an unrevoked grant
- *    is a live capability nobody wanted.
+ * ⚠ GRANTING privilege fails closed — the intent is written before the action, and if that write
+ * fails the action does not happen. "Audited" and "attempted to audit" are different promises.
+ * ⚠ REVOKING privilege proceeds regardless. An unrecorded revocation is a gap in the record; an
+ * unrevoked grant is a live capability nobody wanted.
+ * REFS lib/audit.ts › auditOrThrow() — throws where `audit()` swallows, which is what makes the
+ *      fail-closed direction possible
  */
 async function invoke<T>(
   args: string[],
   auditAction: string,
   auditDetail: string,
   /**
-   * Reads the result out of the process outcome. Note that for anything which ELEVATES, stdout
-   * is not available — the elevated child owns its own console — so those callers must read
-   * the result back from Windows instead of parsing here.
+   * ⚠ For anything that ELEVATES there is no stdout — the elevated child owns its own console — so
+   * those callers must read the result back from Windows instead of parsing here.
    */
   parse: (o: RunOutcome) => T,
   opts: { userId?: string | null; mustAudit?: boolean } = {},
@@ -194,10 +177,12 @@ async function invoke<T>(
 
   const outcome = await run(args);
 
-  // The OUTCOME is always best-effort: by this point the action has already happened, so
-  // throwing here would report a failure that did not occur. Recorded whatever it was,
-  // including declined and failed — a log that holds only successes cannot answer "did anyone
-  // try?", which is the question that matters after an incident.
+  /*
+   * ⚠ The OUTCOME audit is always best-effort: the action has already happened, so throwing here
+   * would report a failure that did not occur.
+   * ⚠ Record it whatever it was, including declined and failed — a log holding only successes
+   * cannot answer "did anyone try?", which is the question that matters after an incident.
+   */
   await audit(auditAction, {
     userId: opts.userId ?? undefined,
     detail: `${auditDetail} → exit ${outcome.code}${outcome.code === EXIT.ok ? "" : ` (${classify(outcome)})`}`,
@@ -210,13 +195,12 @@ async function invoke<T>(
 }
 
 /**
- * Create the grants for one entry. All the verbs go in a single call ON PURPOSE: that is one
- * UAC prompt for the decision actually being made — "may JonDash control this service" —
- * rather than three prompts carrying no extra information, which would just teach the admin
- * to click through them.
+ * Create the grants for one entry. ⚠ All verbs go in ONE call on purpose — that is a single UAC
+ * prompt for the decision actually being made, rather than three carrying no extra information,
+ * which only teaches the admin to click through.
  *
- * Needs an interactive desktop, because somebody has to answer the prompt. Using a grant
- * afterwards does not — that asymmetry is what makes unattended automation possible.
+ * Needs an interactive desktop; `runGrant()` below does not, and that asymmetry is what makes
+ * unattended automation possible. REFS tools/grant/Program.cs — `--create` re-launches elevated
  */
 export async function createGrant(input: {
   service: string;
@@ -225,7 +209,9 @@ export async function createGrant(input: {
   id?: string;
   /** The Windows account JonDash runs as, which will be allowed to RUN the task (not edit it). */
   account?: string;
-  /** Who approved it, recorded in the task's Description so Task Scheduler reads as an audit trail. */
+  /**
+   * Who approved it, recorded in the task's Description so Task Scheduler reads as an audit trail.
+   */
   by?: string;
   /** Self-delete after a single run. Cannot serve unattended automation — see OPS-18. */
   once?: boolean;
@@ -244,24 +230,21 @@ export async function createGrant(input: {
     args,
     "elevation.grant.create",
     `${input.service} [${input.verbs.join(",")}]${input.once ? " once" : ""}`,
-    // Deliberately NOT the child's stdout. `--create` re-launches itself elevated, and the
-    // elevated process writes to its own hidden console — nothing comes back to us, so this
-    // returned an empty array on success. Found in manual testing 2026-07-25.
-    //
-    // The obvious fix — have the elevated child write results to a path we pass it — would be
-    // an ARBITRARY FILE WRITE AS ADMINISTRATOR, since we choose that path while unprivileged.
-    // `--result C:\Windows\System32\anything` is exactly the shape this whole design refuses.
-    // So the names are read back from Windows instead, below.
+    /*
+     * ⚠ Deliberately NOT the child's stdout: `--create` re-launches itself elevated and that
+     * process writes to its own hidden console, so nothing comes back.
+     * ⚠ DO NOT "fix" this by passing the elevated child a path to write results to. We choose that
+     * path while unprivileged, so it is an arbitrary file write AS ADMINISTRATOR — exactly the
+     * shape this design refuses. The names are read back from Windows below instead.
+     */
     () => undefined,
-    // Granting privilege is the one direction that fails closed: if the attempt cannot be
-    // recorded, it does not happen. See `invoke` for why revoking is the opposite.
+    // Granting is the direction that fails closed — see `invoke` for why revoking is not.
     { userId: input.userId, mustAudit: true },
   );
   if (!created.ok) return created;
 
-  // Read the truth from the OS rather than trusting anything we were told. Needs no elevation
-  // and no prompt. Names are deterministic (`<id>-<verb>`) now that a collision is refused
-  // rather than silently suffixed, but asking is still better than deriving.
+  // Read the truth from the OS rather than deriving it. Needs no elevation and no prompt, and
+  // survives the binary changing how it sanitises a name. REFS previewGrantName() below
   const listed = await listGrants();
   if (!listed.ok) return listed;
   const prefix = ((input.id ?? input.service).match(/[A-Za-z0-9._-]+/g) ?? []).join("");
@@ -274,18 +257,13 @@ export async function createGrant(input: {
 /**
  * Trigger an existing grant — the moment a service actually starts, stops or restarts.
  *
- * **This is the entry that was missing**, and the add-ons session was right to push on it: core
- * logged *granting* and *revoking* a permission but not *using* one, so the real-world effect
- * was absent from the very log built to record privileged actions. They were spawning
- * `schtasks /run` themselves — not a rule bent, since running cannot escalate, but it put the
- * event outside core's audit trail.
- *
- * **Needs no elevation.** That asymmetry is the whole design: creating a grant requires a human
- * at a prompt, using one does not, which is what lets a health check restart a hung service at
- * 3am. Nothing here can create a capability — if the grant doesn't exist, this simply fails.
- *
- * Returns once the task has been *started*. A service stop can take seconds, so claiming the
- * service change itself succeeded would be a lie; poll the service if the caller needs to know.
+ * ⚠ Helpers must call this rather than spawning `schtasks /run` themselves. Running cannot
+ * escalate, so it bends no rule, but it puts the event outside core's audit trail — and `use` was
+ * the one privileged event the log was missing.
+ * ⚠ Needs NO elevation, and nothing here can create a capability: if the grant does not exist this
+ * simply fails. That is what lets a health check restart a hung service at 3am.
+ * Returns once the task has STARTED — a service stop can take seconds, so poll it if that matters.
+ * PINS tests/unit/elevation.test.ts — helpers are the real callers, from the add-ons repo
  */
 export async function runGrant(input: { name: string; userId?: string | null }): Promise<GrantResult<string>> {
   if (!input.name.trim()) {
@@ -296,9 +274,8 @@ export async function runGrant(input: { name: string; userId?: string | null }):
     "elevation.grant.run",
     input.name,
     (o) => o.stdout.trim(),
-    // Best-effort audit, deliberately: this uses a capability an admin already approved rather
-    // than creating one, and refusing to restart a hung service because the log is unavailable
-    // would break the automation this exists for. The grant itself is already on record.
+    // Best-effort audit on purpose: this USES a capability an admin already approved, and
+    // refusing to restart a hung service because the log is down would break the automation.
     { userId: input.userId },
   );
 }
@@ -326,12 +303,12 @@ export async function removeGrant(input: {
 }
 
 /**
- * Remove EVERY grant and the `\JonDash\` folder. This is the uninstall path — nothing
- * elevated may outlive the thing that justified it (owner requirement, 2026-07-25).
+ * Remove EVERY grant and the `\JonDash\` folder — the uninstall path. ⚠ Nothing elevated may
+ * outlive the thing that justified it.
  *
- * It needs elevation, so it cannot be silent. If the admin declines, the caller must say
- * plainly that grants remain and how to remove them by hand, rather than reporting a clean
- * uninstall — a leftover elevated task nobody knows about is the worst outcome here.
+ * ⚠ It needs elevation, so it cannot be silent. On a decline the caller must say plainly that
+ * grants remain and how to remove them by hand; reporting a clean uninstall leaves an elevated
+ * task nobody knows about. REFS lib/audit.ts — the only core caller
  */
 export async function removeAllGrants(opts: { userId?: string | null } = {}): Promise<GrantResult<string[]>> {
   return invoke(
@@ -344,11 +321,13 @@ export async function removeAllGrants(opts: { userId?: string | null } = {}): Pr
 }
 
 /**
- * What is actually granted, read from Windows rather than from any record of ours — so it
- * cannot drift from reality, and an orphan left by a skipped uninstall still shows up.
+ * What is actually granted, read from Windows rather than from any record of ours — so it cannot
+ * drift, and an orphan left by a skipped uninstall still shows up.
  *
- * Needs no elevation and writes no audit entry: reading is not a privileged act, and a UAC
- * prompt merely to answer "what may JonDash do?" would train people to click through.
+ * ⚠ No elevation and no audit entry: reading is not a privileged act, and a UAC prompt merely to
+ * answer "what may JonDash do?" would train people to click through.
+ * REFS createGrant() above — reads the created names back through this
+ * PINS tests/unit/elevation.test.ts
  */
 export async function listGrants(): Promise<GrantResult<Grant[]>> {
   const support = grantSupport();
@@ -366,19 +345,18 @@ export async function listGrants(): Promise<GrantResult<Grant[]>> {
   }
 }
 
-// ─── Package actions (the elevate shim) ──────────────────────────────────────────────────
-//
-// WEAKER THAN GRANTS, DELIBERATELY AND UNAVOIDABLY. A grant is safe because the action is
-// frozen when the admin approves it and Windows enforces that nothing else can happen. An
-// install has a variable part, so nothing can be frozen and every one prompts.
-//
-// UAC does not protect the admin here — the prompt names `jondash-elevate.exe` and says nothing
-// about the package. **The caller's own screen is the real consent surface and must show the
-// package id verbatim.** What the shim contributes is a bound: the only expressible action is
-// "install/uninstall a named package from the official winget source at current version", so a
-// compromised caller can reach the winget catalogue and nothing beyond it.
-//
-// The risk that remains: an installer runs the vendor's code as administrator by definition.
+/*
+ * ─── Package actions (the elevate shim) ─────────────────────────────────────────────────────
+ *
+ * ⚠ WEAKER THAN GRANTS, unavoidably. A grant is safe because the action is frozen when the admin
+ * approves it; an install has a variable part, so nothing can be frozen and every one prompts.
+ * ⚠ UAC does not protect the admin here — the prompt names `jondash-elevate.exe` and says nothing
+ * about the package. THE CALLER'S OWN SCREEN IS THE CONSENT SURFACE and must show the package id
+ * verbatim. All the shim contributes is a bound: install or uninstall a named package from the
+ * official winget source, and nothing beyond that catalogue.
+ * ⚠ Residual risk, accepted: an installer runs the vendor's code as administrator by definition.
+ * REFS tools/elevate/Program.cs — the shim itself
+ */
 
 export type PackageManager = "winget";
 export type PackageState = "installed" | "not-installed";
@@ -435,8 +413,8 @@ async function pkgAction(
   const support = packageSupport();
   if (!support.available) return { ok: false, reason: support.reason, message: support.message };
 
-  // Audited BEFORE acting, like createGrant: this elevates, and an elevated action that
-  // happened with no record is the outcome the log exists to prevent.
+  // ⚠ Audited BEFORE acting, like createGrant — this elevates, and an elevated action with no
+  // record is the outcome the log exists to prevent.
   try {
     await auditOrThrow(`elevation.package.${action}.attempt`, { userId: opts.userId ?? undefined, detail: pkg });
   } catch {
@@ -454,19 +432,18 @@ async function pkgAction(
   });
 
   if (outcome.code === PKG_EXIT.ok) return { ok: true, value: "done" };
-  // "Already in that state" is a success for the caller's purpose — the package is where they
-  // wanted it — but they may want to say "already installed" rather than "installed".
+  // "Already in that state" is a success for the caller's purpose, but they may want to word it
+  // as "already installed" rather than "installed".
   if (outcome.code === PKG_EXIT.already) return { ok: true, value: "already" };
   return { ok: false, reason: classifyPkg(outcome), message: messageFrom(outcome, `The ${action} failed.`) };
 }
 
 /**
- * Install a package. **Prompts for elevation every time** — there is nothing to grant once.
+ * Install a package. ⚠ Prompts for elevation EVERY time — there is nothing to grant once.
  *
- * Returns when the installer has FINISHED, which can be minutes. There is no progress stream:
- * the elevated child owns its own console, so nothing comes back mid-run (the same constraint
- * that shapes `createGrant`). To show progress, poll `packageState()` — it needs no elevation
- * and never prompts.
+ * Returns when the installer has FINISHED, which can be minutes, and there is no progress stream:
+ * the elevated child owns its console, the same constraint that shapes `createGrant`. Poll
+ * `packageState()` for progress — it needs no elevation and never prompts.
  */
 export function installPackage(
   pkg: string,
@@ -476,10 +453,8 @@ export function installPackage(
 }
 
 /**
- * Uninstall a package. Prompts every time.
- *
- * Only ever call this for something JonDash installed. Removing software the user installed
- * themselves is not ours to do — clean up what you created, never what you found.
+ * Uninstall a package. Prompts every time. ⚠ Only ever call it for something JonDash installed —
+ * clean up what you created, never what you found.
  */
 export function uninstallPackage(
   pkg: string,
@@ -489,8 +464,8 @@ export function uninstallPackage(
 }
 
 /**
- * Whether a package is installed. **No elevation, no prompt, no audit entry** — reading is not
- * a privileged act, and a prompt per poll would make progress-checking unusable.
+ * Whether a package is installed. No elevation, no prompt, no audit entry — reading is not a
+ * privileged act, and a prompt per poll would make progress-checking unusable.
  */
 export async function packageState(
   pkg: string,
@@ -507,16 +482,13 @@ export async function packageState(
 }
 
 /**
- * What a name will become once sanitised.
+ * What a name will become once sanitised. ⚠ AUTHORITATIVE, not advisory — a caller that sanitises
+ * locally and assumes agreement gets it wrong. A helper mapping a space to `-` where this deletes
+ * it saw `My Service` and `MyService` as two entries and Windows saw ONE task: their collision
+ * check passed, and removing either silently revoked the other.
  *
- * **AUTHORITATIVE, NOT ADVISORY.** A caller that sanitises locally and assumes agreement will
- * get this wrong: the add-ons session maps a space to `-` where this deletes it, so `My Service`
- * and `MyService` were two entries on their side and **one task name** to Windows. Their
- * collision check passed and removing either entry silently revoked the other.
- *
- * Any helper deciding whether two entries collide must ask here rather than guess. The binary
- * now also refuses an ambiguous collision outright instead of inventing a suffix, so the failure
- * is loud rather than silent — but resolving the name first is still the right way round.
+ * ⚠ Any caller deciding whether two entries collide must ask here rather than guess.
+ * REFS createGrant() above — reads names back from Windows for the same reason
  */
 export async function previewGrantName(name: string): Promise<GrantResult<string>> {
   const support = grantSupport();

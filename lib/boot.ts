@@ -3,81 +3,56 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * A fresh value every time this process starts (evaluated once, at module load).
+ * A fresh value every time this process starts. ⚠ A liveness nonce, NOT the session cutoff — see
+ * `SESSION_EPOCH` below for that.
  *
- * Reported by the public `/api/health` endpoint so a client waiting out a restart/update can
- * detect the *new* process — the value changes on every boot — before it reconnects. Also
- * still ties the short-lived pre-auth login cookie (`lib/auth/preauth.ts`) to this run. This
- * is a liveness nonce, NOT the full-session cutoff; see SESSION_EPOCH for that.
+ * REFS app/api/health/route.ts — publishes it, which is how a client detects the NEW process
+ *      app/components/server-wait-overlay.tsx — the client that watches for the change
+ *      lib/auth/preauth.ts — ties the short-lived pre-auth cookie to this run
+ *      app/api/server/restart/route.ts · shutdown/route.ts · app/api/update/apply/route.ts
  */
 export const SERVER_BOOT_TIME = Date.now();
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 
 /**
- * The "sign everyone out" cutoff (`lib/auth/session.ts`): a session created before this is
- * rejected.
- *
- * It normally advances to `now` on every boot, so an **unexpected** restart (a crash, or a
- * folder copied to another machine and started fresh) and a **shutdown → cold start**
- * invalidate every prior session.
- *
- * A **graceful, app-initiated restart keeps everyone signed in** (owner request). Two markers
- * signal that:
- *   - `.data/post-update` — written by the launcher while applying an **update**. It ALSO
- *     drives the launcher's crash-revert (`start-dashboard.bat`), so it must survive until the
- *     new build is proven healthy — the supervisor clears it, never this function.
- *   - `.data/keep-sessions` — written by the app just before an **in-app restart** or a
- *     **module rebuild** (`lib/server-control.ts`, `lib/modules/rebuild.ts`). Like
- *     `post-update` it is cleared by the **supervisor** once the new build is healthy — NOT
- *     here. That matters: the server evaluates this module more than once per start (the
- *     `instrumentation` startup bundle, then the app-route bundle on the first request), so a
- *     delete-on-read would let the *second* evaluation find no marker and advance the epoch
- *     right past a freshly-created session. Leaving the marker in place means every evaluation
- *     of one start agrees to reuse. `requestServerShutdown` deletes it so an explicit shutdown
- *     still signs out even if it follows a restart before the healthy-clear.
- *
- * A **shutdown writes neither marker** (and clears any leftover), so the next cold start
- * advances the epoch and signs everyone out — the one intentional stop that isn't a
- * session-preserving restart.
- *
- * Security note: keeping sessions across a graceful boot doesn't widen the trust boundary.
- * Forging a marker needs local filesystem access, and the sessions table stores only token
- * *hashes* — a valid session still needs a raw cookie token an attacker can't get from the
- * files. A missing/garbled epoch file falls back to `now`, the safe (invalidating) direction.
+ * The "sign everyone out" cutoff: a session created before this is rejected. It advances to `now`
+ * every boot — so a crash, a cold start, or a folder copied elsewhere invalidates every session —
+ * unless `.data/post-update` or `.data/keep-sessions` marks a graceful app-initiated restart. A
+ * missing or garbled epoch file falls back to `now` — the invalidating direction, so keep it.
+ * ⚠ NEITHER marker may be deleted here; the supervisor clears them after a healthy boot. This
+ * module is evaluated more than once per start (instrumentation, then an app-route bundle on first
+ * request), so a delete-on-read lets the SECOND find none and advance past new sessions.
+ * REFS lib/auth/session.ts — the only reader · scripts/supervise.mjs — clears both markers
+ *      lib/server-control.ts › markKeepSessions() — the writer; rebuild.ts calls it too
+ * PINS tests/unit/session-epoch.test.ts
  */
 export const SESSION_EPOCH: number = sessionEpochFor(DATA_DIR);
 
 /**
- * When this OS process started. Identical in every bundle of the same process (unlike a
- * module-level `Date.now()`, which is whenever that particular bundle happened to load), so
- * it can be used to tell "the epoch on disk was decided by THIS run" from "…by a previous
- * one". Rounded, because `process.uptime()` is a float.
+ * When this OS PROCESS started — identical in every bundle of the same process, unlike a
+ * module-level `Date.now()`, which is whenever that bundle happened to load. That is what lets a
+ * record on disk say which run decided it. Rounded, because `process.uptime()` is a float.
  */
 function processStartedAt(): number {
   return Math.round(Date.now() - process.uptime() * 1000);
 }
 
 /**
- * The session epoch for this process — decided **once per run**, then reused by every caller.
+ * The session epoch for this process — decided ONCE per run, then reused by every caller.
  *
- * This function exists because the obvious version was wrong in a way that only showed up in
- * production. `lib/boot` is imported by several route bundles, and Next loads those **lazily,
- * on first request**. The decision "reuse the epoch or advance it?" was therefore re-taken
- * whenever a bundle happened to load — including minutes after start, by which time the
- * supervisor had cleared the graceful-restart marker. That late evaluation saw no marker,
- * advanced the epoch past everyone's freshly-created sessions, and signed the whole instance
- * out. Applying an update looked fine and then logged you out the moment you navigated
- * somewhere new.
+ * ⚠ The decision cannot be re-taken per bundle. Next loads route bundles lazily, on first request,
+ * so "reuse or advance?" was being answered minutes after start — by which time the supervisor had
+ * cleared the graceful-restart marker, and that late evaluation signed the whole instance out.
+ * The record on disk therefore carries WHICH RUN decided it (`decidedBy`); a process finding its
+ * own stamp just reads the value, so marker state is read once, while it still means something.
  *
- * So the record on disk now carries **which run decided it** (`decidedBy`). A process that
- * finds its own stamp just reads the value; only the first caller in a run makes the
- * decision. Marker state is then read exactly once per boot, when it is still meaningful.
+ * PINS tests/unit/session-epoch.test.ts
  */
 export function sessionEpochFor(dataDir: string): number {
   const started = processStartedAt();
   const stored = readEpochRecord(dataDir);
-  // Decided by this run already (by whichever bundle loaded first) — just agree with it.
+  // Already decided by this run, by whichever bundle loaded first — agree with it.
   if (stored && Math.abs(stored.decidedBy - started) < 2000) return stored.epoch;
   return computeSessionEpoch(dataDir, Date.now());
 }
@@ -87,8 +62,8 @@ type EpochRecord = { epoch: number; decidedBy: number };
 function readEpochRecord(dataDir: string): EpochRecord | null {
   try {
     const raw = fs.readFileSync(path.join(dataDir, "session-epoch"), "utf8").trim();
-    // Older installs stored a bare number; treat it as "decided by a previous run", which is
-    // the safe reading — this run then decides for itself.
+    // Older installs stored a bare number. Treating it as "decided by a previous run" is the
+    // safe reading — this run then decides for itself.
     if (/^\d+$/.test(raw)) return { epoch: Number.parseInt(raw, 10), decidedBy: 0 };
     const parsed = JSON.parse(raw) as Partial<EpochRecord>;
     if (typeof parsed.epoch === "number" && typeof parsed.decidedBy === "number") {
@@ -101,9 +76,9 @@ function readEpochRecord(dataDir: string): EpochRecord | null {
 }
 
 /**
- * Decide the epoch for a fresh run and persist it, exported for tests. Reads the previous
- * epoch and the two graceful-restart markers from `dataDir`. Neither marker is deleted here —
- * the supervisor clears them after a healthy boot; a shutdown clears keep-sessions itself.
+ * Decide the epoch for a fresh run and persist it. ⚠ Neither marker is deleted here — the
+ * supervisor clears them after a healthy boot, and a shutdown clears keep-sessions itself.
+ * Exported for the test. PINS tests/unit/session-epoch.test.ts
  */
 export function computeSessionEpoch(dataDir: string, now: number): number {
   const epochFile = path.join(dataDir, "session-epoch");
@@ -111,14 +86,14 @@ export function computeSessionEpoch(dataDir: string, now: number): number {
   const keepSessions = path.join(dataDir, "keep-sessions");
   const previousRecord = readEpochRecord(dataDir);
   const previous = previousRecord?.epoch ?? null;
-  // A graceful restart (update OR an in-app restart/rebuild) reuses the previous epoch so
-  // everyone stays signed in; anything else advances to now.
+  // A graceful restart — an update, an in-app restart, or a rebuild — reuses the previous epoch
+  // so everyone stays signed in; anything else advances to now.
   const graceful = fs.existsSync(postUpdate) || fs.existsSync(keepSessions);
   const epoch = previous != null && graceful ? previous : now;
   try {
     fs.mkdirSync(dataDir, { recursive: true });
-    // Stamped with the run that decided it, so later-loading bundles in THIS process reuse
-    // the value instead of re-deciding once the markers have been cleared.
+    // ⚠ Stamped with the run that decided it, so later-loading bundles in THIS process reuse the
+    // value instead of re-deciding once the markers have been cleared.
     const record: EpochRecord = { epoch, decidedBy: processStartedAt() };
     fs.writeFileSync(epochFile, JSON.stringify(record));
   } catch {
