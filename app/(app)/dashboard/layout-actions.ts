@@ -8,20 +8,19 @@ import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { getUserVisibleLinks } from "@/lib/services";
 
-/**
- * Dashboard layout actions (CORE-11 / CORE-12).
- *
- * Every one is scoped to the CALLER's own layout — the user id comes from the session, never
- * from the form — so nobody can rearrange somebody else's dashboard.
- *
- * **Both kinds are checked against what this user can actually see.** For widgets that was
- * always true; it matters just as much for service tiles, because a tile can belong to a
- * service group. Without the check, a crafted request could write layout rows for a link the
- * caller has no access to, which both pollutes their dashboard and answers "does this id
- * exist?" for something they were never shown.
- */
 type Allowed = { id: string; modules: Set<string>; links: Set<string> };
 
+/**
+ * The gate every action in this file goes through (CORE-11 / CORE-12). The user id comes from the
+ * SESSION, never the form, so nobody can rearrange somebody else's dashboard.
+ *
+ * ⚠ Both kinds are narrowed to what this caller can actually see. A service tile can belong to a
+ * service group, so without the link check a crafted request could write layout rows for a link
+ * they were never shown — which also answers "does this id exist?" for it.
+ *
+ * REFS lib/auth/guards.ts › requireUser() · lib/security/csrf.ts › assertSameOrigin()
+ *      lib/modules/visibility.ts › visibleModuleIds() · lib/services.ts › getUserVisibleLinks()
+ */
 async function gate(): Promise<Allowed> {
   await assertSameOrigin();
   const user = await requireUser();
@@ -32,12 +31,13 @@ async function gate(): Promise<Allowed> {
   return { id: user.id, modules, links: new Set(links.map((l) => l.id)) };
 }
 
+/** ⚠ The per-item half of the gate — every write below must pass through it. */
 function permits(allowed: Allowed, kind: DashboardKind, refId: string): boolean {
   return kind === "module" ? allowed.modules.has(refId) : allowed.links.has(refId);
 }
 
 /** An unrecognised profile falls back to `wide` rather than throwing — a layout write is not
- *  worth failing a page over, and `wide` is the arrangement most people have. */
+ *  worth failing a page over.  REFS lib/dashboard/geometry.ts › isProfile() */
 function asProfile(v: string): DashboardProfile {
   return isProfile(v) ? v : "wide";
 }
@@ -46,6 +46,10 @@ function asKind(v: string): DashboardKind {
   return v === "link" ? "link" : "module";
 }
 
+/**
+ * REFS app/(app)/dashboard/dashboard-frame.tsx — the resize handle that calls it
+ *      lib/dashboard/layout.ts › setItemSize() — clamps to the profile's columns and MAX_HEIGHT
+ */
 export async function setItemSizeAction(
   kind: string,
   refId: string,
@@ -63,9 +67,12 @@ export async function setItemSizeAction(
 /**
  * Save where everything sits — what a drag or a move button produces (free placement, 1.8.0).
  *
- * The submitted list is filtered to items this user may see before anything is written, so a
- * crafted request can neither move nor create rows for anything restricted. Columns and rows are
- * clamped in `placeItems`, so a hostile coordinate cannot store a position that will not render.
+ * ⚠ The filter below is what `placeItems` relies on: it does not check visibility itself. Without
+ * it a crafted request would create layout rows for restricted items.
+ *
+ * REFS app/(app)/dashboard/dashboard-grid.tsx — the drag that produces `placements`
+ *      lib/dashboard/layout.ts › placeItems() — clamps the coordinates
+ * PINS tests/unit/dashboard-paint.test.ts
  */
 export async function placeItemsAction(
   profile: string,
@@ -81,13 +88,7 @@ export async function placeItemsAction(
 }
 
 /*
- * `resetItemAction` went with the Reset button it existed for (owner, 2026-07-28).
- *
- * Removed rather than left in place: an exported server action is a real HTTP endpoint whether or
- * not anything calls it, so an orphan is dead surface that outlives the reason for it. It was
- * properly guarded — session, same-origin, and the same per-item visibility check as everything
- * here — so this is tidiness, not a fix.
- *
- * `resetItem` in `lib/dashboard/layout.ts` stays. It is covered by tests and is the natural API to
- * re-expose if a reset ever returns; it is only the endpoint that has gone.
+ * ⚠ No `resetItemAction` here on purpose — it went with the Reset button. An exported server action
+ * is a live HTTP endpoint whether or not anything calls it, so don't re-add one until a UI needs
+ * it. `resetItem` in lib/dashboard/layout.ts stays as the API to re-expose.
  */

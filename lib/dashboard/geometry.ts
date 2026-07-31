@@ -1,46 +1,45 @@
 /**
- * Dashboard grid geometry — the pure, **client-safe** half of the layout module.
+ * The pure, client-safe half of the layout module — no database, no request.
  *
- * Split out of `layout.ts` because that file is `server-only` (it talks to Prisma) and the grid
- * is a client component that genuinely needs these numbers: it renders the fallback span for an
- * item with no saved row, and it clamps a resize before sending it. Importing a `server-only`
- * module into a client bundle is a build error, and duplicating the constants on the client
- * would create two sources of truth that drift the first time one of them changes.
+ * ⚠ Keep it free of `server-only` imports. The grid is a client component and needs these exact
+ * numbers; pulling in a server-only module here is a build error, and copying the constants into
+ * the client would give the two sides values that drift apart.
  *
- * Nothing here touches the database or the request. `layout.ts` re-exports all of it, so server
- * code carries on importing from the one place it always did.
+ * REFS lib/dashboard/layout.ts — re-exports all of this, so server code imports from one place
  */
 
-/** What a layout row positions. */
+/** What a layout row positions. REFS lib/dashboard/layout.ts › LayoutEntry.kind · itemKey() */
 export type DashboardKind = "module" | "link";
 
 /**
- * Which grid the arrangement belongs to (CORE-12).
+ * Which grid the arrangement belongs to (CORE-12). ⚠ Keyed on the VIEWPORT, never the user agent —
+ * a desktop window dragged narrow must get the narrow arrangement, and rotation then works for
+ * free.
  *
- * Keyed on the VIEWPORT, not the user agent. The viewport is what actually decides which grid
- * renders — a UA check is simply wrong for a desktop window dragged narrow (it would serve the
- * desktop arrangement into the one-column grid), is ambiguous for tablets, and UA strings are
- * neither stable nor trustworthy. Viewport also handles rotation for free.
+ * REFS lib/dashboard/layout.ts › getUserLayout() — one saved arrangement per profile
+ *      app/(app)/dashboard/page.tsx · dashboard-grid.tsx · dashboard-frame.tsx · layout-actions.ts
  */
 export type DashboardProfile = "wide" | "narrow";
 
+/**
+ * REFS app/(app)/dashboard/page.tsx — renders one arrangement per entry · lib/dashboard/layout.ts
+ */
 export const PROFILES: readonly DashboardProfile[] = ["wide", "narrow"] as const;
 
+/** REFS app/(app)/dashboard/layout-actions.ts › asProfile() — the only untrusted-input caller */
 export function isProfile(v: unknown): v is DashboardProfile {
   return v === "wide" || v === "narrow";
 }
 
 /**
- * Grid geometry, per profile.
+ * Grid geometry, per profile. The column count is a common denominator for a service tile and a
+ * module widget, at 3× the resolution the defaults need — see `DEFAULT_SPAN`.
  *
- * One grid holds two things that were previously sized independently: a service tile (small,
- * iconic) and a module widget. The column count is therefore a common denominator rather than
- * either of the old ones, at **3× the resolution the default sizes need** — see `DEFAULT_SPAN`.
+ * ⚠ No row height here on purpose: a cell is SQUARE, so the row height is the MEASURED column
+ * width. A constant would be a second source of truth, wrong at every window size except one.
  *
- * **There is no row height here on purpose.** A cell is SQUARE — the row height is the measured
- * column width, computed in the browser (`dashboard-grid.tsx`), because the columns are fluid
- * and CSS cannot size a row from the width of a column. A constant here would be a second
- * source of truth that is wrong at every window size except one.
+ * REFS app/(app)/dashboard/dashboard-grid.tsx › CellMetrics — where that measuring happens
+ *      lib/dashboard/layout.ts › setItemSize() · placeItems() — clamp columns against this
  */
 export const GEOMETRY: Record<DashboardProfile, { columns: number }> = {
   wide: { columns: 18 },
@@ -48,15 +47,13 @@ export const GEOMETRY: Record<DashboardProfile, { columns: number }> = {
 };
 
 /**
- * The grid runs at **3× the resolution it needs for the default sizes** (owner, 2026-07-27:
- * *"the minimum size is still too big — make them able to be 3× smaller"*).
+ * A tile defaults to 3×3 rather than 1×1 so it renders exactly as it always did while leaving two
+ * smaller steps beneath it — that is how the minimum got smaller without shrinking anyone's board.
  *
- * A tile's default is 3×3 rather than 1×1, so it looks exactly as it did while leaving two
- * smaller steps beneath it. That is the only way to offer a smaller minimum without shrinking
- * everybody's existing dashboard: the unit gets finer and the defaults grow to match, so the
- * rendered size is unchanged and 1×1 becomes a genuinely small tile that someone can choose.
+ * ⚠ Changing these numbers resizes every existing dashboard unless a migration goes with it.
  *
- * Existing saved layouts are multiplied by 3 in the migration for the same reason.
+ * REFS prisma/migrations/20260728010000_finer_dashboard_grid — where saved rows were multiplied
+ *      lib/dashboard/layout.ts › spanFor() · placeItems() — the fallback when nothing is saved
  */
 export const DEFAULT_SPAN: Record<DashboardProfile, Record<DashboardKind, { width: number; height: number }>> = {
   wide: {
@@ -70,35 +67,43 @@ export const DEFAULT_SPAN: Record<DashboardProfile, Record<DashboardKind, { widt
 };
 
 /**
- * No meaningful ceiling on height (owner: *"allow them to be expanded as large as needed, no max
- * size"*). Width is naturally bounded by the column count — you cannot span more grid than exists
- * — so only height needs a number, and this one is high enough never to be reached deliberately
- * while still stopping a corrupt value from generating a page tens of thousands of pixels tall.
+ * No meaningful ceiling: width is already bounded by the column count, so only height needs a
+ * number, and this one only stops a corrupt value rendering a page tens of thousands of pixels
+ * tall.
+ *
+ * REFS lib/dashboard/layout.ts › setItemSize() — clamps to it
+ *      app/(app)/dashboard/dashboard-frame.tsx — the resize ceiling the handle enforces
  */
 export const MAX_HEIGHT = 24;
 
-/** The smallest an item may be. One cell — a third of a default tile, which was the ask. */
+/** The smallest an item may be — one cell, a third of a default tile.
+ *  REFS app/(app)/dashboard/dashboard-frame.tsx — the resize floor · lib/dashboard/layout.ts */
 export const MIN_SPAN = 1;
 
 /**
- * How far down the grid an item may be placed.
+ * How far down the grid an item may be placed. ⚠ Free placement makes empty space below the last
+ * item a legitimate destination, so there is no natural bound — this only stops a hostile value
+ * rendering thousands of rows.
  *
- * Free placement means empty space below the last item is a legitimate destination, so unlike
- * the column count there is no natural bound here — this one exists only so a corrupt or hostile
- * value cannot generate a page thousands of rows tall. At the default tile size it is roughly
- * eighty screens, which nobody reaches on purpose.
+ * REFS lib/dashboard/layout.ts › placeItems() — clamps the stored row to it
+ *      app/(app)/dashboard/dashboard-grid.tsx — the drag cannot target past it
  */
 export const MAX_ROWS = 240;
 
-/** Stable key for an item across both tables — `kind:refId`. */
+/** Stable key for an item across both tables — `kind:refId`.
+ *  REFS lib/dashboard/layout.ts › getUserLayout() · applyLayoutOrder() · spanFor() — all key on it
+ *  PINS tests/integration/module-rbac.test.ts */
 export function itemKey(kind: DashboardKind, refId: string): string {
   return `${kind}:${refId}`;
 }
 
-/** A placed item: where it sits and how big it is, in grid cells. 0-based. */
+/** A placed item: where it sits and how big it is, in grid cells. 0-based.
+ *  REFS app/(app)/dashboard/dashboard-grid.tsx · lib/dashboard/layout.ts
+ *  PINS tests/unit/dashboard-placement.test.ts */
 export type Placement = { col: number; row: number; width: number; height: number };
 
-/** Do two placed items occupy any of the same cells? */
+/** Do two placed items occupy any of the same cells? The collision primitive both functions below
+ *  are built on.  REFS lib/dashboard/layout.ts  PINS tests/unit/dashboard-placement.test.ts */
 export function overlaps(a: Placement, b: Placement): boolean {
   return (
     a.col < b.col + b.width &&
@@ -109,11 +114,9 @@ export function overlaps(a: Placement, b: Placement): boolean {
 }
 
 /**
- * The nearest free spot for one item, searched outward from where it already is.
- *
- * "Nearest" is what keeps a shuffle legible: an item bumped by a neighbour should end up beside
- * where it was, not flung to the end of the grid. Ties break upward and leftward, so a row that
- * had a hole in it gets filled rather than a new row being started.
+ * The nearest free spot for one item, searched outward from where it is. Ties break upward and
+ * leftward, so an existing hole gets filled before a new row is started — that is what keeps a
+ * shuffle legible rather than flinging a bumped item to the end of the grid.
  */
 function nearestFree(
   item: Placement,
@@ -151,26 +154,16 @@ function nearestFree(
 }
 
 /**
- * Move whatever is in the anchor's way, and nothing else.
+ * Move whatever is in the anchor's way, and nothing else. The anchor itself never moves.
  *
- * Owner, 2026-07-28: *"when I drop a tile on top of another tile, [make] the other tiles shuffle
- * over."* Dropping onto an occupied cell used to be refused outright — the tile returned to where
- * it came from, which was safe but felt like being told off.
- *
- * **This is in tension with free placement and the tension is resolved deliberately.** Gaps are
- * the point of free placement — *"one icon at the top, and one at the bottom, not directly next to
- * each other"* — so a general re-pack is exactly wrong: it would tidy away every deliberate space
- * every time anything moved. Instead only the items the anchor actually overlaps are touched, each
- * moves to its NEAREST free spot, and the cascade repeats for anything they in turn displace.
- * Everything not in the way is left byte-for-byte alone.
- *
- * **The anchor never moves.** Where you dropped it is where it goes; the grid rearranges around it
- * rather than negotiating with it.
- *
- * **Always call this against the layout as it was when the drag STARTED**, with the anchor moved
- * to its candidate cell — never against the running result. Applied cumulatively, dragging across
- * a full grid would push the same items again and again and scatter the board; applied to the
- * original each time it is stable and reversible, so moving back undoes the shuffle exactly.
+ * ⚠ DO NOT re-pack generally. Deliberate gaps are the point of free placement, so tidying them on
+ * every move is exactly wrong — only the items the anchor overlaps shift, each to its nearest free
+ * spot, cascading to anything they in turn displace.
+ * ⚠ Call it against the layout as it was when the drag STARTED, with the anchor at its candidate
+ * cell — never the running result, which pushes the same items repeatedly and scatters the board.
+ * REFS app/(app)/dashboard/dashboard-grid.tsx — the only caller; resolves against `base`, not
+ *      `working`, for exactly that reason
+ * PINS tests/unit/dashboard-placement.test.ts · tests/unit/dashboard-paint.test.ts
  */
 export function displaceFor(
   layout: Map<string, Placement>,
@@ -184,9 +177,8 @@ export function displaceFor(
   const settled = new Set<string>([anchorKey]);
   const queue: string[] = [anchorKey];
 
-  // A bound rather than a proof. Each pass settles at least one item, so it terminates well
-  // inside this; the guard exists so a shape nobody predicted degrades into a redraw rather than
-  // locking the browser mid-gesture.
+  // A bound, not a proof — each pass settles at least one item. The guard makes an unforeseen
+  // shape degrade into a redraw rather than locking the browser mid-gesture.
   let guard = 0;
   while (queue.length > 0 && guard++ < 500) {
     const key = queue.shift()!;
@@ -206,22 +198,16 @@ export function displaceFor(
 }
 
 /**
- * Assign a cell to every visible item — the shared source of truth for where things go.
+ * Assign a cell to every visible item — the shared source of truth for where things go. Stored
+ * positions win; anything without one is packed first-fit, scanning row by row.
  *
- * **Why the server computes this rather than letting CSS place things.** Free placement (owner,
- * 2026-07-28: *"I could have one icon at the top, and one at the bottom, not directly next to
- * each other"*) means an item's position is data, not a consequence of its order. But not every
- * item has a stored position — anything newly added, and every install upgrading from the
- * ordering that came before — and CSS grid's own auto-placement flows those *around* explicitly
- * placed ones in ways that are hard to predict and impossible to reproduce on the server.
+ * ⚠ The server places everything rather than leaving it to CSS. Newly added items and installs
+ * upgrading from the old ordering have no stored position, and CSS grid flows those *around*
+ * placed ones unpredictably. Placing here makes server and browser agree, which is what lets a
+ * drag test a candidate cell for collisions without measuring the DOM.
  *
- * So everything is placed here instead: stored positions are honoured, and anything without one
- * is packed into the first free space in `sortOrder`. The result is identical on the server and
- * in the browser, which is what lets the drag test a candidate cell for collisions without
- * measuring the DOM.
- *
- * Packing is **first-fit, scanning row by row**, which is the behaviour people expect from a
- * grid: a new item lands in the first gap big enough for it, rather than always at the end.
+ * REFS app/(app)/dashboard/page.tsx — the render path · lib/dashboard/layout.ts — re-export
+ * PINS tests/unit/dashboard-placement.test.ts
  */
 export function packLayout(
   items: { kind: DashboardKind; id: string; width: number; height: number; col?: number | null; row?: number | null }[],

@@ -2,27 +2,23 @@ import "server-only";
 import { prisma } from "@/lib/db";
 
 /**
- * Per-user dashboard layout — for module widgets AND service tiles (CORE-11), stored
+ * Per-user dashboard layout, for module widgets AND service tiles alike (CORE-11), stored
  * separately per device profile (CORE-12).
  *
- * Moved out of `lib/modules/` because it stopped being about modules: one ordering now spans
- * both kinds of thing on the dashboard, and leaving it under `modules` would have implied
- * otherwise to the next person reading it.
+ * ⚠ Per-user table rather than each item's own `sortOrder`: a `Link` carrying a `roleId` belongs
+ * to a service group and is visible to every member, so writing one user's arrangement into
+ * `Link.sortOrder` would silently reorder that tile for all of them.
  *
- * **Why a per-user table rather than each item's own `sortOrder`.** For widgets this was
- * always about not changing other people's dashboards. For tiles it is stronger than a
- * nicety: a `Link` with a `roleId` belongs to a service group and is visible to every member,
- * so writing one user's arrangement into `Link.sortOrder` would silently reorder that tile
- * for all of them. The arrangement has to live here.
+ * A user with no saved row gets the default size, ordered after everything that has one.
  *
- * A user with no saved row gets the default size, ordered after everything that has one, so
- * the feature stays invisible until somebody uses it.
+ * REFS prisma/schema.prisma › DashboardLayout — the table every function here reads and writes
+ *      app/(app)/dashboard/page.tsx — reads · layout-actions.ts — writes
+ * PINS tests/integration/module-rbac.test.ts
  */
 
 /*
- * The geometry — column counts, default spans, the height ceiling, `itemKey` — lives in
- * `./geometry`, which is deliberately NOT server-only: the grid is a client component and needs
- * the same numbers. Re-exported here so server callers keep importing from one place.
+ * The geometry lives in `./geometry`, deliberately NOT server-only — the grid is a client component
+ * needing the same numbers. Re-exported so server callers keep importing from the one place.
  */
 export {
   PROFILES,
@@ -50,6 +46,7 @@ import {
   type DashboardProfile,
 } from "./geometry";
 
+/** One saved row. REFS prisma/schema.prisma › DashboardLayout — the columns must stay in step. */
 export type LayoutEntry = {
   kind: DashboardKind;
   refId: string;
@@ -66,7 +63,9 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(Math.max(Math.round(n), min), max);
 }
 
-/** A user's saved layout for one profile, keyed by `kind:refId`. */
+/** A user's saved layout for one profile, keyed by `kind:refId`.
+ *  REFS app/(app)/dashboard/page.tsx — the read path · placeItems() below, for previous spans
+ *  PINS tests/integration/module-rbac.test.ts */
 export async function getUserLayout(
   userId: string,
   profile: DashboardProfile,
@@ -83,11 +82,12 @@ export async function getUserLayout(
 }
 
 /**
- * Order dashboard items for a user: saved positions first (by sortOrder), then anything
- * without a saved row in its natural order.
+ * Order dashboard items: saved rows first by `sortOrder`, then anything unsaved in its natural
+ * order. Items are `{kind, id}` so tiles and widgets sort against each other in ONE sequence,
+ * which is the whole point of CORE-11.
  *
- * Items are `{kind, id}` so tiles and widgets sort against each other in ONE sequence — that
- * single ordering is the whole point of CORE-11.
+ * REFS app/(app)/dashboard/page.tsx — the only caller
+ * PINS tests/integration/module-rbac.test.ts
  */
 export function applyLayoutOrder<T extends { kind: DashboardKind; id: string }>(
   items: T[],
@@ -103,7 +103,9 @@ export function applyLayoutOrder<T extends { kind: DashboardKind; id: string }>(
   });
 }
 
-/** The span to render for an item — its saved one, or the default for its kind. */
+/** The span to render for an item — its saved one, or the default for its kind.
+ *  REFS lib/dashboard/geometry.ts › DEFAULT_SPAN
+ *       app/(app)/dashboard/page.tsx — the only caller */
 export function spanFor(
   kind: DashboardKind,
   refId: string,
@@ -115,7 +117,9 @@ export function spanFor(
   return DEFAULT_SPAN[profile][kind];
 }
 
-/** Resize one item, for one user, in one profile. */
+/** Resize one item, for one user, in one profile. Clamped to the profile's columns and MAX_HEIGHT.
+ *  REFS app/(app)/dashboard/layout-actions.ts › setItemSizeAction() — the only caller
+ *  PINS tests/integration/module-rbac.test.ts */
 export async function setItemSize(
   userId: string,
   kind: DashboardKind,
@@ -145,17 +149,14 @@ async function nextSortOrder(userId: string, profile: DashboardProfile): Promise
 /**
  * Persist an explicit cell for every visible item, in one profile.
  *
- * **The whole arrangement, not just the item that moved.** Most items have no stored position
- * until somebody drags something — they are packed into the first free space on read — so
- * writing only the moved one would leave the rest free to shuffle the next time anything was
- * added or removed. Writing them all freezes what the user is actually looking at, which is the
- * only interpretation of "I put it there" that survives the next change.
+ * ⚠ Writes the WHOLE arrangement, not just the item that moved. Most items have no stored position
+ * until somebody drags something, so writing only the moved one leaves the rest free to shuffle
+ * next time anything is added or removed.
  *
- * `placements` comes from the browser, so it matches the rendered grid rather than a server-side
- * guess. Values are clamped rather than trusted: a column beyond the grid, or a negative row,
- * would otherwise store a position that can never be rendered.
- *
- * The caller is responsible for having filtered `placements` to items this user may see.
+ * ⚠ `placements` comes from the browser: clamped here, but the CALLER must have filtered it to
+ * items this user may see. This function does not check.
+ * REFS app/(app)/dashboard/layout-actions.ts › placeItemsAction() — where that filtering happens
+ * PINS tests/integration/module-rbac.test.ts
  */
 export async function placeItems(
   userId: string,
@@ -172,9 +173,8 @@ export async function placeItems(
       const fallback = DEFAULT_SPAN[profile][item.kind];
       const width = prev?.width ?? fallback.width;
       const height = prev?.height ?? fallback.height;
-      // A column is bounded by the grid; a row is not, because empty space below the last item
-      // is a legitimate place to put something — that is the point of free placement. The cap
-      // only stops a corrupt value generating a page thousands of rows tall.
+      // A column is bounded by the grid; a row is not — empty space below the last item is a
+      // legitimate destination. MAX_ROWS only stops a corrupt value rendering thousands of rows.
       const col = clamp(item.col, 0, Math.max(0, columns - width));
       const row = clamp(item.row, 0, MAX_ROWS);
       return prisma.dashboardLayout.upsert({
@@ -186,7 +186,8 @@ export async function placeItems(
   );
 }
 
-/** Forget a user's customisation for one item, in one profile. */
+/** Forget a user's customisation for one item, in one profile. No caller since the Reset button
+ *  went — kept as the API to re-expose.  PINS tests/integration/module-rbac.test.ts */
 export async function resetItem(
   userId: string,
   kind: DashboardKind,
@@ -196,7 +197,8 @@ export async function resetItem(
   await prisma.dashboardLayout.deleteMany({ where: { userId, kind, refId, profile } });
 }
 
-/** Forget the whole arrangement for one profile — "reset my phone layout". */
+/** Forget the whole arrangement for one profile — "reset my phone layout".
+ *  ⚠ Nothing calls this and no test covers it; it is dead until a reset UI returns. */
 export async function resetProfile(userId: string, profile: DashboardProfile): Promise<void> {
   await prisma.dashboardLayout.deleteMany({ where: { userId, profile } });
 }
