@@ -8,6 +8,8 @@ const initial: SettingsFormState = {};
 
 type SettingsAction = (prev: SettingsFormState, formData: FormData) => Promise<SettingsFormState>;
 
+/** REFS app/admin/settings/page.tsx · app/admin/audit/page.tsx — both render the generic form
+ *  lib/settings.ts › SettingView · applySettingsFormDetailed() */
 export function SettingsForm({
   settings,
   action: serverAction,
@@ -32,21 +34,17 @@ export function SettingsForm({
 }
 
 /**
- * One field, as its own component so it can hold a hook.
- *
- * The alternative — a `useState` map in the parent — would have to be rebuilt whenever the
- * settings list changes and would re-seed every field when any one of them moved. A component
- * per field keeps each value's lifetime tied to the field it belongs to, which is what
- * `useServerValue` needs to know when the server has genuinely changed something.
+ * One field, as its own component so it can hold a hook. ⚠ A `useState` map in the parent would
+ * re-seed every field whenever any one moved; a component per field ties each value's lifetime to
+ * its own field, which is what `useServerValue` needs to spot a real server change.
+ * REFS app/components/save-bar.tsx › useServerValue()
  */
 function SettingField({ setting: s, error }: { setting: SettingView; error?: string }) {
   /*
-   * Controlled, so a save can correct what's on screen.
-   *
-   * `defaultValue` seeds an input once and then ignores the server forever. Settings get
-   * normalised on the way in — trimmed, clamped, coerced — so after a save the stored value
-   * frequently isn't the typed one, and the field would carry on showing the typed version as
-   * though it were what's in the database.
+   * ⚠ Controlled, never `defaultValue`: settings are trimmed, clamped and coerced on the way in, so
+   * after a save the stored value often is not the typed one — and a seeded input would keep
+   * showing the typed version as though it were what is in the database.
+   * REFS lib/settings.ts › writeSetting() — where that normalisation happens
    */
   const [value, setValue] = useServerValue(s.value);
 

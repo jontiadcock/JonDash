@@ -4,13 +4,11 @@ import { dismissUpdateFailureAction } from "./actions";
 import type { UpdateFailure } from "@/lib/update-prefs";
 
 /**
- * Which version of JonDash you are running — and nothing else.
- *
- * This card used to also hold the channel selector, the auto-install tick, a "Check for
- * updates" button and an "Update now" button. Each of those now has exactly one home:
- * the channel is a switch under **Beta channels**, auto-install is the **Automatic
- * updates** switch, and checking/applying lives in **Available updates**. Keeping copies
- * here meant the same setting could be changed in two places and read differently in each.
+ * Which version of JonDash you are running, and nothing else. ⚠ Do not re-add the channel selector,
+ * the auto-install tick or an "Update now" button — each has exactly one home now, and duplicates
+ * meant the same setting could be changed in two places and read differently in each.
+ * REFS app/admin/updates/page.tsx — the one caller; beta-channels.tsx · auto-update-panel.tsx ·
+ *      available-updates.tsx are where those controls live
  */
 export function UpdatesPanel({
   version,

@@ -15,13 +15,10 @@ function passphraseIssue(p: string): string | null {
 }
 
 /**
- * What a backup contains, always on screen (9.3).
- *
- * **The list is the explanation.** Encryption used to be a passphrase box with a paragraph
- * underneath about what it changed; almost nobody read it, and the difference it makes is not a
- * nuance — an unencrypted backup cannot restore anyone's ability to sign in. Watching four more
- * rows appear the moment the box is ticked teaches that in a way the paragraph never did, which is
- * why the two lists are rendered together rather than swapped.
+ * What a backup contains, always on screen. ⚠ The two lists render TOGETHER rather than swapping:
+ * watching the extra rows appear when encryption is ticked is what teaches the difference, and the
+ * difference is not a nuance — an unencrypted backup cannot restore anyone's ability to sign in.
+ * REFS lib/backup.ts › buildBackupData() — `includeSensitive` is what these rows describe
  */
 const ALWAYS = [
   "User accounts, names and roles",
@@ -41,6 +38,7 @@ const ENCRYPTED_ONLY = [
   "Service icons",
 ];
 
+/** REFS app/admin/backup/page.tsx · app/api/backup/export/route.ts — where the passphrase goes */
 export function ExportForm() {
   const [encrypt, setEncrypt] = useState(true);
   const [passphrase, setPassphrase] = useState("");
@@ -129,6 +127,8 @@ export function ExportForm() {
 
 const initialImport: ImportState = {};
 
+/** REFS app/admin/backup/page.tsx · ./actions.ts › inspectBackupAction() — called on selection,
+ *  so the passphrase is asked for only when the chosen file needs one */
 export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
   const [state, action, pending] = useActionState(importBackupAction, initialImport);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -184,10 +184,9 @@ export function ImportForm({ needsTotp }: { needsTotp: boolean }) {
           name="file"
           type="file"
           /*
-           * BUG-58: this used to include `application/octet-stream`, which browsers hand to `.exe`
-           * and most unknown binaries — so the broadest entry cancelled the specific ones and the
-           * picker filtered nothing. `.dashbk` has no registered MIME type, so it must stay here by
-           * extension; browsers match extension entries independently of MIME.
+           * ⚠ Never add `application/octet-stream` here (BUG-58): browsers hand it to `.exe` and
+           * most unknown binaries, so the broadest entry cancels the specific ones and the picker
+           * filters nothing. `.dashbk` has no registered MIME type and must stay by extension.
            */
           accept=".dashbk,.zip,application/zip"
           required

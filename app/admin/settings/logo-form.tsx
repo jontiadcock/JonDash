@@ -6,9 +6,9 @@ import { uploadLogoAction } from "./actions";
 import type { SettingsFormState } from "@/lib/settings";
 
 /**
- * Logo upload for the Branding section (CORE-06). A file input rather than a text field, so
- * it sits outside the generic settings form — hence `branding.logo` being marked hidden in
- * the registry.
+ * Logo upload for the Branding section (CORE-06). A file input, so it sits outside the generic
+ * settings form — which is why `branding.logo` is marked hidden in the registry.
+ * REFS lib/settings.ts › SETTINGS["branding.logo"] · ../actions.ts › uploadLogoAction()
  */
 export function LogoForm({ current }: { current: string }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(uploadLogoAction, {});

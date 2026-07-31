@@ -7,13 +7,10 @@ import type { SettingsFormState } from "@/lib/settings";
 import { stylesByFamily, findStyle, resolvePalette, type StyleOption, type Palette } from "@/lib/styles";
 
 /**
- * Interface-style picker (CORE-07). Two levels, because a style and a palette are two
- * different choices: **structure** (compact tiles, grouped by family) then **colour**
- * (palettes belonging to the chosen style).
- *
- * Each tile draws itself from the style's structure and the palette's colours, so a preview
- * can't drift from the real thing (docs/STYLES.md §6). Selecting only highlights — nothing
- * changes until Apply, so you can browse freely.
+ * Interface-style picker (CORE-07). Two levels, because structure and colour are two different
+ * choices. ⚠ Each tile draws itself from the style's own `swatch` and the palette's colours, so a
+ * preview cannot drift from the real thing — never hardcode a preview.
+ * REFS lib/styles.ts › StyleOption.swatch · Palette · ../actions.ts › saveStyleAction()
  */
 function Mini({ style, palette, size = "sm" }: { style: StyleOption; palette: Palette; size?: "sm" | "lg" }) {
   const r = style.swatch.radius;
@@ -51,6 +48,7 @@ function Mini({ style, palette, size = "sm" }: { style: StyleOption; palette: Pa
   );
 }
 
+/** REFS ../page.tsx · lib/settings.ts › listStyleSettings() — the style-specific extras below */
 export function StyleForm({ current, currentPalette }: { current: string; currentPalette: string }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveStyleAction, {});
   // Re-seeded from the server, so a palette that gets remapped on save (a MOVED palette, or one
@@ -59,10 +57,10 @@ export function StyleForm({ current, currentPalette }: { current: string; curren
   const [paletteId, setPaletteId] = useServerValue(currentPalette);
 
   /*
-   * `dirtyProps` only — the `unchanged` comparison below is the better dirty signal here, since
-   * browsing back to the style you already had is genuinely not a change. What is needed is its
-   * `onReset`: React resets a form after its action, which would put the radio selection back to
-   * whatever the page loaded with. See save-bar.tsx.
+   * ⚠ `dirtyProps` is taken for its `onReset` alone — React resets a form after its action, which
+   * would snap the radio selection back to what the page loaded with. The `unchanged` comparison
+   * below is the better dirty signal, since browsing back to your current style is not a change.
+   * REFS app/components/save-bar.tsx › useFormDirty()
    */
   const { dirtyProps } = useFormDirty(state);
 
