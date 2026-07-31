@@ -11,6 +11,7 @@
 | `npm run typecheck`  | `tsc --noEmit`                           |
 | `npm run lint`       | ESLint                                   |
 | `npm test`           | Vitest (throwaway SQLite database)       |
+| `npm run test:modules` | Module/helper install-path tests only  |
 
 The first admin is created through the `/welcome` wizard in the browser; a command-line
 alternative (`npm run db:seed`) exists but isn't needed.
@@ -75,6 +76,7 @@ npm test
   Linux can't exercise, while Linux catches case-sensitivity assumptions Windows hides.
 
 Tests cover the security-critical behaviour — password/2FA, CSRF, RBAC and IDOR
-authorization, backup export/restore (including encryption), backup codes, settings,
-and the module/helper install path (archive safety, the install-time verifier,
-migrations on update) — so changes that break them fail fast.
+authorization, step-up re-authentication, login rate-limiting and lockout, backup
+export/restore (including encryption), backup codes, settings, and the module/helper
+install path (archive safety, the install-time verifier, migrations on update) — so
+changes that break them fail fast.

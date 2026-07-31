@@ -118,8 +118,8 @@ it blocked another session's work while nothing blocked it.
 16c. 🌅 **CORE-16 — A native mobile app** *(owner: after the PWA)* — blocked on an API that does not
    exist; the SEC-06 design is shelved and re-usable. See the catalog entry
 16d. 🧊 **CORE-17 — `container-type: size` on the dashboard frame** — considered, not scheduled
-16e. ⏳ **CORE-18 — Cross-references in code notes** *(owner instruction 2026-07-30)* — **already in
-   force for new and edited code**; the global sweep schedules separately
+16e. ✅ **CORE-18 — Cross-references in code notes** *(owner instruction 2026-07-30)* — **shipped
+   `v1.8.4-beta.5`**; the sweep covered all 308 files and the convention holds for new code
 16f. ⏳ **CORE-20 — Account for the certificate kept when HTTPS is switched off** *(owner question
    2026-07-30)* — retention is correct (ACME rate limits), but it is invisible and there is no way to
    remove it deliberately
@@ -1410,7 +1410,7 @@ phone by LAN IP.
 user to install a trust anchor on their own devices, and the honest framing of that is more of the
 work than the certificate generation.
 
-#### CORE-18 · Cross-references in code notes — ⏳ Planned (global sweep), applied to new work from now
+#### CORE-18 · Cross-references in code notes — ✅ Shipped `v1.8.4-beta.5` (global sweep complete)
 Owner instruction, 2026-07-30: *"all code to reference all other code that it may rely on, in the
 code notes of the section you are editing … eg, a module and a service using different code but
 performing the same actions, we need to ensure it is documented."*

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.4",
+      "date": "2026-07-31",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Arranging your dashboard now has a Reset positions button next to Done arranging. It puts every tile and widget back to its default place and size for the screen size you are on, leaves your other layout alone, and asks before doing it. The arranging help no longer mentions arrow buttons that were removed when free placement arrived - it now describes the resize corner, which is what is actually there. Behind the scenes every source file gained cross-references so the code is safer to change, and the login and backup-restore paths gained tests. Nothing else you can see has changed."
+    },
+    {
       "version": "1.8.4-beta.5",
       "date": "2026-07-31",
       "type": "patch",
