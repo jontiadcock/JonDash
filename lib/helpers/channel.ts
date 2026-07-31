@@ -4,25 +4,23 @@ import { getAllModules } from "@/lib/modules/registry";
 import type { ModuleChannel } from "@/lib/modules/sources";
 import { helperIdsOf } from "@/lib/modules/types";
 
-/**
- * Which channel a helper is on (MOD-10).
+/*
+ * Which channel a helper is on (MOD-10). ⚠ A helper has **no channel of its own** — it is derived
+ * from its dependents, taking the highest: if any is on beta, so is the helper.
  *
- * A helper has no channel of its own to choose. It is **derived** from the modules that
- * depend on it: if any dependent is on beta, the helper is on beta. Two reasons.
+ * There is one copy on disk shared by every dependent, and a helper never breaks its own API, so
+ * the highest channel is the only choice that cannot leave a module short of an API it needs. It
+ * also stops the flip-flop where whichever module was updated last set the version.
  *
- * 1. **It has to satisfy every dependent at once.** There is one copy of a helper on
- *    disk, shared by every module that declared it. Since a helper never breaks its own
- *    API, a newer version always satisfies an older consumer — so taking the highest
- *    channel is the only choice that can't leave a module short of an API it needs.
- * 2. **It stops the flip-flop.** Before this, whichever module was installed/updated last
- *    set the version — a stable module would pull `0.0.2`, then a beta module would pull
- *    `0.0.2-beta.1`, back and forth, with nothing recording why.
+ * An admin may **pin** one explicitly to take a fix early or back one out. The pin wins; clearing
+ * it returns to the derived value rather than freezing what was last installed.
  *
- * An admin may **pin** a helper to a channel explicitly (`channelPin`), to take a fix
- * early or back one out. The pin wins; clearing it returns to the derived value rather
- * than freezing whatever was last installed.
+ * REFS lib/helpers/install.ts › installChannelFor() — applies this at install time
+ *      lib/helpers/updates.ts · lib/updates/auto-run.ts — what the channel decides
+ * PINS tests/integration/helper-channel.test.ts
  */
 
+/** REFS lib/helpers/registry.ts — renders the pin state on the Shared capabilities list. */
 export type HelperChannelState = {
   /** The channel actually in force. */
   channel: ModuleChannel;
@@ -35,8 +33,10 @@ export type HelperChannelState = {
 };
 
 /**
- * Resolve a helper's channel, pin included. Needs the modules' stored channels, which
- * live in the DB rather than the registry, so this is async.
+ * A helper's channel, pin included. Async because the modules' stored channels live in the DB
+ * rather than the registry.
+ * REFS app/admin/updates/{helper-actions,schedule-actions,selection-actions}.ts ·
+ *      lib/helpers/registry.ts · lib/helpers/updates.ts · lib/updates/auto-run.ts
  */
 export async function resolveHelperChannel(helperId: string): Promise<HelperChannelState> {
   // helperIdsOf, not `.includes` — `helpers` may hold `{id, minVersion}` objects, and
@@ -72,9 +72,9 @@ export async function resolveHelperChannel(helperId: string): Promise<HelperChan
 }
 
 /**
- * Write the resolved channel back to the Helper row, so the Helpers page and the update
- * check agree without recomputing. Safe to call when the row doesn't exist yet (a helper's
- * row is written at BOOT, not at install) — it simply does nothing.
+ * Write the resolved channel back to the Helper row, so the page and the update check agree without
+ * recomputing. ⚠ Safe when the row does not exist yet — a helper's row is written at BOOT, not at
+ * install — it simply does nothing.
  */
 export async function syncHelperChannel(helperId: string): Promise<ModuleChannel> {
   const state = await resolveHelperChannel(helperId);
@@ -86,17 +86,17 @@ export async function syncHelperChannel(helperId: string): Promise<ModuleChannel
 
 /** Re-derive every installed helper's channel. Cheap; run after anything that changes a
  *  module's channel or its set of dependents. */
+/** REFS app/admin/modules/actions.ts — after any change that moves a module's channel. */
 export async function syncAllHelperChannels(): Promise<void> {
   const helpers = await prisma.helper.findMany({ select: { id: true } });
   for (const h of helpers) await syncHelperChannel(h.id);
 }
 
 /**
- * The channel to INSTALL a helper from, given the module pulling it in.
- *
- * Not simply the module's channel: if an existing dependent is already on beta, or an
- * admin pinned it, dropping the helper back to stable would strip an API another module
- * relies on. Takes the highest of {what's resolved now, what this module wants}.
+ * The channel to INSTALL from, given the module pulling the helper in. ⚠ **Not simply the module's
+ * channel** — an existing dependent already on beta, or a pin, means dropping to stable would strip
+ * an API another module relies on. Takes the highest of the two.
+ * REFS lib/helpers/install.ts — the only caller
  */
 export async function installChannelFor(
   helperId: string,

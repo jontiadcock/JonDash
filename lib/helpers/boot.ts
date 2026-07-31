@@ -5,21 +5,15 @@ import { getAllHelpers, allRequiredHelperIds, activeHelperIds } from "./registry
 import { helperTableName, runHelperMigrations } from "./migrate";
 import type { HelperBootContext, HelperDefinition } from "./types";
 
-/**
- * Helper boot phase (MOD-08), called from `instrumentation.ts` — which Next runs ONCE per
- * server instance, before any request is served.
+/*
+ * Helper boot phase (MOD-08). Runs ONCE per server instance, before any request — which is the
+ * whole reason helpers exist as a concept: a scheduler that only starts when someone renders a page
+ * is not a scheduler.
  *
- * This is the whole reason helpers exist as a concept rather than as library code: a
- * scheduler that only starts when someone renders a page isn't a scheduler. Restart at
- * 03:00 and nothing runs until someone opens the dashboard at 08:00 — least reliable
- * exactly when you'd most want it watching.
- *
- * Two constraints follow from "must complete before requests are served":
- *  - **Register intent, don't do work.** Everything here delays the server becoming
- *    ready. A helper starts a timer and returns; work happens on the first tick.
- *  - **A helper must never stop the server booting.** Each one is isolated: a throw is
- *    logged and recorded, and the remaining helpers and the app carry on. A monitoring
- *    helper must not be the reason the dashboard won't start.
+ * ⚠ **Register intent, do not do work** — everything here delays the server becoming ready.
+ * ⚠ **A helper must never stop the server booting.** Each is isolated: a throw is logged and the
+ *   others carry on. A monitoring helper must not be why the dashboard will not start.
+ * REFS instrumentation.ts — the caller · lib/helpers/types.ts › onBoot — the contract this enforces
  */
 
 const BOOT_BUDGET_MS = 5000;
@@ -27,6 +21,7 @@ const BOOT_BUDGET_MS = 5000;
 let booted = false;
 
 /** Shared by `onBoot` and `onUninstall` — both are the system acting, with no user. */
+/** REFS lib/helpers/install.ts — builds one for `onUninstall`. */
 export function helperContext(def: HelperDefinition): HelperBootContext {
   return bootContext(def);
 }
@@ -53,24 +48,16 @@ function bootContext(def: HelperDefinition): HelperBootContext {
 }
 
 /**
- * Bring installed helpers up to date and start them. Idempotent per process — Next may
- * import this module more than once, and a second boot would double every timer.
+ * Bring installed helpers up to date and start them. ⚠ Idempotent per process — Next may import
+ * this module twice, and a second boot would double every timer.
  *
- * **Migrating and starting are separate decisions (2026-07-27), and the split is load-bearing.**
+ * ⚠ **Migrating and starting are separate.** Schema is brought current for every INSTALLED helper,
+ *   since a disabled module can be re-enabled at any moment. But `onBoot` runs only for one an
+ *   ENABLED module needs, or switching an add-on off leaves a socket open. **The failure is
+ *   not a crash; it is an off switch that looks like it worked.**
  *
- * - **Schema is brought current for every INSTALLED helper**, even one whose only consumer is
- *   switched off. A disabled module can be re-enabled at any moment, and skipping its migrations
- *   would leave the helper meeting a layout it was never written against — the failure modules hit
- *   before `ensureModuleMigrations` existed. Migrations are idempotent and cheap; skipping them to
- *   save nothing is how that bug comes back.
- * - **`onBoot` runs only for a helper an ENABLED module depends on.** Until now enabled state never
- *   entered this decision, which was invisible while every helper was dormant-until-called. It
- *   stopped being invisible with the first helper that holds a **listening socket**: switching its
- *   add-on off left the endpoint open, and nothing on screen said otherwise. Reported by the add-ons
- *   session, who had already patched their own helper; the general case is the framework's, because
- *   the next author of a socket- or timer-holding helper would hit it and might not notice.
- *
- * The failure this prevents is not a crash — it is an off switch that looks like it worked.
+ * REFS lib/modules/manage.ts › ensureModuleMigrations() — the module-side equivalent
+ *      lib/helpers/registry.ts › activeHelperIds() — what "an enabled module depends on" means
  */
 export async function bootHelpers(): Promise<void> {
   if (booted) return;
@@ -102,9 +89,8 @@ export async function bootHelpers(): Promise<void> {
         },
       });
 
-      // Started only if something enabled needs it — see the note on this function. A helper
-      // whose add-ons are all switched off stays migrated and dormant, which is what the switch
-      // is understood to mean.
+      // Started only if something enabled needs it. A helper whose add-ons are all off stays
+      // migrated and dormant, which is what the switch is understood to mean.
       if (def.onBoot && active.has(def.id)) {
         // Bounded: a helper that hangs here would hang the whole server's startup.
         await Promise.race([
@@ -122,15 +108,14 @@ export async function bootHelpers(): Promise<void> {
 }
 
 /**
- * Tell every installed helper that a service account was deleted (SEC-07).
+ * Tell every installed helper a service account was deleted (SEC-07).
  *
- * **Hygiene, not safety.** See `onIdentityRemoved` in `types.ts`: a helper's real protection is
- * re-resolving the account on every call and failing closed, which holds whether or not this
- * runs. So every failure mode here is deliberately swallowed — the account is already gone, and
- * a helper that throws or hangs must not be able to block or reverse a deletion.
- *
- * Bounded per helper and isolated per helper, for the same reason boot is: one badly-behaved
- * helper cannot be allowed to hold up an admin action on the identity page.
+ * ⚠ **Hygiene, not safety.** A helper's real protection is re-resolving the account on every call
+ *   and failing closed, which holds whether or not this runs — so every failure here is swallowed.
+ *   The account is already gone, and a helper must not be able to block or reverse a deletion.
+ * REFS lib/helpers/types.ts › onIdentityRemoved — the contract
+ *      lib/auth/service-accounts.ts › resolveBindableAccount() — the actual guarantee
+ *      app/admin/actions.ts — the caller, on delete
  */
 export async function notifyIdentityRemoved(accountId: string): Promise<void> {
   for (const def of getAllHelpers()) {

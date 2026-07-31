@@ -7,23 +7,23 @@ import { verifyModuleFiles, formatIssues, ALLOWED_EXTENSIONS, LIMITS } from "./v
 import { parseRepoUrl, type SourceModuleEntry, type ModuleChannel } from "./sources";
 import { writeProvenance, removeProvenance } from "./provenance";
 
-/**
- * Module installer (MOD-01 Phase 2, chunk B) — fetch a module's pinned tag archive from
- * its source repo, verify it, and write it into `modules/<id>/`.
+/*
+ * Module installer — fetch a module's **pinned tag** archive, verify it, write it to
+ * `modules/<id>/`. A module only becomes live after a rebuild; if that build fails the launcher
+ * removes it and rebuilds clean, so a broken module cannot leave the app unbootable.
  *
- * The module only becomes live after a rebuild (its code is compiled into the app), which
- * `lib/modules/rebuild.ts` requests; if that build fails, the launcher removes the module
- * and rebuilds clean, so a broken module can't leave the app unbootable.
- *
- * Everything here treats the archive as hostile: it is downloaded over https from a
- * pinned tag, size-capped while unpacking, and every entry is re-checked against the
- * verifier before a single byte reaches disk.
+ * ⚠ **The archive is treated as hostile**: https only, from a pinned tag, size-capped while
+ *   unpacking, every entry re-checked against the verifier before a byte reaches disk.
+ * REFS lib/modules/verify.ts — the checks · lib/modules/rebuild.ts — requests the rebuild
+ *      lib/modules/sources.ts › archiveUrlForRepo() — builds the pinned URL
+ * PINS tests/unit/module-install.test.ts
  */
 
 const MODULES_DIR = path.join(process.cwd(), "modules");
 const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 30_000;
 
+/** Its message reaches the admin. REFS app/admin/modules/actions.ts · app/admin/updates/module-actions.ts */
 export class InstallError extends Error {}
 
 /** Text-ish files get scanned by the verifier; the rest are checked by size/extension. */
@@ -33,6 +33,7 @@ function isTextFile(name: string): boolean {
 }
 
 /** `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip` for a pinned tag. */
+/** REFS lib/modules/sources.ts › archiveUrlForRepo() — the shared pinned-tag URL builder. */
 export function archiveUrlFor(repoUrl: string, tag: string): string {
   const parsed = parseRepoUrl(repoUrl);
   if (!parsed) throw new InstallError("That source isn't a valid GitHub repository URL.");
@@ -60,13 +61,15 @@ async function download(url: string): Promise<Uint8Array> {
   return buf;
 }
 
+/** REFS lib/helpers/install.ts — reuses this shape for helper archives. */
 export type ExtractedFile = { path: string; text?: string; bytes: number; data: Uint8Array };
 
 /**
- * Pull `addons/<id>/**` out of a GitHub archive. GitHub wraps everything in a single
- * `<repo>-<tag>` folder, so the module's files are found by locating the `addons/<id>/`
- * segment rather than assuming the wrapper's name.
+ * Pull the module's folder out of a GitHub archive. ⚠ GitHub wraps everything in a single
+ * `<repo>-<tag>` directory, so the files are found by locating the `addons/<id>/` segment rather
+ * than assuming the wrapper's name.
  */
+/** PINS tests/unit/module-install.test.ts — drives this directly with crafted archives. */
 export function extractModuleFromArchive(zip: Uint8Array, moduleId: string): ExtractedFile[] {
   let entries: Record<string, Uint8Array>;
   try {
@@ -108,6 +111,10 @@ export function extractModuleFromArchive(zip: Uint8Array, moduleId: string): Ext
 }
 
 /** Write a verified package to `modules/<id>/`, replacing anything already there. */
+/**
+ * ⚠ Staged then swapped, so a half-written module is never visible to a build.
+ * PINS tests/unit/module-install.test.ts
+ */
 export function writeModuleFiles(moduleId: string, files: ExtractedFile[]): void {
   const dest = path.join(MODULES_DIR, moduleId);
   const staged = `${dest}.installing`;
@@ -129,6 +136,7 @@ export function writeModuleFiles(moduleId: string, files: ExtractedFile[]): void
 }
 
 /** Delete a module's source folder + install record (uninstall). Safe if never installed. */
+/** REFS app/admin/modules/actions.ts · scripts/module-recover.mjs — removal and failed-build recovery. */
 export function removeModuleFiles(moduleId: string): void {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(moduleId)) throw new InstallError("Invalid module id.");
   fs.rmSync(path.join(MODULES_DIR, moduleId), { recursive: true, force: true });
@@ -136,9 +144,9 @@ export function removeModuleFiles(moduleId: string): void {
 }
 
 /**
- * The module id a ZIP would install, without writing anything. Used to tell a fresh
- * import from one replacing an existing module — which decides whether a later failure
- * may delete the files, or must leave a working module alone.
+ * The module id a ZIP would install, writing nothing. ⚠ Tells a fresh import from one replacing an
+ * existing module, which decides whether a later failure may delete the files or must leave a
+ * working module alone. REFS app/admin/modules/actions.ts › importModuleAction()
  */
 export function peekZipModuleId(zip: Uint8Array): string | null {
   try {
@@ -160,6 +168,7 @@ export function peekZipModuleId(zip: Uint8Array): string | null {
 }
 
 /** Whether a module's source is present on disk. */
+/** REFS lib/modules/manage.ts › pruneRemovedBundledModules() — the guard that stops a data purge. */
 export function moduleFilesExist(moduleId: string): boolean {
   return (
     fs.existsSync(path.join(MODULES_DIR, moduleId, "module.ts")) ||
@@ -172,19 +181,18 @@ export type InstallOutcome = {
   version: string;
   declaredPermissions: DeclaredPermission[];
   /**
-   * Helper ids the package declares. Returned from HERE because the caller has no other
-   * way to get them: `getModuleDef` reads the compiled registry, which by definition
-   * cannot contain a module downloaded seconds earlier in the same request. Reading it
-   * there silently yielded an empty list, so helpers never installed at all.
+   * ⚠ Returned from HERE because the caller cannot get them elsewhere: `getModuleDef` reads the
+   *   compiled registry, which cannot contain a module downloaded seconds ago in the same request.
+   *   Reading it there silently yielded an empty list and helpers never installed.
    */
   declaredHelpers: string[];
   fileCount: number;
 };
 
 /**
- * Download → verify → write a module from a source repo at its pinned tag. Throws an
- * InstallError with a readable reason if anything fails verification; nothing is written
- * unless every check passed.
+ * Download, verify, write — from a source repo at its pinned tag. ⚠ Nothing is written unless every
+ * check passed; failures throw `InstallError` with a readable reason.
+ * REFS app/admin/modules/actions.ts · app/admin/updates/module-actions.ts — the callers
  */
 export async function installModuleFromSource(
   repoUrl: string,
@@ -213,9 +221,9 @@ export async function installModuleFromSource(
 }
 
 /**
- * Install a module the admin supplied themselves (a ZIP of the module folder, or of an
- * `addons/<id>/` layout). Verified exactly like a source install — importing your own
+ * Install a ZIP the admin supplied. ⚠ Verified exactly like a source install — importing your own
  * module skips the source, not the checks.
+ * REFS app/admin/modules/actions.ts › importModuleAction() — the only caller
  */
 export async function installModuleFromZip(zip: Uint8Array, expectedId?: string): Promise<InstallOutcome> {
   let entries: Record<string, Uint8Array>;

@@ -4,29 +4,33 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { markKeepSessions } from "@/lib/server-control";
 
-/**
- * Rebuild-on-module-change (MOD-01 Phase 2, chunk B).
+/*
+ * Rebuild-on-module-change. A module compiles into the Next build, so installing or removing one
+ * only takes effect after a rebuild: the app drops a sentinel and exits, the supervisor returns 13,
+ * the launcher clears the built-version marker and relaunches.
  *
- * A module's code is compiled into the Next build, so installing or removing one only
- * takes effect after a rebuild. The app drops a `.rebuild-and-restart` sentinel and
- * exits; the supervisor returns exit code 13, and the launcher clears the built-version
- * marker (forcing its normal build path) and relaunches.
- *
- * Safety: `.data/module-installing` names the module that triggered the rebuild. If the
- * build then fails, the launcher runs `scripts/module-recover.mjs`, which removes that
- * module and rebuilds clean — so a broken module can't leave JonDash unbootable. The
- * existing snapshot rollback remains the backstop underneath that.
+ * ⚠ **The installing marker is the safety net.** If the build then fails, the launcher removes the
+ *   named module and rebuilds clean, so a broken module cannot leave JonDash unbootable.
+ * REFS scripts/supervise.mjs — reads the sentinel · scripts/module-recover.mjs — the failure path
+ *      start-dashboard.bat — clears the built-version marker
+ * PINS tests/unit/module-install-marker.test.ts
  */
 
 const ROOT = process.cwd();
+/** REFS scripts/supervise.mjs — the only reader; exit code 13 is the contract. */
 export const REBUILD_SIGNAL = path.join(ROOT, ".rebuild-and-restart");
 const DATA_DIR = path.join(ROOT, ".data");
+/** REFS scripts/module-recover.mjs — reads this file to know what to remove. */
 export const INSTALLING_MARKER = path.join(DATA_DIR, "module-installing");
 export const FAILED_MARKER = path.join(DATA_DIR, "module-failed");
 
 const EXIT_DELAY_MS = 800;
 
 /** Regenerate lib/modules/generated.ts so the next build sees what's on disk. */
+/**
+ * REFS scripts/gen-module-registry.mjs — what this runs · app/admin/modules/actions.ts and
+ *      app/admin/updates/*-actions.ts — every install, update and removal path
+ */
 export function regenerateRegistry(): void {
   execFileSync(process.execPath, [path.join(ROOT, "scripts", "gen-module-registry.mjs")], {
     cwd: ROOT,
@@ -36,10 +40,10 @@ export function regenerateRegistry(): void {
 }
 
 /**
- * Note which modules are being installed, so the launcher knows what to remove if the
- * resulting build fails. Takes a LIST because modules can be installed in a batch: when
- * a batch build fails there's no way to tell which member broke it, so all of them are
- * rolled back rather than guessing. Cleared once a build succeeds.
+ * Name the modules being installed, so the launcher knows what to remove if the build fails. ⚠ A
+ * LIST because installs batch: when a batch build fails there is no way to tell which member broke
+ * it, so all are rolled back rather than guessed at.
+ * REFS scripts/module-recover.mjs — reads it on a failed build
  */
 export function markModuleInstalling(moduleIds: string[]): void {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -47,19 +51,20 @@ export function markModuleInstalling(moduleIds: string[]): void {
 }
 
 /**
- * Clear the "a module rebuild is in flight" marker (BUG-36). Called when the app boots
- * successfully — reaching a running server means the build the marker was guarding is fine,
- * so the install is complete. Nothing cleared it on success before, so it lingered forever
- * naming a healthy module, and the next *unrelated* build failure handed recovery that stale
- * name and deleted a module that had nothing to do with the failure. The launcher clears it
- * too, on a good build; this is the cross-platform backstop and the one a test can drive.
- * (`scripts/module-recover.mjs` still clears it on a FAILED build, then removes the module.)
+ * Clear the in-flight marker on a successful boot (BUG-36) — reaching a running server means the
+ * build it guarded is fine.
+ *
+ * ⚠ Nothing cleared it on success before, so it lingered naming a healthy module and the next
+ *   *unrelated* build failure deleted an innocent one. The launcher clears it too; this is the
+ *   cross-platform backstop and the one a test can drive.
+ * PINS tests/unit/module-install-marker.test.ts
  */
 export function clearModuleInstalling(): void {
   fs.rmSync(INSTALLING_MARKER, { force: true });
 }
 
 /** Modules the launcher had to remove because they broke the build (for the admin UI). */
+/** REFS app/admin/modules/page.tsx — renders the "a module was removed" notice from this. */
 export function readFailedModule(): { id: string; at: string } | null {
   try {
     const raw = fs.readFileSync(FAILED_MARKER, "utf8").trim();
@@ -70,14 +75,16 @@ export function readFailedModule(): { id: string; at: string } | null {
   }
 }
 
+/** REFS app/admin/modules/actions.ts › dismissFailedModuleAction(). */
 export function clearFailedModule(): void {
   fs.rmSync(FAILED_MARKER, { force: true });
 }
 
 /**
- * Ask the launcher to rebuild and restart. Mirrors requestServerRestart: drop the
- * sentinel, then exit shortly after so the response can flush. No-op safe when running
- * unsupervised (the process simply exits).
+ * Drop the sentinel, then exit shortly after so the response can flush. Safe unsupervised — the
+ * process simply exits.
+ * REFS lib/restart.ts › requestServerRestart() — the same shape for an app restart
+ *      lib/updates/scheduler.ts · app/admin/updates/*-actions.ts — the callers
  */
 export function requestRebuildAndRestart(): void {
   markKeepSessions(); // a module rebuild is an intentional restart — keep everyone signed in

@@ -9,31 +9,28 @@ import { getAllModules } from "./registry";
 import { readProvenance, installedModuleIds } from "./provenance";
 import { moduleFilesExist } from "./install";
 
-/**
- * Module lifecycle (MOD-01). Enable = run its migrations + record it enabled with the
- * granted permissions + fire onEnable. Disable = flip off (data kept). Uninstall =
- * drop its `mod_<id>_*` tables + purge its settings/store/records so it leaves no trace.
- * Takes a ModuleDefinition (resolved from the registry by the caller) so this stays
- * free of any specific module import — and unit-testable with a fake definition.
+/*
+ * Module lifecycle (MOD-01). Enable runs migrations, records the granted permissions and fires
+ * `onEnable`; disable flips it off and keeps the data; uninstall drops the module's tables and
+ * purges its settings, store and records. Takes a `ModuleDefinition` resolved by the caller, so
+ * this file imports no specific module and is testable with a fake one.
+ *
+ * REFS app/admin/modules/actions.ts — the admin entry point for all three
+ *      lib/modules/rebuild.ts — the rebuild that makes an install or removal real
+ * PINS tests/integration/modules.test.ts · tests/integration/module-bulk.test.ts
  */
 
 export async function enableModule(def: ModuleDefinition): Promise<void> {
   const declared = grantsForModule(def);
 
   /*
-   * BUG-56. A capability revoked on Admin → Addon Permissions must STAY revoked.
+   * ⚠ **A revoked capability must STAY revoked** (BUG-56). Writing the full declared set on every
+   *   enable meant a disable/enable round trip silently restored everything the admin turned off.
    *
-   * This used to write the full declared set in both branches of the upsert, so a plain
-   * disable → enable round trip silently restored everything the admin had turned off — while
-   * the Permissions page, shipped the same day, promised the change "takes effect immediately".
-   * A revocation that any routine action quietly undoes is worse than no switch at all,
-   * because the screen still shows the capability as off.
-   *
-   * First enable takes the full declared set: that is exactly what the consent screen showed.
-   * Every later enable INTERSECTS instead — keep what the admin currently has, drop anything the
-   * new version no longer declares, and add nothing. Adding is not this function's job: a
-   * permission that is new in an update has its own consent gate, which is the right place to
-   * ask (owner decision, 2026-07-27 — an update never re-grants something you revoked).
+   * First enable takes the declared set — that is what the consent screen showed. Every later
+   * enable **intersects**: keep what the admin has, drop what the new version no longer declares,
+   * add nothing. A permission new in an update has its own consent gate; adding here is not this
+   * function's job. REFS app/admin/permissions/ — where a revocation is made
    */
   const existing = await prisma.module.findUnique({
     where: { id: def.id },
@@ -91,20 +88,17 @@ export async function uninstallModule(
 }
 
 /**
- * Apply migrations a module gained in an UPDATE (MOD-01, 2026-07-22).
+ * Apply migrations a module gained in an UPDATE. An update replaces files while the module is
+ * already enabled, so `enableModule` never runs again and a new `002_add_column.sql` would leave
+ * new code running against the old schema, with nothing warning.
  *
- * `runModuleMigrations` was only ever called from `enableModule`, but an update replaces
- * files while the module is already enabled — so enable never runs again and a version
- * shipping `002_add_column.sql` would run new code against the old schema. Nothing would
- * warn; the module would simply misbehave.
+ * Idempotent — only files absent from `ModuleMigration` run — so it self-heals modules updated
+ * before this existed. ⚠ Must run AFTER the rebuild and restart, because the new definition is not
+ * loadable until then; hence lazily, on the first registry read of a fresh process. One module
+ * failing must not stop the others or block the page.
  *
- * Keyed on the `migratedVersion` column that already exists. Only files not recorded in
- * `ModuleMigration` actually run, so this is idempotent and it self-heals modules that
- * were updated before this existed. It must run AFTER the rebuild+restart, because the
- * new definition isn't loadable until then — hence lazily, on the first registry read of
- * a fresh process, rather than at the moment of updating.
- *
- * One module failing must not stop the others, or block the page that triggered this.
+ * REFS lib/modules/migrate.ts — runs the files · app/(app)/dashboard/page.tsx ·
+ *      app/(app)/m/[module]/[[...path]]/page.tsx · app/admin/modules/page.tsx · lib/helpers/boot.ts
  */
 let migrationSync: Promise<void> | null = null;
 
@@ -135,11 +129,12 @@ export function ensureModuleMigrations(): Promise<void> {
 }
 
 /**
- * Repair rows whose provenance was lost. Builds before this fix recorded EVERY module as
- * `source: "bundled"` (enableModule had no install record to consult), which broke the
- * per-module beta channel and — far worse — put source-installed modules inside the
- * blast radius of the prune below. Runs wherever the prune does, so an existing install
- * corrects itself without the admin doing anything.
+ * Repair rows whose provenance was lost. Older builds recorded every module as `source: "bundled"`,
+ * which broke the per-module beta channel and — worse — put source-installed modules inside the
+ * blast radius of the prune below. Runs wherever the prune does, so an install corrects itself.
+ *
+ * REFS lib/modules/provenance.ts — what a correct row looks like
+ * PINS tests/integration/modules.test.ts
  */
 export async function reconcileModuleProvenance(): Promise<void> {
   for (const id of installedModuleIds()) {
@@ -157,15 +152,14 @@ export async function reconcileModuleProvenance(): Promise<void> {
 }
 
 /**
- * Clear the DB traces of a module that shipped WITH a previous build and no longer
- * exists (e.g. the old `sample`), so an upgraded install isn't left with an orphan row
- * and stray `mod_<id>_*` tables.
+ * Clear the DB traces of a module that shipped with a previous build and no longer exists, so an
+ * upgraded install is not left with an orphan row and stray tables.
  *
- * THIS DELETES USER DATA, so it is guarded three ways: only `source: "bundled"` rows are
- * considered, and a module is skipped if it has an install record OR its files are still
- * on disk. That last guard is the important one — a definition failing to load is a BUILD
- * problem (a bad rebuild, a module dropped from generated.ts), not evidence the module
- * was removed, and purging on that basis would destroy everything the module owns.
+ * ⚠ **THIS DELETES USER DATA.** Guarded three ways: only `source: "bundled"` rows are considered,
+ *   and a module is skipped if it has an install record OR its files are on disk. That last guard
+ *   is the important one — a definition failing to load is a BUILD problem, not evidence of
+ *   removal, and purging on that basis destroys everything the module owns.
+ * REFS app/admin/modules/page.tsx · lib/modules/provenance.ts — the callers
  */
 export async function pruneRemovedBundledModules(): Promise<void> {
   await reconcileModuleProvenance();

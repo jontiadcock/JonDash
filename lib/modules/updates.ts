@@ -7,17 +7,16 @@ import { parseGrants } from "./permissions";
 import { fetchSourceManifest, listSources, SourceError, type ModuleChannel } from "./sources";
 import { readProvenance } from "./provenance";
 
-/**
- * Module update checking (mirrors lib/update.ts for the app itself).
+/*
+ * Module update checking. ⚠ **Nothing here applies anything** — the app may update itself, but a
+ * module never changes without the user knowing, so this only reports what is available. The
+ * counterpart is that availability must be *surfaced*, not left to be discovered.
  *
- * Governing rule, set by the user: **the app may update itself, a module never changes
- * without the user knowing.** So nothing here applies anything — it only reports what is
- * available, and the admin acts explicitly. The counterpart to that is that availability
- * must be *surfaced*, not left to be discovered: see `countModuleUpdates`, which the
- * Updates page and the update banner both use.
- *
- * Each module is resolved against ITS OWN channel (the `Module.channel` column), not the
- * app's — the per-module beta opt-in already exists and must be honoured here.
+ * ⚠ Each module resolves against ITS OWN channel, not the app's — the per-module beta opt-in must
+ *   be honoured here.
+ * REFS lib/update.ts — the same shape for the app itself · lib/modules/sources.ts — reads manifests
+ *      app/admin/updates/page.tsx · app/api/update/status/route.ts — the surfaces
+ * PINS tests/unit/update-cache-invalidation.test.ts
  */
 
 export type ModuleUpdate = {
@@ -65,8 +64,9 @@ function cleanNotes(raw: unknown): string | undefined {
 }
 
 /**
- * What's available for every installed module. Never throws for a source problem — an
- * unreachable source becomes a row-level message so one bad source can't blank the page.
+ * What is available for every installed module. ⚠ Never throws for a source problem — an
+ * unreachable source becomes a row-level message, so one bad source cannot blank the page.
+ * REFS app/admin/updates/page.tsx · lib/modules/auto-update.ts · lib/updates/auto-run.ts
  */
 export async function getModuleUpdateStatus(force = false): Promise<ModuleUpdateStatus> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.status;
@@ -188,13 +188,12 @@ export async function getModuleUpdateStatus(force = false): Promise<ModuleUpdate
       sourceName: source.name,
       sourceUrl: source.url,
       tag: entry.tag,
-      // An OLDER offering is not an update and must never be presented as one. This used
-      // to be `cmp !== 0`, so when a channel's newest release sorted below what's
-      // installed the Updates page offered a downgrade with a tick-box beside it. The
-      // usual cause isn't a mistake by the person looking at it: promoting a pre-release
-      // to stable leaves the beta channel still pointing at the now-older pre-release
-      // (0.0.5-beta.1 sorts BELOW 0.0.5), so every install on beta is invited to go
-      // backwards. `isDowngrade` still reports it so the reason can be shown.
+      /*
+       * ⚠ An OLDER offering is not an update. This was `cmp !== 0`, so a channel whose newest
+       *   release sorted below the installed version offered a **downgrade with a tick-box**. The
+       *   usual cause is promoting a pre-release to stable: beta still points at the now-older
+       *   pre-release, which sorts below it. `isDowngrade` still reports it so the reason shows.
+       */
       updateAvailable: cmp > 0 && !blockedReason,
       blockedReason,
       isDowngrade: cmp < 0,
@@ -209,7 +208,10 @@ export async function getModuleUpdateStatus(force = false): Promise<ModuleUpdate
   return status;
 }
 
-/** How many modules have an update ready to apply — for the "you should look" signals. */
+/**
+ * How many modules have an update ready — the "you should look" signal.
+ * REFS app/api/update/status/route.ts — the only caller; feeds the update banner
+ */
 export async function countModuleUpdates(): Promise<number> {
   try {
     const status = await getModuleUpdateStatus();
@@ -221,6 +223,11 @@ export async function countModuleUpdates(): Promise<number> {
 
 /** Drop the cache — call after applying updates, or after the app itself updates (a newer
  *  app can make a module that was blocked on minAppVersion newly eligible). */
+/**
+ * ⚠ Must be called by anything that changes what an update check would return — a channel switch,
+ *   an install, a removal — or the page shows a stale answer for up to three minutes (BUG-34).
+ * PINS tests/unit/update-cache-invalidation.test.ts
+ */
 export function clearModuleUpdateCache(): void {
   cache = null;
 }
