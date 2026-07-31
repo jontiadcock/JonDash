@@ -10,13 +10,13 @@ import type { ComponentType, ReactNode } from "react";
  */
 
 /**
- * Permissions a module may request. Each is shown to the admin as plain language at install, and the
- * matching capability appears on `ModuleContext` only when granted.
+ * Permissions a module may request. Each is shown to the admin as plain language at install, and
+ * the matching capability appears on `ModuleContext` only when granted.
  *
  * ⚠ **Only permissions that actually grant something are listed.** Drafts of `db:users:*`,
- *   `db:core:*`, `crypto:key:read`, `sessions:*` and `files:*` were deleted rather than left inert —
- *   a warning that sounds serious and grants nothing teaches people to wave consent screens through.
- *   Each returns with the capability that implements it.
+ *   `db:core:*`, `crypto:key:read`, `sessions:*` and `files:*` were deleted rather than left inert
+ *   — a warning that sounds serious and grants nothing teaches people to wave consent screens
+ *   through. Each returns with the capability that implements it.
  * REFS lib/modules/context.ts — where each of the four below is actually handed over
  */
 export type ModulePermission =
@@ -29,23 +29,28 @@ export type ModulePermission =
  * A capability named by a HELPER, not core (MOD-08), shaped `<helperId>:<verb>`.
  *
  * ⚠ **A core permission is a capability token; this is only words.** Core gates a `ModuleContext`
- *   field structurally, so inventing that string grants nothing. A helper permission gates nothing in
- *   core — the helper enforces it behind its own API. That asymmetry is what lets a helper ship a
- *   capability without a core release. The namespace must equal the helper id.
+ *   field structurally, so inventing that string grants nothing. A helper permission gates nothing
+ *   in core — the helper enforces it behind its own API. That asymmetry is what lets a helper ship
+ *   a capability without a core release. The namespace must equal the helper id.
  * REFS lib/modules/verify.ts — refuses `@/helpers/<id>/api` unless the helper was declared
  */
 export type HelperPermission = string;
 
-/** Anything a module may declare: a core permission, or one named by a helper it declares. */
+/**
+ * A core permission, or one named by a helper the module declares.
+ * REFS lib/modules/install.ts — grants them · lib/modules/permissions.ts — stores them ·
+ *      lib/modules/context.ts — turns a grant into a capability · app/admin/permissions/actions.ts
+ */
 export type DeclaredPermission = ModulePermission | (string & {});
 
 /** `<helperId>:<verb>` — lowercase, no leading digit on the verb. */
 export const HELPER_PERMISSION_RE = /^[a-z0-9][a-z0-9-]*:[a-z][a-z0-9-]*$/;
 
 /**
- * ⚠ Declared here rather than derived from `PERMISSION_WARNINGS` below — these predicates are called
- *   from module scope and must not depend on evaluation order.
+ * ⚠ Declared here rather than derived from `PERMISSION_WARNINGS` below — these predicates are
+ *   called from module scope and must not depend on evaluation order.
  */
+/** PINS tests/unit/permission-consent.test.ts — asserts this and PERMISSION_WARNINGS agree. */
 export const CORE_PERMISSIONS: ReadonlySet<string> = new Set([
   "network:outbound",
   "crypto:use",
@@ -53,7 +58,10 @@ export const CORE_PERMISSIONS: ReadonlySet<string> = new Set([
   "email:send",
 ]);
 
-/** True for one of the four capabilities core itself implements. */
+/**
+ * True for one of the four capabilities core itself implements.
+ * PINS tests/unit/permission-consent.test.ts
+ */
 export function isCorePermission(p: string): p is ModulePermission {
   return CORE_PERMISSIONS.has(p);
 }
@@ -69,7 +77,11 @@ export function helperIdForPermission(p: string): string | null {
   return p.slice(0, p.indexOf(":"));
 }
 
-/** Shape a manifest/definition permission list must satisfy to be accepted at all. */
+/**
+ * The shape a permission list must satisfy to be accepted at all.
+ * REFS lib/modules/sources.ts — rejects a whole manifest entry when this fails
+ * PINS tests/unit/permission-consent.test.ts
+ */
 export function isValidPermission(p: unknown): p is DeclaredPermission {
   return typeof p === "string" && (isCorePermission(p) || HELPER_PERMISSION_RE.test(p));
 }
@@ -87,14 +99,18 @@ export type ModuleSettingField = {
   secret?: boolean;
 };
 
-/** A module's own settings (declared in `settings`), scoped to the module. */
+/**
+ * A module's own settings, scoped to it. REFS lib/modules/store.ts › moduleSettingsApi()
+ */
 export type ModuleSettingsApi = {
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown): Promise<void>;
   all(): Promise<Record<string, unknown>>;
 };
 
-/** Generic per-module key/value store (no migration needed). */
+/**
+ * Per-module key/value store, no migration needed. REFS lib/modules/store.ts › moduleStoreApi()
+ */
 export type ModuleStoreApi = {
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown, opts?: { secret?: boolean }): Promise<void>;
@@ -118,12 +134,12 @@ export type ModuleMailList = {
 };
 
 /**
- * Send mail through the admin's configured mailer ("email:send"). **Core owns the chrome; the module
- * supplies the body** — `text` is HTML-escaped before wrapping, so a module cannot ship mail that
- * looks like JonDash's own.
+ * Send mail through the admin's configured mailer ("email:send"). **Core owns the chrome; the
+ * module supplies the body** — `text` is HTML-escaped before wrapping, so a module cannot ship mail
+ * that looks like JonDash's own.
  *
- * ⚠ **Do not hard-wrap `text`.** Blank line → paragraph, single newline → line break; wrapping at 78
- *   characters breaks mid-sentence and the client wraps again at its own width.
+ * ⚠ **Do not hard-wrap `text`.** Blank line → paragraph, single newline → line break; wrapping at
+ *   78 characters breaks mid-sentence and the client wraps again at its own width.
  * REFS lib/modules/context.ts — implements this · lib/email/template.ts › renderBrandedEmail()
  */
 export type ModuleEmailApi = {
@@ -152,8 +168,8 @@ export type ModuleEmailApi = {
 
 /**
  * Probes `fetch` cannot express ("network:outbound"). ICMP is here because it needs the OS `ping`
- * binary, and doing that safely — strict host validation, fixed argument list, no shell — belongs in
- * trusted core once. REFS lib/modules/net.ts › pingHost() — the hardened implementation
+ * binary, and doing that safely — strict host validation, fixed argument list, no shell — belongs
+ * in trusted core once. REFS lib/modules/net.ts › pingHost() — the hardened implementation
  */
 export type ModuleNetApi = {
   /** ICMP echo. Resolves round-trip milliseconds, or null if the host didn't answer. */
@@ -170,8 +186,8 @@ export type ModuleContext = {
   user: { id: string; email: string; role: "ADMIN" | "USER" } | null;
 
   /**
-   * What this module was granted, and a predicate over it (MOD-10). Exists because a helper's API is
-   * imported directly, so no field can be withheld — without it a module could declare only
+   * What this module was granted, and a predicate over it (MOD-10). Exists because a helper's API
+   * is imported directly, so no field can be withheld — without it a module could declare only
    * `filesystem:read` and call every write method, with nothing able to notice.
    *
    * **Helpers: check `ctx.can(...)` at the top of every privileged call** — core never sees the call.
@@ -195,19 +211,29 @@ export type ModuleContext = {
   audit?: (action: string, detail?: string) => Promise<void>; // "audit:write"
 };
 
-/** A helper a module needs, stating the oldest version it was built against (MOD-10). */
+/**
+ * A helper a module needs, with the oldest version it was built against (MOD-10).
+ * PINS tests/unit/helper-declarations.test.ts
+ */
 export type ModuleHelperNeed = {
   id: string;
   /** Oldest helper version this module works with. Omit if it has no floor. */
   minVersion?: string;
 };
 
-/** The plain id of a declared helper, whichever form was used. */
+/**
+ * The plain id of a declared helper, whichever form was used.
+ * PINS tests/unit/helper-declarations.test.ts
+ */
 export function helperNeedId(h: string | ModuleHelperNeed): string {
   return typeof h === "string" ? h : h.id;
 }
 
-/** Just the ids of a module's declared helpers — what most callers want. */
+/**
+ * Just the ids — what most callers want.
+ * REFS lib/helpers/install.ts · lib/helpers/channel.ts · lib/helpers/reconcile.ts ·
+ *      lib/helpers/registry.ts · lib/helpers/updates.ts — every helper resolution path
+ */
 export function helperIdsOf(helpers: (string | ModuleHelperNeed)[] | undefined): string[] {
   return (helpers ?? []).map(helperNeedId);
 }
@@ -244,8 +270,12 @@ export type BackupTableDecl = {
 };
 
 /**
- * The default export of `modules/<id>/module.ts`. `id` is a stable lowercase-kebab
- * string equal to the folder name.
+ * The default export of `modules/<id>/module.ts`. `id` is a stable lowercase-kebab string equal to
+ * the folder name.
+ *
+ * REFS lib/modules/manage.ts — install and uninstall · lib/modules/context.ts — builds the ctx ·
+ *      lib/modules/generated.ts — the static import list, since modules compile into the build ·
+ *      app/admin/modules/page.tsx — renders them
  */
 export type ModuleDefinition = {
   id: string;
@@ -301,8 +331,8 @@ export type ModuleDefinition = {
   settings?: ModuleSettingField[];
 
   /**
-   * Icon shown next to the module's name. A component rather than an image file, so it ships with the
-   * module, needs no serving route, and inherits the theme colour via `currentColor`.
+   * Icon shown next to the module's name. A component rather than an image file, so it ships with
+   * the module, needs no serving route, and inherits the theme colour via `currentColor`.
    */
   icon?: ComponentType<{ className?: string }>;
 
@@ -335,7 +365,11 @@ export type ModuleDefinition = {
   uninstallQuestions?: () => Promise<UninstallQuestion[]>;
 };
 
-/** One yes/no question on the uninstall confirmation screen. */
+/**
+ * One yes/no question on the uninstall confirmation screen.
+ * REFS lib/uninstall-questions.ts — applies every constraint core imposes ·
+ *      lib/helpers/types.ts — helpers declare these too, and may default true
+ */
 export type UninstallQuestion = {
   /** Unique within the asking module or helper. Comes back as the key in `answers`. */
   id: string;
@@ -370,15 +404,16 @@ export const PERMISSION_WARNINGS: Record<ModulePermission, string> = {
  * High-risk permissions, highlighted on the consent screen. **Empty for now** — the genuinely
  * dangerous capabilities are exactly the ones still to be built, and must be listed the day they land.
  */
+/** PINS tests/unit/permission-consent.test.ts — asserts the styling follows this set. */
 export const DANGEROUS_PERMISSIONS: ReadonlySet<ModulePermission> = new Set<ModulePermission>([]);
 
 /**
- * ⚠ **The single place consent text is decided.** Every surface goes through this, which is what stops
- *   one of them rendering a blank for a permission core does not recognise. **Nothing is silently
- *   dropped** — an unrecognised permission is shown, named and flagged as unexplained.
+ * ⚠ **The single place consent text is decided.** Every surface goes through this, which is what
+ *   stops one of them rendering a blank for a permission core does not recognise. **Nothing is
+ *   silently dropped** — an unrecognised permission is shown, named and flagged as unexplained.
  *
- * A helper-provided capability is **dangerous by default**: core has no opinion about one it did not
- * define, so it never gets the quiet styling.
+ * A helper-provided capability is **dangerous by default**: core has no opinion about one it did
+ * not define, so it never gets the quiet styling.
  * REFS app/admin/modules/browse/module-detail.tsx · app/admin/modules/page.tsx ·
  *      app/admin/updates/page.tsx · lib/helpers/registry.ts — every consent surface
  */
@@ -401,15 +436,16 @@ export function describePermission(
 }
 
 /**
- * How much a module asks for, in one word, for a catalogue card. ⚠ Runs the same permissions through
- * the same `describePermission()` — a summary computed separately would drift, and the card would
- * read "Standard" while the detail page listed something alarming.
+ * How much a module asks for, in one word, for a catalogue card. ⚠ Runs the same permissions
+ * through the same `describePermission()` — a summary computed separately would drift, and the card
+ * would read "Standard" while the detail page listed something alarming.
  *
  * **A chip is never enough to install on**; approving happens where the full list is on screen.
  * REFS app/admin/modules/browse/page.tsx — the only caller
  */
 export type PermissionRisk = "none" | "standard" | "elevated";
 
+/** REFS app/admin/modules/browse/page.tsx — the catalogue card that renders the chip. */
 export function permissionRisk(
   permissions: readonly DeclaredPermission[],
   helperLabels?: Readonly<Record<string, string>>,

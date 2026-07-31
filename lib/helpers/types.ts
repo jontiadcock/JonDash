@@ -17,15 +17,18 @@ export type HelperSettingsContext = {
   user: { id: string; email: string; role: "ADMIN" | "USER" };
 };
 
-/** What a settings submission produced. `error` is shown to the admin verbatim. */
+/**
+ * What a settings submission produced. ⚠ `error` is shown to the admin verbatim.
+ * REFS app/admin/helpers/actions.ts · app/admin/permissions/actions.ts — both render it
+ */
 export type HelperSettingsResult = { ok: true; message?: string } | { ok: false; error: string };
 
 /**
  * One member of the set that bounds a capability — a service, a folder.
  *
  * ⚠ `label` and `value` are separate deliberately, and **both are always shown**: a module once
- *   displayed "Add Plex" while submitting `sshd`. A friendly name is never the only thing on screen.
- * REFS app/admin/permissions/ui.tsx — renders both · app/admin/permissions/actions.ts — acts on `value`
+ *   displayed "Add Plex" while submitting `sshd`. A friendly name is never the only thing on
+ * screen. REFS app/admin/permissions/ui.tsx — renders both · app/admin/permissions/actions.ts — acts on `value`
  */
 export type ScopeItem = {
   /** Stable identifier for removal. Opaque to core. */
@@ -44,7 +47,10 @@ export type ScopeItem = {
   toggleOn?: boolean;
 };
 
-/** Something the admin could add, offered for ticking rather than typing. Both fields shown, as `ScopeItem`. */
+/**
+ * Something the admin could add, offered for ticking rather than typing. Both fields shown, as
+ * `ScopeItem`. REFS app/admin/permissions/ui.tsx — the picker · app/admin/permissions/actions.ts
+ */
 export type ScopeCandidate = {
   value: string;
   label: string;
@@ -74,9 +80,9 @@ export type HelperCapabilityScope = {
   /**
    * Candidates to tick instead of typing. `query` is the filter text; return a sensible number.
    *
-   * ⚠ **A safety feature, not a convenience: a helper offering `unbounded` and no `browse` has built
-   *   the trap** — typing three exact service names loses to the one-click "everything" below.
-   *   Bounded and best-effort; failing shows the manual field, never an error page.
+   * ⚠ **A safety feature, not a convenience: a helper offering `unbounded` and no `browse` has
+   *   built the trap** — typing three exact service names loses to the one-click "everything"
+   *   below. Bounded and best-effort; failing shows the manual field, never an error page.
    */
   browse?: (query: string) => Promise<ScopeCandidate[]>;
 
@@ -88,9 +94,9 @@ export type HelperCapabilityScope = {
     /**
      * What the grant reaches, verbatim beside the switch. **Name the worst thing it can touch.**
      *
-     * ⚠ Where "everything" includes JonDash's own `.data/`, `prisma/` or `bin/` — the master key, the
-     *   database, the elevation binaries — **it does, and this must say so.** It is the only sentence
-     *   the admin reads before agreeing. Where `option` exists, describe the grant **without** it.
+     * ⚠ Where "everything" includes JonDash's own `.data/`, `prisma/` or `bin/` — the master key,
+     *   the database, the elevation binaries — **it does, and this must say so.** It is the only
+     *   sentence the admin reads before agreeing. Where `option` exists, describe the grant **without** it.
      */
     warning: string;
     isOn: () => Promise<boolean>;
@@ -130,8 +136,8 @@ export type HelperCapabilityScope = {
   };
 
   /**
-   * ⚠ Core calls these through its own gated action — **a helper may never define a server action for
-   *   them.** A check that must be remembered is eventually forgotten.
+   * ⚠ Core calls these through its own gated action — **a helper may never define a server action
+   *   for them.** A check that must be remembered is eventually forgotten.
    * REFS app/admin/permissions/actions.ts — the gated caller
    */
   add: (ctx: HelperSettingsContext, value: string) => Promise<HelperSettingsResult>;
@@ -139,9 +145,9 @@ export type HelperCapabilityScope = {
 };
 
 /*
- * Helper contract (MOD-08). A helper is FIRST-PARTY code doing, on a module's behalf, the privileged
- * work modules are forbidden — filesystem, process spawning, raw sockets. Not a `ModuleDefinition`:
- * no widget, no page, no RBAC.
+ * Helper contract (MOD-08). A helper is FIRST-PARTY code doing, on a module's behalf, the
+ * privileged work modules are forbidden — filesystem, process spawning, raw sockets. Not a
+ * `ModuleDefinition`: no widget, no page, no RBAC.
  *
  * ⚠ Only safe because helpers are authored by JonDash alone and installed only from the official
  *   source. That restriction is load-bearing and must never be relaxed for convenience.
@@ -149,23 +155,26 @@ export type HelperCapabilityScope = {
  *      docs/HELPERS-DESIGN.md · docs/MODULES-AUTHORING.md — ⚠ author-facing, update with this
  */
 
-/** A capability a helper exposes, described for the consent screen. */
+/**
+ * A capability a helper exposes, described for the consent screen.
+ * REFS lib/modules/context.ts — where a module's grant of one is resolved
+ */
 export type HelperCapability = {
   /**
    * `<thisHelperId>:<verb>`, e.g. `filesystem:write`. Namespaced so two helpers cannot collide and
-   * none can shadow a core permission. A helper may name a capability core has never heard of — that
-   * is what lets one ship without a core release; the helper enforces it behind its own API.
+   * none can shadow a core permission. A helper may name a capability core has never heard of —
+   * that is what lets one ship without a core release; the helper enforces it behind its own API.
    *
-   * ⚠ **Split read from write, always** — `:read` and `:control` as separate capabilities, never one
-   *   covering both, or the admin must grant the destructive half to get the harmless one. **Core
-   *   never sees the verbs and cannot enforce this**, so it is a contract obligation.
+   * ⚠ **Split read from write, always** — `:read` and `:control` as separate capabilities, never
+   *   one covering both, or the admin must grant the destructive half to get the harmless one.
+   *   **Core never sees the verbs and cannot enforce this**, so it is a contract obligation.
    * REFS lib/modules/types.ts › helperIdForPermission() — derives the helper from the namespace
    */
   permission: DeclaredPermission;
   /**
    * The real-world effect in plain language — "Read and write files in D:\Backups", not "filesystem
-   * access", because a capability name tells nobody what could happen to their machine. Receives the
-   * helper's config so the sentence names the actual directories. ⚠ Bounded and best-effort.
+   * access", because a capability name tells nobody what could happen to their machine. Receives
+   * the helper's config so the sentence names the actual directories. ⚠ Bounded and best-effort.
    */
   describe: (config: Record<string, unknown>) => string;
 
@@ -182,7 +191,10 @@ export type HelperCapability = {
   scope?: HelperCapabilityScope;
 };
 
-/** What a helper's boot phase is given. Deliberately tiny. */
+/**
+ * What a helper's boot phase is given. Deliberately tiny.
+ * REFS lib/helpers/boot.ts — the only builder, and it isolates failures
+ */
 export type HelperBootContext = {
   helperId: string;
   /** Scoped raw SQL over its own `hlp_<id>_*` tables only. REFS lib/helpers/migrate.ts › helperTableName() */
@@ -195,6 +207,12 @@ export type HelperBootContext = {
   audit(action: string, detail?: string): Promise<void>;
 };
 
+/**
+ * The default export of `helpers/<id>/helper.ts`.
+ * REFS lib/helpers/registry.ts — reads them · lib/helpers/boot.ts — runs `onBoot` ·
+ *      lib/helpers/migrate.ts — runs `migrations` · scripts/gen-module-registry.mjs — generates
+ *      the static import list, since helpers compile into the build
+ */
 export type HelperDefinition = {
   id: string;
   name: string;
@@ -203,12 +221,12 @@ export type HelperDefinition = {
   /**
    * The oldest JonDash this helper may be installed on.
    *
-   * ⚠ **Every optional field here is optional to OMIT, never to ADD.** Helpers compile into the app,
-   *   so declaring a property an older core lacks is a failed build, not a plainer UI — and the floor
-   *   **propagates**: every consuming module needs it too, or it pulls the helper onto an older core
-   *   and takes the build down. Floors: `label`/`risk`/`scope`/`browse`/`unbounded`/`itemToggle`
-   *   1.7.2-beta.1; `unbounded.option` 1.7.2-beta.2.
-   * REFS lib/helpers/install.ts — enforces this at install
+   * ⚠ **Every optional field here is optional to OMIT, never to ADD.** Helpers compile into the
+   *   app, so declaring a property an older core lacks is a failed build, not a plainer UI — and
+   *   the floor **propagates**: every consuming module needs it too, or it pulls the helper onto an
+   *   older core and takes the build down. Floors:
+   *   `label`/`risk`/`scope`/`browse`/`unbounded`/`itemToggle` 1.7.2-beta.1; `unbounded.option`
+   * 1.7.2-beta.2. REFS lib/helpers/install.ts — enforces this at install
    */
   minAppVersion: string;
 
@@ -216,9 +234,9 @@ export type HelperDefinition = {
   provides?: HelperCapability[];
 
   /**
-   * The helper's own config, so `describe(config)` names real specifics (MOD-10). **Core cannot read
-   * it** — a helper's config lives in its own `hlp_<id>_*` tables — so the helper hands over only what
-   * consent needs. ⚠ Bounded and best-effort: throwing falls back to generic wording, never an error.
+   * The helper's own config, so `describe(config)` names real specifics (MOD-10). **Core cannot
+   * read it** — a helper's config lives in its own `hlp_<id>_*` tables — so the helper hands over
+   * only what consent needs. ⚠ Bounded and best-effort: throwing falls back to generic wording, never an error.
    */
   readConfig?: () => Promise<Record<string, unknown>>;
 
@@ -243,9 +261,9 @@ export type HelperDefinition = {
   onBoot?: (ctx: HelperBootContext) => Promise<void>;
 
   /**
-   * Runs ONCE, just before the helper's files are removed. **For state created OUTSIDE JonDash** — an
-   * OS grant, a scheduled task, a firewall rule (OPS-18). Its own tables are deliberately left alone,
-   * so reinstalling brings the helper back with its history.
+   * Runs ONCE, just before the helper's files are removed. **For state created OUTSIDE JonDash** —
+   * an OS grant, a scheduled task, a firewall rule (OPS-18). Its own tables are deliberately left
+   * alone, so reinstalling brings the helper back with its history.
    *
    * ⚠ Best-effort and **must not block removal**, so it is a tidy-up, **not a guarantee**: anything
    *   that MUST be revoked has to be revocable independently.
@@ -254,8 +272,8 @@ export type HelperDefinition = {
   onUninstall?: (ctx: HelperBootContext, answers: Record<string, boolean>) => Promise<void>;
 
   /**
-   * A bound service account has been deleted (SEC-07) — fired after the identity is gone, so a helper
-   * can drop key rows and stop showing a credential pointing at nothing.
+   * A bound service account has been deleted (SEC-07) — fired after the identity is gone, so a
+   * helper can drop key rows and stop showing a credential pointing at nothing.
    *
    * ⚠ **Hygiene, never the safety property.** It is skipped entirely if the server is down when the
    *   deletion happens. The guarantee is re-resolving on **every call** and failing closed.
@@ -275,12 +293,12 @@ export type HelperDefinition = {
   uninstallQuestions?: () => Promise<UninstallQuestion[]>;
 
   /**
-   * A settings panel rendered by CORE, so admin-owned configuration is edited on a core page behind a
-   * core permission check, **with no module anywhere in the path**. Without it a helper exposed its
-   * allowlist on its module-facing API and **the thing being bounded could edit its own boundary**.
+   * A settings panel rendered by CORE, so admin-owned configuration is edited on a core page behind
+   * a core permission check, **with no module anywhere in the path**. Without it a helper exposed
+   * its allowlist on its module-facing API and **the thing being bounded could edit its own boundary**.
    *
-   * ⚠ A client component that must submit through `saveHelperSettingsAction` — never its own action.
-   * REFS app/admin/helpers/actions.ts › saveHelperSettingsAction()
+   * ⚠ A client component that must submit through `saveHelperSettingsAction` — never its own
+   * action. REFS app/admin/helpers/actions.ts › saveHelperSettingsAction()
    */
   SettingsPanel?: ComponentType<{ ctx: HelperSettingsContext }>;
 
@@ -288,8 +306,8 @@ export type HelperDefinition = {
    * Receives what the panel submitted. Called ONLY by `saveHelperSettingsAction`, which has already
    * checked same-origin and the admin permission and built `ctx` from the real session.
    *
-   * ⚠ **A helper may not define its own server action for this.** It is first-party and *could* — and
-   *   that is the point: the gated path being the only path means the check cannot be forgotten.
+   * ⚠ **A helper may not define its own server action for this.** It is first-party and *could* —
+   *   and that is the point: the gated path being the only path means the check cannot be forgotten.
    */
   onSettingsSubmit?: (
     ctx: HelperSettingsContext,
@@ -299,8 +317,8 @@ export type HelperDefinition = {
   /**
    * `onUninstall` may raise an elevation prompt, so its budget becomes 10 minutes rather than 5
    * seconds. Revoking a grant waits on a human answering UAC, so the 5s budget cut the hook off
-   * mid-prompt and the grants survived. Acceptable **here and only here**, because the admin has just
-   * clicked uninstall and is at the machine.
+   * mid-prompt and the grants survived. Acceptable **here and only here**, because the admin has
+   * just clicked uninstall and is at the machine.
    *
    * ⚠ **Never set this to buy time for ordinary work** — it is an attention span, not a performance
    *   allowance. REFS lib/elevation.ts — where the 10-minute timeout comes from
@@ -309,8 +327,8 @@ export type HelperDefinition = {
 };
 
 /**
- * A helper's public entry point. A module imports `@/helpers/<id>/api` — declared, so internals can be
- * refactored without breaking consumers.
+ * A helper's public entry point. A module imports `@/helpers/<id>/api` — declared, so internals can
+ * be refactored without breaking consumers.
  *
  * ⚠ Every call takes the **consuming module's** context, so the helper knows who is asking and can
  *   refuse work the caller was not granted.

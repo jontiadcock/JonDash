@@ -8,24 +8,37 @@ import { getAllModules } from "./registry";
  * channel branch — `main` = stable, `beta` = beta. The official repo is seeded as the default.
  *
  * ⚠ **Everything fetched here is UNTRUSTED remote JSON.** Ids must be safe slugs, versions
- *   semver-shaped, permissions well-formed, and no path may escape `addons/<id>`. An invalid entry is
- *   **dropped** — except where dropping would hide a capability from the admin, where the whole entry
- *   is **refused** instead.
- * REFS lib/modules/verify.ts — the second gate, on the downloaded folder rather than the manifest
- *      lib/modules/install.ts · lib/helpers/install.ts — consume what this returns
- * PINS tests/unit/module-sources.test.ts
+ *   semver-shaped, permissions well-formed, no path escaping `addons/<id>`.
+ * REFS lib/modules/verify.ts — the second gate, on the downloaded folder not the manifest
+ * PINS tests/integration/module-sources.test.ts · tests/integration/helper-sources.test.ts
  */
 
+/**
+ * ⚠ `isOfficialSource()` compares against this, and that comparison is what gates first-party
+ *   helpers — changing it changes who may publish one.
+ * REFS lib/helpers/install.ts · lib/helpers/updates.ts · lib/updates/auto-run.ts ·
+ *      app/admin/updates/{helper-actions,selection-actions}.ts
+ */
 export const DEFAULT_SOURCE_URL = "https://github.com/jontiadcock/JonDash-addons";
 export const DEFAULT_SOURCE_NAME = "JonDash official addons";
 
+/**
+ * REFS lib/helpers/channel.ts — resolves a helper's channel · lib/modules/{install,updates,
+ *      registry,provenance}.ts · lib/helpers/{install,reconcile,updates}.ts · the admin modules
+ *      and updates pages — 15 files; every install and update path is channel-aware.
+ */
 export type ModuleChannel = "stable" | "beta";
 
-/** Channel → the branch that carries that channel's manifest. */
+/**
+ * Channel → the branch carrying that channel's manifest.
+ * REFS lib/update-channel.ts — the app's own updater uses the same mapping
+ * PINS tests/unit/update-channel.test.ts
+ */
 export function branchForChannel(channel: ModuleChannel): string {
   return channel === "beta" ? "beta" : "main";
 }
 
+/** REFS lib/modules/install.ts — installs from one of these, at its pinned `tag`. */
 export type SourceModuleEntry = {
   id: string;
   name: string;
@@ -40,14 +53,18 @@ export type SourceModuleEntry = {
   /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
   notes?: string;
   /**
-   * Pictures shown before you install. ⚠ Resolved against the **pinned tag**, so you see the picture
+   * Pictures shown before you install. ⚠ Resolved against the **pinned tag**, so you see the one
    * shipping with the version you are about to install, not whatever is on the branch today.
    * REFS app/api/modules/screenshot/route.ts — fetches them at that tag
    */
   screenshots?: ModuleScreenshot[];
 };
 
-/** One screenshot entry from a source manifest. Both fields are untrusted author text. */
+/**
+ * One screenshot entry. Both fields are untrusted author text.
+ * REFS app/admin/modules/browse/screenshots.tsx — renders them ·
+ *      app/api/modules/screenshot/route.ts — fetches them
+ */
 export type ModuleScreenshot = {
   /** A filename inside the module folder — no directories, no traversal (enforced below). */
   file: string;
@@ -55,14 +72,18 @@ export type ModuleScreenshot = {
   caption?: string;
 };
 
-/** Agreed with the add-ons session, 2026-07-27. Four, because they are downloaded by every install. */
+/**
+ * Four, because every install downloads them.
+ * REFS app/admin/modules/browse/screenshots.tsx — the renderer honours this cap too
+ * PINS tests/unit/module-screenshots.test.ts
+ */
 export const MAX_SCREENSHOTS = 4;
 
 /**
- * A filename, optionally inside **one** subdirectory — four loose images among a module's source files
- * is worse for an author than one folder.
+ * A filename, optionally inside **one** subdirectory — four loose images among a module's source
+ * files is worse for an author than one folder.
  *
- * ⚠ **Still not a path.** One optional segment that must start with a letter or digit, so `..` cannot
+ * ⚠ **Still not a path.** One optional segment starting with a letter or digit, so `..` cannot
  *   match, nor a leading slash, second directory, drive letter or Windows separator. The extension
  *   list is the real gate on what gets fetched.
  */
@@ -70,11 +91,12 @@ const SCREENSHOT_FILE_RE =
   /^(?:[a-z0-9][a-z0-9._-]{0,31}\/)?[a-z0-9][a-z0-9._-]{0,63}\.(png|jpg|jpeg|webp)$/i;
 
 /**
- * One capability a helper advertises: the permission a module must declare, and the sentence the admin
- * reads before anything is installed.
+ * One capability a helper advertises: the permission a module must declare, and the sentence an
+ * admin reads before anything is installed.
  *
  * ⚠ The label is authored by the HELPER. Only safe because helpers are first-party-only, so a
- *   third-party source can never inject consent text. REFS fetchSourceManifest() below — enforces that
+ *   third-party source can never inject consent text.
+ * REFS fetchSourceManifest() below — enforces it
  */
 export type SourceHelperCapability = {
   /** `<helperId>:<verb>`, namespaced to the helper that provides it. */
@@ -84,8 +106,8 @@ export type SourceHelperCapability = {
 };
 
 /**
- * A helper published by a source (MOD-08). ⚠ **FIRST-PARTY ONLY** — accepted solely from the official
- * source, or anyone could publish a `helpers` array and inherit the privilege helpers carry.
+ * A helper published by a source (MOD-08). ⚠ **FIRST-PARTY ONLY** — accepted solely from the
+ * official source, or anyone could publish a `helpers` array and inherit the privilege they carry.
  * REFS fetchSourceManifest() below — where that is enforced · lib/helpers/install.ts — the consumer
  */
 export type SourceHelperEntry = {
@@ -95,16 +117,16 @@ export type SourceHelperEntry = {
   version: string;
   minAppVersion: string;
   /**
-   * Capabilities provided to modules, with the wording an admin reads. Drives the consent roll-up at
-   * BROWSE time, where no helper code is downloaded and no config exists, so `describe(config)` cannot
-   * run — the live, config-aware sentence comes from the helper once installed.
+   * Capabilities provided to modules, with the wording an admin reads. Drives the consent roll-up
+   * at BROWSE time, where no helper code is downloaded and no config exists, so `describe(config)`
+   * cannot run — the live, config-aware sentence comes from the helper once installed.
    */
   provides: SourceHelperCapability[];
   /**
    * The version at which this helper last BROKE compatibility (MOD-10) — helpers promise never to,
    * the exception being a security fix that cannot be made additively. Declaring it lets JonDash
-   * **name the modules that will stop working** rather than letting them fail silently after an update
-   * nobody connected to the cause. Absent, the normal case, means never.
+   * **name the modules that will stop working** rather than letting them fail silently after an
+   * update nobody connected to the cause. Absent, the normal case, means never.
    */
   breakingFrom?: string;
   path: string;
@@ -112,6 +134,7 @@ export type SourceHelperEntry = {
   notes?: string;
 };
 
+/** REFS fetchSourceManifest() below — the only producer. */
 export type SourceManifest = {
   manifestVersion: number;
   channel: ModuleChannel;
@@ -128,7 +151,10 @@ const MAX_MANIFEST_BYTES = 512 * 1024; // a manifest is small; refuse anything s
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9a-z.]+)?$/i;
 
-/** Parse a GitHub repo URL into owner/repo. Returns null if it isn't one we support. */
+/**
+ * GitHub repo URL → owner/repo, or null. ⚠ https and github.com only — the gate on what core will
+ * fetch from. REFS lib/modules/install.ts · app/api/modules/screenshot/route.ts
+ */
 export function parseRepoUrl(raw: string): { owner: string; repo: string } | null {
   let u: URL;
   try {
@@ -145,7 +171,11 @@ export function parseRepoUrl(raw: string): { owner: string; repo: string } | nul
   return { owner, repo };
 }
 
-/** The raw manifest URL for a source repo on a given channel's branch. */
+/**
+ * The raw manifest URL for a repo on a channel's branch.
+ * REFS fetchSourceManifest() below — the only production caller
+ * PINS tests/integration/module-sources.test.ts
+ */
 export function manifestUrlFor(repoUrl: string, channel: ModuleChannel): string | null {
   const parsed = parseRepoUrl(repoUrl);
   if (!parsed) return null;
@@ -153,8 +183,10 @@ export function manifestUrlFor(repoUrl: string, channel: ModuleChannel): string 
 }
 
 /**
- * Exposed for tests. This function turns a stranger's JSON into values core will put in a URL and
- * fetch, so it is worth testing directly rather than through a network round trip.
+ * Exposed for tests only — this turns a stranger's JSON into values core puts in a URL and fetches,
+ * so it is worth testing directly rather than through a network round trip.
+ * REFS sanitizeEntry() below — the function under test
+ * PINS tests/unit/module-screenshots.test.ts
  */
 export const sanitiseModuleEntryForTest = (raw: unknown) => sanitizeEntry(raw);
 
@@ -167,8 +199,8 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
   const version = typeof e.version === "string" ? e.version.trim() : "";
   if (!SEMVER_RE.test(version)) return null;
 
-  // ⚠ An unrecognised SHAPE refuses the entry rather than being filtered away — a dropped permission
-  // that happens to match the code installs with consent missing.
+  // ⚠ An unrecognised SHAPE refuses the entry rather than being filtered away — a dropped
+  // permission that happens to match the code installs with consent missing.
   if (e.permissions !== undefined && !Array.isArray(e.permissions)) return null;
   const rawPermissions = Array.isArray(e.permissions) ? e.permissions : [];
   if (!rawPermissions.every(isValidPermission)) return null;
@@ -243,13 +275,18 @@ function sanitiseScreenshots(raw: unknown): ModuleScreenshot[] {
   return out;
 }
 
+/**
+ * Its message is shown to the admin verbatim, so it must stay user-facing.
+ * REFS app/admin/modules/actions.ts · app/admin/updates/module-actions.ts ·
+ *      lib/modules/updates.ts · lib/helpers/updates.ts — all render it
+ */
 export class SourceError extends Error {}
 
 /**
- * `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip` for a pinned tag.
- * Shared by the module and helper installers so both fetch the same immutable thing.
- * Tags are namespaced (`<id>/v<version>`), so each segment is encoded but the separators
- * are kept.
+ * The archive URL for a **pinned tag**, so module and helper installs fetch the same bytes.
+ * Tags are namespaced (`<id>/v<version>`): each segment is encoded, the separators kept.
+ * REFS lib/helpers/install.ts · lib/modules/install.ts — the two installers
+ * PINS tests/integration/helper-sources.test.ts
  */
 export function archiveUrlForRepo(repoUrl: string, tag: string): string {
   const parsed = parseRepoUrl(repoUrl);
@@ -260,8 +297,11 @@ export function archiveUrlForRepo(repoUrl: string, tag: string): string {
 }
 
 /**
- * Fetch + validate a source's manifest for a channel. Throws SourceError with a
- * user-facing message on any problem (offline, 404 — e.g. no beta branch — bad JSON).
+ * Fetch and validate a source's manifest. Throws `SourceError` with a user-facing message on any
+ * problem — offline, 404 (e.g. no beta branch), bad JSON.
+ * REFS lib/helpers/install.ts · lib/helpers/updates.ts · lib/modules/updates.ts ·
+ *      lib/updates/auto-run.ts · app/admin/updates/{helper-actions,selection-actions}.ts —
+ *      nine callers; ⚠ changing its shape or throw contract touches every update path
  */
 export async function fetchSourceManifest(
   repoUrl: string,
@@ -312,8 +352,8 @@ export async function fetchSourceManifest(
     ? m.modules.map(sanitizeEntry).filter((x): x is SourceModuleEntry => x !== null)
     : [];
 
-  // ⚠ FIRST-PARTY ONLY, enforced here rather than by convention: a `helpers` array from anywhere but
-  // the official source is ignored, or publishing one would inherit the privilege helpers carry.
+  // ⚠ FIRST-PARTY ONLY, enforced here not by convention: a `helpers` array from anywhere but the
+  // official source is ignored, or publishing one would inherit the privilege helpers carry.
   const helpers =
     isOfficialSource(repoUrl) && Array.isArray(m.helpers)
       ? m.helpers.map(sanitizeHelperEntry).filter((x): x is SourceHelperEntry => x !== null)
@@ -328,7 +368,10 @@ export async function fetchSourceManifest(
   };
 }
 
-/** Same repo as the built-in official source, ignoring case and a trailing slash. */
+/**
+ * ⚠ This is the first-party gate — helpers are accepted only when it returns true.
+ * REFS lib/helpers/install.ts · lib/helpers/reconcile.ts
+ */
 export function isOfficialSource(repoUrl: string): boolean {
   const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
   return norm(repoUrl) === norm(DEFAULT_SOURCE_URL);
@@ -393,11 +436,15 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
 
 // ---- Source records (CRUD) ----
 
+/** REFS app/admin/modules/browse/page.tsx · modules/sources/page.tsx · lib/modules/updates.ts */
 export async function listSources() {
   return prisma.moduleSource.findMany({ orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
 }
 
-/** Seed the official source once, if it isn't present. Safe to call repeatedly. */
+/**
+ * Seed the official source once. Safe to call repeatedly.
+ * REFS app/admin/modules/browse/page.tsx · app/admin/modules/sources/page.tsx — both call on render
+ */
 export async function ensureDefaultSource(): Promise<void> {
   const existing = await prisma.moduleSource.findUnique({ where: { url: DEFAULT_SOURCE_URL } });
   if (existing) return;
@@ -409,7 +456,10 @@ export async function ensureDefaultSource(): Promise<void> {
   });
 }
 
-/** Add a source by repo URL (validated + de-duplicated). Returns the created row. */
+/**
+ * Add a source by repo URL, validated and de-duplicated.
+ * REFS app/admin/modules/actions.ts — the only caller, behind `modules.manage`
+ */
 export async function addSource(rawUrl: string, name?: string) {
   const parsed = parseRepoUrl(rawUrl);
   if (!parsed) throw new SourceError("Enter a GitHub repository URL, e.g. https://github.com/owner/repo");
@@ -423,10 +473,12 @@ export async function addSource(rawUrl: string, name?: string) {
   });
 }
 
+/** REFS app/admin/modules/actions.ts — the only caller, behind `modules.manage`. */
 export async function setSourceEnabled(id: string, enabled: boolean) {
   await prisma.moduleSource.updateMany({ where: { id }, data: { enabled } });
 }
 
+/** REFS app/admin/modules/actions.ts — the only caller, behind `modules.manage`. */
 export async function removeSource(id: string) {
   await prisma.moduleSource.deleteMany({ where: { id } });
 }
@@ -451,8 +503,10 @@ export type AvailableModule = SourceModuleEntry & {
 };
 
 /**
- * Browse every enabled source for modules available on a channel. Errors from one
- * source never break the others — they're returned per-source for display.
+ * Every enabled source's modules for a channel. ⚠ One source failing never breaks the others —
+ * errors come back per-source for display rather than thrown.
+ * REFS app/admin/modules/browse/page.tsx · module-detail.tsx · app/admin/modules/actions.ts ·
+ *      app/admin/updates/module-actions.ts · app/api/modules/screenshot/route.ts
  */
 export async function browseAvailableModules(
   channel: ModuleChannel = "stable",

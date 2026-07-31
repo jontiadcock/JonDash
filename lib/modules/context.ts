@@ -10,8 +10,8 @@ import { pingHost } from "./net";
 import { getModuleState } from "./registry";
 
 /**
- * The ModuleContext handed to a module's hooks and components (MOD-01). A capability is present only
- * if it was granted. ⚠ Modules run in-process: defence-in-depth for curated modules, not a sandbox.
+ * The ModuleContext handed to a module's hooks and components (MOD-01). A capability is present
+ * only if granted. ⚠ Modules run in-process: defence-in-depth for curated modules, not a sandbox.
  *
  * REFS lib/modules/types.ts › ModuleContext — the shape every field below must match
  *      callers: app/(app)/dashboard/page.tsx · app/(app)/m/[module]/[[...path]]/page.tsx ·
@@ -60,8 +60,8 @@ export function buildModuleContext(
   if (has("email:send")) {
     ctx.email = {
       send: async (msg) => {
-        // Raw `html` bypasses the shell deliberately; everything else is ESCAPED, so a module cannot
-        // forge JonDash's mail. REFS lib/email/template.ts › renderBrandedEmail() · types.ts › ModuleEmailApi
+        // Raw `html` bypasses the shell deliberately; everything else is ESCAPED, so a module
+        // cannot forge JonDash's mail. REFS lib/email/template.ts › renderBrandedEmail()
         let payload: { to: string; subject: string; text?: string; html?: string };
 
         if (msg.html) {
@@ -71,8 +71,8 @@ export function buildModuleContext(
           const { resolveAppUrl } = await import("@/lib/app-url");
           const brand = await currentBrand();
 
-          // No base URL means no button. ⚠ Never derive one from the request Host — forgeable, and a
-          // forged link in mail is worse than on a page (BUG-41). REFS lib/app-url.ts › resolveAppUrl()
+          // No base URL means no button. ⚠ Never derive one from the request Host — forgeable,
+          // and a forged link in mail beats one on a page (BUG-41). REFS lib/app-url.ts › resolveAppUrl()
           const url = msg.cta ? await resolveAppUrl(msg.cta.path) : null;
 
           const body = renderBrandedEmail({
