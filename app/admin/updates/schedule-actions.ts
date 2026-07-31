@@ -13,15 +13,14 @@ import { writeSetting } from "@/lib/settings";
 import { resolveHelperChannel } from "@/lib/helpers/channel";
 import { invalidateHelperUpdateCache } from "@/lib/helpers/updates";
 
+/** REFS ./schedule-form.tsx — the `useActionState` shape */
 export type ScheduleState = { ok?: boolean; error?: string };
 
-/**
- * When automatic updates run, and what is opted in to them (BUG-30).
- *
- * Kept on the Updates page rather than Settings: until now the channel, the app's own
- * auto-update, per-module auto-update and the module/helper update lists lived in four
- * different places, so "what updates itself, and when" could not be answered from any
- * single screen.
+/*
+ * When automatic updates run and what is opted in (BUG-30). ⚠ All of it lives on the Updates page:
+ * the channel, the app's own auto-update, per-item auto-update and the update lists were once in
+ * four places, so "what updates itself, and when" could not be answered from any single screen.
+ * REFS lib/updates/schedule.ts — reads what these write · lib/settings.ts › the updates group
  */
 
 async function gate() {
@@ -29,6 +28,8 @@ async function gate() {
   return requirePermission("settings.manage");
 }
 
+/** REFS ./schedule-form.tsx · lib/settings.ts › settingKeysByGroup("updates") — the only keys
+ *  this form may write · lib/updates/schedule.ts — what reads them back */
 export async function saveUpdateScheduleAction(
   _prev: ScheduleState,
   formData: FormData,
@@ -49,11 +50,9 @@ export async function saveUpdateScheduleAction(
 }
 
 /**
- * Opt one helper in or out of automatic updates.
- *
- * Separate from the module toggle on purpose even though the shape is identical: a helper
- * does the privileged work modules are forbidden, so letting one update itself unattended
- * is a bigger trust decision, and the audit entry should say which kind it was.
+ * Opt one helper in or out of automatic updates. ⚠ Separate from the module toggle despite the
+ * identical shape: a helper does the privileged work modules are forbidden, so the audit entry
+ * must say which kind it was. REFS app/admin/modules/actions.ts › setModuleAutoUpdateAction()
  */
 export async function setHelperAutoUpdateAction(formData: FormData): Promise<void> {
   const admin = await gate();
@@ -71,11 +70,11 @@ export async function setHelperAutoUpdateAction(formData: FormData): Promise<voi
   revalidatePath("/admin/helpers");
 }
 
-// The MODULE equivalent deliberately isn't here: `setModuleAutoUpdateAction` already exists
-// in app/admin/modules/actions.ts and the toggle reuses it. Two actions writing the same
-// column would mean two audit strings and two places to keep a rule in step.
+// ⚠ Do not add a module equivalent here — `setModuleAutoUpdateAction` already exists in
+// app/admin/modules/actions.ts, and two actions writing one column means two rules to keep in step.
 
-/** The master switch for automatic updates. */
+/** The master switch. ⚠ Turning it on gives every source you have added a standing channel to run
+ *  new code here. REFS ./auto-update-panel.tsx · lib/updates/auto-run.ts — checks it first */
 export async function setAutoUpdateEnabledAction(formData: FormData): Promise<void> {
   const admin = await gate();
   const on = String(formData.get("enabled") ?? "") === "on";
@@ -85,10 +84,9 @@ export async function setAutoUpdateEnabledAction(formData: FormData): Promise<vo
 }
 
 /**
- * Exclude one thing from automatic updates, or include it again.
- *
- * A helper excluded here is still updated when a module that needs it updates — excluding
- * it opts it out of being updated for its own sake, not out of being a working dependency.
+ * Exclude one thing from automatic updates, or include it again. ⚠ An excluded HELPER is still
+ * updated when a module that needs it updates — exclusion opts it out of being updated for its own
+ * sake, not out of being a working dependency. REFS lib/updates/auto-run.ts — where that happens
  */
 export async function setAutoUpdateExcludedAction(formData: FormData): Promise<void> {
   const admin = await gate();
@@ -116,7 +114,10 @@ export async function setAutoUpdateExcludedAction(formData: FormData): Promise<v
   revalidatePath("/admin/updates");
 }
 
-/** Move JonDash itself between the stable and beta channels. */
+/** Move JonDash between the stable and beta channels. ⚠ Must clear the update-status cache — a
+ *  cached status was read from the OTHER channel's manifest.
+ *  REFS lib/update-channel.ts › writeChannel() · lib/update.ts › clearUpdateStatusCache()
+ *  PINS tests/unit/update-cache-invalidation.test.ts */
 export async function setAppChannelAction(formData: FormData): Promise<void> {
   const admin = await gate();
   const raw = String(formData.get("channel") ?? "");
@@ -130,12 +131,11 @@ export async function setAppChannelAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Pin a helper to a channel, or clear the pin.
- *
- * A helper's channel is normally DERIVED — it follows the highest channel among the
- * modules that need it. Sending the channel it is already on clears the pin and returns
- * it to that, so the switch is a three-state control with two positions: on = pinned to
- * beta, off = back to derived (which may still be beta if a module put it there).
+ * Pin a helper to a channel, or clear the pin. A helper's channel is normally DERIVED from the
+ * highest channel among the modules needing it, so this is a three-state control with two
+ * positions: on = pinned to beta, off = back to derived, which may still be beta.
+ * REFS lib/helpers/channel.ts › resolveHelperChannel() · ./beta-channels.tsx
+ * PINS tests/unit/helper-channel-pin.test.ts
  */
 export async function setHelperChannelPinAction(formData: FormData): Promise<void> {
   const admin = await gate();
@@ -146,14 +146,12 @@ export async function setHelperChannelPinAction(formData: FormData): Promise<voi
   const existing = await prisma.helper.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return;
 
-  // The switch sets an explicit PIN to the channel you asked for — it does not just clear
-  // the pin. Clearing was the original behaviour and made the switch do nothing on a helper
-  // that is on beta by DERIVATION: the pin went away, the channel re-derived from a module
-  // still on beta, and it landed back where it started. `channel = pin ?? derived`, so
-  // overriding the derivation requires a pin, not the absence of one.
-  //
-  // Asking for the value it would derive anyway clears the pin instead, so it goes back to
-  // following its modules rather than being frozen at a value that happens to match today.
+  /*
+   * ⚠ Set an explicit PIN, do not merely clear one. `channel = pin ?? derived`, so on a helper that
+   * is on beta by DERIVATION clearing the pin re-derives straight back to beta and the switch does
+   * nothing. Asking for the value it would derive anyway is what clears the pin, so it goes back to
+   * following its modules rather than freezing at a value that matches only today.
+   */
   const target: "beta" | "stable" = raw === "beta" ? "beta" : "stable";
   const before = await resolveHelperChannel(id);
   const pin = target === before.derived ? null : target;
@@ -167,12 +165,13 @@ export async function setHelperChannelPinAction(formData: FormData): Promise<voi
     detail: `${id}=${pin ?? "derived"} (now ${state.channel})`,
   });
 
-  // MUST invalidate, or the write is invisible. getHelperUpdateStatus() caches for three
-  // minutes, and the Beta channels panel reads a helper's channel from that cache — so
-  // without this the row redraws in its old position, survives a full page reload (the
-  // cache is in-process, not per-request), and the switch looks broken while the database
-  // has already changed. Modules were unaffected because their rows are read straight from
-  // Prisma, which is why only the helper switches appeared dead.
+  /*
+   * ⚠ MUST invalidate or the write is invisible: `getHelperUpdateStatus()` caches for three minutes
+   * and the Beta channels panel reads the channel from that cache, so the row redraws in its old
+   * position and survives a full reload — the cache is in-process, not per-request. Modules were
+   * unaffected because their rows come straight from Prisma.
+   * REFS lib/helpers/updates.ts › invalidateHelperUpdateCache()
+   */
   invalidateHelperUpdateCache();
   revalidatePath("/admin/updates");
   revalidatePath("/admin/helpers");

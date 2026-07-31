@@ -22,6 +22,7 @@ import {
 
 const SETUP_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/** REFS app/admin/ui.tsx — the `useActionState` shape every form on the admin page reads */
 export type AdminState = { error?: string; setupUrl?: string; ok?: boolean };
 
 async function buildSetupUrl(rawToken: string): Promise<string> {
@@ -39,6 +40,9 @@ async function newSetupToken() {
 
 // ---- Users -----------------------------------------------------------------
 
+/** Invite a PERSON: issues a setup token and a one-time link. ⚠ Never use it for an identity
+ *  that should not be able to sign in — that is `createServiceAccountAction` below.
+ *  REFS app/admin/ui.tsx · lib/auth/service-accounts.ts */
 export async function createUserAction(
   _prev: AdminState,
   formData: FormData,
@@ -78,17 +82,16 @@ export async function createUserAction(
 }
 
 /**
- * Create a **service account** (SEC-07) — an identity that holds permissions and shows up in the
- * audit log, but that nobody can ever sign in as.
+ * Create a service account (SEC-07) — an identity that holds permissions and appears in the audit
+ * log, but that nobody can ever sign in as.
  *
- * Deliberately a **separate action** from `createUserAction` rather than a flag on it. Creating a
- * login and creating a thing-that-is-not-a-login are different intents with different invariants,
- * and folding them together is how a boolean ends up in a form where somebody eventually flips it
- * by accident. Nothing here issues a setup token, a password or MFA — not "issues an empty one":
- * the fields are never written at all.
- *
- * The admin supplies a NAME. The email handle is generated on a reserved non-routable suffix, so
- * nobody is invited to type a real address and no service account can ever collide with a person's.
+ * ⚠ A SEPARATE action from `createUserAction`, never a flag on it. Folding the two together is how
+ * a boolean ends up in a form for somebody to flip by accident. Nothing here issues a setup token,
+ * a password or MFA — the fields are never written at all, not written empty.
+ * ⚠ The email handle is GENERATED on a reserved non-routable suffix, so nobody is invited to type a
+ * real address and no service account can collide with a person's.
+ * REFS lib/auth/service-accounts.ts › isServiceAccount() — the test everything else keys on
+ * PINS tests/unit/service-accounts.test.ts
  */
 export async function createServiceAccountAction(
   _prev: AdminState,
@@ -135,6 +138,9 @@ export async function createServiceAccountAction(
   return { ok: true };
 }
 
+/** ⚠ The sharpest promotion path in the app: sets PENDING_SETUP and issues a working setup link,
+ *  which is how an identity acquires a password and MFA. Refuses a service account, and a delegate
+ *  may not run it on an ADMIN. REFS app/admin/ui.tsx  PINS tests/unit/service-accounts.test.ts */
 export async function resetAccessAction(
   _prev: AdminState,
   formData: FormData,
@@ -145,10 +151,11 @@ export async function resetAccessAction(
   const userId = String(formData.get("userId") ?? "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found." };
-  // SEC-07 — refuse outright on a service account. This is the sharpest promotion path in the
-  // app: it sets PENDING_SETUP and issues a working setup link, which is precisely how an
-  // identity acquires a password and MFA. Running it here would silently turn an
-  // unloggable-into identity into a login, and hand someone the link to finish the job.
+  /*
+   * ⚠ SEC-07: refuse outright on a service account. This is the sharpest promotion path in the app
+   * — it sets PENDING_SETUP and issues a working setup link, which is exactly how an identity
+   * acquires a password and MFA. Running it here turns an unloggable-into identity into a login.
+   */
   if (isServiceAccount(user)) {
     return { error: "A service account has no sign-in to reset." };
   }
@@ -179,6 +186,9 @@ export async function resetAccessAction(
   return { ok: true, setupUrl: await buildSetupUrl(token.raw) };
 }
 
+/** Enable or disable an account. ⚠ Re-activating a person requires completed setup; a service
+ *  account is the deliberate exception, or disabling one is irreversible from the UI.
+ *  REFS app/admin/users/[id]/page.tsx · lib/auth/service-accounts.ts › isServiceAccount() */
 export async function setUserStatusAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("users.manage");
@@ -199,13 +209,13 @@ export async function setUserStatusAction(formData: FormData): Promise<void> {
     await revokeAllSessions(user.id);
     await audit("admin.user.disable", { userId: admin.id, detail: label });
   } else if (isServiceAccount(user) || (user.passwordHash && user.totpSecretEnc)) {
-    // Only re-activate a PERSON if they previously completed setup — otherwise "enable" would
-    // produce an account that exists, looks active, and cannot be signed into.
-    //
-    // A SERVICE ACCOUNT is the deliberate exception (SEC-07): it has no password and no MFA by
-    // design, so the completed-setup test is one it can never pass. Without this branch, disabling
-    // one would be irreversible from the UI — the button would appear to do nothing, which is the
-    // worst kind of broken.
+    /*
+     * ⚠ Only re-activate a PERSON who completed setup, or "enable" produces an account that exists,
+     * looks active and cannot be signed into.
+     * ⚠ A SERVICE ACCOUNT is the deliberate exception (SEC-07): it has no password or MFA by design
+     * and can never pass that test, so without this branch disabling one is irreversible from the
+     * UI.
+     */
     await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE" } });
     await audit("admin.user.enable", { userId: admin.id, detail: label });
   }
@@ -213,6 +223,8 @@ export async function setUserStatusAction(formData: FormData): Promise<void> {
   revalidatePath(`/admin/users/${user.id}`);
 }
 
+/** ⚠ Irreversible, and helpers are notified AFTER the row is gone (SEC-07).
+ *  REFS app/admin/users/[id]/page.tsx · lib/auth/service-accounts.ts › notifyIdentityRemoved() */
 export async function deleteUserAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("users.manage");
@@ -233,10 +245,12 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   await prisma.user.delete({ where: { id: user.id } }); // cascades sessions + links
   await audit("admin.user.delete", { userId: admin.id, detail: serviceAccountLabel(user) });
 
-  // Tell helpers AFTER the row is gone (SEC-07), so a helper that re-resolves during its own
-  // cleanup sees the truth rather than a row about to vanish. Best-effort by design — the
-  // identity is already deleted and every helper fails closed on the next call regardless, so
-  // nothing here can undo or delay the deletion.
+  /*
+   * ⚠ Tell helpers AFTER the row is gone (SEC-07), so one that re-resolves during its own cleanup
+   * sees the truth rather than a row about to vanish. Best-effort by design: the identity is
+   * already deleted and every helper fails closed on the next call regardless.
+   * REFS lib/auth/service-accounts.ts › notifyIdentityRemoved()
+   */
   if (wasServiceAccount) await notifyIdentityRemoved(user.id);
   revalidatePath("/admin");
   // The user's detail page no longer exists — send the admin back to the list.
@@ -258,14 +272,12 @@ async function processOptionalIcon(formData: FormData): Promise<
 /**
  * Revalidate everything a link change is visible on.
  *
- * **`/dashboard` was missing, and that was a real bug** (owner-reported 2026-07-27: "I just added
- * a personal service and cannot see the new tile"). Every link action revalidated the admin page
- * it was performed on and nothing else, so the dashboard — the page the tile actually appears on —
- * kept serving its previous render. The tile was created correctly every time; it just wasn't
- * shown until something else happened to invalidate the route.
- *
- * A role link is revalidated for everyone, because it belongs to a service group rather than to
- * one person: the tile appears on every member's dashboard, so every member's view is stale.
+ * ⚠ `/dashboard` is the one that matters and the one that was missing: link actions revalidated
+ * only the admin page they ran on, so a correctly created tile stayed invisible until something
+ * else invalidated the route.
+ * ⚠ A ROLE link revalidates for everyone — it belongs to a service group, so the tile appears on
+ * every member's dashboard. REFS lib/services.ts › getUserVisibleLinks()
+ * PINS tests/unit/link-revalidation.test.ts
  */
 function revalidateLinkOwner(link: { userId: string | null; roleId: string | null }) {
   if (link.userId) revalidatePath(`/admin/users/${link.userId}`);
@@ -273,6 +285,8 @@ function revalidateLinkOwner(link: { userId: string | null; roleId: string | nul
   revalidatePath("/dashboard");
 }
 
+/** ⚠ Must revalidate the DASHBOARD, not just the admin page — REFS revalidateLinkOwner() above.
+ *  app/admin/ui.tsx  PINS tests/unit/link-revalidation.test.ts */
 export async function createLinkAction(
   _prev: AdminState,
   formData: FormData,
@@ -308,13 +322,15 @@ export async function createLinkAction(
   });
 
   await audit("admin.link.create", { userId: admin.id, detail: `${owner.email}: ${parsed.data.title}` });
-  // CREATE has to revalidate the dashboard too — this was the owner's "added a personal service
-  // and cannot see the new tile" (1.8.0-beta.11). Editing and deleting a link already did it;
-  // creating one never had, so a brand-new tile was the one case that stayed invisible.
+  // ⚠ CREATE must revalidate the dashboard too. Editing and deleting already did; creating never
+  // had, so a brand-new tile was the one case that stayed invisible.
   revalidateLinkOwner({ userId, roleId: null });
   return { ok: true };
 }
 
+/**
+ * REFS app/admin/ui.tsx · revalidateLinkOwner() above  PINS tests/unit/link-revalidation.test.ts
+ */
 export async function updateLinkAction(
   _prev: AdminState,
   formData: FormData,
@@ -349,6 +365,8 @@ export async function updateLinkAction(
   return { ok: true };
 }
 
+/** REFS app/admin/link-list.tsx · revalidateLinkOwner() above
+ *  PINS tests/unit/link-revalidation.test.ts */
 export async function deleteLinkAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   await requireAnyPermission(["users.manage", "groups.manage"]);
@@ -361,6 +379,9 @@ export async function deleteLinkAction(formData: FormData): Promise<void> {
   revalidateLinkOwner(link);
 }
 
+/** Reorder a link within its owner. ⚠ Writes `Link.sortOrder`, which is SHARED — a role link's
+ *  order is the same for every member. Per-user arrangement is lib/dashboard/layout.ts instead.
+ *  REFS app/admin/link-list.tsx */
 export async function moveLinkAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   await requireAnyPermission(["users.manage", "groups.manage"]);
@@ -390,6 +411,8 @@ export async function moveLinkAction(formData: FormData): Promise<void> {
 
 // ---- Roles -----------------------------------------------------------------
 
+/** Create a Service Group. REFS app/admin/ui.tsx · lib/services.ts › getUserVisibleLinks() —
+ *  every member sees this group's tiles */
 export async function createRoleAction(
   _prev: AdminState,
   formData: FormData,
@@ -410,6 +433,7 @@ export async function createRoleAction(
   return { ok: true };
 }
 
+/** REFS app/admin/ui.tsx · lib/services.ts › VisibleLink.source — the name is shown on tiles */
 export async function renameRoleAction(
   _prev: AdminState,
   formData: FormData,
@@ -432,6 +456,8 @@ export async function renameRoleAction(
   return { ok: true };
 }
 
+/** ⚠ Removes the group's shared tiles from every member's dashboard at once.
+ *  REFS app/admin/service-groups/[id]/page.tsx · lib/services.ts */
 export async function deleteRoleAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("groups.manage");
@@ -452,6 +478,9 @@ export async function deleteRoleAction(formData: FormData): Promise<void> {
   redirect("/admin/service-groups");
 }
 
+/** A tile shared with every member of a Service Group. ⚠ Revalidated for everyone, not one user.
+ *  REFS app/admin/ui.tsx · revalidateLinkOwner() above
+ *  PINS tests/unit/link-revalidation.test.ts */
 export async function createRoleLinkAction(
   _prev: AdminState,
   formData: FormData,
@@ -492,7 +521,8 @@ export async function createRoleLinkAction(
   return { ok: true };
 }
 
-/** Replace a user's full set of assigned roles from checkbox selections. */
+/** Replace a user's Service Groups. ⚠ Changes what tiles they can see, so it is a visibility
+ *  change, not just a label. REFS app/admin/users/[id]/page.tsx · lib/services.ts */
 export async function setUserRolesAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
   const admin = await requirePermission("users.manage");
@@ -515,8 +545,10 @@ export async function setUserRolesAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Replace a user's assigned access roles (delegated admin capabilities). ADMIN
- * only — assigning capabilities is a privilege-granting action, never delegated.
+ * Replace a user's assigned access roles. ⚠ ADMIN only — assigning capabilities is itself a
+ * privilege-granting action and must never be delegated.
+ * REFS lib/auth/permissions.ts › getEffectivePermissions() · app/admin/users/[id]/page.tsx
+ * PINS tests/unit/admin-roles-guard.test.ts
  */
 export async function setUserAccessRolesAction(formData: FormData): Promise<void> {
   await assertSameOrigin();
@@ -527,17 +559,11 @@ export async function setUserAccessRolesAction(formData: FormData): Promise<void
   if (!user) return;
 
   /*
-   * BUG-57. Refuse on an ADMIN or a service account, and refuse HERE rather than only hiding
-   * the form.
-   *
-   * `getEffectivePermissions` short-circuits to ALL_PERMISSIONS for an ADMIN, so a role
-   * assigned to one has never had any effect — the page now says so, and a page that states a
-   * rule while the action still accepts the write is a page telling the truth by luck. The
-   * form is gone, so the only thing that can reach this is a crafted request.
-   *
-   * Note what this does NOT do: it does not clear the stored rows. Demoting the account to a
-   * normal user must restore whatever was assigned (owner decision, 2026-07-27), and clearing
-   * on save would silently discard it.
+   * ⚠ BUG-57: refuse on an ADMIN or a service account HERE, not just by hiding the form. A page
+   * that states a rule while the action still accepts the write is telling the truth by luck.
+   * ⚠ It must NOT clear the stored rows — demoting the account to a normal user has to restore
+   * whatever was assigned, and clearing on save discards it silently.
+   * REFS lib/auth/permissions.ts › getEffectivePermissions() — short-circuits for an ADMIN
    */
   if (user.role === "ADMIN" || isServiceAccount(user)) {
     await audit("admin.user.accessroles.refused", {

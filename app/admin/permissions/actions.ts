@@ -19,14 +19,12 @@ async function gate() {
 /**
  * Turn one capability on or off for one module (CORE-10).
  *
- * **Per (module, capability), never per helper.** A helper-level switch would silently widen
- * every module that declared that helper, including ones installed earlier for unrelated
- * reasons.
- *
- * Enforcement needs nothing else: `ctx.can()` reads the stored list, so the next context built
- * for that module reflects this. The declared set remains the ceiling — `nextGrants` refuses a
- * permission the module never declared, so a tampered form cannot widen a module past what its
- * consent screen showed.
+ * ⚠ Per (module, capability), NEVER per helper — a helper-level switch would silently widen every
+ * module that declared that helper, including ones installed earlier for unrelated reasons.
+ * ⚠ The declared set is the ceiling: a tampered form cannot widen a module past what its consent
+ * screen showed. Nothing else enforces it, so keep that check here.
+ * REFS lib/modules/permissions.ts › nextGrants() — the ceiling · lib/modules/context.ts › can()
+ *      app/admin/permissions/ui.tsx  PINS tests/unit/permission-consent.test.ts
  */
 export async function setModuleGrantAction(
   moduleId: string,
@@ -64,10 +62,9 @@ export async function setModuleGrantAction(
 }
 
 /**
- * Read the admin-owned set that bounds a capability.
- *
- * No audit entry and no elevation: this is a read, and a prompt merely to answer "what is on the
- * list?" would train click-through.
+ * Read the admin-owned set that bounds a capability. No audit entry and no elevation — a prompt
+ * merely to answer "what is on the list?" trains click-through.
+ * REFS app/admin/permissions/ui.tsx · lib/helpers/types.ts › the `scope` capability contract
  */
 export async function listScopeAction(
   helperId: string,
@@ -97,12 +94,11 @@ export async function listScopeAction(
 /**
  * Add to or remove from that set.
  *
- * **Core owns this channel**, exactly as it owns `saveHelperSettingsAction`, and for the reason
- * this whole area exists: `host-services` once exposed its own editor to modules, and a module
- * could display "Add Plex" while submitting "sshd". The check that must be remembered is the one
- * that gets forgotten, so it happens here — before the helper is reached — every time.
- *
- * `ctx.user` is built from the resolved session, never from anything a caller supplied.
+ * ⚠ CORE owns this channel. A helper exposing its own editor to modules is how a module came to
+ * display "Add Plex" while submitting "sshd" — the check that must be remembered is the one that
+ * gets forgotten, so it happens here, before the helper is reached, every time.
+ * ⚠ The acting user comes from the resolved session, never from anything a caller supplied.
+ * REFS lib/helpers/types.ts — the scope contract · app/admin/permissions/ui.tsx
  */
 export async function editScopeAction(
   helperId: string,
@@ -139,10 +135,9 @@ export async function editScopeAction(
 }
 
 /**
- * Candidates for the picker. A read: no elevation, no audit entry, no prompt.
- *
- * Exists so nobody has to type a service name correctly to bound a capability. If they did,
- * the one-click "everything" switch would win on effort alone.
+ * Candidates for the picker — a read: no elevation, no audit entry, no prompt. ⚠ It exists so
+ * nobody has to type a service name correctly in order to BOUND a capability; without it the
+ * one-click "everything" switch wins on effort alone. REFS setUnboundedAction() below
  */
 export async function browseScopeAction(
   helperId: string,
@@ -161,11 +156,10 @@ export async function browseScopeAction(
 }
 
 /**
- * Flip the per-item switch on one member of the list.
- *
- * Same gate and same channel as `editScopeAction`, for the same reason: this decides whether a
- * module may act on that item **without the prompt that currently gates it**, which is at least
- * as consequential as membership. It goes through core or it doesn't happen.
+ * Flip the per-item switch on one member of the list. ⚠ Same gate and channel as `editScopeAction`:
+ * this decides whether a module may act on that item WITHOUT the prompt currently gating it, which
+ * is at least as consequential as membership.
+ * REFS app/admin/permissions/ui.tsx  PINS tests/unit/permissions-view.test.ts
  */
 export async function setItemToggleAction(
   helperId: string,
@@ -202,11 +196,10 @@ export async function setItemToggleAction(
 }
 
 /**
- * Whether the capability is currently granted with no list at all, plus the dependent option's
- * declaration and state if it has one. Read; no prompt.
- *
- * One call rather than two: the option only means anything relative to the switch above it, and a
- * second read could show a protection as on while the grant it qualifies had already changed.
+ * Whether the capability is granted with no list at all, plus the dependent option if it has one.
+ * ⚠ ONE call, not two: the option only means anything relative to the switch above it, and a second
+ * read could show a protection as on while the grant it qualifies had already changed.
+ * REFS app/admin/permissions/ui.tsx  PINS tests/unit/permissions-view.test.ts
  */
 export async function unboundedStateAction(
   helperId: string,
@@ -238,13 +231,12 @@ export async function unboundedStateAction(
 }
 
 /**
- * Flip the dependent option under the unbounded switch — the filesystem helper's
- * "exclude JonDash's own data".
+ * Flip the dependent option under the unbounded switch — e.g. "exclude JonDash's own data".
  *
- * Audited as its own action for the same reason `setUnboundedAction` is: this is the difference
- * between a module that can read every folder and one that can also read the master encryption
- * key. "When did the protection come off" should be one search away, and it should not be buried
- * inside a row about the grant that merely enabled it.
+ * ⚠ Audited as its OWN action: this is the difference between a module that can read every folder
+ * and one that can also read the master encryption key, so "when did the protection come off" must
+ * be one search away rather than buried in a row about the grant that enabled it.
+ * REFS lib/config.ts › dataDir() — what the exclusion protects · app/admin/permissions/ui.tsx
  */
 export async function setUnboundedOptionAction(
   helperId: string,
@@ -280,11 +272,11 @@ export async function setUnboundedOptionAction(
 }
 
 /**
- * Grant or withdraw the capability with **no list at all** — every service, every path.
+ * Grant or withdraw the capability with NO list at all — every service, every path.
  *
- * The most consequential thing on this page, so it is audited as its own action rather than
- * folded in with ordinary list edits: when someone later asks "when did this get access to
- * everything", the answer should be one search away.
+ * ⚠ The most consequential control on this page, so it is audited as its own action rather than
+ * folded in with ordinary list edits: "when did this get access to everything" must be one search
+ * away. REFS setUnboundedOptionAction() above — the qualifier · app/admin/permissions/ui.tsx
  */
 export async function setUnboundedAction(
   helperId: string,

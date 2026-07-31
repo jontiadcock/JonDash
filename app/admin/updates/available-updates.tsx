@@ -10,6 +10,7 @@ import {
 import { RestartWarning } from "../modules/restart-warning";
 import { useRebuildWatch } from "../modules/rebuild-watch";
 
+/** REFS ./page.tsx — builds the list · ./selection-actions.ts › updateSelectedAction() */
 export type AvailableItem = {
   kind: "core" | "module" | "helper";
   id: string;
@@ -37,21 +38,15 @@ const CRIT_COLOUR: Record<string, string> = {
 };
 
 /**
- * Everything with an update available, in one list grouped Core / Modules / Helpers.
+ * Everything with an update available, in one list grouped Core / Modules / Helpers — "what can I
+ * update?" used to be answered in two panels that had to be read together.
  *
- * Replaces the separate module and helper panels: the question "what can I update?" was
- * answered in two places that had to be read together.
- *
- * **Core and add-ons can be updated together, in that order.** They apply through different
- * machinery — JonDash's own update goes out to the launcher (`/api/update/apply`) and
- * restarts the whole process, while modules and helpers are applied in-process — so a single
- * pass cannot do both: the process running the click is replaced halfway through.
- *
- * They are therefore chained rather than kept apart: the add-ons are written to a queue
- * (`lib/update-queue`), JonDash updates and restarts, and the post-update screen picks the
- * queue up and applies them. Core goes first because a module's new version may require the
- * newer JonDash, never the other way round. Previously the two were mutually exclusive and
- * "Update all" silently skipped JonDash itself, updating only the add-ons.
+ * ⚠ Core and add-ons cannot be applied in one pass: core's update goes to the launcher and
+ * replaces the process running the click. They are CHAINED instead — add-ons to a queue, core
+ * updates and restarts, the post-update screen drains the queue.
+ * ⚠ Core goes FIRST: a module's new version may require the newer JonDash, never the reverse.
+ * REFS lib/update-queue.ts — the queue · app/(app)/update-complete/continue-addons.tsx — stage two
+ *      ./selection-actions.ts › updateSelectedAction() · app/api/update/apply/route.ts
  */
 export function AvailableUpdates({
   items,
@@ -60,17 +55,17 @@ export function AvailableUpdates({
   items: AvailableItem[];
   errors: { source: string; message: string }[];
 }) {
-  // Applying core is a plain fetch, not a server action, and it is triggered from HERE
-  // rather than passed in: a function prop cannot cross the server/client boundary — it
-  // typechecks and builds, then 500s at request time.
+  // ⚠ A plain fetch, not a server action, and triggered from HERE rather than passed in: a
+  // function prop cannot cross the server/client boundary — it builds cleanly, then 500s.
   const [coreError, setCoreError] = useState<string | null>(null);
   async function applyCore() {
     setCoreError(null);
-    // Cover the page BEFORE the request. Updating JonDash replaces the build and restarts,
-    // so the JS this page is running disappears with it — without the overlay to notice the
-    // restart and reload, the browser keeps calling Server Action ids that no longer exist
-    // ("Failed to find Server Action"), and the page just sits there looking hung. That is
-    // exactly what happened on the beta.14 → beta.15 update.
+    /*
+     * ⚠ Cover the page BEFORE the request. Updating JonDash replaces the build, so the JS this
+     * page is running disappears with it — without the overlay to notice the restart and reload,
+     * the browser keeps calling Server Action ids that no longer exist and the page looks hung.
+     * REFS app/components/server-wait-overlay.tsx
+     */
     start("updating");
     try {
       const res = await fetch("/api/update/apply", { method: "POST" });
@@ -85,17 +80,11 @@ export function AvailableUpdates({
   }
 
   /*
-   * DESELECTED, not selected — everything eligible starts ticked.
-   *
-   * The old version stored the opposite and treated an empty set as "act on everything", so the
-   * page showed N *unticked* boxes above a button that would update all N. An unticked box means
-   * "not included" everywhere else in the world, and the owner reasonably read it as being unable
-   * to pick JonDash and the add-ons separately — you always could, the UI just never showed it.
-   *
-   * Storing the exclusions rather than the inclusions also survives a refresh correctly: press
-   * "Check now", and anything newly discovered arrives ticked like everything else, while a row
-   * you deliberately unticked stays unticked. Storing inclusions would have left a new item
-   * silently excluded from a button that says "Update selected".
+   * ⚠ Store DESELECTED, not selected. Storing inclusions leaves anything newly discovered by
+   * "Check now" silently excluded from a button that says "Update selected"; storing exclusions
+   * means a new row arrives ticked while one you deliberately unticked stays unticked.
+   * The old version also treated an empty set as "act on everything", so N unticked boxes sat
+   * above a button that would update all N.
    */
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
   const [consented, setConsented] = useState<Set<string>>(new Set());
@@ -123,12 +112,8 @@ export function AvailableUpdates({
 
   const isTicked = (it: AvailableItem) => !deselected.has(key(it));
 
-  /*
-   * `chosen` IS what happens — there is no longer a fallback where an empty selection quietly
-   * means "everything". The tick boxes and the button now always agree, which is the whole fix:
-   * unticking JonDash to update only the add-ons is a visible act rather than something you had
-   * to guess at.
-   */
+  // ⚠ The selection IS what happens — never fall back to "empty means everything". The boxes and
+  // the button must always agree.
   const effective = selectable.filter(isTicked);
   const coreChosen = effective.some((it) => it.kind === "core");
   const addons = effective.filter((it) => it.kind !== "core");
