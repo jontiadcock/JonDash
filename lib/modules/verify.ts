@@ -1,21 +1,18 @@
 import { helperIdForPermission, type DeclaredPermission, type ModulePermission } from "./types";
 
-/**
- * Install-time module verifier (MOD-01 Phase 2, chunk B).
+/*
+ * Install-time verifier: refuses a package that reaches for an undeclared capability, uses a banned
+ * construct, or imports core internals instead of going through its scoped `ctx`. Runs before the
+ * source is written into `modules/` and compiled in.
  *
- * Runs over a module's source BEFORE it is written into `modules/` and compiled into the
- * app. It refuses a package that reaches for a capability it didn't declare, uses a
- * construct no module has a legitimate need for, or imports core internals instead of
- * going through its scoped `ctx`.
- *
- * HONEST LIMIT — read this before trusting it. Modules compile into the app and run
- * in-process, so this is **not** a sandbox and cannot be made into one by static
- * analysis. It is pattern-based: it reliably catches accidents, undeclared capabilities
- * and casual abuse, and it makes the permission list the admin consents to *honest*. A
- * determined author could obfuscate past it. The real trust boundary is still "do you
- * trust the source you installed from" — which is why sources are pinned to a repo + tag.
+ * ⚠ **NOT a sandbox, and cannot be made one by static analysis.** Pattern-based: it catches
+ *   accidents and makes the consented permission list honest. A determined author can obfuscate
+ *   past it — the real boundary is trusting the source, which is why sources are pinned to a repo
+ * and tag. REFS lib/modules/install.ts — the only caller of verifyModuleFiles() and formatIssues()
+ *      lib/modules/sources.ts — the first gate, on the manifest rather than the folder
  */
 
+/** REFS formatIssues() below — renders these for the admin and the audit detail. */
 export type VerifyIssue = {
   file: string;
   /** Short machine-ish rule name, e.g. "banned-construct". */
@@ -23,6 +20,7 @@ export type VerifyIssue = {
   detail: string;
 };
 
+/** REFS lib/modules/install.ts — refuses the install when `ok` is false. */
 export type VerifyResult = {
   ok: boolean;
   issues: VerifyIssue[];
@@ -33,24 +31,15 @@ export type VerifyResult = {
 };
 
 /**
- * Permissions that only a HELPER can provide (MOD-08). A module may declare one only if
- * it also declares a helper that provides it — the helper does the privileged work, the
- * admin approved the effect, and the module never touches the primitive itself.
- *
- * There is deliberately NO list of them here. The namespace IS the helper id, so
- * `filesystem:write` requires the `filesystem` helper and `backup:restore` requires
- * `backup` — derived by `helperIdForPermission`, never a table that can drift out of step
- * with what helpers actually publish. (It used to be a hardcoded `files:read`/`files:write`
- * map, which is exactly the coupling that stopped a new helper naming its own capability
- * without a core release.)
+ * Files a module may contain. Anything else — executables, archives — is refused.
+ * REFS lib/modules/install.ts · lib/helpers/install.ts — both enforce this before unpacking
  */
-
-/** Files a module may contain. Anything else (executables, archives, …) is refused. */
 export const ALLOWED_EXTENSIONS = new Set([
   ".ts", ".tsx", ".sql", ".md", ".json", ".css", ".txt",
   ".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico",
 ]);
 
+/** REFS lib/modules/install.ts · lib/helpers/install.ts — both enforce these before unpacking. */
 export const LIMITS = {
   maxFiles: 400,
   maxFileBytes: 2 * 1024 * 1024,
@@ -61,23 +50,11 @@ export const LIMITS = {
 const ALLOWED_CORE_IMPORTS = ["@/lib/modules/types", "@/lib/modules/api"];
 
 /**
- * Constructs no module has a legitimate reason to use. `child_process` is banned even
- * though the framework itself shells out for ICMP — that's exactly why `ctx.net.ping`
- * exists: the hardening lives once in trusted core code.
- */
-/**
- * Match a module specifier however it is reached (BUG-27).
+ * All three ways to reach a specifier — `from`, `require()` and a literal `import()`.
  *
- * There are three ways to pull in a module and the rules used to list only two —
- * `from "node:fs"` and `require("node:fs")`. A **literal** `await import("node:fs")` fell
- * between the banned-construct rule (which targets *computed* `import()`) and the
- * filesystem rule (which only knew static syntax), so the one capability modules are
- * refused outright was reachable with ordinary, unobfuscated code.
- *
- * Built once so the next rule added gets all three forms for free rather than being
- * written twice and forgotten once.
- *
- * @param spec regex source for the specifier, e.g. `(?:node:)?fs(?:/promises)?`
+ * ⚠ A literal `await import("node:fs")` used to fall between the computed-import rule and the
+ *   filesystem rule, so the one banned capability was reachable with ordinary code (BUG-27).
+ *   **Add rules through this, not by hand**, or the next one gets two forms of three.
  */
 function moduleSpecifier(spec: string): RegExp {
   return new RegExp(
@@ -91,6 +68,7 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
   {
     rule: "banned-construct",
     re: moduleSpecifier("(?:node:)?child_process"),
+    // Banned even though core itself shells out for ICMP — that is exactly why ctx.net.ping exists.
     detail: "spawns OS processes (use ctx.net.ping for ICMP; anything else must be asked for)",
   },
   {
@@ -105,10 +83,8 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
   },
   {
     rule: "banned-construct",
-    // Must sit where an expression can start (after =, (, ,, ;, {, }, await, return, or
-    // a line start). Matching a bare "import (" also hit ordinary English in JSX TEXT —
-    // a UI label reading "Bulk import (JSON)" was refused as a computed import. JSX text
-    // is neither a comment nor a string literal, so the noise stripper can't help.
+    // ⚠ Must sit where an expression can start. A bare "import (" also matched JSX TEXT — the label
+    // "Bulk import (JSON)" was refused — and JSX text is neither comment nor string.
     re: /(?:^|[=(,;{}]|\b(?:await|return))\s*import\s*\(\s*(?!["'])/m,
     detail: "dynamic import() with a computed path — imports must be literal and reviewable",
   },
@@ -130,9 +106,9 @@ const BANNED: { rule: string; re: RegExp; detail: string }[] = [
 ];
 
 /**
- * Imports that reveal a capability, mapped to the permission that must be declared.
- * Raw sockets are legitimate (ctx.fetch can't do TCP/DNS/TLS/timings) — they just have
- * to be disclosed, which is what makes the consent screen truthful.
+ * Imports that reveal a capability, mapped to the permission that must be declared. Raw sockets are
+ * legitimate — `ctx.fetch` cannot do TCP/DNS/TLS — they just have to be **disclosed**, which is
+ * what makes the consent screen truthful.
  */
 const CAPABILITY_IMPORTS: { re: RegExp; permission: ModulePermission; detail: string }[] = [
   {
@@ -148,9 +124,8 @@ const CAPABILITY_IMPORTS: { re: RegExp; permission: ModulePermission; detail: st
     detail: "calls the global fetch()",
   },
   {
-    // ...but that lookbehind also let `globalThis.fetch(...)` through, which is the same
-    // capability by a longer name (BUG-27). Named globals only — `ctx.fetch` must stay
-    // allowed, so this can't simply match any `.fetch(`.
+    // ⚠ The lookbehind above let `globalThis.fetch(...)` through — same capability, longer name
+    // (BUG-27). Named globals only — `ctx.fetch` must stay allowed, so not any `.fetch(`.
     re: /\b(?:globalThis|global|window|self)\s*\.\s*fetch\s*\(/,
     permission: "network:outbound",
     detail: "calls fetch() via globalThis",
@@ -169,9 +144,9 @@ const CAPABILITY_IMPORTS: { re: RegExp; permission: ModulePermission; detail: st
 ];
 
 /**
- * Strip comments and prose strings so a rule word in a comment or a message can't trip a
- * rule. Module specifiers are KEPT — they're exactly what the import rules match on — and
- * a specifier is distinguishable from prose by having no whitespace.
+ * ⚠ Strip comments and prose first, or a rule word in a comment trips its own rule (BUG-39). Module
+ *   specifiers are KEPT — they are what the import rules match on, and a specifier is
+ *   distinguishable from prose by having no whitespace.
  */
 const SPECIFIER = /^["'][@a-zA-Z0-9._/:~-]+["']$/;
 
@@ -200,13 +175,11 @@ function coreImportsIn(src: string): string[] {
 }
 
 /**
- * Permissions declared in the module's own `module.ts`. Parsed rather than executed —
- * the point is to check the code before it ever runs.
+ * Permissions declared in the module's own `module.ts`. ⚠ Parsed, never executed — the point is to
+ * check the code before it ever runs. PINS tests/unit/module-verify.test.ts
  */
 export function parseDeclaredPermissions(moduleSource: string): DeclaredPermission[] {
-  // BUG-39: strip comments/prose first, or a commented-out `// permissions: ["crypto:use"]`
-  // worked example is read as a real declaration. stripNoise keeps module-specifier-shaped
-  // strings, and a permission slug (no whitespace) is one, so real declarations survive.
+  // ⚠ Strip first, or a commented-out worked example reads as a real declaration (BUG-39).
   const m = /permissions\s*:\s*\[([\s\S]*?)\]/.exec(stripNoise(moduleSource));
   if (!m) return [];
   const out: DeclaredPermission[] = [];
@@ -217,28 +190,26 @@ export function parseDeclaredPermissions(moduleSource: string): DeclaredPermissi
   return [...new Set(out)];
 }
 
-/** Helper ids declared in the module's own `module.ts` (parsed, never executed). */
+/**
+ * Helper ids declared in the module's own `module.ts`, parsed never executed.
+ * PINS tests/unit/helper-declarations.test.ts
+ */
 export function parseDeclaredHelpers(moduleSource: string): string[] {
-  // BUG-39: same hole as parseDeclaredPermissions — a commented-out `// helpers: ["scheduler"]`
-  // example must not become a real dependency (which would install the helper, or roll the
-  // module back if that helper isn't published on the channel). Strip comments first; slugs
-  // are specifier-shaped so stripNoise keeps them.
+  // ⚠ Strip first (BUG-39): a commented-out example becoming a real dependency would install the
+  // helper, or roll the module back if that helper is not published on the channel.
   const m = /\bhelpers\s*:\s*\[([\s\S]*?)\]/.exec(stripNoise(moduleSource));
   if (!m) return [];
   const body = m[1];
   const out: string[] = [];
 
-  // Two accepted forms (MOD-10): a bare id, or `{ id: "x", minVersion: "1.2.3" }`.
-  //
-  // The object form is parsed FIRST and its span removed, so the rest can be read as bare
-  // strings. Scanning for any quoted slug across the whole body would be wrong in both
-  // directions: `{ "id": "scheduler" }` would yield a phantom helper called "id", and it
-  // only avoided picking up `"0.0.3"` by the accident that a version contains dots and the
-  // slug pattern doesn't allow them. Relying on that is how a parser quietly starts
-  // declaring dependencies nobody wrote.
-  // The key may be written `id:` or `"id":` — both are valid TS. Missing the quoted form
-  // doesn't just skip the entry, it leaks it to the bare scan below, which then reads the
-  // KEY as a helper id and reports a missing helper called "id".
+  /*
+   * Two accepted forms (MOD-10): a bare id, or `{ id: "x", minVersion: "1.2.3" }`.
+   *
+   * ⚠ **The object form is parsed FIRST and its span removed.** Scanning the whole body for quoted
+   *   slugs is wrong in both directions: `{ "id": "scheduler" }` yields a phantom helper called
+   *   "id", and it dodges `"0.0.3"` only because versions contain dots. The key may be `id:` or
+   *   `"id":` — missing the quoted form leaks it to the bare scan as a helper called "id".
+   */
   let rest = body;
   const objRe = /\{[^{}]*["']?id["']?\s*:\s*["']([a-z0-9][a-z0-9-]{0,63})["'][^{}]*\}/g;
   let hit: RegExpExecArray | null;
@@ -252,9 +223,9 @@ export function parseDeclaredHelpers(moduleSource: string): string[] {
 }
 
 /**
- * Verify a module package. `files` maps a module-relative path to its contents (text
- * files as strings, binary as byte length only — binaries are size/extension checked,
- * never scanned).
+ * Verify a module package. Binaries are size- and extension-checked, never scanned.
+ * REFS lib/modules/install.ts — refuses the install on `ok: false`
+ * PINS tests/unit/module-verify.test.ts · tests/unit/helper-resolution.test.ts
  */
 export function verifyModuleFiles(
   moduleId: string,
@@ -295,10 +266,10 @@ export function verifyModuleFiles(
   const declaredPermissions = entry?.text ? parseDeclaredPermissions(entry.text) : [];
   const declaredHelpers = entry?.text ? parseDeclaredHelpers(entry.text) : [];
 
-  // A helper-provided permission is meaningless without the helper that implements it —
-  // and allowing it un-backed would put a capability on the consent screen that nothing
-  // can actually deliver.
+  // ⚠ An un-backed helper permission would put a capability on the consent screen that nothing can
+  // deliver. The namespace IS the helper id, so no table here can drift from what helpers publish.
   for (const p of declaredPermissions) {
+    // REFS lib/modules/types.ts › helperIdForPermission() · lib/helpers/types.ts › HelperCapability
     const needs = helperIdForPermission(p);
     if (needs && !declaredHelpers.includes(needs)) {
       add(
@@ -333,15 +304,12 @@ export function verifyModuleFiles(
     }
 
     for (const imp of coreImportsIn(src)) {
-      // Its OWN files only. This used to permit any `@/modules/…` path, so a module could
-      // reach into another module's internals — sidestepping that module's permission
-      // scoping, and coupling the two invisibly (uninstall one, the other's build breaks
-      // and auto-recovery removes the innocent party).
+      // ⚠ Its OWN files only. Permitting any `@/modules/…` let a module sidestep another's
+      // permission scoping, and coupled them invisibly: uninstall one, the other's build breaks.
       if (imp === `@/modules/${moduleId}` || imp.startsWith(`@/modules/${moduleId}/`)) continue;
 
-      // A declared helper's public entry point — and only that. Reaching into a helper's
-      // internals would let a module bypass the narrow API that makes privileged work
-      // reviewable in the first place.
+      // ⚠ A declared helper's public entry point and only that — reaching into its internals
+      // bypasses the narrow API. REFS lib/helpers/types.ts › HelperApiFor
       const helper = /^@\/helpers\/([a-z0-9-]+)\/api$/.exec(imp);
       if (helper) {
         if (!declaredHelpers.includes(helper[1])) {
@@ -381,7 +349,7 @@ export function verifyModuleFiles(
   return { ok: issues.length === 0, issues, declaredPermissions, declaredHelpers };
 }
 
-/** One-line-per-issue summary for the admin UI / audit detail. */
+/** REFS lib/modules/install.ts — its only caller; the string reaches the admin and the audit log */
 export function formatIssues(issues: VerifyIssue[]): string {
   return issues.map((i) => `${i.file}: ${i.detail}`).join("; ");
 }

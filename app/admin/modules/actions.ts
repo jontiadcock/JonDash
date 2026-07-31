@@ -50,6 +50,7 @@ function defFrom(formData: FormData) {
   return getModuleDef(String(formData.get("id") ?? ""));
 }
 
+/** REFS app/admin/modules/ui.tsx — the toggle that posts here. */
 export async function enableModuleAction(formData: FormData): Promise<void> {
   await gate();
   const def = defFrom(formData);
@@ -59,6 +60,7 @@ export async function enableModuleAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/modules");
 }
 
+/** REFS app/admin/modules/ui.tsx — the same toggle. */
 export async function disableModuleAction(formData: FormData): Promise<void> {
   await gate();
   const def = defFrom(formData);
@@ -69,20 +71,23 @@ export async function disableModuleAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Uninstall: purge the module's data AND delete its source, then rebuild so its code is
- * no longer compiled in. The rebuild restarts the server (a graceful restart — sessions
- * survive), which the confirm step warns about.
+ * Purge the module's data and delete its source, then rebuild so its code is no longer compiled in.
+ * The rebuild restarts the server (graceful, sessions survive), which the confirm step warns about.
+ *
+ * REFS app/admin/modules/ui.tsx — the caller · app/admin/modules/uninstall-questions.tsx — collects
+ *      the answers read below · lib/helpers/install.ts › pruneUnusedHelpers()
+ * PINS tests/integration/module-bulk.test.ts
  */
 export async function uninstallModuleAction(formData: FormData): Promise<void> {
   await gate();
-  // One or many: like install, a batch costs a SINGLE rebuild + restart rather than one
-  // per module. Removing three modules used to mean three restarts and three sign-outs.
+  // One or many: a batch costs a SINGLE rebuild and restart. Three modules used to mean three
+  // restarts and three sign-outs.
   const ids = formData.getAll("id").map(String).filter(Boolean);
   const defs = ids.map((id) => getModuleDef(id)).filter((d): d is NonNullable<typeof d> => !!d);
   if (defs.length === 0) return;
 
-  // Ticked boxes from the confirmation screen, namespaced `<kind>:<id>:<questionId>` so one
-  // module cannot read or forge an answer belonging to another, or to a helper.
+  // ⚠ Namespaced `<kind>:<id>:<questionId>` so one module cannot read or forge an answer belonging
+  // to another, or to a helper. REFS lib/uninstall-questions.ts
   const ticked = formData.getAll("answer").map(String).filter(Boolean);
 
   for (const def of defs) {
@@ -92,11 +97,8 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
     removeModuleFiles(def.id);
   }
 
-  // A helper exists only to serve a module. With its last dependent gone it's removed —
-  // FILES ONLY. Its data stays, so reinstalling the module brings the helper back with
-  // its history intact rather than starting from nothing.
-  // Async now: a helper gets to release anything it created outside JonDash (an OS grant, a
-  // scheduled task) before its files go — nothing else can reach that state afterwards.
+  // ⚠ FILES ONLY — a pruned helper keeps its data, so reinstalling brings it back with its history.
+  // Awaited so it can first release what it created outside JonDash — an OS grant, a task.
   const droppedHelpers = await pruneUnusedHelpers(defs.map((d) => d.id), ticked);
   if (droppedHelpers.length > 0) {
     await audit("admin.helper.remove", { detail: `${droppedHelpers.join(", ")} (no longer needed)` });
@@ -109,23 +111,18 @@ export async function uninstallModuleAction(formData: FormData): Promise<void> {
 
 // ---- Install / import (Phase 2 chunk B) ----
 
+/** REFS the install and import forms under app/admin/modules/ — four callers render this. */
 export type InstallState = { ok?: boolean; error?: string };
 
 /**
- * Resolve the helpers a freshly-written module declares, rolling the module back if any
- * can't be had.
+ * Resolve the helpers a freshly-written module declares, rolling it back if any cannot be had.
  *
- * A module without its declared helper **cannot work** — for a scheduler-style helper it
- * imports nothing, so the build succeeds and the module simply sits there, its scheduled
- * work never running. Leaving that installed produces exactly the failure this project
- * keeps hitting: something that looks fine and silently does nothing. So both install
- * paths refuse it rather than one keeping it and the other abandoning its files.
- *
- * `existedBefore` is the guard that makes rollback safe: on an UPDATE the files have
- * already been overwritten, and deleting them would destroy a working module over a
- * missing helper. There we report and keep the new version instead.
- *
- * Returns an error string, or null on success.
+ * ⚠ **A module without its declared helper cannot work, and fails silently.** For a scheduler-style
+ *   helper it imports nothing, so the build succeeds and the module just sits there with its work
+ *   never running. Both install paths refuse it rather than one keeping it and the other not.
+ * ⚠ `existedBefore` makes rollback safe: on an UPDATE the files are already overwritten, so
+ *   deleting them would destroy a working module over a missing helper. Report and keep instead.
+ * REFS lib/helpers/install.ts — fetches them, official source only
  */
 async function resolveHelpersOrRollBack(
   moduleId: string,
@@ -150,14 +147,17 @@ async function resolveHelpersOrRollBack(
 }
 
 /**
- * Install a module from one of the configured sources. The posted form only identifies
- * WHICH module — the version, tag and permissions are re-resolved from the source here,
- * so a tampered form can't install a different package or understate what it asks for.
+ * Install from a configured source. ⚠ The form identifies only WHICH module — version, tag and
+ * permissions are re-resolved from the source here, so a tampered form cannot install a different
+ * package or understate what it asks for.
+ *
+ * REFS app/admin/modules/browse/[id]/module-actions.tsx · browse/queued-install-bar.tsx — callers
+ *      lib/modules/sources.ts › browseAvailableModules() — where the re-resolution reads from
+ * PINS tests/unit/browse-consent.test.ts
  */
 export async function installModuleAction(_prev: InstallState, formData: FormData): Promise<InstallState> {
   await gate();
-  // One or many: the form posts a "moduleId" per selected module, so a batch costs a
-  // single rebuild + restart instead of one per module.
+  // The form posts one "moduleId" per selected module, so a batch costs a single restart.
   const ids = formData.getAll("moduleId").map(String).filter(Boolean);
   const sourceId = String(formData.get("sourceId") ?? "");
   const channel = String(formData.get("channel") ?? "") === "beta" ? "beta" : "stable";
@@ -185,9 +185,8 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
       const existedBefore = moduleFilesExist(moduleId);
       const outcome = await installModuleFromSource(entry.sourceUrl, entry, channel);
 
-      // Helpers the module declared arrive with it — same batch, same restart, official
-      // source only. If one can't be had the module is rolled back rather than installed
-      // in a state where it can never work; the import path does exactly the same.
+      // Declared helpers arrive in the same batch and restart, official source only. See
+      // resolveHelpersOrRollBack above for why a missing one rolls the module back.
       const helperError = await resolveHelpersOrRollBack(
         outcome.moduleId,
         outcome.declaredHelpers,
@@ -220,7 +219,10 @@ export async function installModuleAction(_prev: InstallState, formData: FormDat
   return finishInstall(installed);
 }
 
-/** Import a module the admin supplies as a ZIP — same verification, no source needed. */
+/**
+ * Import a ZIP the admin supplies — same verification, no source needed.
+ * REFS app/admin/modules/import-form.tsx — the only caller
+ */
 export async function importModuleAction(_prev: InstallState, formData: FormData): Promise<InstallState> {
   await gate();
   const file = formData.get("package");
@@ -230,8 +232,7 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
   let installedId: string;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    // Whether these files are replacing an existing module decides whether a helper
-    // failure may roll them back — see resolveHelpersOrRollBack.
+    // Replacing an existing module decides whether a helper failure may roll these files back.
     const peeked = peekZipModuleId(bytes);
     const existedBefore = peeked ? moduleFilesExist(peeked) : false;
 
@@ -239,11 +240,8 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
     installedId = outcome.moduleId;
     await audit("admin.module.import", { detail: `${outcome.moduleId}@${outcome.version} (${outcome.fileCount} files)` });
 
-    // A sideloaded module declaring a helper needs it just as much as an installed one.
-    // The helper still comes only from the official source — importing your own module
-    // doesn't let you bring your own helper. A sideloaded package has no manifest and so
-    // no channel of its own, so the admin's own update channel decides: someone on stable
-    // shouldn't silently receive beta helper code.
+    // ⚠ Importing your own module does NOT let you bring your own helper — still official source
+    // only. No manifest means no channel, so the admin's own update channel decides.
     const helperError = await resolveHelpersOrRollBack(
       outcome.moduleId,
       outcome.declaredHelpers,
@@ -260,11 +258,11 @@ export async function importModuleAction(_prev: InstallState, formData: FormData
 }
 
 /**
- * Rebuild so helpers healed by the reconcile pass become active.
+ * Rebuild so helpers healed by the reconcile pass become active — their files are on disk, but a
+ * helper is a compile-time import. ⚠ Deliberately explicit: healing files quietly is fine, signing
+ * everyone out is not.
  *
- * Their files are already on disk; a helper is a compile-time import, so only a rebuild
- * makes it real. Deliberately an explicit action rather than something the heal does on
- * its own — the files healing quietly is fine, signing everyone out is not.
+ * REFS app/admin/modules/helper-gap-notice.tsx — the only caller · lib/helpers/reconcile.ts — heals
  */
 export async function rebuildForHelpersAction(): Promise<void> {
   await gate();
@@ -274,7 +272,7 @@ export async function rebuildForHelpersAction(): Promise<void> {
   requestRebuildAndRestart(); // exits; the launcher rebuilds and restarts
 }
 
-/** Acknowledge the "a module was removed to get the app running" notice. */
+/** REFS app/admin/modules/failed-notice.tsx — the only caller. */
 export async function dismissFailedModuleAction(_prev: InstallState, _formData: FormData): Promise<InstallState> {
   await gate();
   clearFailedModule();
@@ -283,9 +281,10 @@ export async function dismissFailedModuleAction(_prev: InstallState, _formData: 
 }
 
 /**
- * Shared tail of both install paths: regenerate the registry, note which module is being
- * installed (so the launcher can remove it if the build fails), and hand over for the
- * rebuild. Never returns — the process exits so the supervisor can restart it.
+ * Shared tail of both install paths. ⚠ **Never returns** — the process exits so the supervisor
+ * restarts it. `markModuleInstalling` lets the launcher remove the module if the build fails.
+ *
+ * REFS scripts/gen-module-registry.mjs — regenerated here · scripts/supervise.mjs — restarts
  */
 function finishInstall(moduleIds: string[]): InstallState {
   regenerateRegistry();
@@ -298,8 +297,10 @@ function finishInstall(moduleIds: string[]): InstallState {
 
 // ---- Module sources (Phase 2) ----
 
+/** REFS app/admin/modules/sources/ui.tsx — the only caller. */
 export type SourceState = { ok?: boolean; error?: string };
 
+/** REFS app/admin/modules/sources/ui.tsx — the only caller. */
 export async function addSourceAction(_prev: SourceState, formData: FormData): Promise<SourceState> {
   await gate();
   const url = String(formData.get("url") ?? "").trim();
@@ -315,12 +316,13 @@ export async function addSourceAction(_prev: SourceState, formData: FormData): P
   return { ok: true };
 }
 
+/** REFS app/admin/modules/sources/ui.tsx — the only caller. */
 export async function removeSourceAction(formData: FormData): Promise<void> {
   await gate();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  // The official source is permanent — it can be disabled, never deleted. Checked here and
-  // not only in the UI: the button being hidden isn't a control, it's a suggestion.
+  // ⚠ The official source can be disabled, never deleted. Checked here because a hidden button is a
+  // suggestion, not a control. REFS lib/modules/sources.ts › isOfficialSource()
   const source = await prisma.moduleSource.findUnique({ where: { id }, select: { isDefault: true } });
   if (source?.isDefault) return;
   await removeSource(id);
@@ -329,6 +331,7 @@ export async function removeSourceAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/modules");
 }
 
+/** REFS app/admin/modules/sources/ui.tsx — the only caller. */
 export async function toggleSourceAction(formData: FormData): Promise<void> {
   await gate();
   const id = String(formData.get("id") ?? "");
@@ -339,7 +342,11 @@ export async function toggleSourceAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/modules");
 }
 
-/** Per-module release channel ("opt into beta releases for this module"). */
+/**
+ * Per-module release channel — "opt into beta releases for this module".
+ * REFS app/admin/updates/beta-channels.tsx — the caller
+ * PINS tests/unit/update-cache-invalidation.test.ts
+ */
 export async function setModuleChannelAction(formData: FormData): Promise<void> {
   await gate();
   const id = String(formData.get("id") ?? "");
@@ -350,18 +357,15 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
   // A helper follows the highest channel among its dependents, so moving a module can
   // move a helper with it (MOD-10). Re-derive now rather than waiting for the next boot.
   await syncAllHelperChannels().catch(() => {});
-  // BOTH caches. The module's own available update now comes from the other channel's
-  // manifest, and moving a module re-derives its helpers' channels — leaving either cached
-  // means the page shows the pre-change answer for up to three minutes and the switch looks
-  // like it did nothing.
+  // ⚠ BOTH caches: the update comes from the other channel's manifest AND helper channels are
+  // re-derived. Leaving either shows the pre-change answer for three minutes.
   clearModuleUpdateCache();
   invalidateHelperUpdateCache();
   revalidatePath(`/admin/modules/${id}`);
   revalidatePath("/admin/modules");
   revalidatePath("/admin/helpers");
-  // The Beta channels panel lives here and shows this module's channel. This was the only
-  // one of its siblings not revalidating it — a write that changes what another page shows
-  // has to invalidate that page (BUG-34).
+  // ⚠ A write that changes what another page shows must invalidate that page (BUG-34) — the Beta
+  // channels panel lives here. REFS app/admin/updates/beta-channels.tsx
   revalidatePath("/admin/updates");
 }
 
@@ -373,6 +377,7 @@ export async function setModuleChannelAction(formData: FormData): Promise<void> 
  * here. An update that ADDS a permission is never applied automatically whatever this
  * says; consent is not something a preference can waive.
  */
+/** REFS app/admin/updates/schedule-actions.ts — the only caller. */
 export async function setModuleAutoUpdateAction(formData: FormData): Promise<void> {
   await gate();
   const id = String(formData.get("moduleId") ?? "");
@@ -384,12 +389,15 @@ export async function setModuleAutoUpdateAction(formData: FormData): Promise<voi
   revalidatePath("/admin/updates");
 }
 
+/** REFS app/admin/modules/[id]/ui.tsx · app/admin/modules/[id]/groups-form.tsx — both forms. */
 export type ModuleSettingsState = { ok?: boolean; error?: string };
 
 /**
- * Limit a module to Service Groups (module RBAC). No groups = visible to everyone signed
- * in, which is its behaviour when the feature isn't used. Only real group ids are
- * accepted, so a crafted form can't attach a module to something that doesn't exist.
+ * Limit a module to Service Groups (module RBAC). No groups means visible to everyone signed in,
+ * which is the behaviour when the feature is unused. ⚠ Only real group ids are accepted, so a
+ * crafted form cannot attach a module to something that does not exist.
+ *
+ * REFS app/admin/modules/[id]/groups-form.tsx — the only caller
  */
 export async function setModuleGroupsAction(
   _prev: ModuleSettingsState,
@@ -414,6 +422,7 @@ export async function setModuleGroupsAction(
   return { ok: true };
 }
 
+/** REFS app/admin/modules/[id]/ui.tsx — the only caller; renders the module's declared fields. */
 export async function saveModuleSettingsAction(
   _prev: ModuleSettingsState,
   formData: FormData,
@@ -437,10 +446,11 @@ export async function saveModuleSettingsAction(
 }
 
 /**
- * Questions to put on the uninstall confirmation, for the modules about to be removed and any
- * helper that removal would prune. Called from the client the moment the admin opens the
- * confirmation, so the answers can be collected while they are still there — `onUninstall` runs
- * headless and far too late to ask anything.
+ * Questions for the uninstall confirmation — the modules being removed, plus any helper the removal
+ * would prune. ⚠ Called the moment the admin opens the confirmation, because `onUninstall` runs
+ * headless and far too late to ask a person anything.
+ *
+ * REFS app/admin/modules/uninstall-questions.tsx — the caller · lib/uninstall-questions.ts
  */
 export async function uninstallQuestionsAction(ids: string[]): Promise<AttributedQuestion[]> {
   await gate();
