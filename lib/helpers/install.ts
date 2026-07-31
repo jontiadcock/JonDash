@@ -26,30 +26,31 @@ import { answersFor } from "@/lib/uninstall-questions";
 const UNINSTALL_BUDGET_MS = 5000;
 
 /**
- * For a helper that declares `uninstallMayPrompt`. Matches the elevation timeout in
- * `lib/elevation.ts`, because that is what the hook is actually waiting for: a person deciding
- * whether to approve a UAC prompt. Anything shorter abandons the prompt underneath them.
+ * For a helper declaring `uninstallMayPrompt`. ⚠ Must match the elevation timeout — the hook is
+ * waiting on a person deciding a UAC prompt, and anything shorter abandons it underneath them.
+ * REFS lib/elevation.ts — where that timeout is defined
  */
 const UNINSTALL_PROMPT_BUDGET_MS = 600_000;
 
-/**
+/*
  * Helper installation (MOD-08).
  *
- * Helpers are installed from the addons repo like modules, but with one absolute
- * difference: **only from the official source**. A helper is trusted to do what modules
- * are forbidden, so that restriction is the entire security argument — enforced here and
- * in the manifest parser, never by convention.
+ * ⚠ **Only from the official source.** A helper is trusted to do what modules are forbidden, so
+ *   that restriction is the entire security argument — enforced here and in the manifest parser,
+ *   never by convention.
+ * ⚠ **Helper code is NOT run through the module verifier**: its bans — process spawning,
+ *   filesystem, raw sockets — are exactly what a helper exists to do. Archive hygiene still
+ *   applies, because a bad archive is a bad archive whoever wrote it.
  *
- * Helper code is NOT run through the module verifier: its bans (child_process,
- * filesystem, raw sockets) are exactly the things a helper exists to do. Archive hygiene
- * still applies — path traversal, file types, size — because a bad archive is a bad
- * archive whoever wrote it.
+ * REFS lib/modules/sources.ts › isOfficialSource(), fetchSourceManifest() — the other enforcement
+ *      lib/modules/verify.ts › ALLOWED_EXTENSIONS, LIMITS — the hygiene rules reused here
  */
 
 const HELPERS_DIR = path.join(process.cwd(), "helpers");
 const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 30_000;
 
+/** Its message reaches the admin. REFS app/admin/updates/helper-actions.ts · updates/auto-run.ts */
 export class HelperInstallError extends Error {}
 
 function isTextFile(name: string): boolean {
@@ -57,16 +58,20 @@ function isTextFile(name: string): boolean {
   return [".ts", ".tsx", ".sql", ".md", ".json", ".css", ".txt", ".svg"].includes(ext);
 }
 
-/** Is a helper's code present on disk? */
+/**
+ * Is a helper's code present on disk?
+ * REFS lib/helpers/reconcile.ts — the self-heal pass that acts on a false
+ * PINS tests/integration/helper-reconcile.test.ts
+ */
 export function helperFilesExist(id: string): boolean {
   return fs.existsSync(path.join(HELPERS_DIR, id, "helper.ts"));
 }
 
 /**
- * Remove a helper's FILES. Its data is deliberately left alone: a helper can own real
- * records (a scheduler's run history), and destroying them because the last dependent
- * module happened to be uninstalled is the same class of mistake that has already cost
- * this project a bricked install. Reinstalling restores the helper with its data intact.
+ * ⚠ **FILES only — never a helper's data.** A helper can own real records, and destroying them
+ *   because the last dependent module happened to be uninstalled is how an install gets bricked.
+ *   Reinstalling restores the helper with its history intact.
+ * PINS tests/unit/helper-resolution.test.ts
  */
 export function removeHelperFiles(id: string): void {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) throw new HelperInstallError("Invalid helper id.");
@@ -90,7 +95,7 @@ async function download(url: string): Promise<Uint8Array> {
 
 type ExtractedFile = { path: string; bytes: number; data: Uint8Array; text?: string };
 
-/** Pull `helpers/<id>/**` out of the archive, checking hygiene as we go. */
+/** Pull the helper's folder out of the archive, checking hygiene as we go. */
 function extractHelper(zip: Uint8Array, id: string): ExtractedFile[] {
   let entries: Record<string, Uint8Array>;
   try {
@@ -131,7 +136,7 @@ function extractHelper(zip: Uint8Array, id: string): ExtractedFile[] {
   return out;
 }
 
-/** Write a helper to disk, staged then swapped so a half-written one is never compiled. */
+/** ⚠ Staged then swapped — a half-written helper must never be visible to the next build. */
 function writeHelperFiles(id: string, files: ExtractedFile[]): void {
   const dest = path.join(HELPERS_DIR, id);
   const staged = `${dest}.installing`;
@@ -149,7 +154,11 @@ function writeHelperFiles(id: string, files: ExtractedFile[]): void {
   fs.renameSync(staged, dest);
 }
 
-/** Install (or replace) one helper from the official source. */
+/**
+ * Install or replace one helper. ⚠ Official source only — see the file note.
+ * REFS app/admin/updates/helper-actions.ts · app/admin/updates/selection-actions.ts ·
+ *      lib/updates/auto-run.ts — the three callers
+ */
 export async function installHelper(entry: SourceHelperEntry, channel: ModuleChannel): Promise<void> {
   const zip = await download(archiveUrlForRepo(DEFAULT_SOURCE_URL, entry.tag));
   const files = extractHelper(zip, entry.id);
@@ -157,6 +166,7 @@ export async function installHelper(entry: SourceHelperEntry, channel: ModuleCha
   void channel; // recorded on the Helper row at boot, from the definition itself
 }
 
+/** REFS ensureHelpersFor() below — the only producer; its `missing` drives the rollback. */
 export type HelperResolution = {
   /** Helpers that were fetched and written. */
   installed: SourceHelperEntry[];
@@ -165,11 +175,13 @@ export type HelperResolution = {
 };
 
 /**
- * Make sure every helper the given modules declare is present and current.
+ * Make sure every helper the given modules declare is present and current. Called while installing
+ * or updating a module, so the helpers arrive as one visible batch with the thing the admin picked.
  *
- * Called as part of installing or updating a module — the user picked the module, and the
- * helpers it needs come with it as one visible batch. They are never installed on their
- * own initiative, and never from anywhere but the official source.
+ * ⚠ Helpers are never installed on their own initiative, and never from anywhere but the official
+ *   source.
+ * REFS app/admin/modules/actions.ts › resolveHelpersOrRollBack() — rolls the module back on
+ *      `missing` app/admin/updates/module-actions.ts · lib/helpers/reconcile.ts — the other callers
  */
 export async function ensureHelpersFor(
   moduleHelperIds: string[],
@@ -178,10 +190,8 @@ export async function ensureHelpersFor(
   const wanted = [...new Set(moduleHelperIds)];
   if (wanted.length === 0) return { installed: [], missing: [] };
 
-  // A helper is shared, so the channel isn't simply this module's (MOD-10). If another
-  // dependent is already on beta, or an admin pinned it, dropping back to stable would
-  // strip an API that other module relies on. Resolve per helper, then fetch each
-  // channel's manifest once.
+  // ⚠ A helper is shared, so the channel is NOT simply this module's (MOD-10) — dropping to stable
+  // would strip an API another dependent relies on. REFS lib/helpers/channel.ts
   const channelFor = new Map<string, ModuleChannel>();
   for (const id of wanted) channelFor.set(id, await installChannelFor(id, channel));
 
@@ -219,15 +229,16 @@ export async function ensureHelpersFor(
 }
 
 /**
- * Remove helpers nothing depends on any more. Files only — see removeHelperFiles.
- * Returns the ids removed, so the caller can tell the admin what went and why.
+ * Remove helpers nothing depends on any more. Files only. Returns the ids removed so the caller can
+ * tell the admin what went and why.
+ * REFS app/admin/modules/actions.ts — the caller · lib/helpers/types.ts › onUninstall — run first
+ * PINS tests/unit/helper-orphan-rows.test.ts
  */
 /**
- * Which helpers `pruneUnusedHelpers` WOULD remove, with no side effects.
- *
- * Split out so the uninstall confirmation can ask a helper its questions before anything is
- * touched — asking about a helper that is going to stay would be a question with no
- * consequence. Same dependency logic, one source of truth.
+ * Which helpers `pruneUnusedHelpers` WOULD remove, with no side effects — so the uninstall
+ * confirmation can ask a helper its questions before anything is touched. ⚠ Same dependency logic
+ * as the real prune, deliberately one source of truth.
+ * REFS lib/uninstall-questions.ts — the only caller
  */
 export function helpersThatWouldBePruned(removingModuleIds: string[] = []): string[] {
   const removing = new Set(removingModuleIds);
@@ -247,15 +258,19 @@ export function helpersThatWouldBePruned(removingModuleIds: string[] = []): stri
   }
 }
 
+/**
+ * Remove helpers nothing depends on any more. Files only. Returns the ids removed so the caller can
+ * tell the admin what went and why.
+ * REFS app/admin/modules/actions.ts — the caller · lib/helpers/types.ts › onUninstall — run first
+ * PINS tests/unit/helper-orphan-rows.test.ts
+ */
 export async function pruneUnusedHelpers(
   removingModuleIds: string[] = [],
   /** Replies to `uninstallQuestions`, namespaced `helper:<id>:<questionId>`. */
   tickedAnswers: string[] = [],
 ): Promise<string[]> {
-  // getAllModules() is the COMPILED registry, so a module being uninstalled right now is
-  // still in it and counts as its own dependent — nothing would ever be pruned.
-  // Regenerating the registry first doesn't help either: rewriting the file can't change
-  // what the running process already imported.
+  // ⚠ getAllModules() is the COMPILED registry, so a module being uninstalled is still in it and
+  // counts as its own dependent. Regenerating first cannot help — the process already imported it.
   const removing = new Set(removingModuleIds);
   const needed = new Set<string>();
   for (const m of getAllModules()) {
@@ -277,20 +292,17 @@ export async function pruneUnusedHelpers(
   for (const id of present) {
     if (needed.has(id) || !helperFilesExist(id)) continue;
 
-    // Let the helper release anything it created OUTSIDE JonDash before its files go — an OS
-    // grant, a scheduled task, a firewall rule. Nothing else can reach that state, and after
-    // the next line the code that knows about it no longer exists. (OPS-18: grants must not
-    // outlive the helper that justified them.)
-    //
-    // BEST-EFFORT, deliberately. A helper that throws or hangs here must not leave itself
-    // half-removed, so the failure is recorded and removal proceeds regardless. Bounded for
-    // the same reason `onBoot` is: an uninstall cannot be allowed to hang the admin screen.
+    /*
+     * ⚠ Last chance for the helper to release what it created OUTSIDE JonDash — an OS grant, a
+     *   scheduled task. After the next line the code that knows about it no longer exists, and a
+     *   grant must not outlive the helper that justified it (OPS-18).
+     * ⚠ Best-effort and bounded: a helper that throws or hangs must not leave itself half-removed,
+     *   nor hang the admin screen. The failure is recorded and removal proceeds.
+     */
     const def = getHelperDef(id);
     if (def?.onUninstall) {
-      // A helper that must raise an elevation prompt gets the elevation timeout, not the 5s
-      // one — otherwise the prompt is abandoned underneath the admin and the cleanup can only
-      // ever succeed when there was nothing to clean up. Safe to block here specifically:
-      // this runs inside the uninstall the admin just clicked, so they are at the machine.
+      // ⚠ A prompting helper gets the elevation timeout, not 5s, or the prompt is abandoned under
+      // the admin. Safe to block only here — this runs inside the uninstall they just clicked.
       const budget = def.uninstallMayPrompt ? UNINSTALL_PROMPT_BUDGET_MS : UNINSTALL_BUDGET_MS;
       try {
         await Promise.race([

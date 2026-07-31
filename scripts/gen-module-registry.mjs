@@ -1,8 +1,13 @@
-// Regenerates lib/modules/generated.ts from whatever is installed in modules/ (MOD-01
-// Phase 2). Modules are compiled into the Next build, so their imports have to exist
-// statically at build time — this writes them out. Runs automatically before every
-// build/test, and again after an install or uninstall so the next build picks the
-// change up. JonDash ships zero modules, so a stock install generates an empty list.
+/*
+ * Regenerates the installed-module, installed-helper and Tailwind-class registries (MOD-01).
+ * Add-ons compile into the Next build, so their imports must exist statically — this writes them
+ * out. A stock install ships zero of both and generates empty lists.
+ *
+ * REFS package.json — prebuild/pretest/pretypecheck run this before every build and test
+ *      lib/modules/rebuild.ts › regenerateRegistry() — runs it after an install or uninstall
+ *      scripts/module-recover.mjs — calls writeRegistry() when a build has failed
+ * PINS tests/unit/module-class-extraction.test.ts
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -12,19 +17,19 @@ const OUT = path.join(ROOT, "lib", "modules", "generated.ts");
 // Helpers (MOD-08) are generated the same way, from their own folder and entry file.
 const HELPERS_DIR = path.join(ROOT, "helpers");
 const HELPERS_OUT = path.join(ROOT, "lib", "helpers", "generated.ts");
-// Tailwind class tokens used by installed modules/helpers (BUG-40). Tailwind skips
-// `.gitignore`d paths when scanning, and `modules/` + `helpers/` are both ignored (they
-// hold installed add-on code, not app code), so any utility a module uses that the core app
-// doesn't ALSO use somewhere was silently never generated — the module rendered half-styled.
-// We mirror those tokens into a file under `lib/`, which Tailwind DOES scan, so they get
-// generated. Empty in a stock checkout, regenerated with the installed add-ons at build time.
-// Emitted as HTML, not a .ts string: Tailwind's HTML extractor reliably picks up
-// variant-prefixed (`sm:`, `hover:`) and arbitrary-value (`mt-[99px]`) utilities from a
-// `class="…"` attribute, where its JS extractor drops them out of a bare string. `.html` is
-// also ignored by tsc and eslint, so this generated file can never fail a typecheck or lint.
+/*
+ * ⚠ **Tailwind skips gitignored paths, and modules/ and helpers/ are both ignored**, so any utility
+ *   an add-on used that core did not also use was silently never generated and the widget rendered
+ *   half-styled (BUG-40). Mirroring the tokens into lib/ — which Tailwind does scan — is the fix.
+ *
+ * Emitted as HTML, not a .ts string: Tailwind's HTML extractor reliably picks up variant-prefixed
+ * and arbitrary-value utilities from a class attribute where its JS extractor drops them from a
+ * bare string, and .html is ignored by tsc and eslint so it can never fail either.
+ */
 const TW_OUT = path.join(ROOT, "lib", "modules", "tailwind-classes.generated.html");
 
-// Same slug rule the source manifest enforces, so a folder name can never inject code.
+// ⚠ The slug rule the manifest enforces — a folder name is written into an import statement below,
+// so it can never be allowed to inject code. REFS lib/modules/sources.ts
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 /** Installed module ids: a modules/<id>/module.ts(x) with a safe folder name. */
@@ -102,36 +107,19 @@ function walk(dir, re, out = []) {
 }
 
 /**
- * Collect Tailwind class candidates from installed module/helper source. We pull the
- * contents of every string and template literal — class names live in `className="…"`,
- * `cn("…")`/array/ternary args and template statics — then let Tailwind's own matcher decide
- * which tokens are real utilities (non-classes never match a utility, so over-collecting is
- * harmless, exactly as when Tailwind scans real source). This is parity with scanning the
- * files directly; it just routes through a file Tailwind is allowed to look at.
+ * Tailwind class candidates from installed add-on source. Pulls every string and template literal
+ * and lets Tailwind's own matcher decide what is real — over-collecting is harmless, since a
+ * non-utility never matches a utility. Parity with scanning the files directly.
+ *
+ * PINS tests/unit/module-class-extraction.test.ts
  */
 export function collectClassTokens(dirs) {
   const tokens = new Set();
   const STRING = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|`([^`\\]*(?:\\.[^`\\]*)*)`/g;
   for (const dir of dirs) {
     for (const file of walk(dir, /\.(?:tsx?|jsx?)$/)) {
-      /*
-       * **Comments are stripped first — a regex over source is a regex over comments too.**
-       *
-       * This scans for string and template literals, and a markdown code span in a JSDoc block is
-       * backtick-delimited, so `` `text-[clamp(…)]` `` written to *explain* a class was collected as
-       * if it were one. Harmless while the parens filter discarded it; a build-breaker afterwards,
-       * because an unsupported variant in a comment becomes a real candidate and Tailwind emits
-       * invalid CSS for it. An author documenting the very bug this file fixes would have taken the
-       * stylesheet down.
-       *
-       * Reported by the add-ons session (2026-07-30) after neutralising it in their own docs.
-       * **Third time this project has been bitten by matching comments** — BUG-39 (a commented-out
-       * `helpers:` read as a declaration), then source-level tests matching the prose that described
-       * what they asserted, now this.
-       *
-       * Mangling a `//` inside a string (a URL) is acceptable collateral: the leftover is not a
-       * utility and never matches one, which is the same reasoning that makes over-collecting safe.
-       */
+      // ⚠ Comments stripped FIRST — a JSDoc code span is backtick-delimited, so a class written to
+      // *explain* one becomes a real candidate and Tailwind emits invalid CSS (BUG-39, BUG-40).
       const src = fs
         .readFileSync(file, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, " ")
@@ -142,32 +130,16 @@ export function collectClassTokens(dirs) {
         for (const t of body.split(/[\s`]+/)) {
           const tok = t.trim();
           /*
-           * A Tailwind utility candidate.
+           * ⚠ **Reject only what genuinely cannot appear in a class.** The old set also excluded
+           *   parens, angle brackets and apostrophes — all common in real utilities — and dropped
+           *   them **silently**: the class stays on the element, nothing defines it, every check
+           *   passes, and the widget renders wrong.
            *
-           * **The rejected set is only what genuinely cannot appear in a class**, and the old one
-           * was far too wide — it excluded `(`, `)`, `<`, `>` and `'`, all of which appear in real
-           * utilities constantly: any arbitrary value holding a CSS function (clamp, calc, repeat,
-           * minmax), v4's CSS-variable shorthand, every child-combinator variant, and quoted
-           * `content` values.
+           * A double quote would end the class attribute; braces and a dollar mean a dynamic
+           * template expression; a semicolon appears in no utility.
            *
-           * ⚠ **Deliberately described rather than written out.** Tailwind scans this file, so a
-           * literal utility in this comment becomes a real candidate — an unsupported one took the
-           * whole CSS build down with `Unexpected token ParenthesisBlock` while this fix was being
-           * written. Examples belong in `docs/MODULES-AUTHORING.md`, inside fenced code, not here.
-           *
-           * Every one was silently dropped. **Silently is the problem**: the class stays on the
-           * element, nothing defines it, and typecheck, lint, build and the module verifier all
-           * pass while the widget renders wrong. Reported by the add-ons session, who lost time to
-           * it — and core's 1.8.0 sizing guidance points authors straight at `clamp()`, which
-           * cannot be written without parentheses.
-           *
-           * `"` stays rejected because these tokens are emitted into a `class="…"` attribute and a
-           * double quote would end it. `$`, `{` and `}` stay because a token containing them came
-           * from a template expression and is dynamic — it can never be a static class. `;` stays
-           * because no utility contains one.
-           *
-           * Over-collecting is harmless, as the note above already says: a token that is not a
-           * utility simply never matches one, exactly as when Tailwind scans real source.
+           * ⚠ **Never write a literal utility class in this file** — Tailwind scans it, and an
+           *   unsupported one takes the whole CSS build down. Examples go in MODULES-AUTHORING.md.
            */
           if (tok && /[a-z]/i.test(tok) && !/["{};$]/.test(tok)) tokens.add(tok);
         }
@@ -177,6 +149,7 @@ export function collectClassTokens(dirs) {
   return [...tokens].sort();
 }
 
+/** PINS tests/unit/module-class-extraction.test.ts — asserts the attribute stays well-formed. */
 export function renderTailwindClasses(tokens) {
   const header =
     "<!-- AUTO-GENERATED by scripts/gen-module-registry.mjs — do not edit. -->\n" +
@@ -184,19 +157,15 @@ export function renderTailwindClasses(tokens) {
     "<!-- (whose folders are .gitignore'd and skipped by Tailwind) are still generated. -->\n" +
     "<!-- Empty in a stock checkout; regenerated with the installed add-ons before every build. -->\n";
   /*
-   * A token containing a double quote would end the attribute early and **silently discard every
-   * class after it** — a failure with no error, in a file nobody reads, affecting classes that have
-   * nothing to do with the offending one.
-   *
-   * The extractor already refuses them, so this cannot happen today. It is here because that makes
-   * two components agreeing by convention, and the one holding the sharp end should not depend on
-   * the other staying careful: this file's whole job is to be well-formed.
+   * ⚠ A double quote would end the attribute and **silently discard every class after it**. The
+   *   extractor already refuses them, so this is unreachable — but that is two components agreeing
+   *   by convention, and the one holding the sharp end should not rely on the other's care.
    */
   const safe = tokens.filter((t) => !t.includes('"'));
   return `${header}<div class="${safe.join(" ")}"></div>\n`;
 }
 
-/** Write a generated file only when it changed, so a no-op run can't bust the build cache. */
+/** ⚠ Only write when changed — an unconditional write busts the build cache on every no-op run. */
 function writeIfChanged(file, next) {
   let current = null;
   try {
@@ -207,6 +176,7 @@ function writeIfChanged(file, next) {
   if (current !== next) fs.writeFileSync(file, next, "utf8");
 }
 
+/** REFS scripts/module-recover.mjs — calls this when a build failed and a module must be dropped */
 export function writeRegistry() {
   const ids = discoverModules();
   writeIfChanged(OUT, renderRegistry(ids));
