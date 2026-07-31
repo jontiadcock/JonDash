@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { DashboardFrame } from "./dashboard-frame";
-import { placeItemsAction } from "./layout-actions";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { placeItemsAction, resetArrangementAction } from "./layout-actions";
 // `geometry`, not `layout` — the latter is server-only (Prisma), and this is a client component.
 import {
   DEFAULT_SPAN,
@@ -116,6 +117,7 @@ export function DashboardGrid({
     () => new Map(Object.entries(arrangements.wide.placements)),
   );
   const [editing, setEditing] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [, startTransition] = useTransition();
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -439,20 +441,59 @@ export function DashboardGrid({
     <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Your dashboard</h2>
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className={editing ? "btn btn-primary !py-1.5 text-sm" : "btn btn-ghost !py-1.5 text-sm"}
-          aria-pressed={editing}
-        >
-          {editing ? "Done arranging" : "Arrange"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Only while arranging: it is part of that mode, not a permanent control on the page. */}
+          {editing && (
+            <button
+              type="button"
+              onClick={() => setConfirmingReset(true)}
+              className="btn btn-warning !py-1.5 text-sm"
+            >
+              Reset positions
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className={editing ? "btn btn-primary !py-1.5 text-sm" : "btn btn-ghost !py-1.5 text-sm"}
+            aria-pressed={editing}
+          >
+            {editing ? "Done arranging" : "Arrange"}
+          </button>
+        </div>
       </div>
+
+      {/*
+        ⚠ Confirmed, because it discards every position and size in this profile at once and there is
+        no undo. Yellow rather than red: it destroys arranging WORK, never data.
+      */}
+      <ConfirmDialog
+        open={confirmingReset}
+        title="Reset positions?"
+        message={
+          profile === "narrow"
+            ? "Every tile and widget goes back to its default position and size on narrow screens. Your wide-screen layout is untouched."
+            : "Every tile and widget goes back to its default position and size on wide screens. Your narrow-screen layout is untouched."
+        }
+        confirmLabel="Reset positions"
+        danger={false}
+        onCancel={() => setConfirmingReset(false)}
+        onConfirm={() => {
+          setConfirmingReset(false);
+          /*
+           * Clear the optimistic map too. The server render re-seeds it via `serverKey`, but that
+           * arrives a beat later — without this the grid holds the old positions until it does, so
+           * the button looks like it did nothing.
+           */
+          setPlacements(new Map());
+          startTransition(() => void resetArrangementAction(writeProfile()));
+        }}
+      />
 
       {editing && (
         <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
-          Drag anything anywhere — leave gaps if you want to. The arrows move one square at a time,
-          and the bottom-right corner resizes.{" "}
+          Drag anything anywhere — leave gaps if you want to. The bottom-right corner of each item
+          resizes it, and works with the arrow keys.{" "}
           {profile === "narrow"
             ? "Saved for narrow screens only — your desktop layout is untouched."
             : "Saved for wide screens only — your phone layout is untouched."}

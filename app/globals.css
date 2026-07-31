@@ -211,6 +211,16 @@ summary:focus-visible {
 .btn-danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
+/* Same shape as .btn-danger, one token along: for an action that discards work but destroys no
+   data. Token-only, so every interface style keeps it (CORE-07). */
+.btn-warning {
+  background: transparent;
+  color: var(--warning);
+  border-color: var(--border);
+}
+.btn-warning:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
 
 .input {
   width: 100%;

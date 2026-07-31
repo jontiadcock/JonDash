@@ -197,8 +197,10 @@ export async function resetItem(
   await prisma.dashboardLayout.deleteMany({ where: { userId, kind, refId, profile } });
 }
 
-/** Forget the whole arrangement for one profile — "reset my phone layout".
- *  ⚠ Nothing calls this and no test covers it; it is dead until a reset UI returns. */
+/** Forget the whole arrangement for one profile — "reset my phone layout". Every item then falls
+ *  back to the packed default order and `DEFAULT_SPAN`.
+ *  REFS app/(app)/dashboard/layout-actions.ts › resetArrangementAction() — the only caller
+ *       lib/dashboard/geometry.ts › packLayout() — what fills the gap once the rows are gone */
 export async function resetProfile(userId: string, profile: DashboardProfile): Promise<void> {
   await prisma.dashboardLayout.deleteMany({ where: { userId, profile } });
 }

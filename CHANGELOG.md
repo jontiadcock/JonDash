@@ -9,6 +9,36 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.4-beta.2] — 2026-07-31
+
+The four code changes the CORE-18 sweep identified but deliberately did not make.
+
+### Added
+- **Reset positions** — a yellow button beside *Done arranging*, shown only while arranging. It
+  clears every stored position and size for the profile you are on, so each item falls back to its
+  packed default, and it confirms first because there is no undo. The other profile is untouched.
+  This is the UI `resetProfile()` had been written for and never got.
+- `.btn-warning`, the same shape as `.btn-danger` one token along — for an action that discards work
+  but destroys no data. Token-only, so every interface style keeps it.
+
+### Fixed
+- **The arranging help text described controls that no longer exist.** It still said *"the arrows
+  move one square at a time"*; those buttons went with free placement. It now describes the resize
+  corner, which is the control that is actually there and is arrow-key operable.
+- **`lib/tls/network-config.mjs` ignored `JONDASH_DATA_DIR`** and hardcoded `process.cwd()/.data`.
+  It was the only data-directory resolver in the app that did. Since that file decides the HTTP
+  port, a build resolving the wrong `.data` binds the wrong one — and the default is 3000.
+
+### Tests
+- **`app/login/actions.ts` had no coverage at all.** 10 tests now pin the lockout (count, refusal
+  while locked, expiry, reset on success) and — more importantly — that *every* failure path returns
+  one identical message: unknown address, wrong password, disabled account, service account. A
+  refactor that returns early on any of them restores the account-enumeration oracle.
+- **`lib/auth/stepup.ts` had no test at all**, though it guards restoring a backup. 12 tests pin the
+  30-minute window, the phrase being optional, and that omitting the phrase still cannot get past
+  the authenticator.
+
+
 ## [1.8.4-beta.1] — 2026-07-31
 
 **Code notes only — no behaviour change of any kind.** Nothing an end user can see is different.

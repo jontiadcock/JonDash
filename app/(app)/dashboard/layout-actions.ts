@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { assertSameOrigin } from "@/lib/security/csrf";
-import { setItemSize, placeItems, isProfile } from "@/lib/dashboard/layout";
+import { setItemSize, placeItems, resetProfile, isProfile } from "@/lib/dashboard/layout";
 import type { DashboardKind, DashboardProfile } from "@/lib/dashboard/layout";
 import { visibleModuleIds } from "@/lib/modules/visibility";
 import { getUserVisibleLinks } from "@/lib/services";
@@ -87,8 +87,26 @@ export async function placeItemsAction(
   revalidatePath("/dashboard");
 }
 
+/**
+ * Forget this user's whole arrangement for ONE profile, so every item falls back to the packed
+ * default order and default size.
+ *
+ * ⚠ Scoped to the caller and to one profile: resetting the phone layout must leave the desktop one
+ * alone, which is the same promise every other write in this file makes.
+ * ⚠ No per-item filter is needed — unlike `placeItemsAction` this takes no ids, so there is
+ * nothing a crafted request could name. It can only delete rows the caller owns.
+ * REFS lib/dashboard/layout.ts › resetProfile() · app/(app)/dashboard/dashboard-grid.tsx — the
+ *      "Reset positions" button, which confirms first
+ * PINS tests/integration/module-rbac.test.ts
+ */
+export async function resetArrangementAction(profile: string): Promise<void> {
+  const allowed = await gate();
+  await resetProfile(allowed.id, asProfile(profile));
+  revalidatePath("/dashboard");
+}
+
 /*
- * ⚠ No `resetItemAction` here on purpose — it went with the Reset button. An exported server action
- * is a live HTTP endpoint whether or not anything calls it, so don't re-add one until a UI needs
+ * ⚠ No `resetItemAction` here on purpose — a per-ITEM reset has no UI. An exported server action is
+ * a live HTTP endpoint whether or not anything calls it, so don't re-add one until something needs
  * it. `resetItem` in lib/dashboard/layout.ts stays as the API to re-expose.
  */
