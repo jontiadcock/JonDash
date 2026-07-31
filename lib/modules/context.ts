@@ -10,38 +10,37 @@ import { pingHost } from "./net";
 import { getModuleState } from "./registry";
 
 /**
- * Build the capability-scoped ModuleContext handed to a module's hooks / components
- * (MOD-01). Only the capabilities the module was granted are exposed — the module can
- * never reach a capability it didn't declare and the admin didn't approve.
+ * The ModuleContext handed to a module's hooks and components (MOD-01). A capability is present only
+ * if it was granted. ⚠ Modules run in-process: defence-in-depth for curated modules, not a sandbox.
  *
- * Honest limit: modules run in-process, so this is defense-in-depth for CURATED
- * modules, not a hard sandbox (see jondash-module-framework / MODULES-AUTHORING).
+ * REFS lib/modules/types.ts › ModuleContext — the shape every field below must match
+ *      callers: app/(app)/dashboard/page.tsx · app/(app)/m/[module]/[[...path]]/page.tsx ·
+ *      app/admin/modules/[id]/page.tsx · lib/modules/actions.ts · lib/modules/manage.ts
+ * PINS tests/integration/modules.test.ts
  */
 export function buildModuleContext(
   def: ModuleDefinition,
   granted: DeclaredPermission[],
   user: ModuleContext["user"],
 ): ModuleContext {
-  // De-duped and frozen so a module can't widen its grants by pushing onto the array.
-  // NOTE this stops mutation, not substitution: the module hands this object to a helper
-  // and can hand a lookalike instead (`{...ctx, can: () => true}`), which a spread builds
-  // fresh regardless of what is frozen here. See ModuleContext.grants — advisory, not a
-  // boundary, and MOD-11 for the shape that would be one.
+  // ⚠ Stops mutation, not substitution — a module can hand a helper a lookalike object instead.
+  // Advisory, not a boundary. REFS lib/modules/types.ts › ModuleContext.grants · MOD-11
   const grants: readonly DeclaredPermission[] = Object.freeze([...new Set(granted)]);
   const has = (p: DeclaredPermission) => grants.includes(p);
 
   const ctx: ModuleContext = {
     moduleId: def.id,
     user,
-    // Helper APIs are imported directly rather than handed over on this object, so a
-    // helper has nothing to check a caller against unless we tell it (MOD-10).
+    // Helper APIs are imported directly, not handed over here, so a helper has nothing to check a
+    // caller against unless told (MOD-10). REFS lib/helpers/types.ts › HelperCapability.permission
     grants,
     can: has,
     settings: moduleSettingsApi(def),
     store: moduleStoreApi(def.id),
   };
 
-  // Baseline: a module that ships migrations owns `mod_<id>_*` tables via scoped raw SQL.
+  // Scoped raw SQL over the module's own `mod_<id>_*` tables only.
+  // REFS lib/modules/migrate.ts › moduleTableName() — the only namer · lib/backup-addons.ts
   if (def.migrations) {
     ctx.db = {
       table: (name) => moduleTableName(def.id, name),
@@ -61,14 +60,8 @@ export function buildModuleContext(
   if (has("email:send")) {
     ctx.email = {
       send: async (msg) => {
-        /*
-         * Core owns the chrome; the module supplies the body (1.8.0).
-         *
-         * A module that passes raw `html` bypasses the shell deliberately — the escape hatch is
-         * documented as making Outlook and looking-like-JonDash its own problem. Everything else
-         * goes through the branded template, which ESCAPES the body: markup in a module's text
-         * arrives as visible text, so a module cannot forge JonDash's own mail.
-         */
+        // Raw `html` bypasses the shell deliberately; everything else is ESCAPED, so a module cannot
+        // forge JonDash's mail. REFS lib/email/template.ts › renderBrandedEmail() · types.ts › ModuleEmailApi
         let payload: { to: string; subject: string; text?: string; html?: string };
 
         if (msg.html) {
@@ -78,15 +71,8 @@ export function buildModuleContext(
           const { resolveAppUrl } = await import("@/lib/app-url");
           const brand = await currentBrand();
 
-          /*
-           * A CTA is dropped, not guessed at, when there is no canonical URL configured.
-           *
-           * A module can't know the install's external address, and neither can core without
-           * being told: deriving it from the request's Host header is forgeable (BUG-41), and a
-           * forged header putting an attacker's link into mail JonDash sends is a good deal worse
-           * than the same bug on a settings page. No configured base URL means no button — the
-           * message still says everything it was going to say.
-           */
+          // No base URL means no button. ⚠ Never derive one from the request Host — forgeable, and a
+          // forged link in mail is worse than on a page (BUG-41). REFS lib/app-url.ts › resolveAppUrl()
           const url = msg.cta ? await resolveAppUrl(msg.cta.path) : null;
 
           const body = renderBrandedEmail({
@@ -101,7 +87,8 @@ export function buildModuleContext(
           payload = { to: msg.to, subject: msg.subject, text: body.text, html: body.html };
         }
 
-        // sendMail never throws; surface a failure so a module can't silently not send.
+        // ⚠ sendMail never throws — without this check a module would silently not send.
+        // REFS lib/email/send.ts › sendMail()
         const res = await sendMail(payload);
         if (!res.ok) throw new Error(`Email not sent: ${res.error}`);
       },
@@ -112,18 +99,18 @@ export function buildModuleContext(
       await coreAudit(`module.${def.id}.${action}`, { userId: user?.id, detail });
     };
   }
-  // Elevated capabilities (user accounts, core tables, sessions, files) aren't built yet.
-  // Their permissions were removed from the taxonomy rather than left declared-but-inert;
-  // each returns with the capability that implements it.
+  // Elevated capabilities (user accounts, core tables, sessions, files) are not built; their
+  // permissions were deleted, not left inert. REFS lib/modules/types.ts › ModulePermission
 
   return ctx;
 }
 
 /**
- * A ctx for a module's BACKGROUND work (pollers, schedulers, cron-ish loops), where
- * there is no signed-in user. Use this instead of holding on to a context captured from
- * a request: that misattributes every later audit entry to whichever user happened to
- * trigger the first one. Permissions still come from what the admin granted.
+ * A context for background work, where there is no signed-in user. ⚠ Use this rather than holding a
+ * context captured from a request — that misattributes every later audit entry to whoever triggered
+ * the first one.
+ *
+ * REFS lib/modules/api.ts — the only caller · lib/modules/registry.ts › getModuleState() — grants
  */
 export async function systemModuleContext(moduleId: string): Promise<ModuleContext> {
   const state = await getModuleState(moduleId);

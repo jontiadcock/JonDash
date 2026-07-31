@@ -3,18 +3,17 @@ import { prisma } from "@/lib/db";
 import { helperIdForPermission, isValidPermission, type DeclaredPermission } from "./types";
 import { getAllModules } from "./registry";
 
-/**
- * Module SOURCES (MOD-01 Phase 2). A source is a public git repo that publishes an
- * `addons.json` manifest per channel branch — `main` = stable, `beta` = beta — as
- * described in JonDash-addons/VERSIONING.md. The official JonDash-addons repo is
- * seeded as the default source; admins may add their own by URL, or disable/remove any.
+/*
+ * Module SOURCES (MOD-01 Phase 2). A source is a public git repo publishing an `addons.json` per
+ * channel branch — `main` = stable, `beta` = beta. The official repo is seeded as the default.
  *
- * Everything fetched here is UNTRUSTED remote JSON, so the manifest is strictly
- * validated and sanitised before it reaches the rest of the app: ids must be safe
- * slugs, versions semver-shaped, permissions well-formed, and paths
- * may not escape `addons/<id>`. Invalid entries are dropped rather than trusted — EXCEPT
- * where dropping would hide a capability from the admin (permissions, a helper's
- * `provides`), which refuses the whole entry instead.
+ * ⚠ **Everything fetched here is UNTRUSTED remote JSON.** Ids must be safe slugs, versions
+ *   semver-shaped, permissions well-formed, and no path may escape `addons/<id>`. An invalid entry is
+ *   **dropped** — except where dropping would hide a capability from the admin, where the whole entry
+ *   is **refused** instead.
+ * REFS lib/modules/verify.ts — the second gate, on the downloaded folder rather than the manifest
+ *      lib/modules/install.ts · lib/helpers/install.ts — consume what this returns
+ * PINS tests/unit/module-sources.test.ts
  */
 
 export const DEFAULT_SOURCE_URL = "https://github.com/jontiadcock/JonDash-addons";
@@ -41,11 +40,9 @@ export type SourceModuleEntry = {
   /** Optional one-line "what changed", shown on the update card. Untrusted author text. */
   notes?: string;
   /**
-   * Pictures of the module, shown on its page before you install it (8.2).
-   *
-   * `file` is relative to `path` inside the module's own folder, and is resolved against the
-   * **pinned tag** — so the picture you are shown is the one that ships with the version you are
-   * about to install, not whatever is on the branch today.
+   * Pictures shown before you install. ⚠ Resolved against the **pinned tag**, so you see the picture
+   * shipping with the version you are about to install, not whatever is on the branch today.
+   * REFS app/api/modules/screenshot/route.ts — fetches them at that tag
    */
   screenshots?: ModuleScreenshot[];
 };
@@ -62,28 +59,22 @@ export type ModuleScreenshot = {
 export const MAX_SCREENSHOTS = 4;
 
 /**
- * A screenshot path: a filename, optionally inside **one** subdirectory.
+ * A filename, optionally inside **one** subdirectory — four loose images among a module's source files
+ * is worse for an author than one folder.
  *
- * **The subdirectory is allowed back deliberately.** Round 2 told the add-ons session
- * `screenshots/jobs.webp`; 1.8.0 shipped filename-only, and they caught the change on review before
- * publishing anything. Four loose images among a module's source files is worse for an author than
- * one folder, and this was my silent narrowing rather than a decision anyone made — so it goes back.
- *
- * **Still not a path.** Exactly one optional segment, which must start with a letter or digit — so
- * `..` cannot match, and neither can a leading slash, a second directory, a drive letter or a
- * Windows separator. The extension list is the real gate on what gets fetched.
+ * ⚠ **Still not a path.** One optional segment that must start with a letter or digit, so `..` cannot
+ *   match, nor a leading slash, second directory, drive letter or Windows separator. The extension
+ *   list is the real gate on what gets fetched.
  */
 const SCREENSHOT_FILE_RE =
   /^(?:[a-z0-9][a-z0-9._-]{0,31}\/)?[a-z0-9][a-z0-9._-]{0,63}\.(png|jpg|jpeg|webp)$/i;
 
 /**
- * One capability a helper advertises in the manifest: the permission id a consuming
- * module must declare, and the sentence shown to the admin before anything is installed.
+ * One capability a helper advertises: the permission a module must declare, and the sentence the admin
+ * reads before anything is installed.
  *
- * The label is authored by the HELPER, which is only safe because helpers are
- * first-party-only — a third-party source can never inject consent text (see
- * `fetchSourceManifest`). Trusting a one-line description from code you already trust to
- * spawn processes is not a larger ask.
+ * ⚠ The label is authored by the HELPER. Only safe because helpers are first-party-only, so a
+ *   third-party source can never inject consent text. REFS fetchSourceManifest() below — enforces that
  */
 export type SourceHelperCapability = {
   /** `<helperId>:<verb>`, namespaced to the helper that provides it. */
@@ -93,9 +84,9 @@ export type SourceHelperCapability = {
 };
 
 /**
- * A helper published by a source (MOD-08). Helpers are FIRST-PARTY ONLY: entries are
- * accepted solely from the official source, enforced in `fetchSourceManifest`. Without
- * that, anyone could publish a `helpers/` array and inherit the privilege helpers carry.
+ * A helper published by a source (MOD-08). ⚠ **FIRST-PARTY ONLY** — accepted solely from the official
+ * source, or anyone could publish a `helpers` array and inherit the privilege helpers carry.
+ * REFS fetchSourceManifest() below — where that is enforced · lib/helpers/install.ts — the consumer
  */
 export type SourceHelperEntry = {
   id: string;
@@ -104,20 +95,16 @@ export type SourceHelperEntry = {
   version: string;
   minAppVersion: string;
   /**
-   * Capabilities it provides to consuming modules, each with the wording an admin reads
-   * — this drives the consent roll-up at BROWSE time, where no helper code has been
-   * downloaded and no config exists, so `describe(config)` cannot run. The live,
-   * config-aware sentence comes from the helper itself once installed.
+   * Capabilities provided to modules, with the wording an admin reads. Drives the consent roll-up at
+   * BROWSE time, where no helper code is downloaded and no config exists, so `describe(config)` cannot
+   * run — the live, config-aware sentence comes from the helper once installed.
    */
   provides: SourceHelperCapability[];
   /**
-   * The version at which this helper last BROKE compatibility with its consumers
-   * (MOD-10). Helpers promise never to break their API — the exception is a security fix
-   * that cannot be made additively. When that happens, saying so here is what lets JonDash
-   * name the modules that will stop working, instead of them failing silently after an
-   * update nobody connected to the cause.
-   *
-   * Absent (the normal case) means no break has ever occurred.
+   * The version at which this helper last BROKE compatibility (MOD-10) — helpers promise never to,
+   * the exception being a security fix that cannot be made additively. Declaring it lets JonDash
+   * **name the modules that will stop working** rather than letting them fail silently after an update
+   * nobody connected to the cause. Absent, the normal case, means never.
    */
   breakingFrom?: string;
   path: string;
@@ -180,10 +167,8 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
   const version = typeof e.version === "string" ? e.version.trim() : "";
   if (!SEMVER_RE.test(version)) return null;
 
-  // A module may declare a core permission OR one named by a helper it depends on. An
-  // unrecognised SHAPE refuses the entry rather than being filtered away — a dropped
-  // permission reappears as a code/manifest mismatch at install, which is confusing, but a
-  // dropped one that happens to match the code is worse: it installs with consent missing.
+  // ⚠ An unrecognised SHAPE refuses the entry rather than being filtered away — a dropped permission
+  // that happens to match the code installs with consent missing.
   if (e.permissions !== undefined && !Array.isArray(e.permissions)) return null;
   const rawPermissions = Array.isArray(e.permissions) ? e.permissions : [];
   if (!rawPermissions.every(isValidPermission)) return null;
@@ -231,16 +216,12 @@ function sanitizeEntry(raw: unknown): SourceModuleEntry | null {
 }
 
 /**
- * Screenshot entries, reduced to something core is willing to go and fetch.
+ * ⚠ **`file` becomes part of a URL, so it is validated rather than trusted** — the entry saying
+ *   `"../../../etc/passwd"` is exactly the one worth writing. One filename segment, a known image
+ *   extension, nothing else.
  *
- * **`file` becomes part of a URL, so it is validated rather than trusted.** A manifest is authored
- * by someone else — for a third-party source, by someone with no relationship to this install at
- * all — and the entry that says `"../../../etc/passwd"` or `"x.png?../../"` is exactly the one that
- * would be interesting to write. One filename segment, a known image extension, nothing else.
- *
- * A bad entry is dropped rather than failing the module: a picture is the least important thing a
- * module has, and refusing to list a module because its screenshot filename has a space in it would
- * be a wildly disproportionate response.
+ * A bad entry is dropped rather than failing the module: refusing to list a module because a
+ * screenshot filename has a space in it would be wildly disproportionate.
  */
 function sanitiseScreenshots(raw: unknown): ModuleScreenshot[] {
   if (!Array.isArray(raw)) return [];
@@ -331,9 +312,8 @@ export async function fetchSourceManifest(
     ? m.modules.map(sanitizeEntry).filter((x): x is SourceModuleEntry => x !== null)
     : [];
 
-  // FIRST-PARTY ONLY, enforced here rather than by convention: helpers are trusted to do
-  // what modules are forbidden, so a `helpers` array from anywhere but the official source
-  // is ignored entirely. Otherwise publishing a helpers folder inherits that privilege.
+  // ⚠ FIRST-PARTY ONLY, enforced here rather than by convention: a `helpers` array from anywhere but
+  // the official source is ignored, or publishing one would inherit the privilege helpers carry.
   const helpers =
     isOfficialSource(repoUrl) && Array.isArray(m.helpers)
       ? m.helpers.map(sanitizeHelperEntry).filter((x): x is SourceHelperEntry => x !== null)
@@ -369,10 +349,8 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
   const tag = typeof e.tag === "string" ? e.tag.trim() : "";
   if (!tag || tag.length > 200 || /\s/.test(tag)) return null;
 
-  // `provides` is the consent roll-up. A malformed entry must REFUSE THE HELPER, never be
-  // quietly filtered out: dropping it publishes a helper whose capabilities the admin is
-  // never shown, which is the exact failure this shape replaced. Bare strings were the old
-  // format and are refused loudly for the same reason.
+  // ⚠ `provides` is the consent roll-up, so a malformed entry REFUSES the helper rather than being
+  // filtered out — dropping it publishes a helper whose capabilities the admin is never shown.
   const provides: SourceHelperCapability[] = [];
   if (e.provides !== undefined) {
     if (!Array.isArray(e.provides)) return null;
@@ -389,9 +367,8 @@ function sanitizeHelperEntry(raw: unknown): SourceHelperEntry | null {
     }
   }
 
-  // A malformed breakingFrom would silently disable the "which modules will this break?"
-  // warning, so it is dropped only when absent — a present-but-invalid value refuses the
-  // helper, same rule as `provides`.
+  // ⚠ Absent is fine; present-but-invalid REFUSES the helper, as `provides` above — otherwise the
+  // "which modules will this break?" warning silently disappears.
   let breakingFrom: string | undefined;
   if (e.breakingFrom !== undefined) {
     if (typeof e.breakingFrom !== "string" || !SEMVER_RE.test(e.breakingFrom.trim())) return null;
@@ -463,14 +440,12 @@ export type AvailableModule = SourceModuleEntry & {
   installed: boolean;
   installedVersion: string | null;
   /**
-   * Every capability provided by the helpers this module declares — shown at install
-   * **whether or not the module declared the matching permission itself**.
+   * Every capability of every helper this module declares — shown at install **whether or not the
+   * module declared the matching permission**. A module earns the `@/helpers/<id>/api` import by
+   * declaring the *helper*, so consent driven by its own list would understate what accepting the
+   * helper allows.
    *
-   * That is deliberate and is the property MOD-08 rests on. A module earns the right to
-   * `import "@/helpers/<id>/api"` by declaring the helper, not by declaring a permission,
-   * so consent driven only by the module's own list would understate what taking the
-   * helper actually allows. If you accept the filesystem helper, you are told what the
-   * filesystem helper can do — the module's honesty is not load-bearing.
+   * ⚠ **The module's honesty is not load-bearing.** This is the property MOD-08 rests on.
    */
   helperCapabilities: SourceHelperCapability[];
 };
@@ -497,9 +472,8 @@ export async function browseAvailableModules(
       const helperById = new Map(manifest.helpers.map((h) => [h.id, h]));
       for (const entry of manifest.modules) {
         const row = installed.get(entry.id);
-        // Roll up what this module's helpers can do. A declared helper we can't find in
-        // the manifest contributes nothing here, but the install itself refuses later —
-        // so this never silently understates a helper that will actually be installed.
+        // A declared helper missing from the manifest contributes nothing here, but the install
+        // refuses later — so this never understates a helper that will actually be installed.
         const helperCapabilities = entry.helpers.flatMap((h) => helperById.get(h)?.provides ?? []);
         modules.push({
           ...entry,
