@@ -223,7 +223,11 @@ export function DashboardFrame({
       */}
       {/* `@container` sizes content against THIS FRAME, not the window — a viewport breakpoint
           says nothing about a tile that may be one cell wide on a large screen. */}
-      <div className="@container min-h-0 flex-1 overflow-hidden [&>*]:h-full">{children}</div>
+      {/* ⚠ The corner radius here must MATCH the frame's above, or the content paints square into
+          the frame's rounded corners and reads as dark notches on light styles (BUG-62). Rounded
+          here and not on the frame deliberately: the frame's corners hold the size readout, the
+          resize handle and the focus skip-link, and clipping the frame would hide them. */}
+      <div className="@container min-h-0 flex-1 overflow-hidden rounded-xl [&>*]:h-full">{children}</div>
 
       {editing && (
         <>

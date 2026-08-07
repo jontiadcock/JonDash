@@ -61,6 +61,9 @@ function applySecurityHeaders(res: NextResponse, csp: string, isHttps: boolean) 
     "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   );
   res.headers.set("X-DNS-Prefetch-Control", "off");
+  // BUG-50: isolate this origin's browsing context and subresources from any other origin.
+  res.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  res.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   if (isHttps) {
     res.headers.set(
       "Strict-Transport-Security",

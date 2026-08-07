@@ -23,6 +23,25 @@ import { appendLog } from "./scripts/log.mjs";
 import { readNetworkConfigResult, writeTlsStatus, NETWORK_FILE } from "./lib/tls/network-config.mjs";
 import { readChallenge, clearChallenges } from "./lib/tls/challenge-store.mjs";
 
+/*
+ * BUG-03: filters ONE deprecation warning that fires on every sign-in. Root cause, confirmed via
+ * `node --trace-deprecation`: `otplib` (TOTP) pulls in the unmaintained `thirty-two` for base32
+ * via `@otplib/plugin-thirty-two`, which still calls the removed `new Buffer()`. Node normally
+ * hides DEP0005 for a call site inside node_modules, but Turbopack bundles thirty-two's code into
+ * .next/server/, which strips that path and un-hides it here — the real trigger is "built by
+ * Turbopack", not "called at sign-in", but sign-in (TOTP verify) is the only path that reaches it.
+ * No fix upstream: thirty-two hasn't shipped since 2016, and otplib only drops it in v13, a full
+ * rewrite of the authenticator API (async, different return shapes) — not a safe drop-in for
+ * lib/auth/totp.ts, so filtering here is deliberate rather than a stopgap for a quick bump.
+ * ⚠ Code-filtered, NOT `--no-deprecation`/`process.noDeprecation` — those hide every future
+ * deprecation too, including a real one in JonDash's own code. Remove this once otplib ships
+ * without `@otplib/plugin-thirty-two`, or once thirty-two itself fixes the constructor call.
+ */
+process.removeAllListeners("warning");
+process.on("warning", (w) => {
+  if (w.code !== "DEP0005") console.warn(w.stack ?? String(w));
+});
+
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 /*
  * BUG-28: a network.json that EXISTS but can't be parsed used to fall through to plain

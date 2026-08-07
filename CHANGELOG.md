@@ -9,6 +9,34 @@ JonDash ships on **two channels** — pick yours under Admin → Updates:
 Within a release: **patch** = fix/security · **minor** = feature · **major** = big change. A beta build
 `X.Y.Z-beta.N` is promoted to Stable as `X.Y.Z` once confirmed.
 
+## [1.8.5-beta.1] — 2026-08-01
+
+Three fixes. Nothing you use day to day changes.
+
+### Fixed
+- **Dashboard widget corners showed dark square notches inside the rounded frame** (BUG-62). Only
+  visible on the lighter appearances, which is why it went unnoticed. The widget's content now
+  matches the frame's corner radius. Fixed on the content rather than the frame deliberately — the
+  frame's corners carry the size readout, the resize handle and the keyboard focus link, and
+  clipping the frame itself could have hidden them.
+- **Signing in printed a `Buffer() is deprecated` warning to the server console** (BUG-03). It came
+  from `thirty-two`, a 2016 library `otplib` uses to decode your authenticator secret. There is no
+  fixed version to upgrade to, so the server now filters that one warning and still prints every
+  other. ⚠ Worth recording why it seemed unreproducible: Node hides this warning for code inside
+  `node_modules`, and only the bundled production server exposes it.
+- **Two browser isolation headers were missing** (BUG-50, in part). `Cross-Origin-Opener-Policy` and
+  `Cross-Origin-Resource-Policy` are now sent, so another site cannot share a browsing context with
+  JonDash or embed its resources. The remaining half of that finding — inline styles in the content
+  security policy — is untouched and still open.
+
+### Still open, deliberately
+- **BUG-41 / BUG-43** (proxy headers trusted from any client, and the lockout that enables) need a
+  trusted-proxy model and get their own release.
+- **BUG-47** (health endpoint exposes boot time) deferred; that field is what the restart screen
+  polls to know the server came back.
+- **BUG-49** (a missing admin path 404s while a real one redirects) — the fix turned out to need
+  catch-all routes in the admin area, which is more than the finding is worth for now.
+
 ## [1.8.4] — 2026-07-31
 
 Promoted from `1.8.4-beta.5`. If you are coming from 1.8.3, this is what changed.

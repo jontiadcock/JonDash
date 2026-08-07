@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "1.8.5-beta.1",
+      "date": "2026-08-01",
+      "type": "patch",
+      "criticality": "optional",
+      "summary": "Three fixes, all small. The corners of a dashboard widget no longer show dark square notches inside the rounded frame - you would only have seen this on the lighter appearances. Signing in no longer prints a deprecation warning to the server console; it came from a library used to check your authenticator code, and the warning is now filtered without hiding any others. And two more browser security headers are sent, isolating JonDash from other sites in the browser. Nothing you use day to day has changed."
+    },
+    {
       "version": "1.8.4",
       "date": "2026-07-31",
       "type": "patch",
