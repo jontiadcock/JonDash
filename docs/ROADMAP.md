@@ -894,6 +894,45 @@ roadmap and changelog carry no such risk, which is why they are public today.
 Until then the tracker stays local, and `docs/SECURITY-REVIEW.md` remains what it is: a dated report of the
 review as it stood, with findings marked fixed as later releases address them.
 
+#### OPS-20 · Launcher recovery console — ⏳ Planned (owner request 2026-08-01)
+**The point is recovery, not convenience.** A wrong port, a broken certificate or a bad domain locks you
+out of the dashboard — and the settings that caused it can currently only be changed *from* the dashboard.
+This is the way back in: a terminal-style prompt in the launcher window offering `restart`, `shutdown`,
+`update`, `check`, `logs`, and above all **change port / HTTPS settings**.
+
+**Most of it already exists.** The verbs need no new plumbing — the supervisor already acts on
+`.restart-and-run` (relaunch in place), `.shutdown` (stop for good), `.update-and-restart` (exit 10 →
+launcher `:do_update`) and `.rebuild-and-restart` (exit 13 → `:do_rebuild`), with `.data/keep-sessions`
+keeping people signed in across a restart. Those are written today by `lib/server-control.ts`,
+`lib/update.ts` and `lib/modules/rebuild.ts`; the console would write the same files.
+
+**What makes it cheap:** `lib/tls/network-config.mjs` is plain `.mjs`, not TypeScript, and already exports
+`readNetworkConfig()` / `writeNetworkConfig()` — so the console can read and write network settings **with
+no build step and no server running**. It holds every lock-out lever: `mode` (off/letsencrypt/selfsigned/
+byo), `httpPort`, `httpsPort`, `domain`, `email`, `certPath`, `keyPath`. "HTTPS on with a bad cert" becomes
+`mode off` plus a restart, entirely offline.
+
+**Shape:** a Node REPL (`scripts/console.mjs`), not batch — batch handles interactive loops badly, and
+`network-config.mjs`, `print-url.mjs`, `update.mjs` and `log.mjs` are all already importable. Entry point
+is `start-dashboard.bat › :already_running`, which detects a live instance via `netstat` against the port
+from `scripts/print-url.mjs --port` and today only refuses; that branch opens the console instead.
+Owner's decision 2026-08-01: **no confirmations.**
+
+**Watch for, all found by inspection 2026-08-01:**
+- ⚠ **`network-config.mjs` resolves its data directory at module load** (`JONDASH_DATA_DIR` or the working
+  directory). A console launched from the wrong place silently edits the wrong config — the same defect
+  fixed in 1.8.4, which this feature makes load-bearing again.
+- ⚠ **A port change needs a restart to take effect**, or the command looks like it did nothing.
+- ⚠ **No authentication, and no confirmations** — one keystroke at the machine stops the service. Admin
+  requires login and MFA; this deliberately would not.
+- ⚠ **`netstat` proves *something* holds the port, not that it is JonDash.**
+- ⚠ **`:already_running` is the most dangerous block in the launcher to edit** — it carries a documented
+  `exit /b 0` vs `goto :eof` near-miss that would have refused to start on every healthy install.
+- **`letsencrypt` cannot be verified from here** — real issuance needs the owner's own domain.
+
+**Effort: 2–3 days.** The commands are cheap; the console loop, the not-running paths and the HTTPS
+transitions are not. **Position not set by the owner** — move it freely.
+
 ### CORE — Core app & UX
 
 _CORE-01 ("No / low recovery codes" reminder) is **retired** — dropped by the owner 2026-07-22. See the
